@@ -47,6 +47,7 @@ const ADDED_SINCE = [
   'stadiumReveal', 'marketFocus',
   'chronicleSeen', 'fanHistory',
   'pressHistory',                   // the reporter's memory
+  'suspensions', 'emergencyYouth', 'notices',   // the ban after a red
 ] as const;
 
 function career(town = LEGEND_TOWN, seed = 4242): G.GameState {

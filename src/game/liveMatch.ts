@@ -538,7 +538,7 @@ function maybeDiscipline(st: LiveState) {
       // a hard coach keeps his players on the right side of the line
       const cardBias = (s.tactic.press === 'high' ? 1.3 : 1) * (s.coach?.cards ?? 1);
       if (rand(st) < RED_SHARE * cardBias && sendOff(s, p)) {
-        st.events.push({ minute: st.minute, type: 'red', teamId: s.id, playerName: p.name, text: `אדום! ${p.name} מורחק`, big: true });
+        st.events.push({ minute: st.minute, type: 'red', teamId: s.id, playerId: p.id, playerName: p.name, text: `אדום! ${p.name} מורחק`, big: true });
       } else {
         st.events.push({ minute: st.minute, type: 'yellow', teamId: s.id, playerName: p.name, text: `צהוב ל${p.name}` });
       }

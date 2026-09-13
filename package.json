@@ -40,7 +40,8 @@
     "check:voice": "node --experimental-strip-types scripts/voice-check.mts",
     "check:shape": "node --experimental-strip-types scripts/shape-check.mts",
     "check:oldsave": "node --experimental-strip-types scripts/oldsave-check.mts",
-    "check:repeat": "node --experimental-strip-types scripts/repeat-check.mts"
+    "check:repeat": "node --experimental-strip-types scripts/repeat-check.mts",
+    "check:suspension": "node --experimental-strip-types scripts/suspension-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

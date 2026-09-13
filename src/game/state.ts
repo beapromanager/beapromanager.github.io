@@ -25,7 +25,7 @@ export { SPONSOR_BRAND } from './sponsor.ts';
 import type { DebtState } from './finance.ts';
 export { debtLine };
 export type { DebtState };
-import { DEFAULT_FORMATION, formationForClub } from '../data/formations.ts';
+import { DEFAULT_FORMATION, formationForClub, formation, fillFormation } from '../data/formations.ts';
 import type { FormationId } from '../data/formations.ts';
 import { TEMPLATES, eligible, rollDilemma } from '../data/dilemmas.ts';
 import type { RolledDilemma, DilemmaEffect, Ctx as DilemmaCtx } from '../data/dilemmas.ts';
@@ -125,6 +125,11 @@ export interface StadiumReveal { image: number; capacity: number; addSeats: numb
 /** What the round earned and what it cost to run. */
 export interface RoundLedger extends RoundCosts { prize: number; gate: number; sponsor: number; signage: number; net: number; }
 export interface Tactic { approach: Approach; press: Press; formation: FormationId; }
+
+/** Something the manager must be told on the way back to the hub. */
+export type SquadNotice =
+  | { kind: 'suspended'; playerId: string; name: string; rival: string; needYouth: boolean }
+  | { kind: 'youth_back'; name: string };
 export interface RoundResult { homeId: string; awayId: string; hg: number; ag: number; }
 
 export interface ManagerProfile {
@@ -206,6 +211,21 @@ export interface GameState {
   chatHistory: string[];
   /** press question ids asked lately, so the reporter does not repeat himself */
   pressHistory: string[];
+  /**
+   * Who sits out. A red card puts a man here as PENDING (-1) during the round
+   * it happened in; the end of that week turns it into the one round he misses,
+   * and the end of that round clears it. No week arithmetic, so a red in the
+   * last round carries cleanly into the first round of next season.
+   */
+  suspensions: Record<string, number>;
+  /**
+   * A youth registered for one round so the team sheet has sixteen eligible
+   * names. He is on the list and never on the pitch, and he goes back down
+   * the moment the round is over.
+   */
+  emergencyYouth: string | null;
+  /** what the manager has to be told before he sees the hub again */
+  notices: SquadNotice[];
   pendingOutcome: string | null;
   lastPlayerMatch: MatchResult | null;
   lastRound: RoundResult[];
@@ -324,6 +344,9 @@ export function newGame(seed = 12345): GameState {
     chat: null,
     chatHistory: [],
     pressHistory: [],
+    suspensions: {},
+    emergencyYouth: null,
+    notices: [],
     pendingOutcome: null,
     lastPlayerMatch: null,
     lastRound: [],
@@ -1422,10 +1445,137 @@ function writeSquad(gs: GameState, squad: Squad): GameState {
   };
 }
 
+/* -------------------------------------------------------------- discipline */
+
+/**
+ * A red card costs the next match, and the manager has to deal with it
+ * himself: the man is still in his squad, he is simply not allowed on the team
+ * sheet, so the round will not start while he is in the eleven. The sheet also
+ * needs sixteen eligible names, and a squad of sixteen with one man banned has
+ * fifteen, so a youth is registered for the round to make up the number. He
+ * never plays; he goes back to the academy the moment the round is over.
+ */
+const PENDING = -1;
+
+/** Sitting out the coming round. */
+export function isSuspended(gs: GameState, playerId: string): boolean {
+  return (gs.suspensions[playerId] ?? 0) > 0;
+}
+
+/** On the sheet but not allowed on the pitch: suspended, or the registered youth. */
+export function isUnavailable(gs: GameState, playerId: string): boolean {
+  return isSuspended(gs, playerId) || gs.emergencyYouth === playerId;
+}
+
+/** Names the league will accept on the sheet: the squad less the suspended. */
+export function eligibleCount(gs: GameState): number {
+  const sq = mySquad(gs);
+  return [...sq.starters, ...sq.bench].filter(p => !isSuspended(gs, p.id)).length;
+}
+
+/** Why the round cannot start yet, or null when the sheet is in order. */
+export function weekBlockedReason(gs: GameState): string | null {
+  const sq = mySquad(gs);
+  const banned = sq.starters.find(p => isSuspended(gs, p.id));
+  if (banned) return `${banned.name} מורחק למחזור הזה. תוציא אותו מההרכב.`;
+  const n = eligibleCount(gs);
+  if (n < MIN_SQUAD) return `יש רק ${n} שמות כשירים לסגל, הליגה דורשת ${MIN_SQUAD}. תרשום שחקן מהנוער למחזור.`;
+  return null;
+}
+
+/** The sheet is short and the academy is the only place a name can come from. */
+export function needsEmergencyYouth(gs: GameState): boolean {
+  return eligibleCount(gs) < MIN_SQUAD && !gs.emergencyYouth;
+}
+
+/**
+ * Register a youth for one round, any age. He fills the sixteenth line on the
+ * sheet and nothing else: not the eleven, not the bench, and after the round
+ * he is back at the academy.
+ */
+export function registerYouthEmergency(gs: GameState, playerId: string): GameState {
+  const kid = gs.youth.players.find(p => p.id === playerId);
+  if (!kid || !needsEmergencyYouth(gs) || squadSize(gs) >= MAX_SQUAD) return gs;
+  const sq = mySquad(gs);
+  const next = writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, kid] });
+  return {
+    ...next,
+    emergencyYouth: kid.id,
+    youth: { ...gs.youth, players: gs.youth.players.filter(p => p.id !== playerId) },
+    pendingOutcome: `${kid.name} נרשם לסגל למחזור. הוא לא ישחק, ויחזור לנוער אחרי המשחק.`,
+  };
+}
+
+/** After the round: the registered youth goes back down, with a word to the manager. */
+function returnEmergencyYouth(gs: GameState): GameState {
+  const id = gs.emergencyYouth;
+  if (!id) return gs;
+  const sq = mySquad(gs);
+  const kid = [...sq.starters, ...sq.bench].find(p => p.id === id);
+  const cleared = { ...gs, emergencyYouth: null };
+  if (!kid) return cleared;   // sold or released in the meantime, nothing to send down
+  const next = removePlayer(cleared, id);
+  return {
+    ...next,
+    youth: { ...next.youth, players: [...next.youth.players, kid] },
+    notices: [...next.notices, { kind: 'youth_back', name: kid.name }],
+  };
+}
+
+/**
+ * Bank the reds from the match just played. They sit as pending until the
+ * week ends, so the round they happened in is not also the round they cost.
+ */
+function bookSuspensions(gs: GameState, r: MatchResult): Record<string, number> {
+  const out = { ...gs.suspensions };
+  for (const e of r.events ?? []) {
+    if (e.type === 'red' && e.teamId === gs.clubId && e.playerId) out[e.playerId] = PENDING;
+  }
+  return out;
+}
+
+/**
+ * The week is over: pending reds become the one round they cost, the round
+ * just served is cleared, and the manager is told about anyone newly banned
+ * before he sees the hub, with the sixteen names problem spelled out when his
+ * squad is exactly sixteen.
+ */
+function serveSuspensions(gs: GameState): GameState {
+  const sq = mySquad(gs);
+  const all = [...sq.starters, ...sq.bench];
+  const suspensions: Record<string, number> = {};
+  const notices: SquadNotice[] = [...gs.notices];
+  for (const [id, v] of Object.entries(gs.suspensions)) {
+    if (v === PENDING) suspensions[id] = 1;
+    else if (v > 1) suspensions[id] = v - 1;
+  }
+  const after = { ...gs, suspensions };
+  const nextFx = playerFixture({ ...after, week: gs.week + 1 });
+  const rivalId = nextFx ? (nextFx.homeId === gs.clubId ? nextFx.awayId : nextFx.homeId) : null;
+  const rival = gs.league.clubs.find(c => c.id === rivalId)?.short ?? 'היריבה הבאה';
+  for (const [id, v] of Object.entries(gs.suspensions)) {
+    if (v !== PENDING) continue;
+    const p = all.find(x => x.id === id);
+    if (!p) continue;
+    notices.push({ kind: 'suspended', playerId: id, name: p.name, rival, needYouth: eligibleCount(after) < MIN_SQUAD });
+  }
+  return { ...after, notices };
+}
+
+/** The manager has read the notice on top of the pile. */
+export function dismissNotice(gs: GameState): GameState {
+  return { ...gs, notices: gs.notices.slice(1) };
+}
+
+/* ---------------------------------------------------------- squad editing */
+
 /** Why a swap is not allowed, or null when it is fine. */
-export function swapBlockedReason(a: Player, b: Player): string | null {
+export function swapBlockedReason(a: Player, b: Player, gs?: GameState): string | null {
   const aGk = a.position === 'GK', bGk = b.position === 'GK';
   if (aGk !== bGk) return 'שוער יכול להתחלף רק בשוער';
+  // the bench man is the one coming in
+  if (gs && isSuspended(gs, b.id)) return `${b.name} מורחק למחזור הזה, הוא לא יכול לעלות להרכב`;
+  if (gs && gs.emergencyYouth === b.id) return `${b.name} רשום לסגל בלבד, הוא לא משחק במחזור הזה`;
   return null;
 }
 
@@ -1435,7 +1585,7 @@ export function swapPlayers(gs: GameState, starterId: string, benchId: string): 
   const si = sq.starters.findIndex(p => p.id === starterId);
   const bi = sq.bench.findIndex(p => p.id === benchId);
   if (si < 0 || bi < 0) return gs;
-  if (swapBlockedReason(sq.starters[si], sq.bench[bi])) return gs;
+  if (swapBlockedReason(sq.starters[si], sq.bench[bi], gs)) return gs;
 
   const starters = [...sq.starters];
   const bench = [...sq.bench];
@@ -2032,6 +2182,8 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
 }
 
 export function startWeek(gs: GameState): GameState {
+  // the sheet has to be in order first: nobody banned in the eleven, sixteen names
+  if (weekBlockedReason(gs)) return gs;
   const fx = playerFixture(gs);
   const rivalId = fx ? (fx.homeId === gs.clubId ? fx.awayId : fx.homeId) : gs.clubId;
   const rival = gs.league.clubs.find(c => c.id === rivalId)!;
@@ -2187,7 +2339,18 @@ export function liveMatchInput(gs: GameState) {
   const fx = playerFixture(gs)!;
   const iAmHome = fx.homeId === gs.clubId;
   const oppId = iAmHome ? fx.awayId : fx.homeId;
-  const mine = mySquad(gs);
+  // a banned man or the registered youth is on the sheet, never on the grass.
+  // The hub will not start a round with a banned man in the eleven, but if
+  // anything ever gets past that, the shape is refilled from the bench here
+  const sq = mySquad(gs);
+  const ok = (p: Player) => !isUnavailable(gs, p.id);
+  let starters = sq.starters.filter(ok);
+  let bench = sq.bench.filter(ok);
+  if (starters.length < 11) {
+    starters = fillFormation([...starters, ...bench], formation(gs.tactic.formation)).slice(0, 11);
+    bench = bench.filter(p => !starters.includes(p));
+  }
+  const mine = { starters, bench };
   const opp = gs.league.squads[oppId];
   const homeClub = gs.league.clubs.find(c => c.id === fx.homeId)!;
   const awayClub = gs.league.clubs.find(c => c.id === fx.awayId)!;
@@ -2296,6 +2459,7 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
     lastPlayerMatch: playerResult,
     lastRound: roundResults,
     seasonStats,
+    suspensions: bookSuspensions(gs, playerResult),
     form: [...gs.form, won ? 'W' : draw ? 'D' : 'L'].slice(-6) as ('W'|'D'|'L')[],
     seasonOver: gs.week + 1 > gs.league.rounds,
   };
@@ -2429,6 +2593,9 @@ export function pressRemaining(gs: GameState): number {
 
 /** Where the week actually ends, once the phone has had its say. */
 function endOfWeek(gs: GameState): GameState {
+  // the registered youth goes back down and the reds are served, before the
+  // manager is told anything about either
+  gs = serveSuspensions(returnEmergencyYouth(gs));
   // remember the post match line shown on the result screen before moving on
   const fanHistory = gs.lastPlayerMatch
     ? [...gs.fanHistory, fanNote(gs, 'post').id].slice(-FAN_HISTORY)

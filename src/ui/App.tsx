@@ -24,6 +24,7 @@ import { SackedScreen } from './screens/Sacked.tsx';
 import { SponsorScreen } from './screens/Sponsor.tsx';
 import { KitReveal } from './screens/KitReveal.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
+import { NoticeScreen } from './screens/Notice.tsx';
 import { UltimatumScreen } from './screens/Ultimatum.tsx';
 import { RescueScreen } from './screens/Rescue.tsx';
 import { ChronicleScreen } from './screens/Chronicle.tsx';
@@ -227,7 +228,13 @@ export function App() {
             else setGs(G.backToHub(gs));
           }} />
       )}
-      {gs.phase === 'hub' && (
+      {gs.phase === 'hub' && gs.notices.length > 0 && (
+        <NoticeScreen gs={gs}
+          onDismiss={() => setGs(g => G.dismissNotice(g))}
+          onSquad={() => { setSquadFromHub(true); setGs(g => G.openSquad(G.dismissNotice(g))); }}
+          onYouth={() => setGs(g => G.openYouth(G.dismissNotice(g)))} />
+      )}
+      {gs.phase === 'hub' && gs.notices.length === 0 && (
         <Hub gs={gs}
           onStart={() => setGs(G.startWeek(gs))}
           onSquad={() => { setSquadFromHub(true); setGs(G.openSquad(gs)); }}
@@ -246,6 +253,7 @@ export function App() {
         <YouthScreen gs={gs}
           onPromote={id => setGs(g => G.promoteYouth(g, id))}
           onRelease={id => setGs(g => G.releaseYouth(g, id))}
+          onRegister={id => setGs(g => G.registerYouthEmergency(g, id))}
           onBack={() => setGs(G.backToHub(gs))} />
       )}
       {gs.phase === 'stadium' && (

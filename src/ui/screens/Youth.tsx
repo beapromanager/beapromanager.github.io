@@ -14,10 +14,12 @@ import { ovrColor } from '../../game/cards.ts';
  * senior deal or lets him go. It is the club's future in one screen, and the
  * only place a poor club builds something it could not buy.
  */
-export function YouthScreen({ gs, onPromote, onRelease, onBack }: {
+export function YouthScreen({ gs, onPromote, onRelease, onRegister, onBack }: {
   gs: G.GameState;
   onPromote: (id: string) => void;
   onRelease: (id: string) => void;
+  /** one round on the sheet, any age, back down after the match */
+  onRegister: (id: string) => void;
   onBack: () => void;
 }) {
   const c = G.club(gs);
@@ -25,6 +27,7 @@ export function YouthScreen({ gs, onPromote, onRelease, onBack }: {
   const ready = kids.filter(p => p.age >= 18);
   const growing = kids.filter(p => p.age < 18);
   const canTake = G.squadSize(gs) < G.MAX_SQUAD;
+  const emergency = G.needsEmergencyYouth(gs);
 
   return (
     <>
@@ -42,6 +45,25 @@ export function YouthScreen({ gs, onPromote, onRelease, onBack }: {
         <p className="hint" style={{ margin: 0 }}>
           כל קיץ שחקן אחד עושה קפיצה. בגיל 18 אפשר להחתים אותו לסגל הבוגר או לשחרר.
         </p>
+
+        {emergency && (
+          <div className="tile" style={{ borderColor: 'rgba(226,72,77,.45)', background: 'rgba(226,72,77,.08)' }}>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>חסר שם בסגל למחזור</div>
+            <div className="sub" style={{ fontSize: 13.5, marginTop: 4 }}>
+              הליגה דורשת {G.MIN_SQUAD} שמות כשירים ויש לך {G.eligibleCount(gs)}. תרשום ילד מהנוער, בכל גיל.
+              הוא ייכנס לרשימה בלבד, לא ישחק, ויחזור לנוער אחרי המשחק.
+            </div>
+            <div className="stack" style={{ gap: 7, marginTop: 10 }}>
+              {kids.map(p => (
+                <div key={p.id} className="row" style={{ gap: 8, alignItems: 'center' }}>
+                  <span className="chip" style={{ background: 'rgba(255,255,255,.06)', minWidth: 34, justifyContent: 'center' }}>{p.position}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name} <span className="sub num" style={{ fontSize: 12 }}>{p.age}</span></span>
+                  <button className="btn btn-sm" style={{ width: 'auto', flex: '0 0 auto', minHeight: 40, padding: '8px 14px', fontSize: 14 }} onClick={() => onRegister(p.id)}>רשום למחזור</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {ready.length > 0 && (
           <div className="stack" style={{ gap: 9 }}>

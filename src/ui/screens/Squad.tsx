@@ -40,7 +40,7 @@ export function CaptainMark({ size = 18 }: { size?: number }) {
   );
 }
 
-export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain }: {
+export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mark }: {
   p: Player;
   /** squad-assigned traits, falls back to standalone when omitted */
   traits?: Trait[];
@@ -52,6 +52,8 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain }: {
   onSwap?: () => void;
   /** wears the armband */
   captain?: boolean;
+  /** why he is not playing this round, when he is not */
+  mark?: 'banned' | 'sheet' | null;
 }) {
   const o = overall(p);
   const line = LINE_OF[p.position];
@@ -71,6 +73,8 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain }: {
           {captain && <><CaptainMark size={16} /> </>}
           {p.name}
           {young && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(51,194,122,.18)', color: 'var(--win)' }}>כישרון</span>}
+          {mark === 'banned' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(226,72,77,.18)', color: 'var(--loss)' }}>מורחק</span>}
+          {mark === 'sheet' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(255,255,255,.08)', color: 'var(--ink-faint)' }}>רשום בלבד</span>}
         </div>
         <div className="sub" style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {/* Pace and shooting used to follow the age here. Two numbers out of
@@ -160,6 +164,9 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
   const traitMap = useMemo(() => assignTraits([...sq.starters, ...sq.bench]), [sq]);
   const tr = (p: Player): Trait[] => traitMap.get(p.id) ?? [];
   const captainId = G.currentCaptainId(gs);
+  // banned for the round, or the youth on the sheet who never plays
+  const markOf = (p: Player): 'banned' | 'sheet' | null =>
+    G.isSuspended(gs, p.id) ? 'banned' : gs.emergencyYouth === p.id ? 'sheet' : null;
 
   const pickedPlayer = picked ? [...sq.starters, ...sq.bench].find(p => p.id === picked) ?? null : null;
   const avg = Math.round(sq.starters.reduce((s, p) => s + overall(p), 0) / sq.starters.length);
@@ -190,7 +197,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
 
     const starter = onPitch(other) ? other : p;
     const sub = onPitch(other) ? p : other;
-    const reason = G.swapBlockedReason(starter, sub);
+    const reason = G.swapBlockedReason(starter, sub, gs);
     if (reason) { setFlash(reason); return; }
     onSwap(starter.id, sub.id);
     setPicked(null);
@@ -204,7 +211,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
   }
   function subInBench(p: Player) {
     if (!pickedPlayer) { setFlash('קודם בחר שחקן מההרכב, לחץ על החצים שלידו'); return; }
-    const reason = G.swapBlockedReason(pickedPlayer, p);
+    const reason = G.swapBlockedReason(pickedPlayer, p, gs);
     if (reason) { setFlash(reason); return; }
     onSwap(pickedPlayer.id, p.id);
     setPicked(null);
@@ -255,6 +262,13 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
         <button role="tab" aria-selected={view === 'list'} data-on={view === 'list' ? '1' : '0'} onClick={() => { setView('list'); scrollToTop(); }}>רשימה</button>
       </div>
 
+      {/* the round will not start until this is fixed, so it is said here too */}
+      {!firstTime && G.weekBlockedReason(gs) && (
+        <div className="tile" style={{ padding: '10px 13px', borderColor: 'rgba(226,72,77,.45)', background: 'rgba(226,72,77,.08)', fontSize: 14, fontWeight: 700 }}>
+          {G.weekBlockedReason(gs)}
+        </div>
+      )}
+
       {view === 'pitch' ? (
         <>
           <LineupPitch formation={form} players={onPitch} kit={homeKit(c)}
@@ -272,7 +286,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
           <Line key={line} title={LINE_LABEL[line]} color={LINE_COLOR[line]} players={byLine(line)}
             render={p => (
               <PlayerRow p={p} traits={tr(p)} state={picked === p.id ? 'selected' : 'idle'}
-                captain={p.id === captainId}
+                captain={p.id === captainId} mark={markOf(p)}
                 onOpen={() => setCard(p)}
                 swap={picked === p.id ? 'armed' : 'arm'} onSwap={() => armStarter(p)} />
             )} />
@@ -284,7 +298,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
         <div className="stack" style={{ gap: 7 }}>
           {sq.bench.map(p => {
             const blocked = !!pickedPlayer && sq.starters.some(s => s.id === pickedPlayer.id)
-              && !!G.swapBlockedReason(pickedPlayer, p);
+              && !!G.swapBlockedReason(pickedPlayer, p, gs);
             return (
               <button key={p.id} className="bench-pick" data-on={picked === p.id ? '1' : '0'}
                 data-blocked={blocked ? '1' : '0'} onClick={() => tap(p)}
@@ -292,6 +306,8 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
                 <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: LINE_COLOR[LINE_OF[p.position]], minWidth: 36, justifyContent: 'center' }}>{p.position}</span>
                 <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {p.id === captainId && <span className="lineup-cap">C</span>}{p.name}
+                  {markOf(p) === 'banned' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(226,72,77,.18)', color: 'var(--loss)' }}>מורחק</span>}
+                  {markOf(p) === 'sheet' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(255,255,255,.08)', color: 'var(--ink-faint)' }}>רשום בלבד</span>}
                 </span>
                 <span className="num" style={{ fontWeight: 900, fontSize: 17, color: ovrColor(overall(p)) }}>{overall(p)}</span>
               </button>
@@ -301,11 +317,11 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
       ) : (
         <div className="tile" style={{ padding: '4px 10px 8px' }}>
           {sq.bench.map(p => {
-            const blocked = !!pickedPlayer && !!G.swapBlockedReason(pickedPlayer, p);
+            const blocked = !!pickedPlayer && !!G.swapBlockedReason(pickedPlayer, p, gs);
             return (
               <PlayerRow key={p.id} p={p} traits={tr(p)}
                 state={blocked ? 'blocked' : pickedPlayer ? 'target' : 'idle'}
-                captain={p.id === captainId}
+                captain={p.id === captainId} mark={markOf(p)}
                 onOpen={() => setCard(p)}
                 swap={pickedPlayer ? 'in' : 'off'} onSwap={() => subInBench(p)} />
             );

@@ -118,7 +118,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
         </button>
       </div>
 
-      <StickyStart hero={hero} onStart={onStart} rival={rival?.short} />
+      {!G.weekBlockedReason(gs) && <StickyStart hero={hero} onStart={onStart} rival={rival?.short} />}
     </>
   );
 }
@@ -184,6 +184,9 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart }: {
   }
   const table = G.sortedTable(gs.league);
   const posOf = (id: string) => table.findIndex(s => s.clubId === id) + 1;
+  // a banned man in the eleven, or a sheet short of sixteen names, and the
+  // round does not start. The reason sits where the button was
+  const blocked = G.weekBlockedReason(gs);
   return (
     <div className="match-hero">
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
@@ -199,9 +202,19 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart }: {
         <Side club={rival} pos={posOf(rival.id)} />
       </div>
 
-      <button className="btn" style={{ marginTop: 16 }} onClick={onStart}>
-        <Icon name="whistle" size={18} /> יוצאים למחזור
-      </button>
+      {blocked ? (
+        <div style={{ marginTop: 14 }}>
+          <div className="chip" style={{ background: 'rgba(226,72,77,.16)', color: 'var(--loss)', display: 'inline-flex', marginBottom: 8 }}>הסגל לא בסדר</div>
+          <p className="hint" style={{ margin: 0, color: 'var(--ink)' }}>{blocked}</p>
+          <button className="btn dark" style={{ marginTop: 10, opacity: .6 }} disabled>
+            <Icon name="whistle" size={18} /> יוצאים למחזור
+          </button>
+        </div>
+      ) : (
+        <button className="btn" style={{ marginTop: 16 }} onClick={onStart}>
+          <Icon name="whistle" size={18} /> יוצאים למחזור
+        </button>
+      )}
     </div>
   );
 }
