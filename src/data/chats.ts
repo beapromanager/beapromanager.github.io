@@ -10,9 +10,11 @@
  */
 
 import type { Rng } from '../engine/matchEngine.ts';
+import type { MatchFact } from './matchFacts.ts';
 
 export type ChatTrigger =
-  | 'derby_win' | 'derby_loss' | 'hot_streak' | 'cold_streak' | 'big_win' | 'big_loss';
+  | 'derby_win' | 'derby_loss' | 'derby_draw' | 'hat_trick'
+  | 'hot_streak' | 'cold_streak' | 'big_win' | 'big_loss' | 'red_card';
 
 export interface ChatLine {
   /** the sender's display name, empty string means the manager himself */
@@ -37,10 +39,14 @@ export interface ChatCtx {
   score: string;     // "3 - 0" from your point of view
   star: string;
   mgr: string;       // the manager's nickname
+  /** the man the week was about: the hat trick scorer, the one sent off */
+  who?: string;
 }
 
 const FANS = 'האולטראס';
+const MOTHER = 'אמא';
 const GOLD = '#d9a441', GREEN = '#2fa96b', RED = '#e2484d', BLUE = '#5b8dd6';
+const PLUM = '#b06ac9', ORANGE = '#e08a3c', GREY = '#8a94a6';
 
 export const THREADS: ChatThreadTemplate[] = [
   /* ------------------------------------------------------------- big wins */
@@ -172,22 +178,220 @@ export const THREADS: ChatThreadTemplate[] = [
       { from: 'הקפטן', text: 'אם תדבר איתם השבוע זה יעשה הבדל. הם מחכים שתגיד משהו' },
     ],
   },
+
+  /* ------------------------------------------------------------------ אמא */
+  // She watches every match on television and has never once mentioned the
+  // football. She mentions how he looked, who called, and dinner.
+  {
+    id: 'mother_derby_win',
+    trigger: 'derby_win',
+    contact: MOTHER, subtitle: 'מקוון', group: false, accent: PLUM,
+    lines: [
+      { from: MOTHER, text: 'ראיתי אותך בטלוויזיה' },
+      { from: MOTHER, text: 'למה אתה צועק ככה על השופט, יש לך לחץ דם' },
+      { from: MOTHER, text: 'אבא אומר כל הכבוד' },
+      { from: MOTHER, text: 'הוא לא אומר את זה, אני אומרת. אבל הוא חושב' },
+      { from: MOTHER, text: 'תבוא לאכול בשישי. תביא את {star} אם הוא רוצה' },
+      { from: '', text: 'אמא הוא לא יבוא לאכול אצלך' },
+      { from: MOTHER, text: 'שיבוא. אני מכינה בכל מקרה' },
+    ],
+  },
+  {
+    id: 'mother_derby_loss',
+    trigger: 'derby_loss',
+    contact: MOTHER, subtitle: 'מקוון', group: false, accent: PLUM,
+    lines: [
+      { from: MOTHER, text: 'ראיתי' },
+      { from: MOTHER, text: 'לא צריך לדבר' },
+      { from: MOTHER, text: 'תאכל משהו' },
+      { from: MOTHER, text: 'הדודה שלך התקשרה לשאול אם אתה בסדר. אמרתי לה שאתה גדול' },
+      { from: MOTHER, text: 'אתה בסדר?' },
+      { from: '', text: 'כן אמא' },
+      { from: MOTHER, text: 'תאכל משהו' },
+    ],
+  },
+  {
+    id: 'mother_big_win',
+    trigger: 'big_win',
+    contact: MOTHER, subtitle: 'מקוון', group: false, accent: PLUM,
+    lines: [
+      { from: MOTHER, text: '{score}!' },
+      { from: MOTHER, text: 'השכנה שאלה אם זה הבן שלי. אמרתי לה שכן, כבר הרבה שנים' },
+      { from: MOTHER, text: 'אתה נראה עייף בטלוויזיה' },
+      { from: MOTHER, text: 'תבוא לאכול' },
+    ],
+  },
+  {
+    id: 'mother_cold_streak',
+    trigger: 'cold_streak',
+    contact: MOTHER, subtitle: 'מקוון', group: false, accent: PLUM,
+    lines: [
+      { from: MOTHER, text: 'שמעתי ברדיו מה שאמרו עליך' },
+      { from: MOTHER, text: 'מי זה בכלל האיש הזה, מה הוא מבין' },
+      { from: MOTHER, text: 'אבא רצה להתקשר לתחנה. אמרתי לו שלא' },
+      { from: MOTHER, text: 'אתה יודע שאתה טוב. אני יודעת שאתה טוב' },
+      { from: MOTHER, text: 'תאכל משהו' },
+    ],
+  },
+
+  /* ---------------------------------------------------- the other bench */
+  // Two managers who will see each other again in the spring. Short, because
+  // neither of them wants to be the one still typing.
+  {
+    id: 'rival_mgr_derby_win',
+    trigger: 'derby_win',
+    contact: 'המאמן של {rival}', subtitle: 'נראה לאחרונה היום', group: false, accent: ORANGE,
+    lines: [
+      { from: 'המאמן של {rival}', text: 'כל הכבוד' },
+      { from: 'המאמן של {rival}', text: '{score}. לא מגיע לנו, אבל כל הכבוד' },
+      { from: 'המאמן של {rival}', text: 'בסיבוב השני נדבר' },
+      { from: '', text: 'תודה. תשמור על עצמך' },
+      { from: 'המאמן של {rival}', text: 'אל תדאג לי' },
+    ],
+  },
+  {
+    id: 'rival_mgr_derby_draw',
+    trigger: 'derby_draw',
+    contact: 'המאמן של {rival}', subtitle: 'נראה לאחרונה היום', group: false, accent: ORANGE,
+    lines: [
+      { from: 'המאמן של {rival}', text: '{score}. הוגן?' },
+      { from: '', text: 'לא' },
+      { from: 'המאמן של {rival}', text: 'גם אני חושב שלא. כל אחד לכיוון שלו' },
+      { from: 'המאמן של {rival}', text: 'בסיבוב השני נראה' },
+    ],
+  },
+
+  /* ---------------------------------------------------- more from the club */
+  {
+    id: 'board_derby_loss',
+    trigger: 'derby_loss',
+    contact: 'מנכ״ל המועדון', subtitle: 'מקוון', group: false, accent: BLUE,
+    lines: [
+      { from: 'מנכ״ל המועדון', text: 'הבעלים ישב בתא עם שני אנשים מ{rival}' },
+      { from: 'מנכ״ל המועדון', text: 'אני לא צריך לתאר לך את הפרצוף שלו ב{score}' },
+      { from: 'מנכ״ל המועדון', text: 'הוא לא אמר כלום. זה מה שמדאיג אותי' },
+      { from: 'מנכ״ל המועדון', text: 'תנצח בשבוע הבא. בבקשה' },
+    ],
+  },
+  {
+    id: 'owner_hot_streak',
+    trigger: 'hot_streak',
+    contact: 'הבעלים', subtitle: 'מקוון', group: false, accent: GREEN,
+    lines: [
+      { from: 'הבעלים', text: 'שלוש ברצף' },
+      { from: 'הבעלים', text: 'אני לא מתלהב מהר. אתה יודע' },
+      { from: 'הבעלים', text: 'אבל ישבתי היום בתא ומישהו לידי אמר "סוף סוף יש פה מאמן"' },
+      { from: 'הבעלים', text: 'לא תיקנתי אותו' },
+      { from: 'הבעלים', text: 'תמשיך' },
+    ],
+  },
+  {
+    id: 'fans_derby_draw',
+    trigger: 'derby_draw',
+    contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: GOLD,
+    lines: [
+      { from: 'רפי', text: 'תיקו בדרבי' },
+      { from: 'מוקי', text: 'אני לא יודע אם לשמוח או לבכות' },
+      { from: 'שמעון', text: 'לא הפסדנו. בדרבי זה נחשב' },
+      { from: 'אלי צ׳יקו', text: 'שמעון, תיקו בדרבי זה כמו לנשק את אחותך' },
+      { from: 'מוקי', text: 'אלי מאיפה אתה מביא את זה' },
+      { from: 'רפי', text: 'הם בטח חוגגים אצלם. זה אומר שאנחנו לא צריכים' },
+    ],
+  },
+
+  /* ------------------------------------------------------------ hat trick */
+  {
+    id: 'agent_hat_trick',
+    trigger: 'hat_trick',
+    contact: 'הסוכן של {who}', subtitle: 'נראה לאחרונה היום', group: false, accent: GREY,
+    lines: [
+      { from: 'הסוכן של {who}', text: 'ערב טוב מאמן, סליחה על השעה' },
+      { from: 'הסוכן של {who}', text: 'שלושה שערים. ראית, כל הארץ ראתה' },
+      { from: 'הסוכן של {who}', text: 'יש עניין. לא מפה. רק שתדע לפני שזה יגיע מהעיתונות' },
+      { from: 'הסוכן של {who}', text: 'אני לא מאיץ בכלום. רק שתדע' },
+      { from: '', text: 'רשמתי. לילה טוב' },
+    ],
+  },
+  {
+    id: 'fans_hat_trick',
+    trigger: 'hat_trick',
+    contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: GOLD,
+    lines: [
+      { from: 'מוקי', text: '{who} {who} {who}' },
+      { from: 'רפי', text: 'שלוש!!! שלוש!!!' },
+      { from: 'אלי צ׳יקו', text: 'אמרתי לכם עליו מהאימון הראשון' },
+      { from: 'מוקי', text: 'אלי אתה לא היית באימון הראשון' },
+      { from: 'אלי צ׳יקו', text: 'הייתי ברוח' },
+      { from: 'שמעון', text: 'הכדור אצלו בבית עכשיו. ככה זה צריך להיות' },
+      { from: 'רפי', text: '{mgr} רק אל תמכור אותו' },
+    ],
+  },
+
+  /* ----------------------------------------------------------- sent off */
+  {
+    id: 'player_red_card',
+    trigger: 'red_card',
+    contact: '{who}', subtitle: 'מקוון', group: false, accent: RED,
+    lines: [
+      { from: '{who}', text: 'מאמן' },
+      { from: '{who}', text: 'סליחה' },
+      { from: '{who}', text: 'אני יודע שהשארתי אותם בעשרה' },
+      { from: '{who}', text: 'לא ישן. תגיד לי מה שאתה רוצה להגיד, אני אקבל' },
+      { from: '', text: 'מחר באימון. תישן' },
+      { from: '{who}', text: 'תודה מאמן' },
+    ],
+  },
+  {
+    id: 'captain_red_card',
+    trigger: 'red_card',
+    contact: 'הקפטן', subtitle: 'מקוון', group: false, accent: BLUE,
+    lines: [
+      { from: 'הקפטן', text: 'מאמן, לגבי {who}' },
+      { from: 'הקפטן', text: 'הוא ישב בחדר עשרים דקות אחרי שכולם הלכו' },
+      { from: 'הקפטן', text: 'אף אחד לא כעס עליו, שתדע. זה יכול לקרות לכל אחד' },
+      { from: 'הקפטן', text: 'רק אם אתה מדבר איתו, תדבר איתו לפני האימון. לא מול כולם' },
+    ],
+  },
+
+  /* --------------------------------------------------------- the press, late */
+  {
+    id: 'reporter_big_loss',
+    trigger: 'big_loss',
+    contact: 'כתב, ספורט 555', subtitle: 'נראה לאחרונה היום', group: false, accent: GREY,
+    lines: [
+      { from: 'כתב, ספורט 555', text: 'ערב טוב, סליחה על השעה' },
+      { from: 'כתב, ספורט 555', text: 'יש לי ציטוט משחקן שלך. לא אגיד מי. "החדר איבד את הכיוון"' },
+      { from: 'כתב, ספורט 555', text: 'זה עולה מחר בבוקר. רוצה להגיב לפני?' },
+      { from: '', text: 'אין תגובה' },
+      { from: 'כתב, ספורט 555', text: 'חבל. הייתי נותן לך את השורה האחרונה' },
+    ],
+  },
 ];
 
-/** Which conversation, if any, this round deserves. Derby beats a run, a run beats a scoreline. */
+/**
+ * Which conversation, if any, this round deserves. A derby beats everything, a
+ * hat trick beats a run, a run beats a scoreline, and a sending off only gets
+ * the phone when nothing bigger happened that night.
+ */
 export function pickTrigger(input: {
-  margin: number; isDerby: boolean; form: ('W' | 'D' | 'L')[];
-}): ChatTrigger | null {
-  const { margin, isDerby, form } = input;
+  margin: number; isDerby: boolean; form: ('W' | 'D' | 'L')[]; facts?: MatchFact[];
+}): { trigger: ChatTrigger; who?: string } | null {
+  const { margin, isDerby, form, facts = [] } = input;
   const last3 = form.slice(-3);
   const streak = (r: 'W' | 'L') => last3.length === 3 && last3.every(x => x === r);
+  const fact = (k: MatchFact['kind']) => facts.find(f => f.kind === k);
 
-  if (isDerby && margin > 0) return 'derby_win';
-  if (isDerby && margin < 0) return 'derby_loss';
-  if (streak('W')) return 'hot_streak';
-  if (streak('L')) return 'cold_streak';
-  if (margin >= 3) return 'big_win';
-  if (margin <= -3) return 'big_loss';
+  if (isDerby && margin > 0) return { trigger: 'derby_win' };
+  if (isDerby && margin < 0) return { trigger: 'derby_loss' };
+  if (isDerby) return { trigger: 'derby_draw' };
+  const hat = fact('hat_trick');
+  if (hat) return { trigger: 'hat_trick', who: hat.who };
+  if (streak('W')) return { trigger: 'hot_streak' };
+  if (streak('L')) return { trigger: 'cold_streak' };
+  if (margin >= 3) return { trigger: 'big_win' };
+  if (margin <= -3) return { trigger: 'big_loss' };
+  const red = fact('red_card');
+  if (red) return { trigger: 'red_card', who: red.who };
   return null;
 }
 
@@ -211,11 +415,15 @@ function fill(t: string, ctx: ChatCtx): string {
 export function rollChat(trigger: ChatTrigger, ctx: ChatCtx, rng: Rng, recent: string[]): RolledChat | null {
   const all = THREADS.filter(t => t.trigger === trigger);
   if (!all.length) return null;
+  // never one heard lately. When every thread for this trigger has been seen,
+  // the one seen longest ago is the least bad repeat
   const fresh = all.filter(t => !recent.includes(t.id));
-  const pool = fresh.length ? fresh : all;
-  const t = pool[Math.floor(rng() * pool.length)];
+  const t = fresh.length
+    ? fresh[Math.floor(rng() * fresh.length)]
+    : all.reduce((a, b) => recent.indexOf(a.id) <= recent.indexOf(b.id) ? a : b);
+  // the contact can be a slot too: the sent off man, the rival's manager
   return {
-    id: t.id, contact: t.contact, subtitle: t.subtitle, group: t.group, accent: t.accent,
-    lines: t.lines.map(l => ({ from: l.from, text: fill(l.text, ctx) })),
+    id: t.id, contact: fill(t.contact, ctx), subtitle: fill(t.subtitle, ctx), group: t.group, accent: t.accent,
+    lines: t.lines.map(l => ({ from: fill(l.from, ctx), text: fill(l.text, ctx) })),
   };
 }

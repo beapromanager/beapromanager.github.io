@@ -72,6 +72,16 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
   if (!L.canChangeFormation(st)) fails.push('the shape cannot be changed at half time, which is the whole feature');
   if (!L.changeFormation(st, '4-3-3')) fails.push('changing the shape at half time was refused');
 
+  // and the result remembers it, so the reporter can ask about it afterwards
+  checked += 2;
+  const res = L.finalize(st);
+  if (res.shape?.to !== '4-3-3') fails.push('the result does not record which shape the manager switched to');
+  if (res.shape && (res.shape.atHalf[0] !== st.score[0] || res.shape.atHalf[1] !== st.score[1]))
+    fails.push('the result records the wrong half-time score alongside the shape change');
+  const untouched = L.finalize(toHalfTime(4242));
+  checked++;
+  if (untouched.shape) fails.push('a match with no shape change still reports one');
+
   const playing = toHalfTime(4242);
   L.resumeFromHalfTime(playing);
   checked += 2;

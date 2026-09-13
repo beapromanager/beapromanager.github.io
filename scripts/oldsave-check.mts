@@ -46,6 +46,7 @@ const ADDED_SINCE = [
   'gems', 'adsWatched', 'pull',     // the premium currency
   'stadiumReveal', 'marketFocus',
   'chronicleSeen', 'fanHistory',
+  'pressHistory',                   // the reporter's memory
 ] as const;
 
 function career(town = LEGEND_TOWN, seed = 4242): G.GameState {

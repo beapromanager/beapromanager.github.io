@@ -16,6 +16,7 @@ import { pickPressQuestions, askableFacts } from '../src/data/pressFacts.ts';
 import type { MatchResult, MatchEvent } from '../src/engine/matchEngine.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
+import { LEGENDS } from '../src/data/legends.ts';
 
 /** Play the round the way the sacking arc does, then walk to the press room. */
 function play(gs: G.GameState, seed: number): G.GameState {
@@ -111,8 +112,49 @@ const kinds = (r: MatchResult) => matchFacts(r, 'ME').map(f => f.kind);
 {
   const k = kinds(fake([], [0, 0]));
   checked++;
-  for (const bad of ['hat_trick', 'brace', 'comeback', 'collapse', 'red_card', 'late_winner'])
+  for (const bad of ['hat_trick', 'brace', 'comeback', 'collapse', 'red_card', 'late_winner', 'penalty_saved', 'shape_worked', 'shape_failed', 'legend_goal'])
     if (k.includes(bad as never)) fails.push(`a goalless, eventless match reported ${bad}`);
+}
+
+// a penalty of theirs that did not go in is a save, mine that did not is a miss
+{
+  const theirs = kinds(fake([ev(60, 'penalty_miss', 'YOU', 'א ב')], [0, 0]));
+  const mine = kinds(fake([ev(60, 'penalty_miss', 'ME', 'א ב')], [0, 0]));
+  checked += 2;
+  if (!theirs.includes('penalty_saved') || theirs.includes('penalty_miss')) fails.push('their missed penalty did not read as a save');
+  if (!mine.includes('penalty_miss') || mine.includes('penalty_saved')) fails.push('my missed penalty read as a save');
+}
+
+// a shape changed at half time is judged by the half that followed
+{
+  const withShape = (score: [number, number], atHalf: [number, number]): MatchResult =>
+    ({ ...fake([], score), shape: { to: '5-4-1', atHalf } });
+  checked += 4;
+  if (!kinds(withShape([2, 0], [1, 0])).includes('shape_worked')) fails.push('a half won after the change did not read as worked');
+  if (!kinds(withShape([1, 0], [1, 0])).includes('shape_worked')) fails.push('a lead held after the change did not read as worked');
+  if (!kinds(withShape([0, 1], [0, 1])).includes('shape_failed')) fails.push('a deficit that stayed did not read as failed');
+  if (!kinds(withShape([1, 2], [1, 0])).includes('shape_failed')) fails.push('a half lost after the change did not read as failed');
+  const f = matchFacts(withShape([2, 0], [1, 0]), 'ME').find(x => x.kind === 'shape_worked');
+  checked++;
+  if (f?.who !== '5-4-1') fails.push('the shape question does not know which shape was chosen');
+}
+
+// one of the ראש העין regulars scoring is a story of its own
+{
+  const legend = LEGENDS[0].name;
+  const k = kinds(fake([ev(30, 'goal', 'ME', legend)], [1, 0]));
+  const plain = kinds(fake([ev(30, 'goal', 'ME', 'דן כהן')], [1, 0]));
+  checked += 2;
+  if (!k.includes('legend_goal')) fails.push(`${legend} scored and nobody noticed who he is`);
+  if (plain.includes('legend_goal')) fails.push('an ordinary scorer was read as a legend');
+}
+
+// and each of the new facts has a question waiting for it
+{
+  checked++;
+  const missing = (['penalty_saved', 'shape_worked', 'shape_failed', 'legend_goal'] as const)
+    .filter(k => !askableFacts([{ kind: k, who: 'x', minute: 50, n: 1 }]).length);
+  if (missing.length) fails.push(`no question written for ${missing.join(', ')}`);
 }
 
 /* ------------------------------------------- 2 to 4. a real season of them */

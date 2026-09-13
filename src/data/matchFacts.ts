@@ -13,12 +13,14 @@
  */
 
 import type { MatchResult, MatchEvent, Player } from '../engine/matchEngine.ts';
+import { isLegend } from './legends.ts';
 
 export type FactKind =
   | 'hat_trick' | 'brace' | 'late_winner' | 'late_equaliser'
   | 'comeback' | 'collapse' | 'late_concede'
   | 'red_card' | 'their_red' | 'penalty_miss' | 'own_goal'
-  | 'clean_sheet' | 'star_rating' | 'keeper_hero' | 'toothless' | 'top_man';
+  | 'clean_sheet' | 'star_rating' | 'keeper_hero' | 'toothless' | 'top_man'
+  | 'penalty_saved' | 'shape_worked' | 'shape_failed' | 'legend_goal';
 
 export interface MatchFact {
   kind: FactKind;
@@ -36,7 +38,8 @@ const LATE = 80;
 const WEIGHT: Record<FactKind, number> = {
   hat_trick: 100, red_card: 92, collapse: 90, comeback: 88,
   late_winner: 86, late_equaliser: 80, penalty_miss: 78, late_concede: 74,
-  own_goal: 70, their_red: 60, brace: 58, keeper_hero: 52,
+  own_goal: 70, shape_failed: 66, legend_goal: 64, penalty_saved: 62, their_red: 60,
+  shape_worked: 59, brace: 58, keeper_hero: 52,
   star_rating: 44, clean_sheet: 36, toothless: 30, top_man: 12,
 };
 
@@ -78,6 +81,7 @@ export function matchFacts(
     }
   }
   for (const [name, n] of scored) {
+    if (isLegend({ name })) facts.push({ kind: 'legend_goal', who: family(name), n });
     if (n >= 3) facts.push({ kind: 'hat_trick', who: family(name), n });
     else if (n === 2) facts.push({ kind: 'brace', who: family(name), n });
   }
@@ -110,6 +114,9 @@ export function matchFacts(
     if (e.type === 'red' && e.teamId === myId) facts.push({ kind: 'red_card', who: family(e.playerName), minute: e.minute });
     else if (e.type === 'red') facts.push({ kind: 'their_red', who: family(e.playerName), minute: e.minute });
     else if (e.type === 'penalty_miss' && e.teamId === myId) facts.push({ kind: 'penalty_miss', who: family(e.playerName), minute: e.minute });
+    // theirs that did not go in. In a live match that is always a save, the
+    // manager chose the corner himself
+    else if (e.type === 'penalty_miss') facts.push({ kind: 'penalty_saved', who: family(e.playerName), minute: e.minute });
     else if (e.type === 'own_goal' && e.teamId === myId) facts.push({ kind: 'own_goal', who: family(e.playerName), minute: e.minute });
   }
 
@@ -130,6 +137,16 @@ export function matchFacts(
   }
 
   /* the shape of the performance */
+  // a shape changed in the dressing room is judged by the half that followed
+  if (r.shape) {
+    const iAmHome = r.home.id === myId;
+    const before = r.shape.atHalf[iAmHome ? 0 : 1] - r.shape.atHalf[iAmHome ? 1 : 0];
+    const after = (iAmHome ? r.score[0] - r.score[1] : r.score[1] - r.score[0]) - before;
+    // a half won is a change that worked, and so is a lead held quietly. A
+    // deficit that stayed a deficit is not
+    const worked = after > 0 || (after === 0 && before > 0);
+    facts.push({ kind: worked ? 'shape_worked' : 'shape_failed', who: r.shape.to, n: after });
+  }
   if (theirGoals === 0) facts.push({ kind: 'clean_sheet' });
   const myStats = r.home.id === myId ? r.home.stats : r.away.stats;
   if (myGoals === 0 && (myStats?.chances ?? 0) <= 1) facts.push({ kind: 'toothless' });

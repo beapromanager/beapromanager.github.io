@@ -103,6 +103,8 @@ export interface MatchResult {
   score: [number, number];
   events: MatchEvent[];
   ratings: Record<string, number>; // playerId -> 4.0..10.0
+  /** the shape the manager switched to at half time, when he did, and the score at the whistle */
+  shape?: { to: string; atHalf: [number, number] };
 }
 
 /* -------------------------------------------------------------------- rng */

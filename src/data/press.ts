@@ -7,6 +7,8 @@
  * ספורט WOW, ספורט 555, ספורט ישראל, Yספורט, Nספורט.
  */
 
+import type { Rng } from '../engine/matchEngine.ts';
+
 export const OUTLETS = ['ספורט WOW', 'ספורט 555', 'ספורט ישראל', 'Yספורט', 'Nספורט'] as const;
 export type Outlet = typeof OUTLETS[number];
 
@@ -32,18 +34,21 @@ export interface PressAnswer {
 }
 
 export interface PressQuestion {
+  /** stable name of the template, remembered so the same question is not asked again soon */
+  id: string;
   tone: PressTone;
   text: string;
   answers: PressAnswer[];
 }
 
-type QGen = (c: PressContext) => PressQuestion;
+export type QGen = (c: PressContext) => PressQuestion;
 
 /* Each generator returns a question already filled with the live context. */
 
 const BY_RESULT: Record<PressContext['result'], QGen[]> = {
   big_win: [
     c => ({
+      id: 'big_win_real',
       tone: 'serious',
       text: `ניצחון גדול. ${c.star} היה בלתי ניתן לעצירה. זו הקבוצה האמיתית או שהיריבה פשוט הייתה חלשה?`,
       answers: [
@@ -52,6 +57,7 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       ],
     }),
     c => ({
+      id: 'big_win_raise',
       tone: 'funny',
       text: `אחרי הביצוע הזה, מתי אתה מבקש העלאה מהבעלים?`,
       answers: [
@@ -59,9 +65,19 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
         { label: 'קודם נשמור על הרגליים על הקרקע', effect: { prestige: +2 }, reply: 'תשובה מקצועית, קצת משעממת.' },
       ],
     }),
+    c => ({
+      id: 'big_win_message',
+      tone: 'serious',
+      text: `תוצאה כזאת מול ${c.rival} שולחת מסר לכל הליגה. זה היה בכוונה?`,
+      answers: [
+        { label: 'אנחנו לא שולחים מסרים, אנחנו משחקים', effect: { morale: +3, prestige: +1 }, reply: 'ענווה עם שיניים. עבר מצוין.' },
+        { label: 'כן. שידעו', effect: { prestige: +4, morale: -1 }, reply: 'שורה שתישאר. גם אצל היריבות הבאות.' },
+      ],
+    }),
   ],
   win: [
     c => ({
+      id: 'win_control',
       tone: 'serious',
       text: `שלוש נקודות חשובות. הרגשת שהקבוצה בשליטה, או שזה היה יותר קרוב ממה שנראה?`,
       answers: [
@@ -69,9 +85,37 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
         { label: 'עבדנו קשה על כל כדור', effect: { morale: +3 }, reply: 'הערכת את השחקנים. חדר ההלבשה מרוצה.' },
       ],
     }),
+    c => ({
+      id: 'win_quiet',
+      tone: 'funny',
+      text: `ניצחתם, והיציע יצא די שקט. איפה החגיגה?`,
+      answers: [
+        { label: 'ניצחון זה ניצחון. שיחגגו בבית', effect: { prestige: +2, morale: +1 }, reply: 'יבש. מקצועי. הכתב חייך.' },
+        { label: 'גם אני רוצה יותר, ואני אגיד את זה בחדר', effect: { morale: -1, prestige: +3 }, reply: 'רעב. השחקנים קראו את זה בבוקר והבינו.' },
+      ],
+    }),
+    c => ({
+      id: 'win_habit',
+      tone: 'serious',
+      text: `מתחילים להתרגל לנצח אצלכם. אתה לא מפחד שזה מרדים?`,
+      answers: [
+        { label: 'שיתרגלו. בשביל זה באנו', effect: { prestige: +3, morale: +2 }, reply: 'ביטחון. היציע אהב.' },
+        { label: 'אף אחד לא נרדם אצלי, גם לא אני', effect: { morale: +2, prestige: +1 }, reply: 'מסר לחדר, לא לעיתונות. הגיע ליעד.' },
+      ],
+    }),
+    c => ({
+      id: 'win_rival',
+      tone: 'serious',
+      text: `${c.rival} לא באה לפה להפסיד. מה הכריע בסוף?`,
+      answers: [
+        { label: 'סבלנות. חיכינו לרגע שלנו', effect: { morale: +2, prestige: +2 }, reply: 'ניתוח מדויק. מי שמבין הנהן.' },
+        { label: `הראש. רצינו את זה יותר מ${c.rival}`, effect: { morale: +3 }, reply: 'רגש. היציע לוקח את זה הביתה.' },
+      ],
+    }),
   ],
   draw: [
     c => ({
+      id: 'draw_wasting',
       tone: 'brutal',
       text: `עוד תיקו. בקצב הזה לא עולים ליגה. אתה לא מרגיש שאתה מבזבז עונה?`,
       answers: [
@@ -80,6 +124,7 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       ],
     }),
     c => ({
+      id: 'draw_point',
       tone: 'serious',
       text: `נקודה בחוץ. אתה מרוצה או מאוכזב?`,
       answers: [
@@ -87,9 +132,19 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
         { label: 'באנו לנצח, זה מאכזב', effect: { prestige: +2, morale: -1 }, reply: 'שידרת רעב. היציע אוהב את זה.' },
       ],
     }),
+    c => ({
+      id: 'draw_who',
+      tone: 'funny',
+      text: `תיקו מול ${c.rival}. מי משתי הקבוצות יצאה מפה מרוצה יותר?`,
+      answers: [
+        { label: 'הם. ואני לא אוהב את זה', effect: { prestige: +2, morale: -1 }, reply: 'כנות. לא נעים לשמוע, אבל מכבדים.' },
+        { label: 'אף אחד. וזה בסדר', effect: { morale: +2 }, reply: 'תשובה שקטה. הכתב עבר הלאה.' },
+      ],
+    }),
   ],
   loss: [
     c => ({
+      id: 'loss_fans',
       tone: 'brutal',
       text: `הפסד שכואב. יש אוהדים שכבר קוראים להחליף אותך. יש לך מה להגיד להם?`,
       answers: [
@@ -98,6 +153,7 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       ],
     }),
     c => ({
+      id: 'loss_broke',
       tone: 'serious',
       text: `איפה המשחק נשבר לדעתך?`,
       answers: [
@@ -105,9 +161,28 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
         { label: 'החמצנו את המצבים, זה הכל', effect: { morale: +1 }, reply: 'ניתוח יבש. עבר בשקט.' },
       ],
     }),
+    c => ({
+      id: 'loss_fair',
+      tone: 'brutal',
+      text: `אוהדי ${c.rival} יצאו מפה בטוחים שהיו הטובים יותר. הם צודקים?`,
+      answers: [
+        { label: 'היום כן. ואני לא מתבייש להגיד', effect: { prestige: +3, morale: -1 }, reply: 'הגינות. גם היריבה כיבדה את זה.' },
+        { label: 'לא. איבדנו את זה לבד', effect: { morale: +1, prestige: +1 }, reply: 'לא נתת להם קרדיט. החדר שמע שזה בידיים שלו.' },
+      ],
+    }),
+    c => ({
+      id: 'loss_lesson',
+      tone: 'serious',
+      text: `מה לוקחים מהערב הזה לשבוע הבא?`,
+      answers: [
+        { label: 'שמשחק לא נגמר בשריקת הפתיחה', effect: { morale: +2, prestige: +1 }, reply: 'מסר לשחקנים דרך המיקרופון. הם קלטו.' },
+        { label: 'כלום. שוכחים ומתקדמים', effect: { morale: +2 }, reply: 'ראש קדימה. יש מי שחשב שזה קל מדי.' },
+      ],
+    }),
   ],
   thrashing: [
     c => ({
+      id: 'thrash_shame',
       tone: 'brutal',
       text: `ספגתם ביזיון. איך בכלל מסבירים משחק כזה לאוהדים שנסעו עד לכאן?`,
       answers: [
@@ -118,6 +193,7 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       ],
     }),
     c => ({
+      id: 'thrash_home',
       tone: 'funny',
       text: `בתוצאה כזאת, בא לך בכלל לענות לי או שאתה מעדיף ללכת הביתה?`,
       answers: [
@@ -125,20 +201,42 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
         { label: 'בוא נגמור עם זה מהר', effect: { morale: -1 }, reply: 'קצר וקצת עצבני. מובן.' },
       ],
     }),
+    c => ({
+      id: 'thrash_room',
+      tone: 'serious',
+      text: `מה נאמר בחדר ההלבשה אחרי השריקה?`,
+      answers: [
+        { label: 'כלום. שתיקה. לפעמים זה הכי חזק', effect: { prestige: +2, morale: +1 }, reply: 'תמונה שנשארת. הכתב לא שאל עוד.' },
+        { label: 'הכל. ואני לא אחזור על זה כאן', effect: { morale: -2, prestige: +3 }, reply: 'ברור שהייתה צעקה. היציע דווקא רצה לשמוע אותה.' },
+      ],
+    }),
   ],
 };
 
 /** Special overrides that beat the result based questions when relevant. */
-const DERBY: QGen = c => ({
-  tone: 'serious',
-  text: `דרבי מול ${c.rival} זה לא עוד משחק. הרגשת את הלחץ המיוחד היום?`,
-  answers: [
-    { label: 'בשביל זה נכנסתי לעבודה הזאת', effect: { prestige: +4, morale: +3 }, reply: 'היציע ישתה את המילים האלה.' },
-    { label: 'לחץ זה חלק מהמשחק, התרגלנו', effect: { morale: +2 }, reply: 'קור רוח. מקצועי.' },
-  ],
-});
+const DERBY: QGen[] = [
+  c => ({
+    id: 'derby_pressure',
+    tone: 'serious',
+    text: `דרבי מול ${c.rival} זה לא עוד משחק. הרגשת את הלחץ המיוחד היום?`,
+    answers: [
+      { label: 'בשביל זה נכנסתי לעבודה הזאת', effect: { prestige: +4, morale: +3 }, reply: 'היציע ישתה את המילים האלה.' },
+      { label: 'לחץ זה חלק מהמשחק, התרגלנו', effect: { morale: +2 }, reply: 'קור רוח. מקצועי.' },
+    ],
+  }),
+  c => ({
+    id: 'derby_week',
+    tone: 'funny',
+    text: `שבוע שלם העיר דיברה רק על ${c.rival}. איך שומרים על שחקנים רגועים לפני דרבי?`,
+    answers: [
+      { label: 'לא שומרים. שירגישו את זה, בשביל זה באו', effect: { morale: +3, prestige: +2 }, reply: 'משפט של יציע. מחר על חולצות.' },
+      { label: 'סוגרים טלפונים ביום חמישי', effect: { prestige: +2 }, reply: 'פרקטי. השחקנים לא אהבו את הרעיון.' },
+    ],
+  }),
+];
 
 const RELEGATION: QGen = c => ({
+  id: 'relegation_believe',
   tone: 'brutal',
   text: `אתם מקום ${c.tablePos} מתוך ${c.totalTeams}, ממש בתחתית. אתה עדיין מאמין שאפשר להציל את העונה?`,
   answers: [
@@ -154,6 +252,7 @@ const RELEGATION: QGen = c => ({
  */
 const LOCAL: QGen[] = [
   c => ({
+    id: 'local_town',
     tone: 'serious',
     text: `כתב מקומון ${c.city} כאן. כל העיר שואלת אותי מתי סוף סוף חוזרים למקום שמגיע לנו. מה אני אגיד להם?`,
     answers: [
@@ -162,6 +261,7 @@ const LOCAL: QGen[] = [
     ],
   }),
   c => ({
+    id: 'local_cafe',
     tone: 'funny',
     text: `ב${c.city} כבר מדברים עליך בבתי קפה יותר מאשר על ראש העיר. איך זה מרגיש?`,
     answers: [
@@ -170,6 +270,7 @@ const LOCAL: QGen[] = [
     ],
   }),
   c => ({
+    id: 'local_kids',
     tone: 'serious',
     text: `הרבה ילדים ב${c.city} התחילו ללבוש את הצבעים בזכות מה שאתה עושה. אתה מרגיש את האחריות הזאת?`,
     answers: [
@@ -180,6 +281,7 @@ const LOCAL: QGen[] = [
 ];
 
 const TOP: QGen = c => ({
+  id: 'top_say_it',
   tone: 'serious',
   text: `אתם בפסגת הטבלה. המילה אליפות כבר לא מוגזמת. אתה מוכן להגיד אותה בקול?`,
   answers: [
@@ -188,22 +290,51 @@ const TOP: QGen = c => ({
   ],
 });
 
-/** Pick a fitting question. rng in [0,1) chooses among candidates. */
-export function pickPressQuestion(c: PressContext, rng: number): { outlet: Outlet; q: PressQuestion } {
-  const outlet = OUTLETS[Math.floor(rng * OUTLETS.length)];
+/**
+ * One of a pool, skipping whatever was asked recently. When the whole pool has
+ * been heard lately the one heard longest ago is the least bad repeat, so a
+ * pool of one still yields a question rather than nothing.
+ */
+export function fresh(pool: QGen[], c: PressContext, rng: Rng, recent: string[]): PressQuestion {
+  const all = pool.map(g => g(c));
+  const unheard = all.filter(q => !recent.includes(q.id));
+  if (unheard.length) return unheard[Math.floor(rng() * unheard.length)];
+  return all.reduce((a, b) => recent.indexOf(a.id) <= recent.indexOf(b.id) ? a : b);
+}
 
-  // priority overrides
-  if (c.isDerby && rng > 0.4) return { outlet, q: DERBY(c) };
-  if (c.tablePos >= c.totalTeams - 1 && (c.result === 'loss' || c.result === 'draw')) return { outlet, q: RELEGATION(c) };
+/** Pick a fitting question. `recent` is what was asked lately, oldest first, and is avoided. */
+export function pickPressQuestion(c: PressContext, rng: Rng, recent: string[] = []): { outlet: Outlet; q: PressQuestion } {
+  const outlet = OUTLETS[Math.floor(rng() * OUTLETS.length)];
+  const roll = rng();
+
+  // priority overrides. A derby and the top of the table are worth repeating
+  // ourselves for. The relegation question is not: once it has been asked the
+  // ordinary questions come back until enough weeks have passed
+  if (c.isDerby && roll > 0.4) return { outlet, q: fresh(DERBY, c, rng, recent) };
+  if (c.tablePos >= c.totalTeams - 1 && (c.result === 'loss' || c.result === 'draw') && !recent.includes(RELEGATION(c).id))
+    return { outlet, q: RELEGATION(c) };
   if (c.tablePos === 1 && (c.result === 'win' || c.result === 'big_win')) return { outlet, q: TOP(c) };
 
   // roughly a quarter of the time the town paper gets in first, with its own byline
-  if (rng < 0.25) {
-    const q = LOCAL[Math.floor(rng * 4) % LOCAL.length](c);
-    return { outlet: `מקומון ${c.city}` as Outlet, q };
-  }
+  if (roll < 0.25) return { outlet: `מקומון ${c.city}` as Outlet, q: fresh(LOCAL, c, rng, recent) };
 
-  const pool = BY_RESULT[c.result];
-  const q = pool[Math.floor(rng * pool.length)];
-  return { outlet, q: q(c) };
+  return { outlet, q: fresh(BY_RESULT[c.result], c, rng, recent) };
 }
+
+/**
+ * The ids each pool can produce, for the checks. Ids are fixed strings, so a
+ * bare context is enough to read them out.
+ */
+const BARE: PressContext = {
+  result: 'win', isDerby: false, lowMorale: false, highPrestige: false,
+  tablePos: 5, totalTeams: 10, star: '', rival: '', city: '',
+};
+export const WIDE_POOLS: Record<PressContext['result'] | 'local' | 'derby', string[]> = {
+  big_win: BY_RESULT.big_win.map(g => g(BARE).id),
+  win: BY_RESULT.win.map(g => g(BARE).id),
+  draw: BY_RESULT.draw.map(g => g(BARE).id),
+  loss: BY_RESULT.loss.map(g => g(BARE).id),
+  thrashing: BY_RESULT.thrashing.map(g => g(BARE).id),
+  local: LOCAL.map(g => g(BARE).id),
+  derby: DERBY.map(g => g(BARE).id),
+};

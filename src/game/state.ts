@@ -204,6 +204,8 @@ export interface GameState {
   /** the conversation waiting on the phone after a week worth talking about */
   chat: RolledChat | null;
   chatHistory: string[];
+  /** press question ids asked lately, so the reporter does not repeat himself */
+  pressHistory: string[];
   pendingOutcome: string | null;
   lastPlayerMatch: MatchResult | null;
   lastRound: RoundResult[];
@@ -321,6 +323,7 @@ export function newGame(seed = 12345): GameState {
     lastLedger: null,
     chat: null,
     chatHistory: [],
+    pressHistory: [],
     pendingOutcome: null,
     lastPlayerMatch: null,
     lastRound: [],
@@ -2343,6 +2346,15 @@ function checkTheBooks(gs: GameState, lost: boolean): GameState {
   };
 }
 
+/**
+ * How far back the reporter and the phone remember. A season is about
+ * fourteen rounds, two questions a round, so twelve questions is roughly the
+ * last six weeks, and eight chats is more than a season of buzzes: neither
+ * repeats itself inside a run the manager would still remember.
+ */
+const PRESS_MEMORY = 12;
+const CHAT_MEMORY = 8;
+
 /** From the result screen, the reporter is waiting outside. */
 export function continueFromResult(gs: GameState): GameState {
   gs = { ...gs, stadiumReveal: null };   // the unveil has had its moment
@@ -2379,12 +2391,15 @@ export function continueFromResult(gs: GameState): GameState {
     rival: rival.short,
     city: club(gs).city,
   };
-  const rng = createRng(gs.seasonSeed * 100 + gs.week * 31 + 5)();
+  const rng = createRng(gs.seasonSeed * 100 + gs.week * 31 + 5);
   // what the reporter actually watched, so his first question is about the
   // match and not about the scoreline in the abstract
   const facts = matchFacts(r, gs.clubId, mySquad(gs));
-  const { outlet, qs } = pickPressQuestions(ctx, rng, facts);
-  return { ...gs, phase: 'press', press: { outlet, q: qs[0], queue: qs.slice(1) } };
+  const { outlet, qs } = pickPressQuestions(ctx, rng, facts, gs.pressHistory);
+  return {
+    ...gs, phase: 'press', press: { outlet, q: qs[0], queue: qs.slice(1) },
+    pressHistory: [...gs.pressHistory, ...qs.map(q => q.id)].slice(-PRESS_MEMORY),
+  };
 }
 
 /** Apply the manager's answer to the reporter, then move on. */
@@ -2439,24 +2454,28 @@ export function advancePastPress(gs: GameState): GameState {
 
   const iAmHome = fx.homeId === gs.clubId;
   const margin = (iAmHome ? r.score[0] : r.score[1]) - (iAmHome ? r.score[1] : r.score[0]);
-  const trigger = pickTrigger({ margin, isDerby: isDerby(fx.homeId, fx.awayId), form: gs.form });
-  if (!trigger) return endOfWeek(gs);
+  const picked = pickTrigger({
+    margin, isDerby: isDerby(fx.homeId, fx.awayId), form: gs.form,
+    facts: matchFacts(r, gs.clubId, mySquad(gs)),
+  });
+  if (!picked) return endOfWeek(gs);
 
   const oppId = iAmHome ? fx.awayId : fx.homeId;
   const rival = gs.league.clubs.find(c => c.id === oppId);
   const my = iAmHome ? r.score[0] : r.score[1];
   const opp = iAmHome ? r.score[1] : r.score[0];
   const rng = createRng(gs.seasonSeed * 31 + gs.week * 977 + 11);
-  const chat = rollChat(trigger, {
+  const chat = rollChat(picked.trigger, {
     club: club(gs).short,
     rival: rival?.short ?? 'היריבה',
     score: `${my} - ${opp}`,
     star: topPlayerName(mySquad(gs)),
     mgr: gs.profile.nickname || gs.profile.name || 'מאמן',
-  }, rng, gs.chatHistory.slice(-4));
+    who: picked.who,
+  }, rng, gs.chatHistory.slice(-CHAT_MEMORY));
   if (!chat) return endOfWeek(gs);
 
-  return { ...gs, phase: 'chat', press: null, chat, chatHistory: [...gs.chatHistory, chat.id].slice(-12) };
+  return { ...gs, phase: 'chat', press: null, chat, chatHistory: [...gs.chatHistory, chat.id].slice(-CHAT_MEMORY) };
 }
 
 /** The player closed the phone, now the week can end. */
@@ -2491,7 +2510,7 @@ export function demoSeason(rounds = 8): GameState {
 /** TEMP dev preview of one chat, used by the /?chat= route. Remove with it. */
 export function demoChat(trigger: Parameters<typeof rollChat>[0]): GameState | null {
   const chat = rollChat(trigger, {
-    club: 'עין סלע', rival: 'נחל עוז', score: '3 - 0', star: 'כהן', mgr: 'איציק',
+    club: 'עין סלע', rival: 'נחל עוז', score: '3 - 0', star: 'כהן', mgr: 'איציק', who: 'כהן',
   }, createRng(7), []);
   return chat ? { ...newGame(), phase: 'chat', week: 6, chat } : null;
 }

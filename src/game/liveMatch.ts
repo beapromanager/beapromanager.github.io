@@ -104,6 +104,8 @@ export interface LiveState {
   xg: [number, number];
   events: LiveEvent[];
   subsUsed: number;
+  /** the half-time shape change, kept so the reporter can ask about it */
+  shape?: { to: string; atHalf: [number, number] };
   tacticOffered: boolean;
   pending: Moment | null;
   /** small personality effects, keyed by player id, see traitEffects.ts */
@@ -960,6 +962,7 @@ export function changeFormation(st: LiveState, id: FormationId): boolean {
 
   side.tactic = { ...side.tactic, formation: id };
   side.onPitch = fillFormation(side.onPitch, formation(id));
+  st.shape = { to: formation(id).label, atHalf: [st.score[0], st.score[1]] };
   st.events.push({
     minute: 45, type: 'tactic', teamId: side.id,
     text: `שינוי מערך בהפסקה, ${formation(id).label} ${formation(id).name}`,
@@ -1093,5 +1096,6 @@ export function finalize(st: LiveState): MatchResult {
     score: st.score,
     events,
     ratings,
+    shape: st.shape,
   };
 }
