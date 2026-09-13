@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { Player } from '../../engine/matchEngine.ts';
 import type { Club } from '../../data/clubs.ts';
-import type { PlayerSeason, CareerSeason } from '../../game/state.ts';
+import type { PlayerSeason, CareerSeason, PartOption, PartKind } from '../../game/state.ts';
 import { careerTotals } from '../../game/state.ts';
 import { LEAGUE_NAMES } from '../../data/clubs.ts';
 import { playerValue } from '../../data/squadGen.ts';
@@ -33,7 +33,7 @@ const GK_ATTRS: [string, string][] = [
  * The player card. A rating alone never made anyone care about a footballer,
  * so this leads with who he is and backs it with the numbers.
  */
-export function PlayerCard({ p, club, season, career, traits, onClose }: {
+export function PlayerCard({ p, club, season, career, traits, part, onClose }: {
   p: Player;
   club: Club;
   season?: PlayerSeason;
@@ -41,6 +41,8 @@ export function PlayerCard({ p, club, season, career, traits, onClose }: {
   career?: CareerSeason[];
   /** the squad-assigned traits, falls back to standalone if omitted */
   traits?: Trait[];
+  /** the ways he can be let go this week, only from his own club's squad screen */
+  part?: { options: PartOption[]; blocked: string | null; onPart: (kind: PartKind) => void };
   onClose: () => void;
 }) {
   const band = potentialBand(p);
@@ -147,6 +149,8 @@ export function PlayerCard({ p, club, season, career, traits, onClose }: {
             <div className="label-cap">יכולות</div>
             {rows.map(([label, v]) => <AttrBar key={label} label={label} value={v} />)}
           </div>
+
+          {part && <PartBlock name={p.name} part={part} />}
         </div>
       </div>
     </div>
@@ -241,6 +245,45 @@ function SeasonStat({ label, value, gold }: { label: string; value: number; gold
     <div style={{ textAlign: 'center' }}>
       <div className="score-face" style={{ fontSize: 22, color: gold ? 'var(--gold-hi)' : 'var(--ink)' }}>{value}</div>
       <div style={{ fontSize: 10, color: 'var(--ink-faint)', fontWeight: 700, marginTop: 1 }}>{label}</div>
+    </div>
+  );
+}
+
+/**
+ * Letting him go, from his own card. One tap opens the terms, a second one
+ * does it, so a thumb sliding down the card never sells a man by accident.
+ * When nothing applies this week (window shut, books fine) it says why the
+ * door is closed rather than hiding it.
+ */
+function PartBlock({ name, part }: { name: string; part: NonNullable<Parameters<typeof PlayerCard>[0]['part']> }) {
+  const [armed, setArmed] = useState<PartKind | null>(null);
+  const { options, blocked, onPart } = part;
+  return (
+    <div className="tile" style={{ padding: '12px 13px', borderColor: 'rgba(226,72,77,.3)' }}>
+      <div className="label-cap" style={{ marginBottom: 6 }}>להיפרד</div>
+      {blocked && <div className="sub" style={{ fontSize: 14 }}>{blocked}</div>}
+      {!blocked && options.length === 0 && (
+        <div className="sub" style={{ fontSize: 14 }}>החלון סגור והקופה מסתדרת. בחלון אפשר להעביר אותו, ובמינוס אפשר להיפרד כידידים.</div>
+      )}
+      {options.map(o => (
+        <div key={o.kind} className="stack" style={{ gap: 8 }}>
+          <div className="sub" style={{ fontSize: 14 }}>{o.detail}</div>
+          <div className="row" style={{ gap: 12, fontSize: 14, fontWeight: 800 }}>
+            <span style={{ color: 'var(--win)' }}>+{formatMoney(o.fee)}</span>
+            <span style={{ color: 'var(--ink-faint)' }}>שכר {formatMoney(o.wage)} לשבוע</span>
+          </div>
+          {armed === o.kind ? (
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn btn-sm" style={{ flex: 1, background: 'linear-gradient(180deg,#e2484d,#b8323a)', color: '#fff' }} onClick={() => onPart(o.kind)}>
+                כן, {name.split(' ').slice(-1)[0]} הולך
+              </button>
+              <button className="btn dark btn-sm" style={{ flex: 1 }} onClick={() => setArmed(null)}>לא, נשאר</button>
+            </div>
+          ) : (
+            <button className="btn dark btn-sm" onClick={() => setArmed(o.kind)}>{o.label}</button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

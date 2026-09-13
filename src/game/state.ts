@@ -45,7 +45,7 @@ import { buildFeed } from '../data/feed.ts';
 import type { FanContext, FanMessage, FanTiming } from '../data/fans.ts';
 import type { Outlet, PressQuestion, PressContext } from '../data/press.ts';
 import type { FreeAgent } from './transfers.ts';
-import { makeMarket, refreshMarket, windowState, sellPrice, contractTerms, MIN_SQUAD, MAX_SQUAD } from './transfers.ts';
+import { makeMarket, refreshMarket, windowState, sellPrice, transferFee, contractTerms, MIN_SQUAD, MAX_SQUAD } from './transfers.ts';
 import {
   PRE_ROUNDS, seedContract, contractYears, renewTerms, raiseBonus,
   starTarget, starFee, feeSweetener, youngTarget,
@@ -54,7 +54,7 @@ import type { ChronicleEntry } from './chronicle.ts';
 import { chronicleAfterRound, chronicleAtSeasonEnd } from './chronicle.ts';
 import type { SeasonReport } from './career.ts';
 import {
-  buildNextSeason, matchPrize, roundCosts, fillWithYouth, TOP_TIER,
+  buildNextSeason, matchPrize, roundCosts, fillWithYouth, TOP_TIER, playerWage,
   STADIUM_START, requiredCapacity, stadiumImageTier, gateIncome, crowdDemand, signageRound, expansionOptions,
 } from './career.ts';
 import type { RoundCosts, ExpansionOption } from './career.ts';
@@ -1650,6 +1650,81 @@ export function sellPlayer(gs: GameState, playerId: string): GameState {
     ...next,
     meters: { ...gs.meters, money: cash(gs.meters.money + sellPrice(p, club(gs).tier)) },
   };
+}
+
+/* ---------------------------------------------------------- parting ways */
+
+/**
+ * Letting a man go from his own card, two ways.
+ *
+ * In the window he is told to find himself a club and the club takes most of
+ * his value. Out of the window, when the books are in the red, the two of you
+ * part as friends: a quarter of his value, and his wage off the bill from the
+ * next round, which is the point of it. The second is a way out of debt that
+ * costs something, so it is only offered when the club is actually short.
+ */
+export type PartKind = 'transfer' | 'friends';
+export interface PartOption {
+  kind: PartKind;
+  label: string;
+  /** what the club receives */
+  fee: number;
+  /** his weekly wage, which stops with him */
+  wage: number;
+  detail: string;
+}
+
+/** Why he cannot be let go at all right now, or null. */
+export function partBlockedReason(gs: GameState, playerId: string): string | null {
+  const sq = mySquad(gs);
+  const p = [...sq.starters, ...sq.bench].find(x => x.id === playerId);
+  if (!p) return 'הוא לא בסגל שלך';
+  if (gs.emergencyYouth === playerId) return 'הוא רשום רק למחזור הזה, אחריו הוא חוזר לנוער';
+  if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר לרדת מתחת ל-${MIN_SQUAD} שחקנים. תחתים מישהו קודם.`;
+  return null;
+}
+
+/** The ways this man can be let go this week. Empty when none apply. */
+export function partOptions(gs: GameState, playerId: string): PartOption[] {
+  if (partBlockedReason(gs, playerId)) return [];
+  const sq = mySquad(gs);
+  const p = [...sq.starters, ...sq.bench].find(x => x.id === playerId)!;
+  const tier = club(gs).tier;
+  const wage = playerWage(p, tier);
+  const out: PartOption[] = [];
+  if (transferWindow(gs).open) {
+    out.push({
+      kind: 'transfer', label: 'תחפש לך קבוצה אחרת', fee: sellPrice(p, tier), wage,
+      detail: 'הוא עובר בחלון, והמועדון מקבל 85% מהשווי שלו.',
+    });
+  } else if (debt(gs).level !== 'clear') {
+    out.push({
+      kind: 'friends', label: 'נפרדים כידידים', fee: Math.round(transferFee(p, tier) * 0.25 / 1000) * 1000, wage,
+      detail: 'החלון סגור והקופה במינוס. הוא משוחרר, המועדון מקבל 25% מהשווי, והשכר שלו יורד מההוצאות מהמחזור הבא.',
+    });
+  }
+  return out;
+}
+
+/** Let him go the chosen way. A kind that is not on offer this week does nothing. */
+export function partWays(gs: GameState, playerId: string, kind: PartKind): GameState {
+  const opt = partOptions(gs, playerId).find(o => o.kind === kind);
+  if (!opt) return gs;
+  const sq = mySquad(gs);
+  const p = [...sq.starters, ...sq.bench].find(x => x.id === playerId)!;
+  const next = removePlayer(gs, playerId);
+  return {
+    ...next,
+    meters: { ...next.meters, money: cash(next.meters.money + opt.fee) },
+    preResolved: [...next.preResolved, `renew-${playerId}`],
+    pendingOutcome: kind === 'transfer'
+      ? `${p.name} עבר. ${formatShekels(opt.fee)} נכנסו לקופה.`
+      : `${p.name} שוחרר בהסכמה. ${formatShekels(opt.fee)} נכנסו, ו-${formatShekels(opt.wage)} לשבוע ירדו מההוצאות.`,
+  };
+}
+
+function formatShekels(n: number): string {
+  return n >= 1000 ? `₪${Math.round(n / 1000)}K` : `₪${n}`;
 }
 
 export { playerValue, sellPrice, MIN_SQUAD, MAX_SQUAD };

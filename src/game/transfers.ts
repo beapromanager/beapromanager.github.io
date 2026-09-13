@@ -175,9 +175,9 @@ export function transferFee(p: Player, tier: number): number {
   return Math.round((playerValue(p) * scale) / 1000) * 1000;
 }
 
-/** What you get back when you let a player go, on the same tier-scaled market. */
+/** What you get back when you let a player go in the window: 85% of his fee, Itzik's number. */
 export function sellPrice(p: Player, tier: number): number {
-  return Math.round(transferFee(p, tier) * 0.8);
+  return Math.round(transferFee(p, tier) * 0.85);
 }
 
 /** Proposed contract terms for a signing, derived from rating and age. */

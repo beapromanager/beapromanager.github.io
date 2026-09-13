@@ -42,7 +42,8 @@
     "check:oldsave": "node --experimental-strip-types scripts/oldsave-check.mts",
     "check:repeat": "node --experimental-strip-types scripts/repeat-check.mts",
     "check:suspension": "node --experimental-strip-types scripts/suspension-check.mts",
-    "check:keeper": "node --experimental-strip-types scripts/keeper-check.mts"
+    "check:keeper": "node --experimental-strip-types scripts/keeper-check.mts",
+    "check:part": "node --experimental-strip-types scripts/part-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

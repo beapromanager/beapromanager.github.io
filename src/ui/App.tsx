@@ -200,6 +200,7 @@ export function App() {
       {gs.phase === 'squad' && (
         <SquadScreen gs={gs} firstTime={!squadFromHub}
           onSwap={(a, b) => setGs(g => G.swapPlayers(g, a, b))}
+          onPart={(id, kind) => setGs(g => G.partWays(g, id, kind))}
           onDone={() => {
             if (squadFromHub) { setGs(G.backToHub(gs)); setSquadFromHub(false); }
             else setGs(G.enterPreseason(gs));

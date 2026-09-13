@@ -147,10 +147,12 @@ function Line({ title, color, players, render }: {
   );
 }
 
-export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
+export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
   gs: G.GameState;
   firstTime: boolean;
   onSwap: (starterId: string, benchId: string) => void;
+  /** let a man go from his card, the way the card offered */
+  onPart?: (playerId: string, kind: G.PartKind) => void;
   onDone: () => void;
 }) {
   const c = G.club(gs);
@@ -333,7 +335,19 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
       <button className="btn" onClick={onDone}>{firstTime ? 'ממשיכים לשוק ההעברות' : 'חזרה'}</button>
 
       {card && (
-        <PlayerCard p={card} club={c} season={gs.seasonStats[card.id]} career={G.careerOf(gs, card.id)} traits={tr(card)} onClose={() => setCard(null)} />
+        <PlayerCard p={card} club={c} season={gs.seasonStats[card.id]} career={G.careerOf(gs, card.id)} traits={tr(card)}
+          part={!firstTime && onPart ? {
+            options: G.partOptions(gs, card.id), blocked: G.partBlockedReason(gs, card.id),
+            onPart: kind => {
+              const o = G.partOptions(gs, card.id).find(x => x.kind === kind);
+              const who = card.name; onPart(card.id, kind); setCard(null);
+              const k = (n: number) => `₪${Math.round(n / 1000)}K`;
+              setFlash(o
+                ? `${who} עזב. ${k(o.fee)} לקופה${kind === 'friends' ? `, ${k(o.wage)} לשבוע ירדו מההוצאות` : ''}.`
+                : `${who} עזב.`);
+            },
+          } : undefined}
+          onClose={() => setCard(null)} />
       )}
     </div>
   );
