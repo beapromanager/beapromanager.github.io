@@ -267,6 +267,24 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     ],
   })],
 
+  ex_scored: [(_c, f) => ({
+    id: 'ex_scored',
+    tone: 'brutal',
+    text: `${f.who}, שמכרת בחלון, כבש נגדכם בדקה ${f.minute}. מתחרט?`,
+    answers: [
+      { label: 'לא. הוא היה צריך ללכת, ואני שמח בשבילו', effect: { prestige: +3, morale: +1 }, reply: 'גדלות. גם הוא קרא את זה.' },
+      { label: 'כדורגל. הוא כבש, זה לא משנה את ההחלטה', effect: { prestige: +2 }, reply: 'יבש. הכתב חיפש רגש ולא מצא.' },
+    ],
+  }), (_c, f) => ({
+    id: 'ex_scored_room',
+    tone: 'funny',
+    text: `${f.who} כבש, ולא חגג. אתה יודע מה זה אומר?`,
+    answers: [
+      { label: 'שהוא עדיין אוהד שלנו', effect: { morale: +3, prestige: +1 }, reply: 'חיוך באולם. היציע אהב את זה.' },
+      { label: 'שהוא מקצוען. וזה למה מכרתי אותו טוב', effect: { prestige: +3 }, reply: 'עסקים. המנכ״ל הנהן מהשורה השנייה.' },
+    ],
+  })],
+
   legend_goal: [(_c, f) => ({
     id: 'legend_goal',
     tone: 'funny',

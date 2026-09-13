@@ -20,7 +20,7 @@ export type FactKind =
   | 'comeback' | 'collapse' | 'late_concede'
   | 'red_card' | 'their_red' | 'penalty_miss' | 'own_goal'
   | 'clean_sheet' | 'star_rating' | 'keeper_hero' | 'toothless' | 'top_man'
-  | 'penalty_saved' | 'shape_worked' | 'shape_failed' | 'legend_goal';
+  | 'penalty_saved' | 'shape_worked' | 'shape_failed' | 'legend_goal' | 'ex_scored';
 
 export interface MatchFact {
   kind: FactKind;
@@ -36,7 +36,7 @@ const LATE = 80;
 
 /** How much of a story each one is. The reporter leads with the biggest. */
 const WEIGHT: Record<FactKind, number> = {
-  hat_trick: 100, red_card: 92, collapse: 90, comeback: 88,
+  hat_trick: 100, ex_scored: 96, red_card: 92, collapse: 90, comeback: 88,
   late_winner: 86, late_equaliser: 80, penalty_miss: 78, late_concede: 74,
   own_goal: 70, shape_failed: 66, legend_goal: 64, penalty_saved: 62, their_red: 60,
   shape_worked: 59, brace: 58, keeper_hero: 52,
@@ -66,12 +66,20 @@ function goalTimeline(events: MatchEvent[], myId: string): { mine: boolean; minu
 export function matchFacts(
   r: MatchResult, myId: string,
   squad?: { starters: Player[]; bench: Player[] },
+  /** ids of men the manager sold into this league, so a goal by one of them is its own story */
+  exIds?: Set<string>,
 ): MatchFact[] {
   const facts: MatchFact[] = [];
   const ev = r.events ?? [];
   const timeline = goalTimeline(ev, myId);
   const myGoals = timeline.filter(g => g.mine).length;
   const theirGoals = timeline.length - myGoals;
+
+  /* one of yours, in their shirt */
+  if (exIds?.size) {
+    const ex = ev.find(e => e.teamId !== myId && (e.type === 'goal' || e.type === 'penalty_goal') && exIds.has(e.playerId));
+    if (ex) facts.push({ kind: 'ex_scored', who: family(ex.playerName), minute: ex.minute });
+  }
 
   /* scorers */
   const scored = new Map<string, number>();

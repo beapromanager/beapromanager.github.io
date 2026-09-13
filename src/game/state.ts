@@ -132,6 +132,15 @@ export type SquadNotice =
   | { kind: 'youth_back'; name: string }
   | { kind: 'window'; weeks: number };
 
+/** A man of yours who went to another club in the league. */
+export interface PlayerExit {
+  id: string;
+  name: string;
+  clubId: string;
+  season: number;
+  week: number;
+}
+
 export interface RoundResult { homeId: string; awayId: string; hg: number; ag: number; }
 
 export interface ManagerProfile {
@@ -228,6 +237,8 @@ export interface GameState {
   emergencyYouth: string | null;
   /** what the manager has to be told before he sees the hub again */
   notices: SquadNotice[];
+  /** men sold to clubs in this league, so the story can follow them */
+  exits: PlayerExit[];
   pendingOutcome: string | null;
   lastPlayerMatch: MatchResult | null;
   lastRound: RoundResult[];
@@ -349,6 +360,7 @@ export function newGame(seed = 12345): GameState {
     suspensions: {},
     emergencyYouth: null,
     notices: [],
+    exits: [],
     pendingOutcome: null,
     lastPlayerMatch: null,
     lastRound: [],
@@ -1646,10 +1658,87 @@ export function sellPlayer(gs: GameState, playerId: string): GameState {
   const p = sq.bench.find(x => x.id === playerId);
   if (!p) return gs;
   const next = writeSquad(gs, { starters: sq.starters, bench: sq.bench.filter(x => x.id !== playerId) });
+  const moved = moveToLeagueClub(next, p);
   return {
-    ...next,
+    ...moved.gs,
     meters: { ...gs.meters, money: cash(gs.meters.money + sellPrice(p, club(gs).tier)) },
   };
+}
+
+/* ------------------------------------------------- where a sold man goes */
+
+const LINE: Record<string, 'GK' | 'DEF' | 'MID' | 'FWD'> = {
+  GK: 'GK', CB: 'DEF', LB: 'DEF', RB: 'DEF', LWB: 'DEF', RWB: 'DEF',
+  CDM: 'MID', CM: 'MID', CAM: 'MID', LM: 'MID', RM: 'MID',
+  LW: 'FWD', RW: 'FWD', ST: 'FWD', CF: 'FWD',
+};
+
+/**
+ * A man sold in the window goes somewhere real: a club in this league, and
+ * he plays for it. He takes the shirt of their weakest man on his line when
+ * he is the better player, otherwise their bench, so you will meet him, and
+ * if he scores against you the reporter will know exactly who he is. The
+ * buyer is the club that needs him most on his line, ties broken by the seed.
+ */
+export function moveToLeagueClub(gs: GameState, p: Player): { gs: GameState; clubId: string } {
+  const rng = createRng(gs.seasonSeed * 53 + gs.week * 7 + hashId(p.id));
+  const line = LINE[p.position] ?? 'MID';
+  const others = gs.league.clubs.filter(c => c.id !== gs.clubId && gs.league.squads[c.id]);
+  // the club whose weakest starter on his line is weakest of all wants him most
+  const weakest = (id: string) => {
+    const s = gs.league.squads[id].starters.filter(x => (LINE[x.position] ?? 'MID') === line);
+    return s.length ? Math.min(...s.map(overall)) : 0;
+  };
+  const ranked = [...others].sort((a, b) => weakest(a.id) - weakest(b.id) || rng() - 0.5);
+  const buyer = ranked[0] ?? others[0];
+  if (!buyer) return { gs, clubId: gs.clubId };
+
+  const sq = gs.league.squads[buyer.id];
+  const starters = [...sq.starters];
+  let bench = [...sq.bench];
+  const onLine = starters.map((x, i) => ({ x, i })).filter(({ x }) => (LINE[x.position] ?? 'MID') === line);
+  const worst = onLine.sort((a, b) => overall(a.x) - overall(b.x))[0];
+  if (worst && overall(p) > overall(worst.x)) {
+    bench.push(worst.x);
+    starters[worst.i] = p;
+  } else {
+    bench.push(p);
+  }
+  // their squad does not grow forever: the weakest reserve makes room
+  if (starters.length + bench.length > MAX_SQUAD) {
+    const drop = [...bench].sort((a, b) => overall(a) - overall(b))[0];
+    bench = bench.filter(x => x !== drop);
+  }
+  const exit: PlayerExit = { id: p.id, name: p.name, clubId: buyer.id, season: gs.season, week: gs.week };
+  return {
+    clubId: buyer.id,
+    gs: {
+      ...gs,
+      league: { ...gs.league, squads: { ...gs.league.squads, [buyer.id]: { starters, bench } } },
+      exits: [...gs.exits, exit],
+      chronicle: [...gs.chronicle, {
+        id: `sold-${p.id}-s${gs.season}`, kind: 'sold', week: gs.week,
+        title: `${p.name} עבר ל${buyer.short}`,
+        body: `נפרדתם בחלון. בפעם הבאה שתפגשו הוא בצד השני, ואל תתפלא אם הוא ירצה להוכיח משהו.`,
+        icon: 'handshake', tint: 'draw',
+      }],
+    },
+  };
+}
+
+function hashId(s: string): number {
+  let h = 7;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 100000;
+}
+
+/** Men of yours now wearing the next opponent's shirt, most recent first. */
+export function exesAtNextOpponent(gs: GameState): PlayerExit[] {
+  const fx = playerFixture(gs);
+  if (!fx) return [];
+  const oppId = fx.homeId === gs.clubId ? fx.awayId : fx.homeId;
+  const there = new Set([...gs.league.squads[oppId].starters, ...gs.league.squads[oppId].bench].map(p => p.id));
+  return gs.exits.filter(e => e.clubId === oppId && there.has(e.id)).reverse();
 }
 
 /* ---------------------------------------------------------- parting ways */
@@ -1712,13 +1801,17 @@ export function partWays(gs: GameState, playerId: string, kind: PartKind): GameS
   if (!opt) return gs;
   const sq = mySquad(gs);
   const p = [...sq.starters, ...sq.bench].find(x => x.id === playerId)!;
-  const next = removePlayer(gs, playerId);
+  const gone = removePlayer(gs, playerId);
+  // a transfer is to somewhere: he joins a club in this league and plays there
+  const moved = kind === 'transfer' ? moveToLeagueClub(gone, p) : { gs: gone, clubId: null };
+  const next = moved.gs;
+  const buyer = moved.clubId ? gs.league.clubs.find(c => c.id === moved.clubId)?.short : null;
   return {
     ...next,
     meters: { ...next.meters, money: cash(next.meters.money + opt.fee) },
     preResolved: [...next.preResolved, `renew-${playerId}`],
     pendingOutcome: kind === 'transfer'
-      ? `${p.name} עבר. ${formatShekels(opt.fee)} נכנסו לקופה.`
+      ? `${p.name} עבר ל${buyer ?? 'קבוצה אחרת'}. ${formatShekels(opt.fee)} נכנסו לקופה.`
       : `${p.name} שוחרר בהסכמה. ${formatShekels(opt.fee)} נכנסו, ו-${formatShekels(opt.wage)} לשבוע ירדו מההוצאות.`,
   };
 }
@@ -2192,6 +2285,8 @@ export interface MatchPreview {
   myForm: ('W' | 'D' | 'L')[];
   verdict: Scout['verdict'];
   line: string;
+  /** men you sold who now wear the other shirt */
+  exes: string[];
 }
 
 /** Everything the cinematic VS screen needs before kickoff. */
@@ -2209,6 +2304,7 @@ export function matchPreview(gs: GameState): MatchPreview | null {
     homeOvr: ovrOf(fx.homeId), awayOvr: ovrOf(fx.awayId),
     iAmHome: scout.iAmHome, isDerby: isDerby(fx.homeId, fx.awayId),
     myForm: gs.form.slice(-5),
+    exes: exesAtNextOpponent(gs).map(e => e.name),
     verdict: scout.verdict, line: scout.line,
   };
 }
@@ -2642,7 +2738,7 @@ export function continueFromResult(gs: GameState): GameState {
   const rng = createRng(gs.seasonSeed * 100 + gs.week * 31 + 5);
   // what the reporter actually watched, so his first question is about the
   // match and not about the scoreline in the abstract
-  const facts = matchFacts(r, gs.clubId, mySquad(gs));
+  const facts = matchFacts(r, gs.clubId, mySquad(gs), new Set(gs.exits.map(e => e.id)));
   const { outlet, qs } = pickPressQuestions(ctx, rng, facts, gs.pressHistory);
   return {
     ...gs, phase: 'press', press: { outlet, q: qs[0], queue: qs.slice(1) },
@@ -2714,7 +2810,7 @@ export function advancePastPress(gs: GameState): GameState {
   const margin = (iAmHome ? r.score[0] : r.score[1]) - (iAmHome ? r.score[1] : r.score[0]);
   const picked = pickTrigger({
     margin, isDerby: isDerby(fx.homeId, fx.awayId), form: gs.form,
-    facts: matchFacts(r, gs.clubId, mySquad(gs)),
+    facts: matchFacts(r, gs.clubId, mySquad(gs), new Set(gs.exits.map(e => e.id))),
   });
   if (!picked) return endOfWeek(gs);
 

@@ -18,6 +18,21 @@ import { transferFee, WINTER_WEEKS } from '../src/game/transfers.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { makeSquad } from '../src/data/squadGen.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
+import type { MatchResult, Player } from '../src/engine/matchEngine.ts';
+import { matchFacts } from '../src/data/matchFacts.ts';
+import { askableFacts } from '../src/data/pressFacts.ts';
+
+/** A result in which one man scored against us, in the buyer's shirt. */
+function fakeGoalBy(gs: G.GameState, clubId: string, p: Player): MatchResult {
+  const stats = { possession: .5, chances: 5, goals: 0, xg: 1 };
+  return {
+    seed: 1,
+    home: { id: gs.clubId, name: 'me', stats: { ...stats } },
+    away: { id: clubId, name: 'them', stats: { ...stats, goals: 1 } },
+    score: [0, 1], ratings: {},
+    events: [{ minute: 70, type: 'goal', teamId: clubId, playerId: p.id, playerName: p.name, text: '' }],
+  };
+}
 
 const fails: string[] = [];
 let checked = 0;
@@ -119,6 +134,52 @@ function withSpare(gs: G.GameState): G.GameState {
   checked++;
   if (reg.emergencyYouth === kid.id && !G.partBlockedReason(reg, kid.id)) fails.push('the youth registered for the round could be let go');
   console.log('  never below sixteen, never the registered youth, and the eleven stays whole');
+}
+
+/* 5. HE WENT SOMEWHERE, AND THE STORY FOLLOWS HIM. */
+{
+  let gs = withSpare({ ...career(21), week: WINTER_WEEKS[0] });
+  const p = G.mySquad(gs).starters[8];
+  gs = G.partWays(gs, p.id, 'transfer');
+  const exit = gs.exits.find(e => e.id === p.id);
+  checked += 4;
+  if (!exit) fails.push('the sale left no record of where he went');
+  const buyer = exit ? gs.league.squads[exit.clubId] : null;
+  if (!buyer) fails.push('he was sold to a club that is not in the league');
+  else {
+    const there = [...buyer.starters, ...buyer.bench].some(x => x.id === p.id);
+    if (!there) fails.push('the buying club does not actually have him');
+    if (buyer.starters.length !== 11) fails.push(`the buying club now fields ${buyer.starters.length}`);
+    if (buyer.starters.length + buyer.bench.length > 20) fails.push('the buying club grew past twenty');
+  }
+  if (exit && !gs.pendingOutcome?.includes(gs.league.clubs.find(c => c.id === exit.clubId)!.short)) fails.push('the outcome does not name the club he went to');
+  if (!gs.chronicle.some(e => e.kind === 'sold' && e.title.includes(p.name))) fails.push('the chronicle did not record the sale');
+
+  // walk the fixtures until we meet his new club: the VS screen names him
+  let met = false;
+  for (let w = gs.week; w <= gs.league.rounds && !met; w++) {
+    const probe = { ...gs, week: w };
+    const fx = G.playerFixture(probe);
+    if (!fx) continue;
+    const opp = fx.homeId === gs.clubId ? fx.awayId : fx.homeId;
+    if (opp !== exit?.clubId) continue;
+    met = true;
+    checked += 2;
+    if (!G.exesAtNextOpponent(probe).some(e => e.id === p.id)) fails.push('facing his new club, he is not listed as a man you sold them');
+    if (!G.matchPreview(probe)?.exes.includes(p.name)) fails.push('the VS screen does not name him');
+  }
+  checked++;
+  if (!met) fails.push('never met his new club in the remaining fixtures, so the story could not be checked');
+
+  // and if he scores against you it is a story of its own, with a question
+  const r = fakeGoalBy(gs, exit?.clubId ?? gs.league.clubs.find(c => c.id !== gs.clubId)!.id, p);
+  const facts = matchFacts(r, gs.clubId, G.mySquad(gs), new Set(gs.exits.map(e => e.id)));
+  checked += 3;
+  if (facts[0]?.kind !== 'ex_scored') fails.push(`his goal against you reads as "${facts[0]?.kind}", not as the ex scoring`);
+  if (!askableFacts(facts).some(f => f.kind === 'ex_scored')) fails.push('there is no press question for the ex scoring');
+  const plain = matchFacts(r, gs.clubId, G.mySquad(gs), new Set());
+  if (plain.some(f => f.kind === 'ex_scored')) fails.push('a goal by a stranger reads as the ex scoring');
+  console.log('  he joins a club in the league, the VS screen names him, and his goal against you is the story');
 }
 
 console.log('');

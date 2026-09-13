@@ -62,6 +62,18 @@ export function VsScreen({ gs, onGo }: { gs: G.GameState; onGo: () => void }) {
         <span>{p.line}</span>
       </div>
 
+      {/* the man you sold them, waiting on the other side */}
+      {p.exes.length > 0 && (
+        <div className="vs-line" style={{ animation: 'riseIn .4s var(--ease-out) 1.15s both', borderColor: 'rgba(233,185,73,.4)' }}>
+          <Icon name="handshake" size={15} color="var(--gold)" />
+          <span>
+            {p.exes.length === 1
+              ? `${p.exes[0]}, שמכרת להם, מחכה לכם בצד השני.`
+              : `${p.exes.slice(0, 2).join(' ו')}, שמכרת להם, מחכים לכם בצד השני.`}
+          </span>
+        </div>
+      )}
+
       <div className="spacer" />
       <button className="btn" style={{ animation: 'riseIn .4s var(--ease-out) 1.2s both' }} onClick={onGo}>
         יוצאים למגרש <Icon name="chevron" size={17} />

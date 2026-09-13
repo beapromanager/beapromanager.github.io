@@ -25,7 +25,9 @@ export type ChronicleKind =
   | 'top_of_table'
   | 'streak_broken'
   | 'youngster_scored'
-  | 'season_end';
+  | 'season_end'
+  | 'sold'
+  | 'ex_scored';
 
 export interface ChronicleEntry {
   id: string;              // stable, dedupe-safe
@@ -46,6 +48,8 @@ const tint = (kind: ChronicleKind): ChronicleEntry['tint'] => {
     case 'top_of_table':
     case 'youngster_scored': return 'gold';
     case 'season_end': return 'gold';
+    case 'sold': return 'draw';
+    case 'ex_scored': return 'loss';
     default: return 'win';
   }
 };
@@ -63,6 +67,8 @@ const icon = (kind: ChronicleKind): IconName => {
     case 'youngster_scored': return 'boot';
     case 'season_end': return 'trophy';
     case 'sacked': return 'alert';
+    case 'sold': return 'handshake';
+    case 'ex_scored': return 'boot';
   }
 };
 
@@ -155,7 +161,17 @@ function detectors(c: Ctx): (ChronicleEntry | null)[] {
     break;
   }
 
+  // a man you sold, scoring against you in his new shirt
+  const exIds = new Set(c.prev.exits.map(e => e.id));
+  const exGoal = c.result.events.find(e => e.teamId !== c.prev.clubId && (e.type === 'goal' || e.type === 'penalty_goal') && exIds.has(e.playerId));
+
   return [
+    exGoal ? {
+      id: `ex-scored-w-`, kind: 'ex_scored', week: wk, icon: icon('ex_scored'), tint: tint('ex_scored'),
+      title: ` כבש נגדנו`,
+      body: `מכרת אותו ל, והוא חזר להזכיר לך בדקה . ככה זה עם שחקנים שעוזבים.`,
+    } : null,
+
     // Comeback beats "big win" as the headline moment when both are true
     comeback ? {
       id: `comeback-w${wk}`, kind: 'comeback', week: wk, icon: icon('comeback'), tint: tint('comeback'),
