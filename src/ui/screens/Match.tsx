@@ -3,6 +3,7 @@ import { asset } from '../asset.ts';
 import * as G from '../../game/state.ts';
 import * as L from '../../game/liveMatch.ts';
 import type { LiveState, Corner } from '../../game/liveMatch.ts';
+import type { FormationId } from '../../data/formations.ts';
 import type { MatchResult, Player } from '../../engine/matchEngine.ts';
 import { overall } from '../../engine/matchEngine.ts';
 import type { Club } from '../../data/clubs.ts';
@@ -279,6 +280,7 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
         /* the dressing room takes over the screen, nothing else matters now */
         <HalfTime st={st}
           onTalk={id => { L.halfTimeTalk(st, id); force(); }}
+          onShape={id => { L.changeFormation(st, id); force(); }}
           onSub={() => setSubOpen(true)} />
       ) : (
         <>
@@ -385,16 +387,31 @@ function fitColor(f: number): string {
 }
 
 /** One player line with a live fitness bar. Bench players read dimmer. */
-function FitRow({ p, bench, onTap, selected }: {
+function FitRow({ p, bench, onTap, selected, role }: {
   p: Player; bench?: boolean; onTap?: () => void; selected?: boolean;
+  /** the shirt he is wearing in the shape being played right now */
+  role?: string;
 }) {
   const f = Math.round(p.fitness);
   const o = overall(p);
+  // Where he IS, not only what he is. Once the shape can change at half time,
+  // picking substitutes off a man's natural position means picking off the
+  // formation you just abandoned. The natural position follows in brackets when
+  // the two disagree, because that is the bit that says he is out of position.
+  const here = role ?? p.position;
+  const moved = role !== undefined && role !== p.position;
   const inner = (
     <>
-      <span className="chip" style={{ background: 'rgba(255,255,255,.05)', color: 'var(--ink-faint)', minWidth: 34, justifyContent: 'center' }}>{p.position}</span>
+      <span className="chip" style={{
+        background: moved ? 'rgba(233,185,73,.14)' : 'rgba(255,255,255,.05)',
+        color: moved ? 'var(--gold-hi)' : 'var(--ink-faint)',
+        minWidth: 34, justifyContent: 'center',
+      }}>{here}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {p.name}
+          {moved && <span style={{ color: 'var(--ink-faint)', fontWeight: 600 }}> · {p.position} מטבעו</span>}
+        </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
           <span style={{ width: 44, height: 3, borderRadius: 2, background: 'rgba(255,255,255,.09)', overflow: 'hidden', display: 'block' }}>
             <span style={{ display: 'block', width: `${f}%`, height: '100%', background: fitColor(f), transition: 'width var(--t-slow) var(--ease)' }} />
@@ -422,7 +439,10 @@ function FitRow({ p, bench, onTap, selected }: {
 }
 
 /** The dressing room at 45 minutes: what you say, and who you change. */
-function HalfTime({ st, onTalk, onSub }: { st: LiveState; onTalk: (id: L.TalkId) => void; onSub: () => void }) {
+function HalfTime({ st, onTalk, onShape, onSub }: {
+  st: LiveState; onTalk: (id: L.TalkId) => void; onShape: (id: FormationId) => void; onSub: () => void;
+}) {
+  const shape = (st.iAmHome ? st.home : st.away).tactic.formation ?? '4-4-2';
   const idx = st.iAmHome ? 0 : 1;
   const diff = st.score[idx] - st.score[1 - idx];
   const mood = diff > 0 ? 'אתה מוביל. עכשיו לא מתפרקים.'
@@ -452,6 +472,25 @@ function HalfTime({ st, onTalk, onSub }: { st: LiveState; onTalk: (id: L.TalkId)
           <Icon name="sub" size={15} color="var(--gold)" /> חילופים והרכב
         </button>
       )}
+
+      {/* The other half of a dressing room. A manager who set up 4-4-2, watched
+          it get overrun for forty-five minutes and can only give a team talk
+          about it is commentating, not managing. Picking a shape here re-seats
+          the eleven immediately, so the bench sheet and the pitch both show the
+          new shape before he sends them back out. */}
+      <div className="label-cap" style={{ marginBottom: 8 }}>מערך למחצית השנייה</div>
+      <div className="row" style={{ gap: 7, marginBottom: 13, alignItems: 'stretch' }}>
+        {L.FORMATION_CHOICES.map(f => (
+          <button key={f.id} className={`ht-shape${f.id === shape ? ' on' : ''}`}
+            aria-pressed={f.id === shape} onClick={() => onShape(f.id)}>
+            <span className="ht-shape-num num">{f.label}</span>
+            <span className="ht-shape-name">{f.name}</span>
+          </button>
+        ))}
+      </div>
+      <p className="hint" style={{ margin: '-6px 0 13px', textAlign: 'center' }}>
+        {L.FORMATION_CHOICES.find(f => f.id === shape)?.desc}
+      </p>
 
       <div className="label-cap" style={{ marginBottom: 8 }}>מה אתה אומר להם</div>
       <div className="stack" style={{ gap: 8 }}>
@@ -566,6 +605,10 @@ function SubSheet({ st, onSub, onClose, focusId, benchKit }: {
   const [picked, setPicked] = useState<string | null>(focusId ?? null);
   const side = st.iAmHome ? st.home : st.away;
   const canSub = L.canSub(st) && (st.phase === 'play' || st.phase === 'halftime');
+  // who is wearing which shirt in the shape being played RIGHT NOW, so a manager
+  // who went to three at the back at half time picks his substitutes off the
+  // formation he is actually playing
+  const roles = L.slotRoles(st);
 
 
   return (
@@ -617,7 +660,7 @@ function SubSheet({ st, onSub, onClose, focusId, benchKit }: {
 
           {side.onPitch.map(p => (
             <div key={p.id}>
-              <FitRow p={p} selected={picked === p.id}
+              <FitRow p={p} selected={picked === p.id} role={roles.get(p.id)}
                 onTap={canSub ? () => setPicked(picked === p.id ? null : p.id) : undefined} />
               {picked === p.id && (
                 <SubOptions st={st} off={p}

@@ -15,7 +15,7 @@
 import { createRng, teamRatings, overall } from '../engine/matchEngine.ts';
 import type { Player, Approach, Press, MatchResult, MatchEvent, TeamInput } from '../engine/matchEngine.ts';
 import { assignTraits } from '../data/personalities.ts';
-import { DEFAULT_FORMATION, formationForClub } from '../data/formations.ts';
+import { DEFAULT_FORMATION, formationForClub, formation, fillFormation, FORMATIONS } from '../data/formations.ts';
 import type { FormationId } from '../data/formations.ts';
 import { playerMods, teamMoraleBump } from './traitEffects.ts';
 import type { PlayerMods } from './traitEffects.ts';
@@ -921,6 +921,69 @@ export function halfTimeTalk(st: LiveState, id: TalkId) {
 /** Leave half time without saying anything special. */
 export function resumeFromHalfTime(st: LiveState) {
   st.phase = 'play';
+}
+
+/* ------------------------------------------------------- changing the shape */
+
+/**
+ * Change the shape at half time.
+ *
+ * A manager who set up 4-4-2, watched it get overrun for forty-five minutes and
+ * can only give a team talk about it is not managing, he is commentating. This
+ * is the other half of the dressing room: go to three at the back, or throw a
+ * third man up front, and live with it.
+ *
+ * The eleven are re-seated into the new shape rather than left where they were.
+ * onPitch is an ordered array whose index IS the slot, so leaving it alone would
+ * put a striker at wing back and draw him there on the pitch. fillFormation
+ * picks who fills each line and seats each line by who fits it.
+ *
+ * Nobody's position is rewritten. A midfielder asked to play wing back is still
+ * a midfielder having a hard evening, which is what the squad screen has always
+ * said and what the ratings model already prices in.
+ *
+ * Deliberately half time only. Reshaping mid-play would be a free tactical
+ * reset every time the opponent threatened, and the in-match shout already
+ * exists for that.
+ */
+/** The shapes a manager may switch to, for a picker that never hard-codes them. */
+export const FORMATION_CHOICES = FORMATIONS.map(f => ({ id: f.id, label: f.label, name: f.name, desc: f.desc }));
+
+export function canChangeFormation(st: LiveState): boolean {
+  return st.phase === 'halftime';
+}
+
+export function changeFormation(st: LiveState, id: FormationId): boolean {
+  if (!canChangeFormation(st)) return false;
+  const side = playerSide(st);
+  if ((side.tactic.formation ?? DEFAULT_FORMATION) === id) return false;
+
+  side.tactic = { ...side.tactic, formation: id };
+  side.onPitch = fillFormation(side.onPitch, formation(id));
+  st.events.push({
+    minute: 45, type: 'tactic', teamId: side.id,
+    text: `שינוי מערך בהפסקה, ${formation(id).label} ${formation(id).name}`,
+  });
+  return true;
+}
+
+/**
+ * The shirt each man is wearing in the CURRENT shape, slot by slot.
+ *
+ * The bench sheet used to show only a player's natural position, which was fine
+ * while the shape never moved. Once it can move at half time, "who do I take off
+ * and who comes on" needs the answer to "who is playing where NOW" — otherwise
+ * a manager who switched to a back five is picking substitutes off a map of the
+ * formation he just abandoned.
+ */
+export function slotRoles(st: LiveState): Map<string, string> {
+  const side = playerSide(st);
+  const f = formation(side.tactic.formation);
+  const out = new Map<string, string>();
+  fillFormation(side.onPitch, f).forEach((p, i) => {
+    if (f.slots[i]) out.set(p.id, f.slots[i].role);
+  });
+  return out;
 }
 
 /* ------------------------------------------------------------- substitution */

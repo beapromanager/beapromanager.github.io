@@ -1136,3 +1136,18 @@ input{font-family:inherit;}
   box-shadow: var(--e3); padding: 20px 16px 16px;
   animation: pop .3s var(--ease-out);
 }
+
+/* the half time shape picker: three shirts-worth of choice, side by side */
+.ht-shape{
+  flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:10px 6px; border-radius:var(--r-sm);
+  background:var(--surface); border:1px solid var(--line); color:var(--ink-dim);
+  transition:all var(--t-fast) var(--ease);
+}
+.ht-shape.on{
+  background:linear-gradient(180deg, rgba(233,185,73,.16), rgba(233,185,73,.06));
+  border-color:rgba(233,185,73,.55); color:var(--ink);
+}
+.ht-shape-num{font-family:var(--font-display); font-size:17px; line-height:1.1;}
+.ht-shape.on .ht-shape-num{color:var(--gold-hi);}
+.ht-shape-name{font-size:11.5px; font-weight:700;}
