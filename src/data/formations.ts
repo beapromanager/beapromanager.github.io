@@ -1,5 +1,5 @@
 /**
- * The three formations you can pick, and the shape each one draws on the pitch.
+ * The four formations you can pick, and the shape each one draws on the pitch.
  *
  * One source of truth: the tactics screen reads the labels, the match engine
  * reads the att/def multipliers, and the 2D pitch reads the slots. Change a
@@ -13,7 +13,7 @@
 
 import type { Player } from '../engine/matchEngine.ts';
 
-export type FormationId = '4-4-2' | '4-3-3' | '5-4-1';
+export type FormationId = '4-4-2' | '4-3-3' | '4-5-1' | '5-4-1';
 export type Line = 'GK' | 'DEF' | 'MID' | 'FWD';
 
 /** What a slot IS on the pitch, which is not always what its player is. */
@@ -92,6 +92,27 @@ export const FORMATIONS: Formation[] = [
       { d: 0.90, y: 0.13, line: 'FWD', role: 'LW', brk: { d: 0.08, y: 0.20 } },    // כנף חותך פנימה
       { d: 1.00, y: 0.50, line: 'FWD', role: 'ST', brk: { d: -0.34, y: 0.00 } },   // חלוץ יורד
       { d: 0.90, y: 0.87, line: 'FWD', role: 'RW', brk: { d: 0.08, y: -0.20 } },
+    ],
+  },
+  {
+    id: '4-5-1',
+    label: '4-5-1',
+    name: 'שליטה',
+    desc: 'שני בלמים ומגן בכל צד, חמישה בקישור, חלוץ בודד. שולטים בכדור ובאמצע, החלוץ עובד לבד למעלה.',
+    counts: [4, 5, 1],
+    att: 0.95, def: 1.05, line: -0.02,
+    slots: [
+      { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
+      { d: 0.09, y: 0.13, line: 'DEF', role: 'LB', brk: { d: 0.46, y: -0.08 } },
+      { d: 0.00, y: 0.37, line: 'DEF', role: 'CB', brk: { d: 0.24, y: 0.04 } },
+      { d: 0.00, y: 0.63, line: 'DEF', role: 'CB', brk: { d: 0.24, y: -0.04 } },
+      { d: 0.09, y: 0.87, line: 'DEF', role: 'RB', brk: { d: 0.46, y: 0.08 } },
+      { d: 0.54, y: 0.11, line: 'MID', role: 'LM', brk: { d: 0.30, y: -0.03 } },   // קשר אגף, מצטרף לחלוץ
+      { d: 0.48, y: 0.32, line: 'MID', role: 'CM', brk: { d: 0.36, y: 0.06 } },    // הקשרים הפנימיים רצים לקופסה
+      { d: 0.34, y: 0.50, line: 'MID', role: 'CDM', brk: { d: 0.22, y: 0.00 } },   // העוגן נשאר
+      { d: 0.48, y: 0.68, line: 'MID', role: 'CM', brk: { d: 0.36, y: -0.06 } },
+      { d: 0.54, y: 0.89, line: 'MID', role: 'RM', brk: { d: 0.30, y: 0.03 } },
+      { d: 0.94, y: 0.50, line: 'FWD', role: 'ST', brk: { d: -0.22, y: 0.08 } },   // החלוץ הבודד יורד ומושך בלם
     ],
   },
   {

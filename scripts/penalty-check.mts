@@ -140,7 +140,13 @@ const everyN = 1 / perMatch;
   const rSave = right.savedPens / Math.max(1, right.against);
   const wSave = wrong.savedPens / Math.max(1, wrong.against);
   checked += 2;
-  if (rSave - wSave < 0.2) {
+  // The hint is right 60% of the time and there are three corners, so the
+  // most a keeper who trusts it can gain over one who defies it is about 34%
+  // saved against 15%, a gap of 0.19 before sampling noise (roughly 280
+  // penalties an arm, so plus or minus 0.04). The bar sits two deviations
+  // under that: low enough to be reachable, high enough that a slot machine
+  // (a gap near zero) still fails.
+  if (rSave - wSave < 0.12) {
     fails.push(`reading it right saves ${(rSave * 100).toFixed(0)}% and reading it wrong ${(wSave * 100).toFixed(0)}%: the call barely matters`);
   }
   if (wSave > 0.25) fails.push(`${(wSave * 100).toFixed(0)}% saved going the wrong way, which is not a wrong way`);
