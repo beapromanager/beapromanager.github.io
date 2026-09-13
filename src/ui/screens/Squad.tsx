@@ -76,7 +76,7 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mar
           {mark === 'banned' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(226,72,77,.18)', color: 'var(--loss)' }}>מורחק</span>}
           {mark === 'sheet' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(255,255,255,.08)', color: 'var(--ink-faint)' }}>רשום בלבד</span>}
         </div>
-        <div className="sub" style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div className="sub" style={{ fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {/* Pace and shooting used to follow the age here. Two numbers out of
               six, on a row that already carries the overall rating, telling a
               manager almost nothing and crowding out the line that says who the
@@ -221,7 +221,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
   return (
     <div className="screen pad stack pad-b" style={{ gap: 12 }}>
       {firstTime && <Stepper current={5} />}
-      {firstTime && <CoachGuide text="אלה השחקנים שקיבלת. תכיר אותם טוב, לחץ על כל אחד לכרטיס. איתם אנחנו מתחילים לטפס." />}
+      {firstTime && <CoachGuide text="אלה השחקנים שלך. שלושה שכדאי להכיר למעלה, כל השאר בלחיצה על השם." />}
       <div className="row" style={{ marginTop: 8 }}>
         <Crest club={c} size={46} />
         {/* the shirt these players pull on, beside the badge they play for */}
@@ -229,7 +229,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="h2">הסגל שלך</div>
           <div className="sub" style={{ fontSize: 14 }}>
-            {firstTime ? `${gs.profile.name}, אלה השחקנים שלך. תכיר אותם.` : `${c.name} · ${G.squadSize(gs)} שחקנים`}
+            {`${c.name} · ${G.squadSize(gs)} שחקנים`}
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>
@@ -340,43 +340,50 @@ export function SquadScreen({ gs, firstTime, onSwap, onDone }: {
 }
 
 /**
- * First meeting with the squad. Nobody remembers eleven ratings, but everybody
- * remembers the keeper who goes out on Thursdays. Four players WITH a
- * personality get introduced, spread across the squad, stable for a given squad.
+ * First meeting with the squad. Nobody remembers sixteen ratings, so the
+ * introduction is the three men who stand out: the best three by rating, each
+ * with his position, his number, and one line on who he is. The line is his
+ * character when he has one, and what he is for the team when he does not,
+ * so a plain squad still has three names to remember.
  */
 function DressingRoom({ sq, traitMap, onOpen }: {
   sq: Squad; traitMap: Map<string, Trait[]>; onOpen: (p: Player) => void;
 }) {
-  const withTrait = [...sq.starters, ...sq.bench].filter(p => (traitMap.get(p.id) ?? []).length > 0);
-  const step = Math.max(1, Math.floor(withTrait.length / 4));
-  const picks = [0, 1, 2, 3]
-    .map(i => withTrait[(i * step) % withTrait.length])
-    .filter((p, i, a) => p && a.indexOf(p) === i);
+  const picks = [...sq.starters, ...sq.bench].sort((a, b) => overall(b) - overall(a)).slice(0, 3);
+  const ROLE: Record<'gk' | 'def' | 'mid' | 'atk', string> = {
+    gk: 'השוער מספר אחת. עליו הכל נשען.',
+    def: 'העוגן מאחור. כשהוא בקו, ההגנה שקטה.',
+    mid: 'המנוע בקישור. הכדור עובר דרכו.',
+    atk: 'הכי מסוכן שלך מול השער.',
+  };
 
   return (
     <div className="tile-hero" style={{ padding: '14px 14px 12px' }}>
       <div className="row" style={{ gap: 8, marginBottom: 11 }}>
         <Icon name="crowd" size={17} color="var(--gold)" />
-        <span className="label-cap">מה שסיפרו לך על חדר ההלבשה</span>
+        <span className="label-cap">שלושה שכדאי להכיר</span>
       </div>
-      <div className="stack stagger" style={{ gap: 10 }}>
+      <div className="stack stagger" style={{ gap: 8 }}>
         {picks.map((p, i) => {
           const t = (traitMap.get(p.id) ?? [])[0];
-          if (!t) return null;
+          const o = overall(p);
           return (
-            <button key={p.id} onClick={() => onOpen(p)} style={{ ...({ '--i': i } as React.CSSProperties), textAlign: 'start', display: 'block' }}>
-              <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
-                <span style={{ width: 6, height: 6, borderRadius: 2, background: TONE_COLOR[t.tone], marginTop: 6, flex: 'none' }} />
-                <span style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--ink-dim)' }}>
-                  {renderLine(t, p)}
-                  {t.tip && <span style={{ color: 'var(--ink-faint)', fontStyle: 'italic' }}> {t.tip}</span>}
+            <button key={p.id} onClick={() => onOpen(p)}
+              style={{ ...({ '--i': i } as React.CSSProperties), textAlign: 'start', display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '6px 2px' }}>
+              <span className="chip" style={{ background: 'rgba(255,255,255,.07)', color: LINE_COLOR[LINE_OF[p.position]], minWidth: 36, justifyContent: 'center' }}>{p.position}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontWeight: 800, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+                <span style={{ display: 'block', fontSize: 14.5, lineHeight: 1.45, color: t ? 'var(--ink-dim)' : 'var(--ink-faint)' }}>
+                  {t
+                    ? <><span style={{ color: TONE_COLOR[t.tone], fontWeight: 700 }}>{t.label}</span><span style={{ opacity: .5 }}> · </span>{renderLine(t, { ...p, name: p.name.split(' ').slice(-1)[0] })}</>
+                    : ROLE[LINE_OF[p.position]]}
                 </span>
-              </div>
+              </span>
+              <span className="score-face" style={{ fontSize: 26, color: ovrColor(o), width: 34, textAlign: 'center' }}>{o}</span>
             </button>
           );
         })}
       </div>
-      <div className="hint" style={{ marginTop: 11 }}>לחץ על שחקן כדי לפתוח את הכרטיס שלו.</div>
     </div>
   );
 }

@@ -129,7 +129,9 @@ export interface Tactic { approach: Approach; press: Press; formation: Formation
 /** Something the manager must be told on the way back to the hub. */
 export type SquadNotice =
   | { kind: 'suspended'; playerId: string; name: string; rival: string; needYouth: boolean }
-  | { kind: 'youth_back'; name: string };
+  | { kind: 'youth_back'; name: string }
+  | { kind: 'window'; weeks: number };
+
 export interface RoundResult { homeId: string; awayId: string; hg: number; ag: number; }
 
 export interface ManagerProfile {
@@ -2612,7 +2614,14 @@ function endOfWeek(gs: GameState): GameState {
     const chronicle = finale ? [...gs.chronicle, finale] : gs.chronicle;
     return { ...gs, phase: 'season-end', press: null, chat: null, chronicle, fanHistory };
   }
-  return { ...gs, phase: 'hub', week: gs.week + 1, press: null, chat: null, fanHistory };
+  // the winter window opens with a word, not silently behind a green dot
+  const next = gs.week + 1;
+  const wintry = windowState(next, gs.league.rounds);
+  const wasOpen = windowState(gs.week, gs.league.rounds).open;
+  const notices = wintry.open && !wasOpen
+    ? [...gs.notices, { kind: 'window' as const, weeks: wintry.weeksLeft }]
+    : gs.notices;
+  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices };
 }
 
 /**

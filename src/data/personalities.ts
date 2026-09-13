@@ -23,6 +23,7 @@ import type { Player } from '../engine/matchEngine.ts';
 import type { Legend } from './legends.ts';
 import { legendByName } from './legends.ts';
 import { overall } from '../engine/matchEngine.ts';
+import { BRONZE_FROM } from '../game/cards.ts';
 
 export type Tone = 'fun' | 'warn' | 'heart' | 'pro';
 
@@ -418,6 +419,8 @@ function wantCount(p: Player): number {
  * because only that path dedups and thins the weak ones.
  */
 export function traitsFor(p: Player): Trait[] {
+  // the same floor as the squad pass: below bronze there is no character line
+  if (overall(p) < OVR_FLOOR && !legendByName(p.name)) return [];
   const ordered = orderedTraits(p);
   const want = wantCount(p);
   const picked: Trait[] = [];
@@ -431,10 +434,15 @@ export function traitsFor(p: Player): Trait[] {
   return picked;
 }
 
-/** Really weak players stay anonymous, a personality is earned. */
-const OVR_FLOOR = 52;
-/** Roughly this share of a squad has a personality at all. */
-const COVERAGE = 0.65;
+/**
+ * A personality is earned. Plain cards stay anonymous; from
+ * light bronze (copper) up every man has one. "The simple ones are simple",
+ * as Itzik put it: a line of character on a 55 rated reserve made the
+ * squad read as noise, and made the real characters harder to spot.
+ */
+const OVR_FLOOR = BRONZE_FROM;
+/** Everyone above the floor. */
+const COVERAGE = 1;
 
 /**
  * Assign traits across a whole group of players at once. No trait repeats, a

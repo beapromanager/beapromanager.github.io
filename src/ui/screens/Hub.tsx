@@ -64,14 +64,14 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
           <Kit kit={homeKit(c)} size={30} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 21, lineHeight: 1.15 }}>{c.name}</div>
-            <div style={{ fontSize: 13, color: 'var(--ink-faint)', fontWeight: 600, marginTop: 3 }}>
+            <div style={{ fontSize: 14, color: 'var(--ink-faint)', fontWeight: 600, marginTop: 3 }}>
               {LEAGUE_NAMES[c.tier]} · מחזור <span className="num">{gs.week}/{gs.league.rounds}</span>
             </div>
           </div>
           <Form form={gs.form} />
         </div>
 
-        <GoalStrip goal={goal} onPress={onTable} />
+        <GoalStrip gs={gs} goal={goal} onPress={onTable} />
 
         <div ref={hero}>
           <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} />
@@ -130,10 +130,24 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
  * is red, and your rung is the one that is lit. Reading a position out of a
  * table takes a beat; seeing where you stand on a ladder takes none.
  */
-function GoalStrip({ goal, onPress }: { goal: G.SeasonGoal; onPress: () => void }) {
+/**
+ * The strip is a door to the table, and it used to look like a label: nobody
+ * pressed it. Now it shows the three rows that matter (the club above, you,
+ * the club below, with points) and says where it leads, so it reads as a thing
+ * with more inside rather than a sentence.
+ */
+function GoalStrip({ gs, goal, onPress }: { gs: G.GameState; goal: G.SeasonGoal; onPress: () => void }) {
   const tone = goal.zone === 'promo' ? 'var(--gold)' : goal.zone === 'drop' ? 'var(--loss)' : 'var(--ink-dim)';
+  const table = G.sortedTable(gs.league);
+  const i = Math.max(0, table.findIndex(s => s.clubId === gs.clubId));
+  const rows = [table[i - 1], table[i], table[i + 1]].filter(Boolean).map(s => ({
+    pos: table.indexOf(s) + 1,
+    name: gs.league.clubs.find(c => c.id === s.clubId)?.short ?? '',
+    pts: s.pts,
+    me: s.clubId === gs.clubId,
+  }));
   return (
-    <button className="goal" onClick={onPress} style={{ '--tone': tone } as React.CSSProperties}>
+    <button className="goal" onClick={onPress} style={{ '--tone': tone } as React.CSSProperties} aria-label="המטרה, לחץ לטבלה המלאה">
       <div className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
         <span className="label-cap">המטרה · {goal.target}</span>
         <span className="goal-pos">
@@ -150,6 +164,21 @@ function GoalStrip({ goal, onPress }: { goal: G.SeasonGoal; onPress: () => void 
         })}
       </div>
       <div className="goal-line">{goal.line}</div>
+      {goal.played > 0 && (
+        <div className="goal-rows">
+          {rows.map(r => (
+            <div key={r.pos} className="goal-row" data-me={r.me ? '1' : '0'}>
+              <span className="num goal-row-pos">{r.pos}</span>
+              <span className="goal-row-name">{r.name}</span>
+              <span className="num goal-row-pts">{r.pts} נק׳</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="goal-more">
+        <span>הטבלה המלאה, הפורם והשערים</span>
+        <Icon name="chevron" size={15} />
+      </div>
     </button>
   );
 }

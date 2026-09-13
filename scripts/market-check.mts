@@ -12,7 +12,10 @@
 import * as G from '../src/game/state.ts';
 import { overall } from '../src/engine/matchEngine.ts';
 import { PRE_ROUNDS } from '../src/game/preseason.ts';
-import { refreshMarket } from '../src/game/transfers.ts';
+import { refreshMarket, WINTER_WEEKS } from '../src/game/transfers.ts';
+import { simulateMatch } from '../src/engine/matchEngine.ts';
+import { DEFAULT_FORMATION } from '../src/data/formations.ts';
+import { CITIES } from '../src/data/cities.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 
 /** the same grouping the squad screen uses; kept local, that one lives in a .tsx */
@@ -110,6 +113,35 @@ for (let tier = 1; tier <= 5; tier++) {
 }
 
 console.log(`\n${checked} checks across 3 careers, ${PRE_ROUNDS} summer rounds each`);
+/* THE WINTER WINDOW OPENS WITH A WORD.
+   It used to open behind a green dot on the transfers cell that nobody read.
+   The week it opens, and only that week, a notice waits before the hub. */
+{
+  let gs = G.newGame(3131);
+  gs = G.setProfile(gs, { name: 'x', nickname: '', type: 'hunter', age: 40 } as never);
+  gs = G.pickCity(gs, CITIES[3].name);
+  gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+  while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
+  const seen: number[] = [];
+  for (let w = 0; w < 12 && !gs.seasonOver; w++) {
+    const inp = G.liveMatchInput(gs);
+    const res = simulateMatch(
+      { id: inp.homeId, name: inp.homeName, players: inp.iAmHome ? inp.playerStarters : inp.oppStarters,
+        tactic: { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' }, chemistry: 0.7, isHome: true },
+      { id: inp.awayId, name: inp.awayName, players: inp.iAmHome ? inp.oppStarters : inp.playerStarters,
+        tactic: { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' }, chemistry: 0.7, isHome: false },
+      inp.seed + w);
+    gs = G.continueFromResult(G.commitRound(gs, { ...res, events: res.events.filter(e => e.type !== 'red') }));
+    while (gs.phase === 'press') gs = G.answerPress(gs, 0);
+    if ((gs as { phase: string }).phase === 'chat') gs = G.closeChat(gs);
+    if (gs.notices.some(n => n.kind === 'window')) seen.push(gs.week);
+    while (gs.notices.length) gs = G.dismissNotice(gs);
+  }
+  const opens = WINTER_WEEKS[0];
+  if (seen.join() !== String(opens)) fails.push(`the window notice showed in weeks [${seen.join(', ')}], expected only week ${opens}`);
+  console.log(`  the winter window announces itself once, in week ${opens}`);
+}
+
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, the market moves, warns before it takes, and ends on a star');
 process.exit(fails.length ? 1 : 0);

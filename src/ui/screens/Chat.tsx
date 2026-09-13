@@ -145,7 +145,7 @@ function Bubble({ name, text, time, group, senders, first }: {
         boxShadow: '0 1px 1px rgba(0,0,0,.28)',
       }}>
         {group && !mine && first && (
-          <div style={{ color: tint, fontSize: 12.5, fontWeight: 700, marginBottom: 2 }}>{name}</div>
+          <div style={{ color: tint, fontSize: 13.5, fontWeight: 700, marginBottom: 2 }}>{name}</div>
         )}
         <span>{text}</span>
         <span style={{

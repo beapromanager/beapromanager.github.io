@@ -26,13 +26,16 @@ export const RARITY_LABEL: Record<Rarity, string> = {
   elite: 'זהב מטאלי',
 };
 
+/** Where the bronze cards begin: the first card that gets a personality. Below it a card is plain. */
+export const BRONZE_FROM = 57;
+
 /** OVR to rarity. Thresholds calibrated against the tier ceilings above. */
 export function rarityForOvr(ovr: number): Rarity {
   if (ovr >= 84) return 'elite';
   if (ovr >= 76) return 'gold';
   if (ovr >= 69) return 'silver';
   if (ovr >= 63) return 'copper';
-  if (ovr >= 57) return 'brown';
+  if (ovr >= BRONZE_FROM) return 'brown';
   return 'plain';
 }
 

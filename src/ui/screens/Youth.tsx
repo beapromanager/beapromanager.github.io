@@ -49,7 +49,7 @@ export function YouthScreen({ gs, onPromote, onRelease, onRegister, onBack }: {
         {emergency && (
           <div className="tile" style={{ borderColor: 'rgba(226,72,77,.45)', background: 'rgba(226,72,77,.08)' }}>
             <div style={{ fontWeight: 800, fontSize: 15 }}>חסר שם בסגל למחזור</div>
-            <div className="sub" style={{ fontSize: 13.5, marginTop: 4 }}>
+            <div className="sub" style={{ fontSize: 14.5, marginTop: 4 }}>
               הליגה דורשת {G.MIN_SQUAD} שמות כשירים ויש לך {G.eligibleCount(gs)}. תרשום ילד מהנוער, בכל גיל.
               הוא ייכנס לרשימה בלבד, לא ישחק, ויחזור לנוער אחרי המשחק.
             </div>
@@ -57,7 +57,7 @@ export function YouthScreen({ gs, onPromote, onRelease, onRegister, onBack }: {
               {kids.map(p => (
                 <div key={p.id} className="row" style={{ gap: 8, alignItems: 'center' }}>
                   <span className="chip" style={{ background: 'rgba(255,255,255,.06)', minWidth: 34, justifyContent: 'center' }}>{p.position}</span>
-                  <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name} <span className="sub num" style={{ fontSize: 12 }}>{p.age}</span></span>
+                  <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name} <span className="sub num" style={{ fontSize: 12 }}>{p.age}</span></span>
                   <button className="btn btn-sm" style={{ width: 'auto', flex: '0 0 auto', minHeight: 40, padding: '8px 14px', fontSize: 14 }} onClick={() => onRegister(p.id)}>רשום למחזור</button>
                 </div>
               ))}
@@ -100,7 +100,7 @@ function ReadyCard({ p, canTake, onPromote, onRelease }: {
         <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--ink-dim)', minWidth: 34, justifyContent: 'center' }}>{p.position}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-          <div className="sub" style={{ fontSize: 12.5 }}>בן <span className="num">{p.age}</span></div>
+          <div className="sub" style={{ fontSize: 13.5 }}>בן <span className="num">{p.age}</span></div>
         </div>
         <div className="score-face num" style={{ fontSize: 26, color: ovrColor(o) }}>{o}</div>
       </div>
@@ -125,8 +125,8 @@ function GrowingRow({ p }: { p: Player }) {
     }}>
       <span className="chip" style={{ background: 'rgba(255,255,255,.05)', color: 'var(--ink-faint)', minWidth: 34, justifyContent: 'center' }}>{p.position}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-        <div className="sub" style={{ fontSize: 12 }}>בן <span className="num">{p.age}</span></div>
+        <div style={{ fontWeight: 700, fontSize: 14.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+        <div className="sub" style={{ fontSize: 13.5 }}>בן <span className="num">{p.age}</span></div>
       </div>
       <div className="num" style={{ fontSize: 18, fontWeight: 800, color: ovrColor(o) }}>{o}</div>
     </div>

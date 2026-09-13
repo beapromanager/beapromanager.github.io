@@ -107,11 +107,11 @@ export function PlayerCard({ p, club, season, career, traits, onClose }: {
                     }} />
                     <span style={{ fontSize: 12, fontWeight: 800, color: TONE_COLOR[t.tone] }}>{t.label}</span>
                   </div>
-                  <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink)' }}>{renderLine(t, p)}</div>
+                  <div style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--ink)' }}>{renderLine(t, p)}</div>
                   {t.tip && (
                     <div className="row" style={{ gap: 6, marginTop: 8 }}>
                       <Icon name="clipboard" size={13} color="var(--ink-faint)" />
-                      <span style={{ fontSize: 12, color: 'var(--ink-dim)', fontStyle: 'italic' }}>{t.tip}</span>
+                      <span style={{ fontSize: 13, color: 'var(--ink-dim)', fontStyle: 'italic' }}>{t.tip}</span>
                     </div>
                   )}
                 </div>

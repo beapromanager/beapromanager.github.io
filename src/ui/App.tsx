@@ -232,7 +232,8 @@ export function App() {
         <NoticeScreen gs={gs}
           onDismiss={() => setGs(g => G.dismissNotice(g))}
           onSquad={() => { setSquadFromHub(true); setGs(g => G.openSquad(G.dismissNotice(g))); }}
-          onYouth={() => setGs(g => G.openYouth(G.dismissNotice(g)))} />
+          onYouth={() => setGs(g => G.openYouth(G.dismissNotice(g)))}
+          onTransfers={() => setGs(g => G.openTransfers(G.dismissNotice(g)))} />
       )}
       {gs.phase === 'hub' && gs.notices.length === 0 && (
         <Hub gs={gs}
