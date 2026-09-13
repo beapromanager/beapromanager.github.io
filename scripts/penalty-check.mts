@@ -300,6 +300,22 @@ void overall;
 
 console.log(`\n${checked} checks`);
 console.log(`one penalty every ${everyN.toFixed(1)} matches, ${((t.forUs / (t.forUs + t.against)) * 100).toFixed(0)}% of them yours`);
+/* THE CLOCK STOPS BEHIND EVERY OUTCOME CARD.
+   The conceded-penalty card was the one the clock kept running behind, so the
+   match played on under "ספגנו." and the manager came back to a pile of
+   minutes he never saw. Every outcome state the screen declares has to gate
+   the clock, so the next card added cannot quietly repeat this. */
+{
+  const src = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  const states = [...src.matchAll(/const \[(\w+Outcome), set\w+\] = useState/g)].map(m => m[1]);
+  const running = src.match(/const running = [^\n]+/)?.[0] ?? '';
+  const missing = states.filter(s => !running.includes(`!${s}`));
+  checked++;
+  if (!states.length || !running) fails.push('could not read the outcome states or the clock gate out of Match.tsx');
+  else if (missing.length) fails.push(`the clock keeps running behind: ${missing.join(', ')}`);
+  console.log(`  the clock stops behind all ${states.length} outcome cards`);
+}
+
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, a penalty every three games, and every one of them your call');
 process.exit(fails.length ? 1 : 0);

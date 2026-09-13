@@ -1572,7 +1572,14 @@ export function dismissNotice(gs: GameState): GameState {
 /** Why a swap is not allowed, or null when it is fine. */
 export function swapBlockedReason(a: Player, b: Player, gs?: GameState): string | null {
   const aGk = a.position === 'GK', bGk = b.position === 'GK';
-  if (aGk !== bGk) return 'שוער יכול להתחלף רק בשוער';
+  // The rule is that exactly one keeper is in the eleven after the swap, not
+  // that a keeper only ever swaps with a keeper. The old wording trapped a
+  // reserve keeper who had been pushed into an outfield slot over the summer:
+  // he was not in goal, and still nobody but a keeper could replace him.
+  const gksNow = gs ? mySquad(gs).starters.filter(p => p.position === 'GK').length : 1;
+  const gksAfter = gksNow - (aGk ? 1 : 0) + (bGk ? 1 : 0);
+  if (gksAfter === 0) return 'חייב להישאר שוער אחד בשער';
+  if (gksAfter > 1) return 'יש כבר שוער בשער, שוער שני לא עולה';
   // the bench man is the one coming in
   if (gs && isSuspended(gs, b.id)) return `${b.name} מורחק למחזור הזה, הוא לא יכול לעלות להרכב`;
   if (gs && gs.emergencyYouth === b.id) return `${b.name} רשום לסגל בלבד, הוא לא משחק במחזור הזה`;

@@ -1053,8 +1053,12 @@ export function subBlockedReason(st: LiveState, offId: string, onId: string): st
   const off = playerSide(st).onPitch.find(p => p.id === offId);
   const on = playerSide(st).bench.find(p => p.id === onId);
   if (!off || !on) return 'בחר שחקן יוצא ושחקן נכנס';
-  const offGk = off.position === 'GK', onGk = on.position === 'GK';
-  if (offGk !== onGk) return 'שוער מתחלף רק בשוער';
+  // exactly one keeper stays in goal, which also lets a keeper stranded in an
+  // outfield slot be taken off for an outfield man
+  const gksNow = playerSide(st).onPitch.filter(p => p.position === 'GK').length;
+  const gksAfter = gksNow - (off.position === 'GK' ? 1 : 0) + (on.position === 'GK' ? 1 : 0);
+  if (gksAfter === 0) return 'חייב להישאר שוער אחד בשער';
+  if (gksAfter > 1) return 'יש כבר שוער בשער, שוער שני לא עולה';
   return null;
 }
 
@@ -1098,4 +1102,17 @@ export function finalize(st: LiveState): MatchResult {
     ratings,
     shape: st.shape,
   };
+}
+
+/* ---------------------------------------------------------------- banner */
+
+/**
+ * The words on the big banner, by what actually happened. Every "big" event
+ * used to shout גוווול, so a red card at 0-0, or a penalty the keeper kept
+ * out, flashed a goal that never was. `good` is whether it is good for us.
+ */
+export function flashWords(ev: Pick<LiveEvent, 'type'>, mine: boolean): { word: string; good: boolean } {
+  if (ev.type === 'red') return { word: 'אדום!', good: !mine };
+  if (ev.type === 'penalty_miss') return mine ? { word: 'החמצה', good: false } : { word: 'הצלה!', good: true };
+  return { word: 'גוווול', good: mine };
 }

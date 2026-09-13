@@ -146,6 +146,23 @@ function play(seed: number, t: Tally, press: 'low' | 'mid' | 'high' = 'mid', sli
 }
 
 console.log(`\n${checked} checks`);
+/* THE BANNER SAYS WHAT HAPPENED.
+   A red card at 0-0 used to flash גוווול, because the banner fired on every
+   big event and only ever knew one word. */
+{
+  const red = L.flashWords({ type: 'red' }, true);
+  const theirRed = L.flashWords({ type: 'red' }, false);
+  const saved = L.flashWords({ type: 'penalty_miss' }, false);
+  const missed = L.flashWords({ type: 'penalty_miss' }, true);
+  const goal = L.flashWords({ type: 'goal' }, true);
+  if (red.word.includes('גו') || red.good) fails.push(`our red card flashes "${red.word}" as good news`);
+  if (!theirRed.good) fails.push('their red card reads as bad news for us');
+  if (saved.word.includes('גו') || !saved.good) fails.push(`a penalty our keeper saved flashes "${saved.word}"`);
+  if (missed.good) fails.push('our own missed penalty reads as good news');
+  if (!goal.word.includes('גו') || !goal.good) fails.push('a goal of ours no longer flashes as a goal');
+  console.log('  the banner: a red is אדום, a save is הצלה, only a goal is a goal');
+}
+
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, a sending off is rare, it is earned, and the man actually goes');
 process.exit(fails.length ? 1 : 0);

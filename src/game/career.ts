@@ -162,6 +162,12 @@ export interface AgeOutcome {
  * Move the whole squad one year on. Returns the new squad plus a report, which
  * is what the end of season screen actually shows the manager.
  */
+/** The first outfield man on the bench, or the first man at all when there is none. */
+function takeOutfield(bench: Player[]): Player {
+  const i = bench.findIndex(p => p.position !== 'GK');
+  return bench.splice(i >= 0 ? i : 0, 1)[0];
+}
+
 export function ageSquad(
   squad: Squad, rng: Rng, tier: number, minSquad: number,
   /** how much of their potential the young reach under this manager, 1 = neutral */
@@ -221,9 +227,12 @@ export function ageSquad(
       starters[0] = gk;
     }
   }
-  // keep exactly eleven on the field, spill the rest to the bench
+  // keep exactly eleven on the field, spill the rest to the bench. The gap a
+  // retired outfield man leaves is filled by an outfield man: bench.shift()
+  // used to hand it to the reserve keeper, who then stood at centre forward
+  // and could not be swapped out, because a keeper only swaps with a keeper
   while (starters.length > 11) bench.push(starters.pop()!);
-  while (starters.length < 11 && bench.length) starters.push(bench.shift()!);
+  while (starters.length < 11 && bench.length) starters.push(takeOutfield(bench));
 
   return { squad: { starters, bench }, retired, risers, fallers, joined };
 }
@@ -255,7 +264,7 @@ export function fillWithYouth(squad: Squad, rng: Rng, tier: number, minSquad: nu
     if (bi >= 0) { const gk = bench[bi]; bench[bi] = starters[0]; starters[0] = gk; }
   }
   while (starters.length > 11) bench.push(starters.pop()!);
-  while (starters.length < 11 && bench.length) starters.push(bench.shift()!);
+  while (starters.length < 11 && bench.length) starters.push(takeOutfield(bench));
   return { squad: { starters, bench }, joined };
 }
 

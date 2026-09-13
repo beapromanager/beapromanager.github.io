@@ -166,6 +166,23 @@ export function loadCareer(): GameState | null {
       titles: patched.coach.titles ?? 0,
     };
   }
+  // A summer on an older build could push the reserve keeper into an outfield
+  // slot when a starter retired, and the swap rule then kept him there. Put
+  // him back on the bench for the first outfield man there, once, on the way in.
+  const sq = patched.league?.squads?.[patched.clubId];
+  if (sq) {
+    const starters = [...sq.starters];
+    const bench = [...sq.bench];
+    let gks = starters.filter(p => p.position === 'GK').length;
+    for (let i = starters.length - 1; i >= 0 && gks > 1; i--) {
+      if (starters[i].position !== 'GK') continue;
+      const j = bench.findIndex(p => p.position !== 'GK');
+      if (j < 0) break;
+      [starters[i], bench[j]] = [bench[j], starters[i]];
+      gks--;
+    }
+    patched.league = { ...patched.league, squads: { ...patched.league.squads, [patched.clubId]: { ...sq, starters, bench } } };
+  }
   if (patched.phase === 'match') return { ...patched, phase: 'hub' };
   return patched;
 }

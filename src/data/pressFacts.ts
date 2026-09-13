@@ -97,7 +97,7 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `הייתם בפיגור והפכתם את זה. מה אמרת להם כשהיו מאחור?`,
     answers: [
-      { label: 'שלא יפסיקו לשחק את מה שאימנו', effect: { morale: +4, prestige: +2 }, reply: 'תשובה של מאמן. השחקנים קראו את זה בבוקר.' },
+      { label: 'שלא יפסיקו להאמין. כדורגל זה מומנטום', effect: { morale: +4, prestige: +2 }, reply: 'ואחר כך: תמשיכו לעבוד קשה. השחקנים קראו את זה בבוקר.' },
       { label: 'צעקתי. לפעמים צריך', effect: { morale: +2, prestige: +1 }, reply: 'כנות. האוהדים אהבו את הסיפור.' },
     ],
   })],

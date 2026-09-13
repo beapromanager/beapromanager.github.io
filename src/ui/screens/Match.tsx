@@ -191,7 +191,7 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
 
   // the clock also stops while the bench sheet is open, so managing a sub is not
   // a race against the minute, and the sheet is not re-rendered out from under you
-  const running = st.phase === 'play' && !paused && !st.pending && !play?.scored && !subOpen && !penOutcome && !fkOutcome && !shotOutcome && !oneOnOneOutcome && !defKeeperOutcome && !defTackleOutcome;
+  const running = st.phase === 'play' && !paused && !st.pending && !play?.scored && !subOpen && !penOutcome && !fkOutcome && !shotOutcome && !oneOnOneOutcome && !defKeeperOutcome && !defTackleOutcome && !defPenOutcome;
   useEffect(() => {
     if (!running) return;
     const id = window.setInterval(() => {
@@ -735,7 +735,9 @@ function SubOptions({ st, off, onSub, onClose }: {
   );
 }
 
-function GoalFlash({ ev, mine, overlay }: { ev: L.LiveEvent; mine: boolean; overlay?: boolean }) {
+function GoalFlash({ ev, mine: mineTeam, overlay }: { ev: L.LiveEvent; mine: boolean; overlay?: boolean }) {
+  const { word, good } = L.flashWords(ev, mineTeam);
+  const mine = good;
   return (
     <div style={{
       position: overlay ? 'absolute' : 'relative', overflow: 'hidden', animation: 'pop .45s var(--ease-out)',
@@ -749,8 +751,8 @@ function GoalFlash({ ev, mine, overlay }: { ev: L.LiveEvent; mine: boolean; over
     }}>
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(75deg,transparent 42%,rgba(255,255,255,.16) 50%,transparent 58%)', animation: 'sweep 1.1s var(--ease-out)' }} />
       <div className="row" style={{ justifyContent: 'center', gap: 10, position: 'relative' }}>
-        <Icon name="ball" size={26} color={mine ? 'var(--win)' : 'var(--loss)'} />
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 26, letterSpacing: '-.01em' }}>גוווול</span>
+        <Icon name={ev.type === 'red' ? 'alert' : ev.type === 'penalty_miss' ? 'glove' : 'ball'} size={26} color={mine ? 'var(--win)' : 'var(--loss)'} />
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 26, letterSpacing: '-.01em' }}>{word}</span>
       </div>
       <div style={{ fontWeight: 800, marginTop: 4, position: 'relative' }}>{ev.playerName}</div>
     </div>
