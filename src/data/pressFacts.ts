@@ -203,7 +203,7 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
   }), (_c, f) => ({
     id: 'top_man_carry',
     tone: 'serious',
-    text: `${f.who} סחב אתכם הערב. כמה זמן אפשר לבנות קבוצה על שחקן אחד?`,
+    text: `${f.who} סחב אתכם הערב. כמה זמן אפשר לבנות עליו?`,
     answers: [
       { label: 'לא בונים על אחד. מבחוץ זה רק נראה ככה', effect: { morale: +3, prestige: +1 }, reply: 'הגנת על עשרה אחרים. הם שמעו.' },
       { label: 'כל עוד הוא סוחב, אני לא מתלונן', effect: { prestige: +2, morale: -1 }, reply: 'כנות. השחקן חייך, השאר פחות.' },

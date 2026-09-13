@@ -68,7 +68,7 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
     c => ({
       id: 'big_win_message',
       tone: 'serious',
-      text: `תוצאה כזאת מול ${c.rival} שולחת מסר לכל הליגה. זה היה בכוונה?`,
+      text: `תוצאה כזאת מול ${c.rival} שולחת מסר לכל הליגה, ללא ספק. לא?`,
       answers: [
         { label: 'אנחנו לא שולחים מסרים, אנחנו משחקים', effect: { morale: +3, prestige: +1 }, reply: 'ענווה עם שיניים. עבר מצוין.' },
         { label: 'כן. שידעו', effect: { prestige: +4, morale: -1 }, reply: 'שורה שתישאר. גם אצל היריבות הבאות.' },
@@ -88,7 +88,7 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
     c => ({
       id: 'win_quiet',
       tone: 'funny',
-      text: `ניצחתם, והיציע יצא די שקט. איפה החגיגה?`,
+      text: `ניצחתם, והיציע יצא בשקט. איפה החגיגה?`,
       answers: [
         { label: 'ניצחון זה ניצחון. שיחגגו בבית', effect: { prestige: +2, morale: +1 }, reply: 'יבש. מקצועי. הכתב חייך.' },
         { label: 'גם אני רוצה יותר, ואני אגיד את זה בחדר', effect: { morale: -1, prestige: +3 }, reply: 'רעב. השחקנים קראו את זה בבוקר והבינו.' },
@@ -97,7 +97,7 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
     c => ({
       id: 'win_habit',
       tone: 'serious',
-      text: `מתחילים להתרגל לנצח אצלכם. אתה לא מפחד שזה מרדים?`,
+      text: `מתחילים להתרגל לנצח אצלכם. אתה לא מפחד שזה משעמם?`,
       answers: [
         { label: 'שיתרגלו. בשביל זה באנו', effect: { prestige: +3, morale: +2 }, reply: 'ביטחון. היציע אהב.' },
         { label: 'אף אחד לא נרדם אצלי, גם לא אני', effect: { morale: +2, prestige: +1 }, reply: 'מסר לחדר, לא לעיתונות. הגיע ליעד.' },
@@ -227,10 +227,10 @@ const DERBY: QGen[] = [
   c => ({
     id: 'derby_week',
     tone: 'funny',
-    text: `שבוע שלם העיר דיברה רק על ${c.rival}. איך שומרים על שחקנים רגועים לפני דרבי?`,
+    text: `שבוע שלם העיר דיברה על המשחק. איך משאירים את הקבוצה בפוקוס למשחק הבא?`,
     answers: [
-      { label: 'לא שומרים. שירגישו את זה, בשביל זה באו', effect: { morale: +3, prestige: +2 }, reply: 'משפט של יציע. מחר על חולצות.' },
-      { label: 'סוגרים טלפונים ביום חמישי', effect: { prestige: +2 }, reply: 'פרקטי. השחקנים לא אהבו את הרעיון.' },
+      { label: 'מחר בבוקר הדרבי כבר מאחורינו. זה החוק אצלנו', effect: { prestige: +3, morale: +1 }, reply: 'ראש של מקצוען. הכתב רשם את החוק.' },
+      { label: 'נותנים להם יום ליהנות, ואז עובדים', effect: { morale: +3, prestige: +1 }, reply: 'אנושי. החדר אהב לשמוע את זה.' },
     ],
   }),
 ];
