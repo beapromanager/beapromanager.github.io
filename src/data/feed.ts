@@ -59,7 +59,7 @@ export interface FeedContext {
   /** most recent results, newest last */
   form: ('W' | 'D' | 'L')[];
   /** our last match, if one has been played */
-  last: { opponent: string; mine: number; theirs: number; isDerby: boolean } | null;
+  last: { opponent: string; mine: number; theirs: number; isDerby: boolean; home: boolean; climbed: boolean } | null;
   /** other results from the round just played */
   otherResults: { home: string; away: string; hg: number; ag: number }[];
   /** our leading scorer this season, if anyone has scored */
@@ -94,13 +94,18 @@ export function buildFeed(c: FeedContext, rng: Rng): Post[] {
 
   /* --- our last match, the loudest thing on the timeline --- */
   if (c.last) {
-    const { opponent, mine, theirs, isDerby } = c.last;
+    const { opponent, mine, theirs, isDerby, home, climbed } = c.last;
     const won = mine > theirs, drew = mine === theirs;
     const press = pick(rng, PRESS_ACCOUNTS);
+    // the table is read, not assumed: a win does not always move you, and the
+    // top is a place you keep as well as one you reach
+    const threePoints = climbed ? 'שלוש נקודות ועלייה בטבלה.'
+      : c.pos === 1 ? 'שלוש נקודות, ונשארים בפסגה.'
+      : 'שלוש נקודות, והמקום בטבלה נשאר.';
     add({
       kind: 'press', author: press.author, handle: press.handle, verified: true,
       text: won
-        ? `${c.clubShort} ${mine}:${theirs} ${opponent}. ${isDerby ? 'הדרבי נשאר בבית. ' : ''}שלוש נקודות ועלייה בטבלה.`
+        ? `${c.clubShort} ${mine}:${theirs} ${opponent}. ${isDerby ? 'הדרבי נשאר בבית. ' : ''}${threePoints}`
         : drew
           ? `${c.clubShort} ${mine}:${theirs} ${opponent}. נקודה, וטעם של החמצה.`
           : `${opponent} ${theirs}:${mine} ${c.clubShort}. ${isDerby ? 'הדרבי הלך. ' : ''}עוד ערב שכדאי לשכוח.`,
@@ -114,7 +119,9 @@ export function buildFeed(c: FeedContext, rng: Rng): Post[] {
           ? `לא ישנים הלילה. הדרבי שלנו!! 🔥 כל ${c.city} ברחובות`
           : `ככה זה כשמשחקים עם לב. קדימה ${c.clubShort}! 💚`)
         : drew
-          ? `נקודה בחוץ זה לא אסון, אבל אנחנו רוצים יותר. עוד נהיה שם.`
+          ? (home
+            ? `נקודה בבית זה לא מספיק, אנחנו רוצים יותר. עוד נהיה שם.`
+            : `נקודה בחוץ זה לא אסון, אבל אנחנו רוצים יותר. עוד נהיה שם.`)
           : `מספיק תירוצים. בואו נראה תגובה במחזור הבא, אנחנו באים בהמונים בכל מקרה.`,
     });
   }

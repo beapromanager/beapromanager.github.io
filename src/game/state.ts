@@ -6,7 +6,7 @@ import type { Squad } from '../data/squadGen.ts';
 import { playerValue, squadAvgOvr, nextPlayerId, makePlayer } from '../data/squadGen.ts';
 import type { MatchResult, TeamInput, Approach, Press, Player, Position, Rng } from '../engine/matchEngine.ts';
 import { simulateMatch, overall, createRng } from '../engine/matchEngine.ts';
-import type { LeagueState, Fixture } from './league.ts';
+import type { LeagueState, Fixture, Standing } from './league.ts';
 import { initLeague, applyResult, sortedTable, buildFixtures, emptyTable } from './league.ts';
 import { LEAGUE_C, isDerby, LEAGUE_NAMES, setDerbies, derbiesFromClubs, leagueCeiling } from '../data/clubs.ts';
 import { buildRegionLeague, buildSiblingLeague, siblingClub } from '../data/cities.ts';
@@ -2199,6 +2199,27 @@ export const FAN_HISTORY = 16;
  * The club's timeline, built from what has actually happened this save. Stable
  * for a given week so it does not reshuffle while the manager is reading it.
  */
+/**
+ * Where the club stood before the round just played. The table only keeps the
+ * present, so the round's results are taken back off a copy of it and the
+ * copy is sorted the way the real one is.
+ */
+export function positionBeforeRound(gs: GameState): number {
+  const table: Record<string, Standing> = {};
+  for (const [id, row] of Object.entries(gs.league.table)) table[id] = { ...row };
+  for (const m of gs.lastRound) {
+    const h = table[m.homeId], a = table[m.awayId];
+    if (!h || !a) continue;
+    h.played--; a.played--;
+    h.gf -= m.hg; h.ga -= m.ag; a.gf -= m.ag; a.ga -= m.hg;
+    if (m.hg > m.ag) { h.won--; h.pts -= 3; a.lost--; }
+    else if (m.hg < m.ag) { a.won--; a.pts -= 3; h.lost--; }
+    else { h.drawn--; a.drawn--; h.pts--; a.pts--; }
+  }
+  const before = sortedTable({ ...gs.league, table });
+  return Math.max(1, before.findIndex(t => t.clubId === gs.clubId) + 1);
+}
+
 export function clubFeed(gs: GameState): Post[] {
   const c = club(gs);
   const sq = mySquad(gs);
@@ -2207,7 +2228,9 @@ export function clubFeed(gs: GameState): Post[] {
   const pos = Math.max(1, table.findIndex(t => t.clubId === gs.clubId) + 1);
   const shortOf = (id: string) => gs.league.clubs.find(x => x.id === id)?.short ?? '';
 
-  // our last match, from the round just played
+  // our last match, from the round just played. Where it was played and what
+  // it did to the table both go in, because the timeline used to say "a point
+  // away" after a home draw and "up the table" after every win
   const mine = gs.lastRound.find(m => m.homeId === gs.clubId || m.awayId === gs.clubId);
   const last = mine
     ? (() => {
@@ -2217,6 +2240,8 @@ export function clubFeed(gs: GameState): Post[] {
           mine: home ? mine.hg : mine.ag,
           theirs: home ? mine.ag : mine.hg,
           isDerby: isDerby(mine.homeId, mine.awayId),
+          home,
+          climbed: pos < positionBeforeRound(gs),
         };
       })()
     : null;
