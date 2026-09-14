@@ -62,7 +62,6 @@ export function App() {
   const [gs, setGs] = useState<G.GameState>(() => G.newGame());
   const [squadFromHub, setSquadFromHub] = useState(false);
   const [saved, setSaved] = useState<SaveSummary | null>(() => savedSummary());
-  const [tutorial, setTutorial] = useState(false);
   const [fromPreseason, setFromPreseason] = useState(false);   // market opened from the summer board
   // who sent this link, kept for the moment a career actually starts. Read once
   // on load, because the url is tidied straight afterwards
@@ -215,9 +214,7 @@ export function App() {
           onDismissOutcome={() => setGs(G.clearPreseasonOutcome(gs))}
           onTakeCourse={() => setGs(g => G.takeCourse(g))}
           onAdvance={() => {
-            const next = G.advancePreseason(gs);
-            if (next.phase === 'hub' && gs.season === 1) setTutorial(true);
-            setGs(next);
+            setGs(G.advancePreseason(gs));
           }} />
       )}
       {gs.phase === 'transfers' && (
@@ -331,7 +328,10 @@ export function App() {
       {gs.phase === 'sponsor' && <SponsorScreen gs={gs} onPick={id => setGs(G.takeSponsor(gs, id))} />}
       {gs.phase === 'preseason' && <PreSeasonScreen gs={gs} onStart={() => setGs(G.enterPreseason(gs))} />}
 
-      {tutorial && <Tutorial onDone={() => setTutorial(false)} />}
+      {/* the first-week explainer, owed by the save rather than by a click: it
+          used to hang off the step out of the summer, and the sponsor screen
+          added between the two meant it never showed again */}
+      {G.tutorialDue(gs) && <Tutorial onDone={() => setGs(g => G.markTutorialSeen(g))} />}
     </div>
   );
 }

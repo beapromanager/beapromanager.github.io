@@ -50,6 +50,7 @@ const ADDED_SINCE = [
   'suspensions', 'emergencyYouth', 'notices',   // the ban after a red
   'exits',                          // men sold into the league
   'sitOut', 'sitOutNext', 'matchMods', 'followUps', 'youthBoost', 'youthLeaveRisk', 'summerExits',   // answers that act
+  'tutorialSeen',                   // the first-week explainer
 ] as const;
 
 function career(town = LEGEND_TOWN, seed = 4242): G.GameState {

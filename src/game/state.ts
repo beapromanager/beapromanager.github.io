@@ -278,6 +278,14 @@ export interface GameState {
   youthLeaveRisk: { name: string; p: number } | null;
   /** men who agreed to stay until the summer, and then go */
   summerExits: string[];
+  /**
+   * The first-week explainer has been read. A flag in the save rather than a
+   * moment in the UI: it used to fire off the step that led to the hub, and
+   * the day a sponsor screen was put between the summer and the hub it never
+   * fired again. The hub itself now asks, and a refresh mid-explainer does
+   * not lose it.
+   */
+  tutorialSeen: boolean;
   pendingOutcome: string | null;
   lastPlayerMatch: MatchResult | null;
   lastRound: RoundResult[];
@@ -407,6 +415,7 @@ export function newGame(seed = 12345): GameState {
     youthBoost: [],
     youthLeaveRisk: null,
     summerExits: [],
+    tutorialSeen: false,
     pendingOutcome: null,
     lastPlayerMatch: null,
     lastRound: [],
@@ -1494,6 +1503,14 @@ export function openTransfers(gs: GameState, focus: MarketLine | null = null): G
 }
 export function backToHub(gs: GameState): GameState {
   return { ...gs, phase: 'hub' };
+}
+
+/** Whether the first-week explainer is owed: the hub, nothing in the way, unread. */
+export function tutorialDue(gs: GameState): boolean {
+  return gs.phase === 'hub' && gs.notices.length === 0 && !gs.tutorialSeen;
+}
+export function markTutorialSeen(gs: GameState): GameState {
+  return gs.tutorialSeen ? gs : { ...gs, tutorialSeen: true };
 }
 
 /* ---------------------------------------------------------- squad editing */
