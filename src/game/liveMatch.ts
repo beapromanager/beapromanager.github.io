@@ -921,7 +921,10 @@ export function halfTimeTalk(st: LiveState, id: TalkId) {
   const side = playerSide(st);
   for (const p of side.onPitch) p.morale = Math.max(0, Math.min(100, p.morale + delta));
   st.events.push({ minute: 45, type: 'tactic', teamId: side.id, text: `בחדר ההלבשה, המאמן ${line}` });
-  st.phase = 'play';
+  // The talk is the only door out of half time the screen offers. It used to
+  // set play directly and walk past resumeFromHalfTime, so the owner's boy the
+  // manager had promised a half to never once came on in a real match.
+  resumeFromHalfTime(st);
 }
 
 /** Leave half time without saying anything special. */
@@ -934,7 +937,7 @@ export function resumeFromHalfTime(st: LiveState) {
     const off = [...side.onPitch].filter(p => p.position !== 'GK').sort((a, b) => overall(a) - overall(b))[0];
     if (guest && off) {
       makeSub(st, off.id, guest.id);
-      st.events.push({ minute: 45, type: 'tactic', teamId: side.id, text: ` נכנס במחצית. הבעלים ביקש, המאמן קיים` });
+      st.events.push({ minute: 45, type: 'tactic', teamId: side.id, text: `${guest.name} נכנס במחצית. הבעלים ביקש, המאמן קיים` });
     }
     st.guestId = null;
   }
@@ -1085,9 +1088,13 @@ export function makeSub(st: LiveState, offId: string, onId: string) {
   const bi = side.bench.findIndex(p => p.id === onId);
   const off = side.onPitch[oi];
   const on = side.bench[bi];
-  // the incoming player takes the outgoing player's slot position on the pitch
-  const incoming: Player = { ...on, position: off.position };
-  side.onPitch[oi] = incoming;
+  // He keeps his own position. This used to stamp the outgoing man's shirt on
+  // him, from before the shape existed: a CDM sent on for a CAM was rewritten
+  // as a CAM, his rating recomputed for a role he does not play (62 became 58),
+  // and the team sheet read "CAM by nature" about a man who never was. The slot
+  // is the formation's business; fillFormation seats him by fit, and a man
+  // asked to cover a strange role is priced as exactly that.
+  side.onPitch[oi] = { ...on };
   side.bench[bi] = off;
   st.subsUsed++;
   st.events.push({ minute: st.minute, type: 'sub', teamId: side.id, text: `חילוף, ${on.name} נכנס במקום ${off.name}` });
