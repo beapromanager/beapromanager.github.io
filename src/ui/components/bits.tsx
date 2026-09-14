@@ -80,9 +80,11 @@ function Meter({ icon, label, value, pct, color }: {
     <div className="meter">
       <div className="top">
         <span className="k">{label}</span>
-        <Icon name={icon} size={13} color={color} style={{ opacity: .85 }} />
+        {/* wrapped so a narrow phone can drop it: the icon sets its own display */}
+        <span className="meter-ic"><Icon name={icon} size={13} color={color} style={{ opacity: .85 }} /></span>
       </div>
-      <div className="v num">{value}</div>
+      {/* the length lets a long purse step its type down a size, see .meter .v */}
+      <div className="v num" data-len={Math.min(7, value.length)}>{value}</div>
       <div className="bar"><i style={{ width: `${Math.max(4, Math.min(100, pct))}%`, background: color }} /></div>
     </div>
   );

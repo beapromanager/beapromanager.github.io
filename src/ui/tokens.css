@@ -302,10 +302,19 @@ input{font-family:inherit;}
   backdrop-filter:blur(14px) saturate(1.2);
   border-bottom:1px solid var(--line);
 }
-.meter{flex:1; background:var(--surface); border:1px solid var(--line); border-radius:var(--plate-sm); padding:9px 10px 10px;}
+/* Sized from their contents and then sharing what is left, so the purse gets
+   the room its digits need and a two digit meter does not. min-width:0 so on
+   a phone too narrow even for that the boxes give way instead of pushing the
+   bar, and with it the whole page, off the side of the screen. */
+.meter{flex:1 1 auto; min-width:0; background:var(--surface); border:1px solid var(--line); border-radius:var(--plate-sm); padding:9px 10px 10px;}
 .meter .top{display:flex; justify-content:space-between; align-items:center; gap:6px;}
 .meter .k{font-size:12px; color:var(--ink-dim); font-weight:800; letter-spacing:.03em;}
-.meter .v{font-family:var(--font-display); font-weight:800; font-size:22px; line-height:1; letter-spacing:-.01em; margin-top:5px;}
+/* The digits scale with the screen and with their own length. Six items ride
+   this bar and a 375px phone has no room for a 22px "-₪120K" beside them:
+   the bar ran 436px wide and every screen scrolled sideways. */
+.meter .v{font-family:var(--font-display); font-weight:800; font-size:clamp(18px,5vw,22px); line-height:1; letter-spacing:-.01em; margin-top:5px; white-space:nowrap;}
+.meter .v[data-len="6"]{font-size:clamp(16px,4.5vw,21px);}
+.meter .v[data-len="7"]{font-size:clamp(14px,4vw,19px);}
 .meter .bar{height:3px; border-radius:3px; background:rgba(255,255,255,.08); margin-top:7px; overflow:hidden;}
 .meter .bar>i{display:block; height:100%; border-radius:3px; transition:width var(--t-slow) var(--ease);}
 
@@ -1160,3 +1169,16 @@ input{font-family:inherit;}
 .ht-shape-num{font-family:var(--font-display); font-size:17px; line-height:1.1;}
 .ht-shape.on .ht-shape-num{color:var(--gold-hi);}
 .ht-shape-name{font-size:12.5px; font-weight:700;}
+
+/* ------------------------------------------------------ narrow phones */
+/* The meters bar on a narrow phone: tighter gutters, no label icons, smaller
+   side buttons. The numbers and their names stay, that is the whole point of
+   the bar. Last in the file on purpose, so it wins over the rules it narrows. */
+@media (max-width:400px){
+  .meters{gap:6px; padding-left:12px; padding-right:12px;}
+  .meter{padding:9px 8px 10px;}
+  .meter .top{gap:0;}
+  .meter .top .meter-ic{display:none;}
+  .gem-pill{min-width:44px; padding:8px 8px 9px;}
+  .meters-share,.meters-install{width:32px; height:32px;}
+}
