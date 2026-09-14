@@ -548,7 +548,7 @@ function BenchBar({ st, onOpen, onQuickSub }: {
       </div>
 
       {!canSub ? (
-        <div className="sub" style={{ fontSize: 12.5, textAlign: 'center', padding: '4px 0' }}>נגמרו החילופים למשחק</div>
+        <div className="sub" style={{ fontSize: 12.5, textAlign: 'center', padding: '4px 0' }}>{st.phase === 'done' ? 'שריקת סיום, הספסל נסגר' : 'נגמרו החילופים למשחק'}</div>
       ) : tired.length === 0 ? (
         <button className="btn dark btn-sm" onClick={() => onOpen()} style={{ minHeight: 46 }}>
           <Icon name="shirt" size={14} color="var(--gold)" /> הסגל טרי, פתיחת הרכב וספסל

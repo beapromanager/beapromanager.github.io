@@ -144,6 +144,26 @@ console.log(`  ${subsMade} substitutions into another man's shirt, ${strangeRole
   console.log(`  the owner's boy comes on as himself: "${story?.text ?? ''}"`);
 }
 
+/* 5. THE WHISTLE CLOSES THE BENCH. */
+{
+  const gs = career(1234, 'רמת גן');
+  const st = L.createLive(G.liveMatchInput(gs));
+  toFullTime(st);
+  const side = L.mySide(st);
+  const off = side.onPitch.find(p => p.position !== 'GK')!;
+  const on = side.bench.find(p => p.position !== 'GK')!;
+  const usedBefore = st.subsUsed;
+  const eleven = side.onPitch.map(p => p.id).join(',');
+  checked += 4;
+  if (st.phase !== 'done') fails.push(`the match did not reach full time, phase ${st.phase}`);
+  if (L.canSub(st)) fails.push('after the final whistle the bench still says a substitution can be made');
+  if (!L.subBlockedReason(st, off.id, on.id)) fails.push('after the final whistle a substitution is not refused with a reason');
+  L.makeSub(st, off.id, on.id);
+  if (st.subsUsed !== usedBefore || L.mySide(st).onPitch.map(p => p.id).join(',') !== eleven)
+    fails.push('a substitution went through after the final whistle');
+  console.log('  after the final whistle the bench is closed, and a tap there changes nothing');
+}
+
 console.log('');
 if (fails.length) {
   console.log(`FAIL (${fails.length} of ${checked})`);

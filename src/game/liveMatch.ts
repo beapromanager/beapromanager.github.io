@@ -1011,7 +1011,9 @@ export function slotRoles(st: LiveState): Map<string, string> {
 /* ------------------------------------------------------------- substitution */
 
 export function canSub(st: LiveState): boolean {
-  return st.subsUsed < MAX_SUBS && playerSide(st).bench.length > 0;
+  // the whistle closes the bench: the quick-sub buttons used to stay live
+  // after full time and a tap there counted a substitution in a finished match
+  return st.phase !== 'done' && st.subsUsed < MAX_SUBS && playerSide(st).bench.length > 0;
 }
 
 /** The player side, exposed so the UI can list who is on the pitch and on the bench. */
@@ -1068,6 +1070,7 @@ export function suggestSubs(st: LiveState, offId: string, limit = 3): SubSuggest
 }
 
 export function subBlockedReason(st: LiveState, offId: string, onId: string): string | null {
+  if (st.phase === 'done') return 'שריקת סיום, אין יותר חילופים';
   if (st.subsUsed >= MAX_SUBS) return `נגמרו החילופים, ${MAX_SUBS} מקסימום`;
   const off = playerSide(st).onPitch.find(p => p.id === offId);
   const on = playerSide(st).bench.find(p => p.id === onId);
