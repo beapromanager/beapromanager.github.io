@@ -228,14 +228,16 @@ const everyN = 1 / perMatch;
     }
   }
 
-  // and the screen must not ask for artwork that was never drawn: every
-  // /moments/ path it builds has to resolve to a file that exists
-  for (const m of src.matchAll(/\/moments\/([a-z-]+)\/\$\{[^}]+\}\.webp/g)) {
-    checked++;
-    if (m[1] === 'def-penalty') {
-      fails.push('Match.tsx builds a def-penalty path from a variable again, but only buildup.webp was ever drawn');
-    }
+  // the six reaction frames for their end are optional until they are drawn:
+  // the screen may ask for them only with a fallback that hides a missing one
+  checked++;
+  const defPenFrames = src.indexOf('function defPenOutcomeImg');
+  if (defPenFrames >= 0 && !/defPenOutcomeImg\(aim, saved\)\}[^]*?onError=/.test(src)) {
+    fails.push('Match.tsx asks for a def-penalty reaction frame with no onError fallback, so a missing file shows a hole');
   }
+  const drawn = ['goal-left', 'goal-center', 'goal-right', 'save-left', 'save-center', 'save-right']
+    .filter(f => existsSync(`public/moments/def-penalty/${f}.webp`));
+  console.log(`  def-penalty reaction frames drawn so far: ${drawn.length} of 6`);
   // and the screen has to actually know about the new end
   checked += 3;
   if (!src.includes('def_penalty')) fails.push('Match.tsx never renders a def_penalty, so the moment would hang the match');

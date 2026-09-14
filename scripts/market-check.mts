@@ -17,6 +17,7 @@ import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { CITIES } from '../src/data/cities.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
+import { existsSync } from 'node:fs';
 
 /** the same grouping the squad screen uses; kept local, that one lives in a .tsx */
 const LINE_OF: Record<string, string> = {
@@ -137,6 +138,9 @@ console.log(`\n${checked} checks across 3 careers, ${PRE_ROUNDS} summer rounds e
     if (gs.notices.some(n => n.kind === 'window')) seen.push(gs.week);
     while (gs.notices.length) gs = G.dismissNotice(gs);
   }
+  // and the picture the notice is built around is actually in the build
+  checked++;
+  if (!existsSync('public/window.webp')) fails.push('public/window.webp is missing, the winter window notice shows a blank');
   const opens = WINTER_WEEKS[0];
   if (seen.join() !== String(opens)) fails.push(`the window notice showed in weeks [${seen.join(', ')}], expected only week ${opens}`);
   console.log(`  the winter window announces itself once, in week ${opens}`);
