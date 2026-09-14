@@ -146,6 +146,72 @@ console.log(`\n${checked} checks across 3 careers, ${PRE_ROUNDS} summer rounds e
   console.log(`  the winter window announces itself once, in week ${opens}`);
 }
 
+/* THE WINTER WINDOW IS A MARKET, NOT A LEFTOVER.
+   It used to open onto the summer's list, three men stamped "last round" for
+   the whole window and none of them ever leaving. Read off real seasons:
+     closed weeks carry no warning and no summer star
+     the week it opens the list is fresh, twelve deep, every line on it
+     while it is open it moves like the summer: the warned go, new faces come
+     the week it shuts, whoever is left is simply around */
+{
+  const seen: { week: number; open: boolean; names: string[]; warned: string[]; marquee: number; lines: Set<string> }[] = [];
+  let gs = G.newGame(2727);
+  gs = G.setProfile(gs, { name: 'x', nickname: '', type: 'hunter', age: 40 } as never);
+  gs = G.pickCity(gs, CITIES[5].name);
+  gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+  while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
+  if (gs.phase === 'kit') gs = G.closeKitReveal(gs);
+  if (gs.phase === 'sponsor') gs = G.takeSponsor(gs, 'base');
+  const snap = () => seen.push({
+    week: gs.week, open: G.transferWindow(gs).open,
+    names: gs.market.map(fa => fa.player.name),
+    warned: gs.market.filter(fa => fa.leaving).map(fa => fa.player.name),
+    marquee: gs.market.filter(fa => fa.marquee).length,
+    lines: new Set(gs.market.map(fa => LINE_OF[fa.player.position])),
+  });
+  snap();
+  for (let w = 0; w < WINTER_WEEKS[1] + 1 && !gs.seasonOver; w++) {
+    const inp = G.liveMatchInput(gs);
+    const res = simulateMatch(
+      { id: inp.homeId, name: inp.homeName, players: inp.iAmHome ? inp.playerStarters : inp.oppStarters,
+        tactic: { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' }, chemistry: 0.7, isHome: true },
+      { id: inp.awayId, name: inp.awayName, players: inp.iAmHome ? inp.oppStarters : inp.playerStarters,
+        tactic: { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' }, chemistry: 0.7, isHome: false },
+      inp.seed + w);
+    gs = G.continueFromResult(G.commitRound(gs, { ...res, events: res.events.filter(e => e.type !== 'red') }));
+    while (gs.phase === 'press') gs = G.answerPress(gs, 0);
+    if ((gs as { phase: string }).phase === 'chat') gs = G.closeChat(gs);
+    while (gs.notices.length) gs = G.dismissNotice(gs);
+    snap();
+  }
+  const at = (week: number) => seen.find(s => s.week === week)!;
+  const opens = WINTER_WEEKS[0], shuts = WINTER_WEEKS[1];
+  for (const s of seen) {
+    if (s.open) continue;
+    checked++;
+    if (s.warned.length || s.marquee)
+      fails.push(`week ${s.week}, window shut: ${s.warned.length} men on notice and ${s.marquee} summer star still on the list`);
+  }
+  const before = at(opens - 1), first = at(opens), second = at(opens + 1), after = at(shuts + 1);
+  checked += 4;
+  if (!first.open) fails.push(`week ${opens} is not an open window`);
+  if (first.names.length !== 12) fails.push(`the winter market opened with ${first.names.length} names, not 12`);
+  if (first.names.some(n => before.names.includes(n))) fails.push('the winter window opened onto the summer leftovers');
+  if (first.warned.length === 0) fails.push('nobody on the winter list is on notice, so nothing will ever move');
+  for (const need of ['gk', 'def', 'mid', 'atk']) { checked++; if (!first.lines.has(need)) fails.push(`the winter market has nothing at ${need}`); }
+  if (second && second.open) {
+    const gone = first.names.filter(n => !second.names.includes(n));
+    const fresh = second.names.filter(n => !first.names.includes(n));
+    checked += 3;
+    for (const n of first.warned) if (second.names.includes(n)) fails.push(`${n} was on notice in week ${opens} and is still there in week ${opens + 1}`);
+    for (const n of gone) if (!first.warned.includes(n)) fails.push(`${n} vanished in week ${opens + 1} with no warning`);
+    if (fresh.length === 0) fails.push(`week ${opens + 1} brought no new faces`);
+  }
+  checked++;
+  if (after && (after.open || after.warned.length)) fails.push(`week ${shuts + 1}: the window is ${after.open ? 'still open' : 'shut'} with ${after.warned.length} men on notice`);
+  console.log(`  the winter window opens on a fresh twelve, moves while it is open, and settles when it shuts`);
+}
+
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, the market moves, warns before it takes, and ends on a star');
 process.exit(fails.length ? 1 : 0);

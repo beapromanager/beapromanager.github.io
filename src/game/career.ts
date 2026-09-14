@@ -551,8 +551,20 @@ function nextDivision(
   const fresh = (taken: Set<string>) => pool.filter(c => !taken.has(c.id));
 
   if (newTier !== oldTier) {
-    // a different division, so a different set of people, drawn from the region
-    return shuffled(pool, rng).slice(0, want).map(c => ({ ...c, tier: newTier }));
+    // A different division, so a different set of people, drawn from the
+    // region. Said in order rather than left to a shuffle: in the two lowest
+    // divisions the region is the same fourteen towns either way, so a plain
+    // shuffle of the pool handed back three, four, five of the clubs you had
+    // just left, depending on nothing but the draw. The clubs that moved with
+    // you come along, and after them every place goes to a stranger before it
+    // goes to anyone you already played twice.
+    const others = standings.filter(c => c.id !== myClub.id);
+    const moved = new Set((newTier > oldTier ? others.slice(0, 2) : others.slice(-1)).map(c => c.id));
+    const known = new Set(others.map(c => c.id));
+    const companions = pool.filter(c => moved.has(c.id));
+    const strangers = shuffled(pool.filter(c => !known.has(c.id)), rng);
+    const familiar = shuffled(pool.filter(c => known.has(c.id) && !moved.has(c.id)), rng);
+    return [...companions, ...strangers, ...familiar].slice(0, want).map(c => ({ ...c, tier: newTier }));
   }
 
   // Same division, so it is the same league, and who leaves is decided by where

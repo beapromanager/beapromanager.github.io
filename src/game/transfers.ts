@@ -163,6 +163,14 @@ export function refreshMarket(
 }
 
 /**
+ * The window has shut. Whoever is still listed is simply around until it
+ * opens again; a "last round" warning with no next round behind it is a lie.
+ */
+export function settleMarket(market: FreeAgent[]): FreeAgent[] {
+  return market.map(fa => (fa.leaving || fa.marquee ? { ...fa, leaving: false, marquee: false } : fa));
+}
+
+/**
  * Transfer fees scale hard with the division. ליגה ג׳ is amateur, players move
  * for next to nothing, and only near the top does a real market exist. This is
  * what keeps the lower leagues feeling like free, no-contract football, and

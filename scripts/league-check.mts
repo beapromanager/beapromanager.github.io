@@ -80,7 +80,10 @@ for (let s = 1; s <= 6; s++) {
     check(`season ${s}: staying up keeps the division`,
       kept === before.length - leaving, `${kept} kept, expected ${before.length - leaving}`);
   } else {
-    check(`season ${s}: a new division is a new set`, kept <= 2, `${kept} carried over`);
+    // "kept" counts this club too. Going up, the two who went up alongside
+    // come along; going down, the one who fell with you. Everyone else is new.
+    const along = tierAfter > tierBefore ? 2 : 1;
+    check(`season ${s}: a new division is a new set`, kept <= 1 + along, `${kept} carried over, up to ${1 + along} allowed`);
   }
   check(`season ${s}: every club is a real town`,
     gs.league.clubs.every(c => realTown(c.city)),

@@ -45,7 +45,7 @@ import { buildFeed } from '../data/feed.ts';
 import type { FanContext, FanMessage, FanTiming } from '../data/fans.ts';
 import type { Outlet, PressQuestion, PressContext } from '../data/press.ts';
 import type { FreeAgent } from './transfers.ts';
-import { makeMarket, refreshMarket, windowState, sellPrice, transferFee, contractTerms, MIN_SQUAD, MAX_SQUAD } from './transfers.ts';
+import { makeMarket, refreshMarket, settleMarket, windowState, sellPrice, transferFee, contractTerms, MIN_SQUAD, MAX_SQUAD } from './transfers.ts';
 import {
   PRE_ROUNDS, seedContract, contractYears, renewTerms, raiseBonus,
   starTarget, starFee, feeSweetener, youngTarget,
@@ -958,6 +958,8 @@ function finishPreseason(gs: GameState): GameState {
 }
 
 export function enterSeason(gs: GameState): GameState {
+  // the summer is over, so its warnings and its star are over too
+  gs = { ...gs, market: settleMarket(gs.market) };
   gs = seasonWithLegend(gs);
   gs = dressForTheSeason(gs);
   // the new shirt is unveiled before anything else, because it is the first
@@ -3063,7 +3065,29 @@ function endOfWeek(gs: GameState): GameState {
   const due = gs.followUps.filter(f => f.season === gs.season && f.week <= next);
   const followUps = gs.followUps.filter(f => !due.includes(f));
   notices = [...notices, ...due.map(f => ({ kind: 'story' as const, title: f.title, body: f.body }))];
-  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices, followUps };
+  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices, followUps, market: winterMarket(gs, next) };
+}
+
+/**
+ * The market as the week turns.
+ *
+ * It used to be frozen from the last summer round to the end of the season:
+ * the winter window opened onto the summer's leftovers, three of them still
+ * stamped "last round, after this he is gone" every week for the whole window,
+ * and none of them ever went. Now the window opens on a fresh twelve, moves
+ * the way the summer moves for as long as it stays open, and when it shuts
+ * the list settles: whoever is left is simply around, nobody is on notice.
+ */
+function winterMarket(gs: GameState, next: number): FreeAgent[] {
+  const wasOpen = windowState(gs.week, gs.league.rounds).open;
+  const isOpen = windowState(next, gs.league.rounds).open;
+  if (!wasOpen && !isOpen) return gs.market;
+  const sq = mySquad(gs);
+  const taken = new Set([...sq.starters, ...sq.bench].map(p => p.name));
+  const rng = createRng(gs.seasonSeed + 6100 + next * 37);
+  if (isOpen && !wasOpen) return makeMarket(club(gs).tier, rng, 12, taken);
+  if (isOpen) return refreshMarket(gs.market, club(gs).tier, rng, taken);
+  return settleMarket(gs.market);
 }
 
 /**
