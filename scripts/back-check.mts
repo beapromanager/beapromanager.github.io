@@ -129,6 +129,31 @@ const back = readFileSync('src/ui/back.ts', 'utf8');
   }
 }
 
+/* 5. AND THE WAY OUT IS AT THE TOP OF EVERY ROOM THE HUB OPENS.
+      The squad screen had its only back button under eighteen names, and no
+      meters bar above them, when every other room from the hub had both. A
+      screen the phone's button knows about must also show a way out where a
+      thumb looks for it, on the first visit excepted: that one has no hub yet. */
+{
+  const hubList = /const BACK_TO_HUB = new Set<G\.Phase>\(\[([\s\S]*?)\]\)/.exec(app)?.[1] ?? '';
+  const rooms = [...hubList.matchAll(/'([a-z-]+)'/g)].map(m => m[1]);
+  const FILE: Record<string, string> = {
+    squad: 'Squad', youth: 'Youth', stadium: 'Stadium', coach: 'Coach', packs: 'Packs',
+    captain: 'Captain', assistant: 'Assistant', transfers: 'Transfers', inbox: 'Inbox',
+    chronicle: 'Chronicle', table: 'Standings',
+  };
+  checked++;
+  if (rooms.length < 6) fails.push(`only ${rooms.length} rooms lead back to the hub, this check is reading the wrong list`);
+  for (const room of [...rooms, 'transfers', 'inbox', 'chronicle', 'table']) {
+    const file = FILE[room];
+    checked++;
+    if (!file) { fails.push(`no screen file is known for the "${room}" room`); continue; }
+    const src = readFileSync(`src/ui/screens/${file}.tsx`, 'utf8');
+    if (!/<TopBack\b/.test(src)) fails.push(`the "${room}" screen has no back at the top, only wherever the bottom is`);
+  }
+  console.log(`  ${rooms.length + 4} rooms opened from the hub show their way out at the top`);
+}
+
 console.log(`\n${checked} checks`);
 console.log(fails.length ? '\n  ' + fails.slice(0, 8).join('\n  ') + '\nFAIL'
   : '\nOK, back means back, and leaving the game is asked for rather than assumed');

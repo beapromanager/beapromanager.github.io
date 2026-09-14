@@ -11,6 +11,8 @@ import { Crest } from '../components/Crest.tsx';
 import { Kit } from '../components/Kit.tsx';
 import { homeKit } from '../../data/kits.ts';
 import { Icon } from '../components/Icon.tsx';
+import { Meters } from '../components/bits.tsx';
+import { TopBack } from '../components/TopBack.tsx';
 import { Stepper } from '../components/Stepper.tsx';
 import { CoachGuide } from '../components/CoachGuide.tsx';
 import { PlayerCard } from '../components/PlayerCard.tsx';
@@ -221,7 +223,13 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
   }
 
   return (
+    <>
+    {/* From the hub this is a room like the others: the meters ride on top and
+        the way out sits where the thumb looks for it, not below eighteen names.
+        On the first visit there is no hub yet, so neither belongs. */}
+    {!firstTime && <Meters {...gs.meters} gems={gs.gems} />}
     <div className="screen pad stack pad-b" style={{ gap: 12 }}>
+      {!firstTime && <TopBack onBack={onDone} />}
       {firstTime && <Stepper current={5} />}
       {firstTime && <CoachGuide text="אלה השחקנים שלך. שלושה שכדאי להכיר למעלה, כל השאר בלחיצה על השם." />}
       <div className="row" style={{ marginTop: 8 }}>
@@ -349,6 +357,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
           onClose={() => setCard(null)} />
       )}
     </div>
+    </>
   );
 }
 
