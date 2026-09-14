@@ -312,8 +312,14 @@ export function matchPrize(tier: number, result: 'W' | 'D' | 'L'): number {
  *   לאומית    12–15K
  *   על        25–100K, the star tax
  */
+// The ליגה ג׳ ceiling was five thousand, sized against a squad averaging 52
+// from the old pickClub path. The path a player actually takes, pickCity, hands
+// a big town a squad averaging 58, and that squad sat near the top of the band:
+// ₪38K to ₪54K a week, an untouched first season ending in the red for most of
+// them and a sacking for one in six. Four and a half thousand puts an untouched
+// first season back around zero, measured in economy-check on that path.
 export const WAGE_BAND: Record<number, [number, number]> = {
-  1: [200, 5_000],
+  1: [200, 4_500],
   2: [400, 5_000],
   3: [7_000, 12_000],
   4: [12_000, 15_000],

@@ -32,10 +32,12 @@ const k = (v: number) => `${Math.round(v / 1000)}k`.padStart(8);
 const bad: string[] = [];
 
 /** One season, from wherever the purse starts it. */
-function season(tier: number | null, seed: number, money: number | null) {
+function season(tier: number | null, seed: number, money: number | null, city?: string) {
   let gs = G.newGame(seed);
   gs = G.setProfile(gs, { name: 'א', nickname: '', age: 40, type: 'mental' });
-  gs = G.pickClub(gs, gs.league.clubs[0].id);
+  // pickCity is the road a player takes; pickClub is the old one, kept for
+  // the per-division runs below, which set their own tier and purse
+  gs = city ? G.pickCity(gs, city) : G.pickClub(gs, gs.league.clubs[0].id);
   gs = G.afterSigning(gs, {});
   if (tier !== null) {
     gs = { ...gs, league: { ...gs.league, clubs: gs.league.clubs.map(c => c.id === gs.clubId ? { ...c, tier } : c) } };
@@ -84,13 +86,23 @@ for (const t of [1, 2, 3, 4, 5]) {
   if (avg > midish) bad.push(`${LEAGUE_NAMES[t]}: the average wage ₪${Math.round(avg)} sits too high in the ₪${lo}-₪${hi} band`);
 }
 
-/* ---- a brand new career, the path everyone takes */
-const fresh = SEEDS.map(s => season(null, s, null));
-const freshSacked = fresh.filter(r => r.sacked).length;
-console.log(`\nbrand new careers, season one (${SEEDS.length} runs)`);
-console.log(`  sacked          ${freshSacked}/${SEEDS.length}`);
-console.log(`  end of season   mean${k(mean(fresh.map(r => r.end)))}  worst${k(Math.min(...fresh.map(r => r.end)))}`);
-if (freshSacked > 0) bad.push(`${freshSacked} of ${SEEDS.length} brand new careers were sacked in season one`);
+/* ---- a brand new career, the path everyone takes: a town, and an untouched
+        squad. The big towns are the hard case, their squads are the dearest
+        in the division. The bar: around zero on average, and a sacking in
+        season one rare enough that a new manager does not meet it by doing
+        nothing. This used to run through pickClub, a squad averaging 52 on
+        half the wages, and reported an economy nobody was playing in. */
+console.log(`\nbrand new careers, season one, untouched (${SEEDS.length} runs a town)`);
+let freshRuns = 0, freshSacked = 0;
+for (const city of ['אשדוד', 'חיפה', 'באר שבע', 'רמת גן']) {
+  const rs = SEEDS.map(s => season(null, s, null, city));
+  const ends = rs.map(r => r.end);
+  const sacked = rs.filter(r => r.sacked).length;
+  freshRuns += rs.length; freshSacked += sacked;
+  console.log(`  ${city.padEnd(8)} end mean${k(mean(ends))}  worst${k(Math.min(...rs.map(r => r.low)))}  in the red ${ends.filter(e => e < 0).length}/${rs.length}  sacked ${sacked}/${rs.length}`);
+  if (mean(ends) < -50_000) bad.push(`${city}: an untouched first season ends ${Math.round(mean(ends) / 1000)}k in the red on average`);
+}
+if (freshSacked > freshRuns * 0.1) bad.push(`${freshSacked} of ${freshRuns} brand new untouched careers were sacked in season one, more than one in ten`);
 
 /* ---- and every division, on its own participation money */
 console.log('\nmid table club, one season, per division');
