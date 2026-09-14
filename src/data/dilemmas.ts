@@ -51,7 +51,8 @@ export type Act =
   | { kind: 'follow'; weeks: number; title: string; body: string } // a word back at the hub, later
   | { kind: 'youthBoost' }                                         // three kids grow faster in the summer
   | { kind: 'youthLeaveRisk'; p: number }                          // the kid may be gone by summer
-  | { kind: 'promiseWin' };                                        // the terrace remembers if you lose
+  | { kind: 'promiseWin' }                                         // the terrace remembers if you lose
+  | { kind: 'summerExit'; who: Who };                              // he stays till the summer, then goes, for real
 
 export interface DilemmaOption {
   label: string;
@@ -167,8 +168,11 @@ export const TEMPLATES: DilemmaTemplate[] = [
         outcome: 'הוא נשאר, חמוץ. נראה אם הוא רץ בשבת.',
         act: [{ kind: 'fitness', who: 'subject', delta: -10 }] },
       { label: 'תישאר עד סוף העונה ואז נדבר', effect: { morale: +5, prestige: +1 },
-        outcome: 'קנית שקט. הוא ישחק, ובקיץ תשמע ממנו שוב.',
-        act: [{ kind: 'follow', weeks: 6, title: '{subject} מזכיר לך', body: 'הסוכן שלו התקשר. "אמרתם בסוף העונה. סוף העונה מתקרב." הוא עדיין אצלך, בינתיים.' }] },
+        outcome: 'קנית שקט. הוא ישחק עד הקיץ, ואז הוא עובר לקבוצה בליגה, כמו שסיכמתם.',
+        act: [
+          { kind: 'summerExit', who: 'subject' },
+          { kind: 'follow', weeks: 6, title: '{subject} מזכיר לך', body: 'הסוכן שלו התקשר. "אמרתם בסוף העונה. סוף העונה מתקרב." הוא עדיין אצלך, עד הקיץ.' },
+        ] },
     ],
   },
   {

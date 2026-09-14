@@ -276,6 +276,8 @@ export interface GameState {
   youthBoost: string[];
   /** the academy kid who may walk in the summer, and how likely */
   youthLeaveRisk: { name: string; p: number } | null;
+  /** men who agreed to stay until the summer, and then go */
+  summerExits: string[];
   pendingOutcome: string | null;
   lastPlayerMatch: MatchResult | null;
   lastRound: RoundResult[];
@@ -404,6 +406,7 @@ export function newGame(seed = 12345): GameState {
     followUps: [],
     youthBoost: [],
     youthLeaveRisk: null,
+    summerExits: [],
     pendingOutcome: null,
     lastPlayerMatch: null,
     lastRound: [],
@@ -2615,6 +2618,11 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
         note += `|buyerClub=${buyer}`;
         break;
       }
+      case 'summerExit': {
+        const him = whoIs(gs, rolled, a.who);
+        if (him && !gs.summerExits.includes(him.id)) gs = { ...gs, summerExits: [...gs.summerExits, him.id] };
+        break;
+      }
       case 'follow': gs = { ...gs, followUps: [...gs.followUps, { season: gs.season, week: gs.week + a.weeks, title: a.title, body: a.body }] }; break;
       case 'youthBoost': gs = { ...gs, youthBoost: [...new Set([...gs.youthBoost, ...gs.youth.players.slice(0, 3).map(p => p.name)])] }; break;
       case 'youthLeaveRisk': {
@@ -3265,7 +3273,7 @@ export function startNextSeason(gs: GameState): GameState {
   const brokeIt = gs.meters.money <= 0;
   const moraleDelta = (r.result === 'relegated' ? -12 : +6) + (brokeIt ? -10 : 0);
 
-  return {
+  const summer: GameState = {
     ...gs,
     // the summer sits between the seasons, where the report of who aged, who
     // retired and who came up from the youth actually belongs
@@ -3329,6 +3337,9 @@ export function startNextSeason(gs: GameState): GameState {
       ? [...gs.notices, { kind: 'story' as const, title: ` עזב את הנוער`, body: 'מאמן הנוער הזהיר שאם לא יעלה, הוא ילך. הוא הלך. קבוצה אחרת חתמה אותו בקיץ.' }]
       : gs.notices,
   };
+  // the man who was told "until the end of the season" goes now, to a club
+  // in the league he is about to play in
+  return settleSummerExits(summer);
 }
 
 /**
@@ -3467,4 +3478,37 @@ export function rollNamedDilemma(gs: GameState, id: string, seed = 1): RolledDil
   const ctx = dilemmaCtx(gs, topPlayerName(mySquad(gs)), rival.short, rivalId);
   if (tpl.when && !tpl.when(ctx)) return null;
   return rollDilemma(tpl, ctx, createRng(seed));
+}
+
+/**
+ * "Stay until the end of the season and then we will talk" was a promise
+ * too. In the summer the man goes, to a club in the division you are about
+ * to play in, with the story attached like any other sale, and a word about
+ * it waits at the first hub of the new season. The fee is what the window
+ * would have paid, since it was agreed and not forced.
+ */
+function settleSummerExits(gs: GameState): GameState {
+  if (!gs.summerExits.length) return { ...gs, summerExits: [] };
+  const sq = mySquad(gs);
+  let out = gs;
+  for (const id of gs.summerExits) {
+    const p = [...sq.starters, ...sq.bench].find(x => x.id === id);
+    if (!p) continue;
+    // he goes even from a squad of sixteen: the academy tops the squad back up,
+    // the way it does after any summer sale
+    let gone = removePlayer(out, id);
+    if (squadSize(gone) < MIN_SQUAD) {
+      const filled = fillWithYouth(mySquad(gone), createRng(gone.seasonSeed + 8801), club(gone).tier, MIN_SQUAD);
+      gone = writeSquad(gone, filled.squad);
+    }
+    const moved = moveToLeagueClub(gone, p);
+    const buyer = out.league.clubs.find(c => c.id === moved.clubId)?.short ?? 'קבוצה אחרת';
+    const fee = sellPrice(p, club(out).tier);
+    out = {
+      ...moved.gs,
+      meters: { ...moved.gs.meters, money: cash(moved.gs.meters.money + fee) },
+      notices: [...moved.gs.notices, { kind: 'story', title: `${p.name} עבר ל${buyer}`, body: `כמו שסיכמתם בחורף: עד סוף העונה, ואז הוא הולך. הלך. ${formatShekels(fee)} נכנסו לקופה, ובפעם הבאה שתפגשו הוא בצד השני.` }],
+    };
+  }
+  return { ...out, summerExits: [] };
 }

@@ -44,6 +44,14 @@ function penOutcomeImg(corner: Corner, scored: boolean): string {
  * the player is missing: he chose it himself two seconds ago.
  */
 const DEF_PEN_BUILDUP = asset('/moments/def-penalty/buildup.webp');
+/**
+ * The six reaction frames, when they exist: the keeper with the ball, or with
+ * his hands on his head, at the corner the shot went to. Until Itzik's pictures
+ * land the card falls back to the build-up frame washed with the outcome.
+ */
+function defPenOutcomeImg(aim: Corner, saved: boolean): string {
+  return asset(`/moments/def-penalty/${saved ? 'save' : 'goal'}-${aim}.webp`);
+}
 
 /** Same shape for free kicks, with a third outcome, hitting the wall. */
 const FK_BUILDUP = asset('/moments/free-kick/buildup.webp');
@@ -144,7 +152,7 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
   const [subOpen, setSubOpen] = useState(false);   // the substitution sheet
   const [subFocus, setSubFocus] = useState<string | null>(null);   // a player tapped for a quick swap
   const [penOutcome, setPenOutcome] = useState<{ corner: Corner; scored: boolean } | null>(null);
-  const [defPenOutcome, setDefPenOutcome] = useState<{ saved: boolean; keeper: string } | null>(null);
+  const [defPenOutcome, setDefPenOutcome] = useState<{ saved: boolean; keeper: string; aim: Corner } | null>(null);
   const [fkOutcome, setFkOutcome] = useState<{ corner: Corner; outcome: L.FreeKickOutcome } | null>(null);
   const [shotOutcome, setShotOutcome] = useState<{ corner: Corner; outcome: L.ShotOutcome } | null>(null);
   const [oneOnOneOutcome, setOneOnOneOutcome] = useState<L.OneOnOneOutcome | null>(null);
@@ -312,11 +320,11 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
       {penOutcome && <PenaltyOutcome corner={penOutcome.corner} scored={penOutcome.scored} onDone={() => setPenOutcome(null)} />}
       {pending?.kind === 'def_penalty' && <MomentPopup m={pending} kind="def_penalty" onPickCorner={c => {
         const keeper = L.playerKeeperName(st);
-        const { saved } = L.resolveDefPenalty(st, c);
-        setDefPenOutcome({ saved, keeper });
+        const { saved, aim } = L.resolveDefPenalty(st, c);
+        setDefPenOutcome({ saved, keeper, aim });
         force();
       }} />}
-      {defPenOutcome && <DefPenaltyOutcome saved={defPenOutcome.saved} keeper={defPenOutcome.keeper} onDone={() => setDefPenOutcome(null)} />}
+      {defPenOutcome && <DefPenaltyOutcome saved={defPenOutcome.saved} keeper={defPenOutcome.keeper} aim={defPenOutcome.aim} onDone={() => setDefPenOutcome(null)} />}
       {pending?.kind === 'shot' && <MomentPopup m={pending} kind="shot" onPickCorner={c => { const outcome = L.resolveShot(st, c); setShotOutcome({ corner: c, outcome }); force(); }} />}
       {shotOutcome && <ShotOutcomeCard corner={shotOutcome.corner} outcome={shotOutcome.outcome} onDone={() => setShotOutcome(null)} />}
       {pending?.kind === 'free_kick' && <MomentPopup m={pending} kind="free_kick" onPickCorner={c => { const outcome = L.resolveFreeKick(st, c); setFkOutcome({ corner: c, outcome }); force(); }} />}
@@ -863,15 +871,18 @@ function PenaltyOutcome({ corner, scored, onDone }: { corner: Corner; scored: bo
  * moment in the game where the good outcome is nothing happening: the keeper
  * guessed with you and the scoreboard did not move.
  */
-function DefPenaltyOutcome({ saved, keeper, onDone }: {
-  saved: boolean; keeper: string; onDone: () => void;
+function DefPenaltyOutcome({ saved, keeper, aim, onDone }: {
+  saved: boolean; keeper: string; aim: Corner; onDone: () => void;
 }) {
   const accent = saved ? 'var(--win)' : 'var(--loss)';
+  const [hasFrame, setHasFrame] = useState(true);
   return (
     <Portal>
       <div className="moment-scrim" onClick={onDone}>
         <div className="moment" style={{ borderColor: `${accent}55` }} onClick={e => e.stopPropagation()}>
           <div className="moment-hero" style={{ backgroundImage: `url('${DEF_PEN_BUILDUP}')`, aspectRatio: '9 / 12', backgroundPosition: 'center 34%' }} aria-hidden="true">
+            {hasFrame && <img src={defPenOutcomeImg(aim, saved)} alt="" onError={() => setHasFrame(false)}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 34%' }} />}
             {/* the outcome is the colour: the same goal mouth washed green when he
                 keeps it out and red when it goes in, so the frame reads before a
                 word of it is read */}

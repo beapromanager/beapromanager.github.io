@@ -284,6 +284,37 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   console.log('  promise: lose the derby you promised and the terrace remembers');
 }
 
+/* SUMMER EXIT: "until the end of the season" means he goes in the summer, to a club in the league */
+{
+  let gs = { ...career(47), week: 4 };
+  const s = star(gs);
+  ({ gs } = answer(gs, 'player_transfer_request', 2));
+  checked += 2;
+  if (!gs.summerExits.includes(s.id)) fails.push('"until the summer" did not book his exit');
+  if (!inXI(gs, s.id) && !G.mySquad(gs).bench.some(p => p.id === s.id)) fails.push('he left before the summer');
+  // play the season out
+  for (let i = 0; i < 20 && !gs.seasonOver; i++) {
+    gs = playRound(gs, 100 + i);
+    while (gs.notices.length) gs = G.dismissNotice(gs);
+    if (gs.phase !== 'hub') break;
+  }
+  checked++;
+  if (gs.phase !== 'season-end') fails.push(`the season did not end (phase ${gs.phase})`);
+  else {
+    const next = G.startNextSeason(gs);
+    const mineNow = [...G.mySquad(next).starters, ...G.mySquad(next).bench];
+    const exit = next.exits.find(e => e.id === s.id);
+    checked += 4;
+    if (mineNow.some(p => p.id === s.id)) fails.push('he is still in the squad after the summer');
+    if (!exit) fails.push('the summer exit left no record of where he went');
+    else if (!next.league.squads[exit.clubId] || ![...next.league.squads[exit.clubId].starters, ...next.league.squads[exit.clubId].bench].some(p => p.id === s.id))
+      fails.push('his new club, in the new league, does not have him');
+    if (!next.notices.some(n => n.kind === 'story' && n.title.includes(s.name))) fails.push('no word about his summer move waits at the hub');
+    if (next.summerExits.length) fails.push('the summer exit list was not cleared');
+  }
+  console.log('  summer exit: he plays the season, then goes to a club in the league, with a word');
+}
+
 /* THE SWEEP: every template, every option, on several saves, never throws; no past tense about the match ahead */
 {
   const PAST = ['שיחקתם', 'ניצחתם', 'הפסדתם', 'היציע היה', 'האצטדיון בער', 'הוא נכנס וסחב', 'הוא איבד כדור', 'הוא הגיע ו'];
