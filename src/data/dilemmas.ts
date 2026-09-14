@@ -307,7 +307,8 @@ export const TEMPLATES: DilemmaTemplate[] = [
     id: 'physio_pitch',
     speaker: 'physio',
     slots: {
-      state: ['המגרש בוץ אחרי הגשם', 'הדשא קרח ומסוכן', 'יש בור באזור הרחבה'],
+      // no ice: it does not freeze here, and a manager read it and stopped believing the physio
+      state: ['המגרש בוץ אחרי הגשם', 'יש בור באזור הרחבה'],
     },
     text: '{state}. אני ממליץ לבקש דחייה, אבל אתה יודע איך זה נראה מבחוץ.',
     options: () => [
