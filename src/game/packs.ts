@@ -20,7 +20,8 @@
  */
 import type { Player, Position, Rng } from '../engine/matchEngine.ts';
 import { overall } from '../engine/matchEngine.ts';
-import { makePlayer, playerValue, NEUTRAL_TRAITS } from '../data/squadGen.ts';
+import { makePlayer, NEUTRAL_TRAITS } from '../data/squadGen.ts';
+import { sellPrice } from './transfers.ts';
 import { leagueCeiling } from '../data/clubs.ts';
 import { reachableCeiling } from './career.ts';
 import { rarityForOvr, type Rarity } from './cards.ts';
@@ -166,7 +167,13 @@ export function openPack(
     return {
       player,
       rarity: rarityForOvr(o),
-      cashValue: Math.round(playerValue(player) * 0.9),
+      // What the bench would get for him, no more. This was ninety percent of
+      // the book value, priced for a real market, while every other sale in
+      // the game pays the division's fraction of it: in ליגה ג׳ a 48 rated
+      // keeper from a five gem pack sold for ₪68K, twenty one times what the
+      // same man fetched from the bench, and a quarter of a season's purse.
+      // Gems are the currency of packs. They do not get to become shekels.
+      cashValue: sellPrice(player, tier),
       upside: Math.max(0, reachableCeiling(player) - o),
     };
   }

@@ -46,7 +46,8 @@
     "check:part": "node --experimental-strip-types scripts/part-check.mts",
     "check:dilemma": "node --experimental-strip-types scripts/dilemma-check.mts",
     "check:sub": "node --experimental-strip-types scripts/sub-check.mts",
-    "check:tutorial": "node --experimental-strip-types scripts/tutorial-check.mts"
+    "check:tutorial": "node --experimental-strip-types scripts/tutorial-check.mts",
+    "check:pack": "node --experimental-strip-types scripts/pack-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",
