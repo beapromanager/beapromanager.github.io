@@ -110,6 +110,12 @@ export function loadCareer(): GameState | null {
     emergencyYouth: s.emergencyYouth ?? null,
     notices: s.notices ?? [],
     exits: s.exits ?? [],
+    sitOut: s.sitOut ?? {},
+    sitOutNext: s.sitOutNext ?? {},
+    matchMods: s.matchMods ?? {},
+    followUps: s.followUps ?? [],
+    youthBoost: s.youthBoost ?? [],
+    youthLeaveRisk: s.youthLeaveRisk ?? null,
     careerStats: s.careerStats ?? {},
     // season records gained name, club and assists. Older saves have none, so
     // recover name and club from the live squads by the player's stable id,

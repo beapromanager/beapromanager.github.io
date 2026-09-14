@@ -70,6 +70,8 @@ function devFactor(id: string): number {
  */
 export function advanceYouth(
   youth: Youth, tier: number, rng: Rng, used: Set<string>, growth = 1,
+  /** kids the manager let train with the seniors: a bigger year for them */
+  boosted: Set<string> = new Set(),
 ): Youth {
   const players = youth.players.map(p => ({ ...p, attrs: { ...p.attrs } }));
   const graduated: string[] = [];
@@ -87,7 +89,7 @@ export function advanceYouth(
     p.age += 1;
     const pot = devFactor(p.id);
     // a normal year is a point or two, a breakout year is a real jump
-    const step = (p.id === starId ? 4 + pot * 4 : 0.5 + pot * 1.5) * growth;
+    const step = (p.id === starId ? 4 + pot * 4 : 0.5 + pot * 1.5) * growth * (boosted.has(p.name) ? 1.8 : 1);
     bump(p, step, rng);
     if (p.id === starId) graduated.push(p.name);
   }

@@ -104,6 +104,8 @@ export interface LiveState {
   xg: [number, number];
   events: LiveEvent[];
   subsUsed: number;
+  /** the owner's boy, promised a half: he comes on at the break whatever the score */
+  guestId?: string | null;
   /** the half-time shape change, kept so the reporter can ask about it */
   shape?: { to: string; atHalf: [number, number] };
   tacticOffered: boolean;
@@ -191,6 +193,8 @@ export function createLive(input: {
   oppStarters: Player[]; oppBench: Player[];
   moraleBias: number;
   captainId?: string | null;
+  /** the owner's boy on the bench, to come on at half time */
+  guestId?: string | null;
   /** what the manager brings, applied to the player's side only */
   coach?: { chemistry: number; att: number; def: number; cards: number };
 }): LiveState {
@@ -234,7 +238,7 @@ export function createLive(input: {
     iAmHome: input.iAmHome,
     halfTimeDone: false,
     score: [0, 0], possession: 0.5, shots: [0, 0], xg: [0, 0],
-    events: [], subsUsed: 0, tacticOffered: false, pending: null,
+    events: [], subsUsed: 0, tacticOffered: false, pending: null, guestId: input.guestId ?? null,
     mods,
   };
   st.addedTime = 2 + Math.floor(rand(st) * 4);
@@ -922,6 +926,18 @@ export function halfTimeTalk(st: LiveState, id: TalkId) {
 
 /** Leave half time without saying anything special. */
 export function resumeFromHalfTime(st: LiveState) {
+  // the owner's boy was promised a half. He takes the weakest outfield shirt,
+  // and the manager finds out what that costs
+  if (st.guestId && st.subsUsed < MAX_SUBS) {
+    const side = playerSide(st);
+    const guest = side.bench.find(p => p.id === st.guestId);
+    const off = [...side.onPitch].filter(p => p.position !== 'GK').sort((a, b) => overall(a) - overall(b))[0];
+    if (guest && off) {
+      makeSub(st, off.id, guest.id);
+      st.events.push({ minute: 45, type: 'tactic', teamId: side.id, text: ` נכנס במחצית. הבעלים ביקש, המאמן קיים` });
+    }
+    st.guestId = null;
+  }
   st.phase = 'play';
 }
 

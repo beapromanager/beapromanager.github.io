@@ -24,9 +24,10 @@ export function NoticeScreen({ gs, onDismiss, onSquad, onYouth, onTransfers }: {
   if (n.kind === 'window') return <WindowNotice gs={gs} weeks={n.weeks} onDismiss={onDismiss} onTransfers={onTransfers} />;
 
   const red = n.kind === 'suspended';
-  const title = red ? 'הרחקה' : `${n.name} חוזר לנוער`;
+  const title = red ? 'הרחקה' : n.kind === 'story' ? n.title : `${n.name} חוזר לנוער`;
   const body = red
     ? `${n.name} קיבל אדום ולא ישחק מול ${n.rival}. הוא חייב לצאת מההרכב.`
+    : n.kind === 'story' ? n.body
     : `הוא היה רשום לסגל רק למחזור הזה. עכשיו הוא חוזר למחלקת הנוער להמשיך להתפתח.`;
 
   return (
@@ -43,7 +44,7 @@ export function NoticeScreen({ gs, onDismiss, onSquad, onYouth, onTransfers }: {
             display: 'grid', placeItems: 'center',
             background: red ? 'rgba(226,72,77,.18)' : 'rgba(51,194,122,.16)',
           }}>
-            <Icon name={red ? 'alert' : 'star'} size={30} color={red ? 'var(--loss)' : 'var(--win)'} />
+            <Icon name={red ? 'alert' : n.kind === 'story' ? 'mic' : 'star'} size={30} color={red ? 'var(--loss)' : 'var(--win)'} />
           </div>
           <div className="h2" style={{ marginBottom: 6 }}>{title}</div>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: 'var(--ink)' }}>{body}</p>

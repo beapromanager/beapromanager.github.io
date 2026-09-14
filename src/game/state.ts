@@ -2,12 +2,12 @@ import type { Club } from '../data/clubs.ts';
 import type { ManagerId, ManagerType } from '../data/managers.ts';
 import { getManager } from '../data/managers.ts';
 import type { Squad } from '../data/squadGen.ts';
-import { playerValue, squadAvgOvr, nextPlayerId } from '../data/squadGen.ts';
+import { playerValue, squadAvgOvr, nextPlayerId, makePlayer } from '../data/squadGen.ts';
 import type { MatchResult, TeamInput, Approach, Press, Player, Position, Rng } from '../engine/matchEngine.ts';
 import { simulateMatch, overall, createRng } from '../engine/matchEngine.ts';
 import type { LeagueState, Fixture } from './league.ts';
 import { initLeague, applyResult, sortedTable, buildFixtures, emptyTable } from './league.ts';
-import { LEAGUE_C, isDerby, LEAGUE_NAMES, setDerbies, derbiesFromClubs } from '../data/clubs.ts';
+import { LEAGUE_C, isDerby, LEAGUE_NAMES, setDerbies, derbiesFromClubs, leagueCeiling } from '../data/clubs.ts';
 import { buildRegionLeague, buildSiblingLeague, siblingClub } from '../data/cities.ts';
 import { kitColor, type KitColorId } from '../data/palette.ts';
 import { isLegend, isLegendClub, withLegend } from '../data/legends.ts';
@@ -28,7 +28,7 @@ export type { DebtState };
 import { DEFAULT_FORMATION, formationForClub, formation, fillFormation } from '../data/formations.ts';
 import type { FormationId } from '../data/formations.ts';
 import { TEMPLATES, eligible, rollDilemma } from '../data/dilemmas.ts';
-import type { RolledDilemma, DilemmaEffect, Ctx as DilemmaCtx } from '../data/dilemmas.ts';
+import type { RolledDilemma, DilemmaEffect, Ctx as DilemmaCtx, Act, Who } from '../data/dilemmas.ts';
 import { pickPressQuestion } from '../data/press.ts';
 import {
   emptyInvite, myCode, deviceId, makeThanks, verifyThanks, addClaim, claimsThisSeason,
@@ -130,7 +130,8 @@ export interface Tactic { approach: Approach; press: Press; formation: Formation
 export type SquadNotice =
   | { kind: 'suspended'; playerId: string; name: string; rival: string; needYouth: boolean }
   | { kind: 'youth_back'; name: string }
-  | { kind: 'window'; weeks: number };
+  | { kind: 'window'; weeks: number }
+  | { kind: 'story'; title: string; body: string };
 
 /** A man of yours who went to another club in the league. */
 export interface PlayerExit {
@@ -139,6 +140,30 @@ export interface PlayerExit {
   clubId: string;
   season: number;
   week: number;
+}
+
+/** What a pre match answer changed about the match. Cleared when the week ends. */
+export interface MatchMods {
+  /** condition for this match only, by player id */
+  fitness?: Record<string, number>;
+  /** chance a man sits the round after, by player id */
+  injury?: Record<string, number>;
+  /** both sides slower and sloppier */
+  mud?: boolean;
+  /** gate money multiplier */
+  gate?: number;
+  /** the owner's boy, coming on at half time */
+  guest?: Player | null;
+  /** the terrace was promised a result */
+  promiseWin?: boolean;
+}
+
+/** A word that comes back to the hub in a few weeks. */
+export interface FollowUp {
+  season: number;
+  week: number;
+  title: string;
+  body: string;
 }
 
 export interface RoundResult { homeId: string; awayId: string; hg: number; ag: number; }
@@ -239,6 +264,18 @@ export interface GameState {
   notices: SquadNotice[];
   /** men sold to clubs in this league, so the story can follow them */
   exits: PlayerExit[];
+  /** men out of this round by the manager's own decision, id to the chip that says why */
+  sitOut: Record<string, string>;
+  /** the same, owed for the round after (an injury risk that came in) */
+  sitOutNext: Record<string, string>;
+  /** what this round's answers changed about the match itself */
+  matchMods: MatchMods;
+  /** words that come back to the hub later */
+  followUps: FollowUp[];
+  /** academy kids training with the seniors, boosted in the summer */
+  youthBoost: string[];
+  /** the academy kid who may walk in the summer, and how likely */
+  youthLeaveRisk: { name: string; p: number } | null;
   pendingOutcome: string | null;
   lastPlayerMatch: MatchResult | null;
   lastRound: RoundResult[];
@@ -361,6 +398,12 @@ export function newGame(seed = 12345): GameState {
     emergencyYouth: null,
     notices: [],
     exits: [],
+    sitOut: {},
+    sitOutNext: {},
+    matchMods: {},
+    followUps: [],
+    youthBoost: [],
+    youthLeaveRisk: null,
     pendingOutcome: null,
     lastPlayerMatch: null,
     lastRound: [],
@@ -1478,7 +1521,7 @@ export function isSuspended(gs: GameState, playerId: string): boolean {
 
 /** On the sheet but not allowed on the pitch: suspended, or the registered youth. */
 export function isUnavailable(gs: GameState, playerId: string): boolean {
-  return isSuspended(gs, playerId) || gs.emergencyYouth === playerId;
+  return isSuspended(gs, playerId) || gs.emergencyYouth === playerId || !!gs.sitOut[playerId];
 }
 
 /** Names the league will accept on the sheet: the squad less the suspended. */
@@ -1492,6 +1535,8 @@ export function weekBlockedReason(gs: GameState): string | null {
   const sq = mySquad(gs);
   const banned = sq.starters.find(p => isSuspended(gs, p.id));
   if (banned) return `${banned.name} מורחק למחזור הזה. תוציא אותו מההרכב.`;
+  const sitting = sq.starters.find(p => gs.sitOut[p.id]);
+  if (sitting) return `${sitting.name} ${gs.sitOut[sitting.id]} במחזור הזה, כמו שהחלטת. תוציא אותו מההרכב.`;
   const n = eligibleCount(gs);
   if (n < MIN_SQUAD) return `יש רק ${n} שמות כשירים לסגל, הליגה דורשת ${MIN_SQUAD}. תרשום שחקן מהנוער למחזור.`;
   return null;
@@ -1597,6 +1642,7 @@ export function swapBlockedReason(a: Player, b: Player, gs?: GameState): string 
   // the bench man is the one coming in
   if (gs && isSuspended(gs, b.id)) return `${b.name} מורחק למחזור הזה, הוא לא יכול לעלות להרכב`;
   if (gs && gs.emergencyYouth === b.id) return `${b.name} רשום לסגל בלבד, הוא לא משחק במחזור הזה`;
+  if (gs && gs.sitOut[b.id]) return `${b.name} ${gs.sitOut[b.id]} במחזור הזה, כמו שהחלטת`;
   return null;
 }
 
@@ -2355,6 +2401,12 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
     veteranName: old ? surname(old.name) : '',
     scorer: scorer && goals(scorer) > 0 ? surname(scorer.name) : '',
     dry: drought ? surname(drought.name) : '',
+    // the academy, for the youth coach: his best kid, and the first three by name
+    academy: [...gs.youth.players].sort((a, b) => overall(b) - overall(a))[0]?.name ?? '',
+    kids3: gs.youth.players.length >= 3
+      ? gs.youth.players.slice(0, 3).map(p => surname(p.name)).reduce((s, n, i, a) => i === 0 ? n : i === a.length - 1 ? `${s} ו${n}` : `${s}, ${n}`, '')
+      : '',
+    squadSize: squadSize(gs),
     pos, teams: gs.league.clubs.length,
     week: gs.week,
     isDerby: isDerby(gs.clubId, rivalId),
@@ -2408,12 +2460,178 @@ export function startWeek(gs: GameState): GameState {
  * Never below eleven plus a bench, whatever the fiction wants.
  */
 function keepThePromise(gs: GameState, rolled: RolledDilemma, opt: RolledDilemma['options'][number]): { gs: GameState; note: string } {
-  if (!opt.release || !rolled.subjectName || squadSize(gs) <= 14) return { gs, note: '' };
+  let note = '';
+  if (opt.release && rolled.subjectName && squadSize(gs) > 14) {
+    const him = subjectOf(gs, rolled.subjectName);
+    if (him) {
+      gs = removePlayer(gs, him.id);
+      note = ` ${him.name} עזב, ונשארתם עם ${squadSize(gs)} שחקנים.`;
+    }
+  }
+  const acted = applyActs(gs, rolled, opt.act ?? []);
+  return { gs: acted.gs, note: note + acted.note };
+}
+
+/* ----------------------------------------------------- answers that act */
+
+/** The dilemma names a man by surname; find him in the squad. */
+function subjectOf(gs: GameState, surnameOrName: string): Player | undefined {
   const sq = mySquad(gs);
-  const him = [...sq.starters, ...sq.bench].find(x => x.name === rolled.subjectName);
-  if (!him) return { gs, note: '' };
-  const next = removePlayer(gs, him.id);
-  return { gs: next, note: ` ${him.name} עזב, ונשארתם עם ${squadSize(next)} שחקנים.` };
+  const all = [...sq.starters, ...sq.bench];
+  return all.find(x => x.name === surnameOrName) ?? all.find(x => surname(x.name) === surnameOrName);
+}
+
+/** Resolve who an act is about against the live squad. */
+function whoIs(gs: GameState, rolled: RolledDilemma, who: Who): Player | undefined {
+  const sq = mySquad(gs);
+  const all = [...sq.starters, ...sq.bench];
+  switch (who) {
+    case 'subject': return rolled.subjectName ? subjectOf(gs, rolled.subjectName) : undefined;
+    case 'star': return [...all].sort((a, b) => overall(b) - overall(a))[0];
+    case 'gk': return sq.starters.find(p => p.position === 'GK') ?? all.find(p => p.position === 'GK');
+    case 'captain': return captain(gs) ?? undefined;
+    case 'striker': return [...sq.starters].filter(p => FORWARD.has(p.position)).sort((a, b) => overall(b) - overall(a))[0]
+      ?? [...all].filter(p => FORWARD.has(p.position)).sort((a, b) => overall(b) - overall(a))[0];
+    case 'dry': case 'benched': return rolled.subjectName ? subjectOf(gs, rolled.subjectName) : undefined;
+    case 'academy': return undefined;
+  }
+}
+
+/** Take a man out of the eleven for a bench man of the same kind, if he is in it. */
+function benchHim(gs: GameState, id: string): GameState {
+  const sq = mySquad(gs);
+  const si = sq.starters.findIndex(p => p.id === id);
+  if (si < 0) return gs;
+  const him = sq.starters[si];
+  const isGk = him.position === 'GK';
+  const sub = sq.bench.find(p => (p.position === 'GK') === isGk && !isUnavailable(gs, p.id) && !(gs.sitOut[p.id]));
+  if (!sub) return gs;
+  return swapPlayers(gs, him.id, sub.id);
+}
+
+/** Put a man into the eleven, for the weakest of his line, if he is not in it. */
+function startHim(gs: GameState, id: string): GameState {
+  const sq = mySquad(gs);
+  if (sq.starters.some(p => p.id === id)) return gs;
+  const him = sq.bench.find(p => p.id === id);
+  if (!him) return gs;
+  const isGk = him.position === 'GK';
+  const line = LINE[him.position] ?? 'MID';
+  const out = [...sq.starters]
+    .filter(p => (p.position === 'GK') === isGk && (isGk || (LINE[p.position] ?? 'MID') === line))
+    .sort((a, b) => overall(a) - overall(b))[0]
+    ?? [...sq.starters].filter(p => (p.position === 'GK') === isGk).sort((a, b) => overall(a) - overall(b))[0];
+  if (!out) return gs;
+  return swapPlayers(gs, out.id, him.id);
+}
+
+/** A signing the agent or the owner brings, built to the pitch that sold him. */
+function agentSigning(gs: GameState, profile: 'dropped' | 'brazilian' | 'veteran' | 'striker'): Player {
+  const tier = club(gs).tier;
+  const rng = createRng(gs.seasonSeed * 19 + gs.week * 3 + 77);
+  const used = new Set([...mySquad(gs).starters, ...mySquad(gs).bench].map(p => p.name));
+  const ceiling = leagueCeiling(tier);
+  const p = profile === 'striker' ? makePlayer('ST', ceiling + 3, rng, undefined, used)
+    : profile === 'dropped' ? makePlayer(['CM', 'CB', 'RW'][Math.floor(rng() * 3)] as Position, ceiling + 4, rng, undefined, used)
+    : profile === 'brazilian' ? makePlayer(['CAM', 'LW'][Math.floor(rng() * 2)] as Position, ceiling + 1, rng, undefined, used)
+    : makePlayer(['CB', 'CM'][Math.floor(rng() * 2)] as Position, ceiling + 2, rng, undefined, used);
+  if (profile === 'dropped') p.age = 31;
+  if (profile === 'veteran') p.age = 34;
+  if (profile === 'brazilian') { p.attrs.dribbling = Math.min(99, p.attrs.dribbling + 8); p.attrs.passing = Math.min(99, p.attrs.passing + 4); }
+  return p;
+}
+
+/**
+ * Do what the answer said. Each act touches the save in the smallest honest
+ * way, and the note that comes back is appended to the outcome so the
+ * manager can check the squad screen against what he was just told.
+ */
+function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: GameState; note: string } {
+  let note = '';
+  for (const a of acts) {
+    switch (a.kind) {
+      case 'sit': {
+        const him = whoIs(gs, rolled, a.who);
+        if (!him) break;
+        gs = benchHim({ ...gs, sitOut: { ...gs.sitOut, [him.id]: a.label } }, him.id);
+        break;
+      }
+      case 'play': {
+        const him = whoIs(gs, rolled, a.who);
+        if (!him) break;
+        gs = startHim(gs, him.id);
+        break;
+      }
+      case 'fitness': {
+        const him = whoIs(gs, rolled, a.who);
+        if (!him) break;
+        const fitness = { ...(gs.matchMods.fitness ?? {}), [him.id]: (gs.matchMods.fitness?.[him.id] ?? 0) + a.delta };
+        gs = { ...gs, matchMods: { ...gs.matchMods, fitness } };
+        break;
+      }
+      case 'injury': {
+        const him = whoIs(gs, rolled, a.who);
+        if (!him) break;
+        gs = { ...gs, matchMods: { ...gs.matchMods, injury: { ...(gs.matchMods.injury ?? {}), [him.id]: a.risk } } };
+        break;
+      }
+      case 'mud': gs = { ...gs, matchMods: { ...gs.matchMods, mud: true } }; break;
+      case 'formation': gs = { ...gs, tactic: { ...gs.tactic, formation: a.id } }; break;
+      case 'gate': gs = { ...gs, matchMods: { ...gs.matchMods, gate: (gs.matchMods.gate ?? 1) * a.mult } }; break;
+      case 'promiseWin': gs = { ...gs, matchMods: { ...gs.matchMods, promiseWin: true } }; break;
+      case 'guest': {
+        const rng = createRng(gs.seasonSeed * 11 + gs.week * 5 + 9);
+        const used = new Set([...mySquad(gs).starters, ...mySquad(gs).bench].map(p => p.name));
+        const boy = makePlayer('CM', leagueCeiling(club(gs).tier) - 14, rng, undefined, used);
+        boy.age = 19;
+        gs = { ...gs, matchMods: { ...gs.matchMods, guest: boy } };
+        break;
+      }
+      case 'sign': {
+        if (squadSize(gs) >= MAX_SQUAD) { note += ' הסגל מלא, הוא לא נכנס.'; break; }
+        const p = agentSigning(gs, a.profile);
+        const sq = mySquad(gs);
+        gs = { ...writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, p] }), contracts: { ...gs.contracts, [p.id]: 1 } };
+        note += ` ${p.name} (${p.position}, ${overall(p)}) הצטרף לסגל.`;
+        break;
+      }
+      case 'promote': {
+        const kid = [...gs.youth.players].sort((a, b) => overall(b) - overall(a))[0];
+        if (!kid || squadSize(gs) >= MAX_SQUAD) break;
+        const sq = mySquad(gs);
+        gs = {
+          ...writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, kid] }),
+          youth: { ...gs.youth, players: gs.youth.players.filter(p => p.id !== kid.id), ready: gs.youth.ready.filter(n => n !== kid.name) },
+          contracts: { ...gs.contracts, [kid.id]: 3 },
+        };
+        break;
+      }
+      case 'sell': {
+        const him = whoIs(gs, rolled, a.who);
+        if (!him || squadSize(gs) <= MIN_SQUAD) { note += ' הסגל על המינימום, המכירה נדחתה.'; break; }
+        const moved = moveToLeagueClub(removePlayer(gs, him.id), him);
+        const buyer = gs.league.clubs.find(c => c.id === moved.clubId)?.short ?? 'קבוצה אחרת';
+        gs = { ...moved.gs, preResolved: [...moved.gs.preResolved, `renew-${him.id}`] };
+        note += `|buyerClub=${buyer}`;
+        break;
+      }
+      case 'follow': gs = { ...gs, followUps: [...gs.followUps, { season: gs.season, week: gs.week + a.weeks, title: a.title, body: a.body }] }; break;
+      case 'youthBoost': gs = { ...gs, youthBoost: [...new Set([...gs.youthBoost, ...gs.youth.players.slice(0, 3).map(p => p.name)])] }; break;
+      case 'youthLeaveRisk': {
+        const kid = [...gs.youth.players].sort((a, b) => overall(b) - overall(a))[0];
+        if (kid) gs = { ...gs, youthLeaveRisk: { name: kid.name, p: a.p } };
+        break;
+      }
+    }
+  }
+  return { gs, note };
+}
+
+/** The outcome text, with anything only the acts could know filled in. */
+function finishOutcome(outcome: string, note: string): string {
+  const m = note.match(/\|buyerClub=([^|]+)$/);
+  const clean = note.replace(/\|buyerClub=[^|]+$/, '');
+  return outcome.replace('{buyerClub}', m?.[1] ?? 'קבוצה אחרת') + clean;
 }
 
 export function chooseDilemma(gs: GameState, optionIndex: number): GameState {
@@ -2430,7 +2648,7 @@ export function chooseDilemma(gs: GameState, optionIndex: number): GameState {
       morale: moraleShift(gs.meters.morale, (e.morale ?? 0)),
       prestige: meter(gs.meters.prestige + (e.prestige ?? 0)),
     },
-    pendingOutcome: opt.outcome + kept.note,
+    pendingOutcome: finishOutcome(opt.outcome, kept.note),
     style: scoreStyle(gs.style, e),
     dilemmaHistory: [...gs.dilemmaHistory, rolled.id],
   };
@@ -2467,7 +2685,7 @@ export function answerInbox(gs: GameState, itemIndex: number, optionIndex: numbe
       morale: moraleShift(gs.meters.morale, (e.morale ?? 0)),
       prestige: meter(gs.meters.prestige + (e.prestige ?? 0)),
     },
-    pendingOutcome: opt.outcome + kept.note,
+    pendingOutcome: finishOutcome(opt.outcome, kept.note),
     style: scoreStyle(gs.style, e),
     dilemmaHistory: [...gs.dilemmaHistory, item.id],
     inbox: gs.inbox.filter((_, i) => i !== itemIndex),
@@ -2530,8 +2748,22 @@ export function liveMatchInput(gs: GameState) {
     starters = fillFormation([...starters, ...bench], formation(gs.tactic.formation)).slice(0, 11);
     bench = bench.filter(p => !starters.includes(p));
   }
-  const mine = { starters, bench };
-  const opp = gs.league.squads[oppId];
+  // what this week's answers did to the match: a man playing hurt or fired up,
+  // a pitch that is mud for both sides, the owner's boy waiting on the bench
+  const mods = gs.matchMods;
+  const tuned = (p: Player, mine: boolean): Player => {
+    let q = p;
+    const d = mine ? mods.fitness?.[p.id] : undefined;
+    if (d) q = { ...q, fitness: Math.max(20, Math.min(100, q.fitness + d)) };
+    if (mods.mud) q = { ...q, attrs: { ...q.attrs, passing: Math.max(20, q.attrs.passing - 8), pace: Math.max(20, q.attrs.pace - 8) } };
+    return q;
+  };
+  const mine = {
+    starters: starters.map(p => tuned(p, true)),
+    bench: [...bench.map(p => tuned(p, true)), ...(mods.guest ? [mods.guest] : [])],
+  };
+  const oppSq = gs.league.squads[oppId];
+  const opp = { starters: oppSq.starters.map(p => tuned(p, false)), bench: oppSq.bench.map(p => tuned(p, false)) };
   const homeClub = gs.league.clubs.find(c => c.id === fx.homeId)!;
   const awayClub = gs.league.clubs.find(c => c.id === fx.awayId)!;
   return {
@@ -2541,6 +2773,7 @@ export function liveMatchInput(gs: GameState) {
     iAmHome,
     playerStarters: mine.starters, playerBench: mine.bench, playerTactic: gs.tactic,
     oppStarters: opp.starters, oppBench: opp.bench,
+    guestId: mods.guest?.id ?? null,
     moraleBias: (gs.meters.morale - 65) / 100,
     captainId: currentCaptainId(gs),
     coach: {
@@ -2616,7 +2849,7 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
     isDerby: derby, rounds: gs.league.rounds,
   });
   // a home crowd pays at the gate, the reward for a bigger ground
-  const gate = iAmHome ? gateIncome(homeAttendance(gs, derby), club(gs).tier) : 0;
+  const gate = iAmHome ? Math.round(gateIncome(homeAttendance(gs, derby), club(gs).tier) * (gs.matchMods.gate ?? 1)) : 0;
   // the shirt pays every week, and the crowd deal pays on who actually turns up
   const shirt = sponsorRound(gs.sponsor, club(gs).tier, homeAttendance(gs, derby));
   // and the boards around the pitch are bought for the ground, crowd or no crowd
@@ -2640,6 +2873,12 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
     lastRound: roundResults,
     seasonStats,
     suspensions: bookSuspensions(gs, playerResult),
+    // a man who played hurt may pay for it next round; a promise to the terrace
+    // that was not kept comes back to the hub next week
+    sitOutNext: settleInjuries(gs),
+    followUps: gs.matchMods.promiseWin && !won
+      ? [...gs.followUps, { season: gs.season, week: gs.week + 1, title: 'היציע זוכר', body: 'הבטחת להם שלא תפסידו בדרבי. הם באו, הם שרו, והם זוכרים. מנהיג היציע: "בפעם הבאה אל תבטיח. תעשה."' }]
+      : gs.followUps,
     form: [...gs.form, won ? 'W' : draw ? 'D' : 'L'].slice(-6) as ('W'|'D'|'L')[],
     seasonOver: gs.week + 1 > gs.league.rounds,
   };
@@ -2776,6 +3015,9 @@ function endOfWeek(gs: GameState): GameState {
   // the registered youth goes back down and the reds are served, before the
   // manager is told anything about either
   gs = serveSuspensions(returnEmergencyYouth(gs));
+  // this week's answers have done their work: the men who sat are free, the
+  // ones who got hurt sit next, and the match mods are spent
+  gs = { ...gs, sitOut: gs.sitOutNext, sitOutNext: {}, matchMods: {} };
   // remember the post match line shown on the result screen before moving on
   const fanHistory = gs.lastPlayerMatch
     ? [...gs.fanHistory, fanNote(gs, 'post').id].slice(-FAN_HISTORY)
@@ -2789,10 +3031,14 @@ function endOfWeek(gs: GameState): GameState {
   const next = gs.week + 1;
   const wintry = windowState(next, gs.league.rounds);
   const wasOpen = windowState(gs.week, gs.league.rounds).open;
-  const notices = wintry.open && !wasOpen
+  let notices = wintry.open && !wasOpen
     ? [...gs.notices, { kind: 'window' as const, weeks: wintry.weeksLeft }]
     : gs.notices;
-  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices };
+  // and the words that were owed for this week come back
+  const due = gs.followUps.filter(f => f.season === gs.season && f.week <= next);
+  const followUps = gs.followUps.filter(f => !due.includes(f));
+  notices = [...notices, ...due.map(f => ({ kind: 'story' as const, title: f.title, body: f.body }))];
+  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices, followUps };
 }
 
 /**
@@ -2983,6 +3229,7 @@ export function startNextSeason(gs: GameState): GameState {
   const mine = next.squads[gs.clubId];
   const rng = createRng(next.seed + 991);
   const takenNames = new Set([...mine.starters, ...mine.bench].map(p => p.name));
+  const academy = summerAcademy(gs, r.newTier, next.seed, takenNames);
 
   const report: SeasonReport = { ...r, season: gs.season };
   const prestigeDelta = r.result === 'champion' ? +9 : r.result === 'promoted' ? +6 : r.result === 'relegated' ? -8 : 0;
@@ -3075,11 +3322,12 @@ export function startNextSeason(gs: GameState): GameState {
     },
     // the academy has its summer too: one kid breaks out, the eighteen year olds
     // come up for a decision, and a new intake arrives
-    youth: advanceYouth(
-      gs.youth, next.report.newTier, createRng(next.seed + 6602),
-      new Set([...mine.starters, ...mine.bench].map(pl => pl.name)),
-      coachYouthGrowth(gs.coach),
-    ),
+    youth: academy.youth,
+    youthBoost: [],
+    youthLeaveRisk: null,
+    notices: academy.left
+      ? [...gs.notices, { kind: 'story' as const, title: ` עזב את הנוער`, body: 'מאמן הנוער הזהיר שאם לא יעלה, הוא ילך. הוא הלך. קבוצה אחרת חתמה אותו בקיץ.' }]
+      : gs.notices,
   };
 }
 
@@ -3179,3 +3427,44 @@ function hashPair(a: string, b: string): number {
 }
 
 export { sortedTable };
+
+/** Roll the injury risks the manager took before the match: who sits the round after. */
+function settleInjuries(gs: GameState): Record<string, string> {
+  const out = { ...gs.sitOutNext };
+  const risks = gs.matchMods.injury ?? {};
+  const rng = createRng(gs.seasonSeed * 7 + gs.week * 131 + 3);
+  for (const [id, p] of Object.entries(risks)) if (rng() < p) out[id] = 'פצוע';
+  return out;
+}
+
+/**
+ * The academy's summer, with what the manager decided during the season: the
+ * kids he let train with the seniors grow more, and the one he would not
+ * promote may have walked, as the youth coach warned he might.
+ */
+function summerAcademy(gs: GameState, newTier: number, seed: number, used: Set<string>): { youth: Youth; left: string | null } {
+  let youth = advanceYouth(gs.youth, newTier, createRng(seed + 6602), used, coachYouthGrowth(gs.coach), new Set(gs.youthBoost));
+  const risk = gs.youthLeaveRisk;
+  let left: string | null = null;
+  if (risk && youth.players.some(p => p.name === risk.name) && createRng(seed + 6603)() < risk.p) {
+    youth = { ...youth, players: youth.players.filter(p => p.name !== risk.name), ready: youth.ready.filter(n => n !== risk.name) };
+    left = risk.name;
+  }
+  return { youth, left };
+}
+
+/**
+ * Roll one named dilemma against the live save, the way the week would.
+ * For the checks, which need a particular question in front of the manager
+ * rather than whichever the seed happens to draw.
+ */
+export function rollNamedDilemma(gs: GameState, id: string, seed = 1): RolledDilemma | null {
+  const tpl = TEMPLATES.find(t => t.id === id);
+  if (!tpl) return null;
+  const fx = playerFixture(gs);
+  const rivalId = fx ? (fx.homeId === gs.clubId ? fx.awayId : fx.homeId) : gs.clubId;
+  const rival = gs.league.clubs.find(c => c.id === rivalId)!;
+  const ctx = dilemmaCtx(gs, topPlayerName(mySquad(gs)), rival.short, rivalId);
+  if (tpl.when && !tpl.when(ctx)) return null;
+  return rollDilemma(tpl, ctx, createRng(seed));
+}

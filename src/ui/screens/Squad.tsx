@@ -52,8 +52,8 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mar
   onSwap?: () => void;
   /** wears the armband */
   captain?: boolean;
-  /** why he is not playing this round, when he is not */
-  mark?: 'banned' | 'sheet' | null;
+  /** why he is not playing this round, when he is not: the chip text */
+  mark?: string | null;
 }) {
   const o = overall(p);
   const line = LINE_OF[p.position];
@@ -73,8 +73,7 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mar
           {captain && <><CaptainMark size={16} /> </>}
           {p.name}
           {young && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(51,194,122,.18)', color: 'var(--win)' }}>כישרון</span>}
-          {mark === 'banned' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(226,72,77,.18)', color: 'var(--loss)' }}>מורחק</span>}
-          {mark === 'sheet' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(255,255,255,.08)', color: 'var(--ink-faint)' }}>רשום בלבד</span>}
+          {mark && <span className="chip" style={{ marginInlineStart: 6, background: mark === 'מורחק' ? 'rgba(226,72,77,.18)' : 'rgba(255,255,255,.08)', color: mark === 'מורחק' ? 'var(--loss)' : 'var(--ink-faint)' }}>{mark}</span>}
         </div>
         <div className="sub" style={{ fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {/* Pace and shooting used to follow the age here. Two numbers out of
@@ -167,8 +166,8 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
   const tr = (p: Player): Trait[] => traitMap.get(p.id) ?? [];
   const captainId = G.currentCaptainId(gs);
   // banned for the round, or the youth on the sheet who never plays
-  const markOf = (p: Player): 'banned' | 'sheet' | null =>
-    G.isSuspended(gs, p.id) ? 'banned' : gs.emergencyYouth === p.id ? 'sheet' : null;
+  const markOf = (p: Player): string | null =>
+    G.isSuspended(gs, p.id) ? 'מורחק' : gs.emergencyYouth === p.id ? 'רשום בלבד' : gs.sitOut[p.id] ?? null;
 
   const pickedPlayer = picked ? [...sq.starters, ...sq.bench].find(p => p.id === picked) ?? null : null;
   const avg = Math.round(sq.starters.reduce((s, p) => s + overall(p), 0) / sq.starters.length);
@@ -308,8 +307,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
                 <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: LINE_COLOR[LINE_OF[p.position]], minWidth: 36, justifyContent: 'center' }}>{p.position}</span>
                 <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {p.id === captainId && <span className="lineup-cap">C</span>}{p.name}
-                  {markOf(p) === 'banned' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(226,72,77,.18)', color: 'var(--loss)' }}>מורחק</span>}
-                  {markOf(p) === 'sheet' && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(255,255,255,.08)', color: 'var(--ink-faint)' }}>רשום בלבד</span>}
+                  {markOf(p) && <span className="chip" style={{ marginInlineStart: 6, background: markOf(p) === 'מורחק' ? 'rgba(226,72,77,.18)' : 'rgba(255,255,255,.08)', color: markOf(p) === 'מורחק' ? 'var(--loss)' : 'var(--ink-faint)' }}>{markOf(p)}</span>}
                 </span>
                 <span className="num" style={{ fontWeight: 900, fontSize: 17, color: ovrColor(overall(p)) }}>{overall(p)}</span>
               </button>
