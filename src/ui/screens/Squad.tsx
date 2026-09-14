@@ -5,6 +5,7 @@ import { overall } from '../../engine/matchEngine.ts';
 import { ovrColor } from '../../game/cards.ts';
 import type { Trait } from '../../data/personalities.ts';
 import { headlineTrait, assignTraits, renderLine, TONE_COLOR } from '../../data/personalities.ts';
+import { surnameOf } from '../../data/names.ts';
 import type { Squad } from '../../data/squadGen.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Kit } from '../components/Kit.tsx';
@@ -387,7 +388,7 @@ function DressingRoom({ sq, traitMap, onOpen }: {
                 <span style={{ display: 'block', fontWeight: 800, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
                 <span style={{ display: 'block', fontSize: 14.5, lineHeight: 1.45, color: t ? 'var(--ink-dim)' : 'var(--ink-faint)' }}>
                   {t
-                    ? <><span style={{ color: TONE_COLOR[t.tone], fontWeight: 700 }}>{t.label}</span><span style={{ opacity: .5 }}> · </span>{renderLine(t, { ...p, name: p.name.split(' ').slice(-1)[0] })}</>
+                    ? <><span style={{ color: TONE_COLOR[t.tone], fontWeight: 700 }}>{t.label}</span><span style={{ opacity: .5 }}> · </span>{renderLine(t, { ...p, name: surnameOf(p.name) })}</>
                     : ROLE[LINE_OF[p.position]]}
                 </span>
               </span>

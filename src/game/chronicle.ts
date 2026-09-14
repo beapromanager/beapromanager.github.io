@@ -9,6 +9,7 @@
  */
 
 import type { GameState, RoundResult } from './state.ts';
+import { surnameOf } from '../data/names.ts';
 import type { MatchResult, MatchEvent } from '../engine/matchEngine.ts';
 import { sortedTable } from './league.ts';
 import { isDerby } from '../data/clubs.ts';
@@ -223,7 +224,7 @@ function detectors(c: Ctx): (ChronicleEntry | null)[] {
 
     youngScorer ? {
       id: `youngster-${youngScorer.name}-w${wk}`, kind: 'youngster_scored', week: wk, icon: icon('youngster_scored'), tint: tint('youngster_scored'),
-      title: `${youngScorer.name.split(' ').slice(-1)[0]}, ${youngScorer.age}`,
+      title: `${surnameOf(youngScorer.name)}, ${youngScorer.age}`,
       body: `הכישרון הצעיר שגילית פתח חשבון בדקה ${youngScorer.minute}. יום מסמן.`,
     } : null,
   ];

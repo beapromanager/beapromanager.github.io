@@ -1,4 +1,5 @@
 import type { Player } from '../../engine/matchEngine.ts';
+import { surnameOf } from '../../data/names.ts';
 import { overall } from '../../engine/matchEngine.ts';
 import type { Formation, FormationSlot } from '../../data/formations.ts';
 import { ROLE_LABEL, roleFit } from '../../data/formations.ts';
@@ -99,7 +100,4 @@ function shortNames(players: Player[]): Map<string, string> {
   return out;
 }
 
-function family(name: string): string {
-  const parts = name.split(' ');
-  return parts.length > 1 ? parts[parts.length - 1] : name;
-}
+const family = surnameOf;

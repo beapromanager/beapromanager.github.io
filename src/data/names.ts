@@ -9,6 +9,7 @@
  */
 
 import type { Rng } from '../engine/matchEngine.ts';
+import { LEGENDS } from './legends.ts';
 
 export type Origin = 'jewish' | 'arab';
 
@@ -36,6 +37,13 @@ const JEWISH_LAST = [
   'גולן', 'אוחיון', 'סוויסה', 'גבאי', 'ואקנין', 'עמר', 'גולדברג', 'ברקוביץ׳', 'לוין', 'מילר',
   'סמירנוב', 'טספה', 'מנגיסטו', 'לביא', 'ארז', 'בנימיני', 'זהבי', 'פלג', 'סיבוני', 'עוזיאל',
   'ייני', 'פרחי', 'יוגב', 'עצמון', 'גלנטי',
+  // the second forty, from Itzik. Forty five families across a squad, a youth
+  // intake and a market of thirty three men meant three of the same name in a
+  // sixth of all squads, and four of them once in a while
+  'אלבז', 'אביטן', 'אמסלם', 'אסולין', 'בוזגלו', 'בן חמו', 'בן שימול', 'ברוך', 'ברזילי', 'גרינברג',
+  'דיין', 'הררי', 'וקנין', 'זגורי', 'חדד', 'חזן', 'חיון', 'טולדנו', 'יחזקאל', 'כספי',
+  'לוגסי', 'מאיר', 'מועלם', 'נחמיאס', 'סבג', 'סעדון', 'עמרם', 'פדידה', 'פינטו', 'צרפתי',
+  'קדוש', 'קורן', 'רביבו', 'רוזנברג', 'שטרית', 'שמעוני', 'שרעבי', 'תורג׳מן', 'אדרי', 'בכר',
 ];
 
 const ARAB_FIRST = [
@@ -46,11 +54,22 @@ const ARAB_FIRST = [
 
 const ARAB_LAST = [
   'ג׳בארין', 'אגבאריה', 'מחאמיד', 'ח׳ורי', 'זועבי', 'נאסר',
+  // thirty more, from Itzik. Six families for a whole Arab club put eight men
+  // of the same name in one dressing room in נצרת, every single time
+  'אבו ריא', 'אבו רומי', 'אבו סאלח', 'אבו שאח', 'אבו עביד', 'אבו עמאר', 'בדראן', 'ג׳אבר', 'ג׳ראר', 'דראושה',
+  'ח׳טיב', 'חאג׳', 'חטאב', 'חמוד', 'חסן', 'טאהא', 'יאסין', 'מוסא', 'מנסור', 'מסארווה',
+  'סאלח', 'סלימאן', 'סרחאן', 'עבד אל חי', 'עודה', 'עזאם', 'עיסא', 'עלי', 'קאסם', 'שחאדה',
 ];
 
-/** Real active players, never produce these exact combinations. */
+/**
+ * Never produce these exact combinations: real active players, and the ראש
+ * העין regulars, who are recognised by name alone. Both their first and family
+ * names sit in the pools, so without this a generated man in another town
+ * could be told apart from a regular by nothing at all.
+ */
 const BLOCK = new Set<string>([
   'מנור סולומון', 'עומר אצילי', 'אלירן אטר', 'מוחמד אבו פאני', 'דור פרץ',
+  ...LEGENDS.map(l => l.name),
 ]);
 
 /**
@@ -88,9 +107,30 @@ export function squadOrigins(sector: Origin, size: number, rng: Rng): Origin[] {
   return origins;
 }
 
+/**
+ * The family name is everything after the first name. First names are one
+ * word in both pools; family names are not (בן חמו, אבו ריא, עבד אל חי), so
+ * the last word alone is the wrong answer, and every screen that names a man
+ * by his family reads it from here.
+ */
+export function surnameOf(name: string): string {
+  const parts = name.trim().split(' ');
+  return parts.length > 1 ? parts.slice(1).join(' ') : name;
+}
+
+/**
+ * Two men in one squad never share a name, and, for as long as the pool
+ * allows it, not a family name either. The old rule kept only the full name
+ * apart, and with forty five families to draw from, a squad, its youth and
+ * its market held three of the same in one case in six, eight of the same in
+ * an Arab club. A shared family name is the last resort, not the first draw.
+ */
 function draw(first: string[], last: string[], rng: Rng, used?: Set<string>): string {
+  const families = new Set<string>();
+  if (used) for (const n of used) families.add(surnameOf(n));
   let fallback = '';
-  for (let tries = 0; tries < 40; tries++) {
+  let sameFamily = '';
+  for (let tries = 0; tries < 60; tries++) {
     const f = first[Math.floor(rng() * first.length)];
     const l = last[Math.floor(rng() * last.length)];
     if (f === l) continue;                      // no "טל טל"
@@ -98,10 +138,13 @@ function draw(first: string[], last: string[], rng: Rng, used?: Set<string>): st
     if (BLOCK.has(full)) continue;
     fallback ||= full;
     if (used?.has(full)) continue;              // no two identical names in one squad
+    if (families.has(l)) { sameFamily ||= full; continue; }
     used?.add(full);
     return full;
   }
-  return fallback || `${first[0]} ${last[0]}`;
+  const pick = sameFamily || fallback || `${first[0]} ${last[0]}`;
+  used?.add(pick);
+  return pick;
 }
 
 export function pickOrigin(rng: Rng): Origin {
@@ -110,10 +153,8 @@ export function pickOrigin(rng: Rng): Origin {
 
 /** Read a generated name back to its pool, by its first or family name. */
 export function originOfName(name: string): Origin {
-  const parts = name.split(' ');
-  const first = parts[0];
-  const last = parts[parts.length - 1];
-  return ARAB_LAST.includes(last) || ARAB_FIRST.includes(first) ? 'arab' : 'jewish';
+  const first = name.trim().split(' ')[0];
+  return ARAB_LAST.includes(surnameOf(name)) || ARAB_FIRST.includes(first) ? 'arab' : 'jewish';
 }
 
 /**

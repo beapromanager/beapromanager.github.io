@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { surnameOf } from '../../data/names.ts';
 import * as G from '../../game/state.ts';
 import type { PreEvent } from '../../game/state.ts';
 import type { Player } from '../../engine/matchEngine.ts';
@@ -225,7 +226,7 @@ export function PreSeasonMarket({
 const LINES = ['gk', 'def', 'mid', 'atk'] as const;
 /** A healthy squad wants roughly this many bodies per line. Below it we nudge. */
 const IDEAL: Record<(typeof LINES)[number], number> = { gk: 2, def: 5, mid: 4, atk: 3 };
-const surname = (n: string) => n.split(' ').slice(-1)[0];
+const surname = surnameOf;
 
 /** The squad read line by line, with thin areas flagged so gaps are obvious.
  *  A flagged line, or the header summary, jumps straight to the market filtered

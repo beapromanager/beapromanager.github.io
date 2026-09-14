@@ -1,4 +1,5 @@
 import type { Club } from '../data/clubs.ts';
+import { surnameOf } from '../data/names.ts';
 import type { ManagerId, ManagerType } from '../data/managers.ts';
 import { getManager } from '../data/managers.ts';
 import type { Squad } from '../data/squadGen.ts';
@@ -2381,11 +2382,11 @@ export function matchPreview(gs: GameState): MatchPreview | null {
 
 function topPlayerName(sq: Squad): string {
   const best = [...sq.starters].sort((a, b) => overall(b) - overall(a))[0];
-  return best.name.split(' ').slice(-1)[0];
+  return surnameOf(best.name);
 }
 
 const FORWARD = new Set(['ST', 'CF', 'SS', 'LW', 'RW']);
-const surname = (n: string) => n.split(' ').slice(-1)[0];
+const surname = surnameOf;
 
 /**
  * The facts a dilemma is allowed to know about you. Everything here comes from

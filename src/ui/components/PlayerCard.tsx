@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { surnameOf } from '../../data/names.ts';
 import type { Player } from '../../engine/matchEngine.ts';
 import type { Club } from '../../data/clubs.ts';
 import type { PlayerSeason, CareerSeason, PartOption, PartKind } from '../../game/state.ts';
@@ -275,7 +276,7 @@ function PartBlock({ name, part }: { name: string; part: NonNullable<Parameters<
           {armed === o.kind ? (
             <div className="row" style={{ gap: 8 }}>
               <button className="btn btn-sm" style={{ flex: 1, background: 'linear-gradient(180deg,#e2484d,#b8323a)', color: '#fff' }} onClick={() => onPart(o.kind)}>
-                כן, {name.split(' ').slice(-1)[0]} הולך
+                כן, {surnameOf(name)} הולך
               </button>
               <button className="btn dark btn-sm" style={{ flex: 1 }} onClick={() => setArmed(null)}>לא, נשאר</button>
             </div>

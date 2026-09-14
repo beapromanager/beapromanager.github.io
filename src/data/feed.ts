@@ -8,6 +8,7 @@
  * says your striker has not scored in four, he really has not.
  */
 import type { Player } from '../engine/matchEngine.ts';
+import { surnameOf } from './names.ts';
 import { overall } from '../engine/matchEngine.ts';
 import type { Rng } from '../engine/matchEngine.ts';
 
@@ -45,7 +46,7 @@ const RUMOUR_ACCOUNTS = [
 const WHEN = ['הרגע', 'לפני 12 דקות', 'לפני שעה', 'לפני שעתיים', 'אתמול'];
 
 const pick = <T,>(r: Rng, a: T[]): T => a[Math.floor(r() * a.length)];
-const surname = (n: string) => n.split(' ').slice(-1)[0];
+const surname = surnameOf;
 
 export interface FeedContext {
   clubName: string;

@@ -13,6 +13,7 @@
  */
 
 import type { MatchResult, MatchEvent, Player } from '../engine/matchEngine.ts';
+import { surnameOf } from './names.ts';
 import { isLegend } from './legends.ts';
 
 export type FactKind =
@@ -43,10 +44,7 @@ const WEIGHT: Record<FactKind, number> = {
   star_rating: 44, clean_sheet: 36, toothless: 30, top_man: 12,
 };
 
-const family = (name: string): string => {
-  const parts = name.trim().split(' ');
-  return parts.length > 1 ? parts[parts.length - 1] : name;
-};
+const family = surnameOf;
 
 /** Goals only, in the order they went in, with who they belonged to. */
 function goalTimeline(events: MatchEvent[], myId: string): { mine: boolean; minute: number }[] {
