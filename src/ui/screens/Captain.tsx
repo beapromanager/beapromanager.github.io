@@ -51,7 +51,7 @@ export function CaptainScreen({ gs, onSet, onBack }: {
                     {!starting && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(255,255,255,.06)', color: 'var(--ink-faint)' }}>ספסל</span>}
                   </div>
                   <div className="sub" style={{ fontSize: 11.5 }}>
-                    {p.position} · גיל <span className="num">{p.age}</span> · ותק <span className="num">{Math.max(0, p.age - 18)}</span> שנים
+                    {p.position} · גיל <span className="num">{p.age}</span> · {p.age - 18 <= 0 ? 'שנה ראשונה' : p.age - 18 === 1 ? 'ותק שנה' : <>ותק <span className="num">{p.age - 18}</span> שנים</>}
                   </div>
                 </div>
                 <div className="score-face" style={{ fontSize: 24, color: ovrColor(overall(p)), width: 32, textAlign: 'center' }}>{overall(p)}</div>

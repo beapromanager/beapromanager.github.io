@@ -62,7 +62,7 @@ export function Feed({ posts }: { posts: Post[] }) {
 
       {shown.length > 3 && (
         <button className="btn dark" style={{ padding: '10px' }} onClick={() => setOpen(!open)}>
-          {open ? 'הצג פחות' : `עוד ${shown.length - 3} עדכונים`}
+          {open ? 'הצג פחות' : shown.length - 3 === 1 ? 'עוד עדכון אחד' : `עוד ${shown.length - 3} עדכונים`}
         </button>
       )}
     </div>

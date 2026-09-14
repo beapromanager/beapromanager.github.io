@@ -52,9 +52,9 @@ export function PacksScreen({ gs, onWatchAd, onBuy, onSign, onSell, onBack }: {
             className="btn"
             style={{ marginTop: 12, opacity: left > 0 ? 1 : .45 }}
             disabled={left === 0}
-            onClick={() => { onWatchAd(); setMsg(`קיבלת ${GEMS_PER_AD} יהלום. נשארו ${left - 1} צפיות העונה.`); }}
+            onClick={() => { onWatchAd(); setMsg(`קיבלת ${GEMS_PER_AD} יהלום. ${left - 1 === 0 ? 'זו הייתה האחרונה העונה.' : left - 1 === 1 ? 'נשארה צפייה אחת העונה.' : `נשארו ${left - 1} צפיות העונה.`}`); }}
           >
-            {left > 0 ? `צפה בפרסומת · נשארו ${left} העונה` : 'ניצלת את כל הצפיות העונה'}
+            {left === 0 ? 'ניצלת את כל הצפיות העונה' : left === 1 ? 'צפה בפרסומת · נשארה אחת העונה' : `צפה בפרסומת · נשארו ${left} העונה`}
           </button>
         </div>
 

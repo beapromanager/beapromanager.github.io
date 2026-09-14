@@ -150,7 +150,7 @@ export function verifyThanks(
   if (friend === myOwnCode) return { ok: false, why: 'זה הקוד של המכשיר שלך. צריך חבר אמיתי.' };
   if (state.claimed.includes(friend)) return { ok: false, why: 'את החבר הזה כבר ספרנו.' };
   if (rounds < ROUNDS_TO_COUNT) {
-    return { ok: false, why: `החבר שיחק ${rounds} מחזורים. צריך ${ROUNDS_TO_COUNT} לפני שזה נספר.` };
+    return { ok: false, why: `${rounds === 0 ? 'החבר עוד לא שיחק' : rounds === 1 ? 'החבר שיחק מחזור אחד' : `החבר שיחק ${rounds} מחזורים`}. צריך ${ROUNDS_TO_COUNT} לפני שזה נספר.` };
   }
   if (state.claimed.length >= FRIENDS_LIFETIME) {
     return { ok: false, why: `הגעת ל${FRIENDS_LIFETIME} חברים, המקסימום בקריירה. תודה שהבאת אותם.` };

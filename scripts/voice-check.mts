@@ -113,6 +113,39 @@ const state = readFileSync('src/game/state.ts', 'utf8');
   if (/בעי <span/.test(squad)) fails.push('the squad row is back to printing shooting, which the player card already carries');
 }
 
+/* 5. ONE IS NOT A PLURAL.
+      "נשארו 1 מחזורי קיץ", "נשארו 1 העונה", "ותק 1 שנים", "עוד 1 עדכונים":
+      every count that can reach one has a singular sentence, and the summer
+      board no longer calls the second of three rounds the last one. Pinned by
+      the same rule as section 1: the right sentence has to be there, and the
+      old shape must not come back. */
+{
+  const files = {
+    preseason: readFileSync('src/ui/screens/PreSeason.tsx', 'utf8'),
+    packs: readFileSync('src/ui/screens/Packs.tsx', 'utf8'),
+    feed: readFileSync('src/ui/components/Feed.tsx', 'utf8'),
+    captain: readFileSync('src/ui/screens/Captain.tsx', 'utf8'),
+    invite: readFileSync('src/game/invite.ts', 'utf8'),
+  };
+  const pins: Array<{ file: keyof typeof files; right: string; wrong?: RegExp; why: string }> = [
+    { file: 'preseason', right: 'נשאר מחזור קיץ אחד לפני שהליגה מתחילה', why: 'one summer round is singular' },
+    { file: 'preseason', right: 'נשאר לך עוד מחזור אחד, ואז הליגה מתחילה', wrong: /זה המחזור האחרון לפני שהליגה מתחילה/,
+      why: 'the question is asked in round two of three, which is not the last round' },
+    { file: 'packs', right: 'נשארה צפייה אחת העונה', why: 'one advert left is singular' },
+    { file: 'packs', right: 'נשארה אחת העונה', why: 'the button with one advert left is singular' },
+    { file: 'feed', right: 'עוד עדכון אחד', wrong: /'הצג פחות' : `עוד /, why: 'one more post is singular' },
+    { file: 'captain', right: 'ותק שנה', wrong: /ותק <span className="num">\{Math\.max\(0, p\.age - 18\)\}<\/span> שנים/, why: 'one year of service is singular, and zero is a first year' },
+    { file: 'captain', right: 'שנה ראשונה', why: 'an eighteen year old has no years of service to count' },
+    { file: 'invite', right: 'החבר שיחק מחזור אחד', why: 'one round played is singular' },
+  ];
+  for (const p of pins) {
+    checked += p.wrong ? 2 : 1;
+    if (!files[p.file].includes(p.right)) fails.push(`${p.file} no longer says "${p.right}" — ${p.why}`);
+    if (p.wrong && p.wrong.test(files[p.file])) fails.push(`${p.file} is back to the plural-only wording — ${p.why}`);
+  }
+  console.log(`  ${pins.length} counts that reach one have a singular sentence`);
+}
+
 console.log(`\n${checked} checks`);
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, the corrections held and the pre-match read is advice');

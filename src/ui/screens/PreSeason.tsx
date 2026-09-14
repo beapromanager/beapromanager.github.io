@@ -194,7 +194,9 @@ export function PreSeasonMarket({
           </p>
         ) : !lastRound && (
           <p className="hint" style={{ textAlign: 'center' }}>
-            נשארו <span className="num">{PRE_ROUNDS - gs.preWeek}</span> מחזורי קיץ לפני שהליגה מתחילה
+            {PRE_ROUNDS - gs.preWeek === 1
+              ? <>נשאר מחזור קיץ אחד לפני שהליגה מתחילה</>
+              : <>נשארו <span className="num">{PRE_ROUNDS - gs.preWeek}</span> מחזורי קיץ לפני שהליגה מתחילה</>}
           </p>
         )}
 
@@ -467,9 +469,11 @@ function UnusedRound({ name, left, onMarket, onAnyway }: {
               <div className="h2" style={{ fontSize: 19 }}>{name}, לא עשית כלום המחזור הזה</div>
               <p className="hint" style={{ margin: '6px 0 0' }}>
                 חלון ההעברות הוא הזמן היחיד בשנה לשנות את הסגל, ואתה עומד לוותר על מחזור שלם ממנו.
+                {/* the question is never asked on the last round, so "left" is
+                    at least one, and one is a round, not a last chance */}
                 {left > 1
                   ? <> נשארו לך עוד <span className="num">{left}</span> מחזורים.</>
-                  : <> זה המחזור האחרון לפני שהליגה מתחילה.</>}
+                  : <> נשאר לך עוד מחזור אחד, ואז הליגה מתחילה.</>}
               </p>
             </div>
           </div>
