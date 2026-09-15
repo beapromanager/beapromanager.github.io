@@ -1174,6 +1174,65 @@ input{font-family:inherit;}
 /* The meters bar on a narrow phone: tighter gutters, no label icons, smaller
    side buttons. The numbers and their names stay, that is the whole point of
    the bar. Last in the file on purpose, so it wins over the rules it narrows. */
+/* -------------------------------------------------------------------- ads */
+/* The rewarded ad: the clip owns the whole screen, the chrome sits on top of
+   it in thin strips, and every card (confirm, void, reward) rises from the
+   bottom over the paused frame. z above the sheets and the moments, because
+   nothing in the game should be able to draw over an ad mid play. */
+.ad-scrim{
+  position:fixed; inset:0; z-index:80; background:#04060a;
+  display:flex; align-items:center; justify-content:center;
+  animation:fadeIn var(--t-fast) ease;
+}
+.ad-vid{
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:contain; background:#04060a;
+}
+.ad-top{
+  position:absolute; top:0; left:0; right:0;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  background:linear-gradient(180deg,rgba(4,6,10,.72),rgba(4,6,10,0));
+}
+.ad-x{
+  width:38px; height:38px; border-radius:50%; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(4,6,10,.55); color:#fff; border:1px solid rgba(255,255,255,.18);
+  cursor:pointer; padding:0;
+}
+.ad-x:active{transform:scale(.94)}
+.ad-meta{display:flex; align-items:center; gap:8px; min-width:0;}
+.ad-tag{
+  font-size:11px; font-weight:800; letter-spacing:.06em; color:#fff;
+  padding:3px 8px; border-radius:6px; background:rgba(255,255,255,.16);
+}
+.ad-left{font-size:14px; font-weight:800; color:#fff; direction:rtl; unicode-bidi:plaintext;}
+.ad-progress{
+  position:absolute; top:0; left:0; right:0; height:3px; background:rgba(255,255,255,.14);
+}
+.ad-progress>div{height:100%; background:var(--gold); transition:width .25s linear;}
+.ad-foot{
+  position:absolute; left:0; right:0; bottom:0;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+  background:linear-gradient(0deg,rgba(4,6,10,.78),rgba(4,6,10,0));
+  color:#fff; font-size:13.5px;
+}
+.ad-brand{opacity:.8}
+.ad-promise{display:inline-flex; align-items:center; gap:6px; font-weight:800;}
+.ad-panel{
+  position:absolute; left:0; right:0; bottom:0;
+  display:flex; flex-direction:column; gap:12px;
+  padding:16px 18px calc(18px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,var(--surface-3),var(--surface));
+  border-top:1px solid var(--line-2);
+  animation:sheetUp var(--t-mid) var(--ease-out);
+}
+.ad-line{font-size:15.5px; font-weight:800; text-align:center;}
+.ad-done{align-items:center;}
+.ad-reward{display:flex; align-items:center; gap:10px; font-size:34px; color:var(--gold);}
+.ad-reward .score-face{font-size:34px;}
+
 @media (max-width:400px){
   .meters{gap:6px; padding-left:12px; padding-right:12px;}
   .meter{padding:9px 8px 10px;}

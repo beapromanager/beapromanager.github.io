@@ -123,6 +123,7 @@ const state = readFileSync('src/game/state.ts', 'utf8');
   const files = {
     preseason: readFileSync('src/ui/screens/PreSeason.tsx', 'utf8'),
     packs: readFileSync('src/ui/screens/Packs.tsx', 'utf8'),
+    ad: readFileSync('src/ui/components/AdPlayer.tsx', 'utf8'),
     feed: readFileSync('src/ui/components/Feed.tsx', 'utf8'),
     captain: readFileSync('src/ui/screens/Captain.tsx', 'utf8'),
     invite: readFileSync('src/game/invite.ts', 'utf8'),
@@ -131,7 +132,7 @@ const state = readFileSync('src/game/state.ts', 'utf8');
     { file: 'preseason', right: 'נשאר מחזור קיץ אחד לפני שהליגה מתחילה', why: 'one summer round is singular' },
     { file: 'preseason', right: 'נשאר לך עוד מחזור אחד, ואז הליגה מתחילה', wrong: /זה המחזור האחרון לפני שהליגה מתחילה/,
       why: 'the question is asked in round two of three, which is not the last round' },
-    { file: 'packs', right: 'נשארה צפייה אחת העונה', why: 'one advert left is singular' },
+    { file: 'ad', right: 'נשארה צפייה אחת העונה', why: 'one advert left is singular, on the reward card' },
     { file: 'packs', right: 'נשארה אחת העונה', why: 'the button with one advert left is singular' },
     { file: 'feed', right: 'עוד עדכון אחד', wrong: /'הצג פחות' : `עוד /, why: 'one more post is singular' },
     { file: 'captain', right: 'ותק שנה', wrong: /ותק <span className="num">\{Math\.max\(0, p\.age - 18\)\}<\/span> שנים/, why: 'one year of service is singular, and zero is a first year' },

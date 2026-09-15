@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as G from '../game/state.ts';
 import { saveCareer, loadCareer, savedSummary, clearCareer } from '../game/save.ts';
 import type { SaveSummary } from '../game/save.ts';
@@ -43,6 +43,9 @@ import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
 import { armBack, setBackHandler, leaveGame } from './back.ts';
 import { ExitSheet } from './components/ExitSheet.tsx';
+import { AdPlayer } from './components/AdPlayer.tsx';
+import { pickAd } from '../game/adWatch.ts';
+import type { Ad } from '../data/ads.ts';
 
 /**
  * Screens whose way out is simply the hub.
@@ -67,6 +70,10 @@ export function App() {
   // on load, because the url is tidied straight afterwards
   const [installOpen, setInstallOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
+  // the ad on screen, an overlay like the sheets so the shop stays underneath.
+  // The key remounts the player for a fresh sitting when he asks to watch again
+  const [ad, setAd] = useState<{ ad: Ad; key: number } | null>(null);
+  const adBack = useRef<(() => void) | null>(null);
   const [ref] = useState<string | null>(() => {
     try { return refFromUrl(location.search); } catch { return null; }
   });
@@ -111,6 +118,7 @@ export function App() {
     armBack();
     setBackHandler(() => {
       // sheets first: they sit on top of whatever screen is behind them
+      if (ad) { adBack.current?.(); return true; }
       if (exitOpen) { setExitOpen(false); return true; }
       if (installOpen) { setInstallOpen(false); return true; }
       if (gs.phase === 'invite') { setGs(g => G.closeInvite(g)); return true; }
@@ -132,7 +140,7 @@ export function App() {
       return false;
     });
     return () => setBackHandler(null);
-  }, [booted, gs.phase, squadFromHub, fromPreseason, installOpen, exitOpen]);
+  }, [booted, gs.phase, squadFromHub, fromPreseason, installOpen, exitOpen, ad]);
 
   // Every new page starts at the top. The phase alone is not enough: the press
   // room asks two questions and the summer runs three market rounds without it
@@ -265,7 +273,7 @@ export function App() {
       )}
       {gs.phase === 'packs' && (
         <PacksScreen gs={gs}
-          onWatchAd={() => setGs(G.watchAdForGem(gs))}
+          onWatchAd={() => { if (G.adsLeft(gs) > 0) setAd({ ad: pickAd(gs), key: Date.now() }); }}
           onBuy={id => setGs(g => G.buyPack(g, id))}
           onSign={() => setGs(g => G.signPull(g))}
           onSell={() => setGs(g => G.sellPull(g))}
@@ -310,6 +318,12 @@ export function App() {
       {gs.phase === 'chat' && <ChatScreen gs={gs} onDone={() => setGs(G.closeChat(gs))} />}
       {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
       {exitOpen && <ExitSheet onStay={() => setExitOpen(false)} onLeave={() => { setExitOpen(false); leaveGame(); }} />}
+      {ad && (
+        <AdPlayer key={ad.key} ad={ad.ad} left={G.adsLeft(gs)} backRef={adBack}
+          onComplete={() => setGs(g => G.watchAdForGem(g))}
+          onClose={() => setAd(null)}
+          onRetry={() => setAd({ ad: pickAd(gs), key: Date.now() })} />
+      )}
       {gs.phase === 'invite' && (
         <InviteScreen gs={gs}
           onRedeem={code => {
