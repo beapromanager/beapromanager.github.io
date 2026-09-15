@@ -17,6 +17,7 @@ import type { Player, Rng, Position } from '../engine/matchEngine.ts';
 import { overall } from '../engine/matchEngine.ts';
 import { makePlayer } from '../data/squadGen.ts';
 import { leagueCeiling } from '../data/clubs.ts';
+import { devFactor } from './career.ts';
 
 export interface Youth {
   /** the players currently at the academy, 16 to 18 */
@@ -53,12 +54,6 @@ export function seedYouth(tier: number, rng: Rng, used: Set<string>, count = 5):
   return out;
 }
 
-/** Stable 0..1 per player, the same hidden potential the senior aging reads. */
-function devFactor(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return ((h >>> 0) % 1000) / 1000;
-}
 
 /**
  * A summer at the academy.
@@ -82,12 +77,12 @@ export function advanceYouth(
   if (players.length) {
     const under18 = players.filter(p => p.age < 18);
     const pool = under18.length ? under18 : players;
-    starId = pool.reduce((a, b) => (devFactor(b.id) > devFactor(a.id) ? b : a)).id;
+    starId = pool.reduce((a, b) => (devFactor(b) > devFactor(a) ? b : a)).id;
   }
 
   for (const p of players) {
     p.age += 1;
-    const pot = devFactor(p.id);
+    const pot = devFactor(p);
     // a normal year is a point or two, a breakout year is a real jump
     const step = (p.id === starId ? 4 + pot * 4 : 0.5 + pot * 1.5) * growth * (boosted.has(p.name) ? 1.8 : 1);
     bump(p, step, rng);

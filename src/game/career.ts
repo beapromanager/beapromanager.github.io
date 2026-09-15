@@ -49,10 +49,20 @@ export function poolForTier(tier: number): Club[] {
 
 /* ------------------------------------------------------------------ aging */
 
-/** Stable 0..1 per player, so the same kid always has the same ceiling. */
-function devFactor(id: string): number {
+/**
+ * Stable 0..1 per player, so the same kid always has the same ceiling.
+ *
+ * Read off the seed he was born with, salted for each of the things it decides.
+ * It used to be read off the id, which is a running counter: generating twelve
+ * more men anywhere shifted every id after them and with it the growth of
+ * every player born later, and a whole simulated career moved because the
+ * winter market got a fresh list. A player from a save older than the seed has
+ * none, and keeps reading off his id, so nobody's ceiling moves on load.
+ */
+export function devFactor(p: Pick<Player, 'id' | 'seed'>, salt = ''): number {
+  const key = (p.seed !== undefined ? String(p.seed) : p.id) + salt;
   let h = 2166136261;
-  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
+  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
   return ((h >>> 0) % 1000) / 1000;
 }
 
@@ -62,7 +72,7 @@ function devFactor(id: string): number {
  * and after ten seasons the whole league floats far above its own division.
  */
 export function potentialOf(p: Player): number {
-  return Math.round(45 + devFactor(p.id + '|pot') * 45);   // 45..90
+  return Math.round(45 + devFactor(p, '|pot') * 45);   // 45..90
 }
 
 /**
@@ -95,7 +105,7 @@ export function potentialBand(p: Player): { lo: number; hi: number } | null {
   const cur = overall(p);
   const ceil = reachableCeiling(p);
   if (ceil <= cur) return null;
-  const width = 1 + Math.round(devFactor(p.id + '|band'));   // 1 or 2 wide
+  const width = 1 + Math.round(devFactor(p, '|band'));   // 1 or 2 wide
   const lo = Math.min(99, Math.max(cur + 1, ceil - width + 1));
   const hi = Math.min(99, Math.max(lo, ceil + 1));
   return { lo, hi };
@@ -188,7 +198,7 @@ export function ageSquad(
       const before = overall(p);
       p.age += 1;
       // only improvement is coached, decline happens to everyone alike
-      const raw = growth(effectiveAge(p), devFactor(p.id), before, potentialOf(p));
+      const raw = growth(effectiveAge(p), devFactor(p), before, potentialOf(p));
       applyDelta(p, raw > 0 ? raw * youthGrowth : raw);
       // a fresh pre season resets the body, not the years
       p.fitness = Math.max(60, Math.min(100, 88 + Math.floor(rng() * 12) + fitnessBonus));

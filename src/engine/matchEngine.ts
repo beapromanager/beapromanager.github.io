@@ -38,6 +38,12 @@ export interface GkAttributes {
 
 export interface Player {
   id: string;
+  /**
+   * Who he is, fixed at birth: the hidden potential and the rest of what a
+   * player keeps for life hang off this. Absent on players from before it
+   * existed, who keep reading those things off their id as they always did.
+   */
+  seed?: number;
   name: string;          // Hebrew display name
   position: Position;
   attrs: Attributes;
@@ -45,6 +51,21 @@ export interface Player {
   age: number;
   fitness: number;       // 0..100
   morale: number;        // 0..100
+}
+
+/**
+ * A number that is this player's for life, taken from what he was born with.
+ * Not the id: ids are a running counter, so making twelve more men anywhere
+ * in the game shifted every id after them, and with the hidden potential
+ * read off the id, the growth of every player born later moved with it. Not
+ * a draw from the rng either, which would shift every draw after it. His name
+ * and his opening numbers are already random, and they are his.
+ */
+export function playerSeed(name: string, position: string, age: number, attrs: Attributes): number {
+  const key = `${name}|${position}|${age}|${Object.values(attrs).join(',')}`;
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
 }
 
 export type Approach = 'defensive' | 'balanced' | 'attacking';

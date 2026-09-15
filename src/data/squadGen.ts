@@ -1,5 +1,5 @@
 import type { Player, Position, Rng } from '../engine/matchEngine.ts';
-import { overall } from '../engine/matchEngine.ts';
+import { overall, playerSeed } from '../engine/matchEngine.ts';
 import { makeName, squadOrigins, type Origin } from './names.ts';
 import type { ClubTraits } from './clubs.ts';
 
@@ -70,9 +70,11 @@ export function makePlayer(
     ? { diving: r(lvl + 2), handling: r(lvl), kicking: r(lvl - 6), reflexes: r(lvl + 3), positioning: r(lvl) }
     : undefined;
 
+  const name = makeName(rng, origin, usedNames);
   return {
     id: nextPlayerId(),
-    name: makeName(rng, origin, usedNames),
+    seed: playerSeed(name, position, age, attrs),
+    name,
     position,
     attrs,
     gk,

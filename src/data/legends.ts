@@ -14,6 +14,7 @@
  */
 
 import type { Attributes, Player, Position, Rng } from '../engine/matchEngine.ts';
+import { playerSeed } from '../engine/matchEngine.ts';
 import type { Tone } from './personalities.ts';
 
 /** The one town this happens in. */
@@ -139,6 +140,7 @@ export function pickLegend(rng: Rng, exclude?: string, alreadyHere: string[] = [
 export function makeLegendPlayer(l: Legend, id: string): Player {
   return {
     id,
+    seed: playerSeed(l.name, l.position, LEGEND_AGE, l.attrs),
     name: l.name,
     position: l.position,
     attrs: { ...l.attrs },
