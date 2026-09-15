@@ -178,16 +178,15 @@ const alice = codeFor(ALICE), bob = codeFor(BOB), carol = codeFor(CAROL);
   console.log(`  a whole career of friends buys ${packsFromFriends.toFixed(2)} of the best pack`);
 }
 
-/* 10. the link carries the ref and the beta door, and reads back */
+/* 10. the link carries the ref, and reads back */
 {
   const link = inviteLink(alice, 'https://x.dev/BE-A-PRO/');
-  checked += 3;
-  if (!link.includes(`ref=${alice}`)) fails.push('the link lost the ref code');
-  if (!link.includes('k=100')) fails.push('the link does not carry the beta code, so a friend hits the door');
-  if (refFromUrl(`?ref=${alice}&k=100`) !== alice) fails.push('the ref code did not read back off the url');
   checked += 2;
-  if (refFromUrl('?k=100') !== null) fails.push('a ref was invented from a url without one');
-  if (refFromUrl('?ref=BAD!!&k=100') !== null) fails.push('a malformed ref was accepted');
+  if (!link.includes(`ref=${alice}`)) fails.push('the link lost the ref code');
+  if (refFromUrl(`?ref=${alice}`) !== alice) fails.push('the ref code did not read back off the url');
+  checked += 2;
+  if (refFromUrl('?x=1') !== null) fails.push('a ref was invented from a url without one');
+  if (refFromUrl('?ref=BAD!!') !== null) fails.push('a malformed ref was accepted');
 }
 
 /* 11. the economics, which is the actual defence */

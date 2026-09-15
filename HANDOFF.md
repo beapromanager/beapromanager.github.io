@@ -116,14 +116,14 @@
 ### הסשן שלפניו: השקה + ליטושי UI/UX (המשחק כבר חי ומשוחק בנייד)
 
 **המשחק פרוס וחי, MVP לבדיקה:**
-- **אתר:** https://beapromanager.github.io/  ·  **קוד כניסה: 100**
+- **אתר:** https://beapromanager.github.io/ (פתוח, בלי קוד כניסה)
 - **Repo ציבורי:** github.com/beapromanager/beapromanager.github.io, חשבון המשחק (gh מחובר כ-`itzik200592-byte`, שהוא collaborator עם כתיבה). הריפו הישן itzik200592-byte/BE-A-PRO נשאר כארכיון.
 - **פריסה אוטומטית** ב-GitHub Actions (`.github/workflows/deploy.yml`) בכל `git push` ל-main. פרטים ב-`DEPLOY.md`.
 - **base=`/`** ב-`vite.config.ts` (אתר משתמש של Pages, שורש). **כל נתיבי ה-public עוברים דרך `asset()` ב-`src/ui/asset.ts`.** תמונה חדשה מ-public → חובה `asset('/...')`.
 - Pages הודלק ידנית פעם אחת (`gh api repos/.../pages -X POST -f build_type=workflow`), לא צריך שוב.
 - **לעדכן:** commit + `git push` (במצב auto הדחיפה דורשת אישור/הרצה על ידי המשתמש). מחיקת שרת LAN/tunnel, לא בשימוש יותר.
 
-**שער כניסה רך** (`src/ui/screens/Gate.tsx`): קוד `100`, נשמר ב-localStorage `beapro.gate`, לפני הפתיח ב-App. למונטיזציה/בדיקה סגורה.
+**אין שער כניסה.** היה קוד 100 (`Gate.tsx`) בבדיקה הסגורה, הוסר כשהמשחק עבר ל-beapromanager.github.io ונפתח לקהל.
 
 **לוגו חדש** `public/logo.webp` (מאמן חוגג עם אגרוף, מיוצר Higgsfield, מקור `PIC/logo-coach.png`), מחליף את הכדור/B במסך הפתיחה ובשער.
 

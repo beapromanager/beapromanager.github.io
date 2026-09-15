@@ -1,7 +1,6 @@
 # פריסה, BE A PRO
 
 **אתר חי (MVP לבדיקה):** https://beapromanager.github.io/
-**קוד כניסה:** 100
 **Repo:** https://github.com/beapromanager/beapromanager.github.io (ציבורי, חשבון המשחק). הריפו הישן github.com/itzik200592-byte/BE-A-PRO נשאר כארכיון.
 
 ## איך זה עובד
@@ -9,7 +8,6 @@
 - זה אתר משתמש של Pages (ריפו בשם `beapromanager.github.io`), אז Vite `base` הוא `/` (ב-`vite.config.ts`).
   כל נתיבי התמונות עוברים דרך `src/ui/asset.ts` (`asset()`), שמוסיף את ה-base, אז מעבר לתת-נתיב
   בעתיד הוא שורה אחת. **אם מוסיפים תמונה חדשה מ-`public/`, להשתמש ב-`asset('/...')`.**
-- שער כניסה רך: `src/ui/screens/Gate.tsx`, קוד `100`, נשמר ב-localStorage `beapro.gate`.
 
 ## לעדכן את האתר (אחרי שינויים בקוד)
 ```

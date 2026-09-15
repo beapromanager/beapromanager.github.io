@@ -97,7 +97,7 @@ export function myCode(): string {
 export function inviteLink(code: string, base?: string): string {
   const root = base ?? (typeof location !== 'undefined' ? location.origin + location.pathname : '/');
   const clean = root.replace(/[?#].*$/, '');
-  return `${clean}?ref=${code}&k=100`;
+  return `${clean}?ref=${code}`;
 }
 
 /** The ref code on the current URL, if the manager arrived through an invite. */

@@ -4,7 +4,6 @@ import { saveCareer, loadCareer, savedSummary, clearCareer } from '../game/save.
 import type { SaveSummary } from '../game/save.ts';
 import { TitleScreen } from './screens/Title.tsx';
 import { IntroCinematic } from './screens/Intro.tsx';
-import { Gate, hasEntry } from './screens/Gate.tsx';
 import { Tutorial } from './components/Tutorial.tsx';
 import { OnboardManager, OnboardClub } from './screens/Onboard.tsx';
 import { ArchetypeScreen } from './screens/Archetype.tsx';
@@ -59,7 +58,6 @@ const BACK_TO_HUB = new Set<G.Phase>([
 ]);
 
 export function App() {
-  const [entered, setEntered] = useState(() => hasEntry());  // soft code gate for closed testing
   const [introDone, setIntroDone] = useState(false);      // the cold open plays first, every launch
   const [booted, setBooted] = useState(false);            // still on the title screen
   const [gs, setGs] = useState<G.GameState>(() => G.newGame());
@@ -89,15 +87,10 @@ export function App() {
     return () => { setInviteHandler(null); setInstallHandler(null); };
   }, [booted]);
 
-  // a link that carries the beta door code opens the door by itself: a
-  // friend's invite, or the address as it is passed around, walks straight in
+  // an invite link is read once on load; then the address bar is tidied so a
+  // refresh does not look like a second invite
   useEffect(() => {
     try {
-      if (/[?&]k=100(&|$)/.test(location.search)) {
-        localStorage.setItem('beapro.gate', '1');
-        setEntered(true);
-      }
-      // tidy the address bar so a refresh does not look like a second invite
       if (location.search) history.replaceState(null, '', location.pathname);
     } catch { /* private mode, the link still worked */ }
   }, [ref]);
@@ -146,7 +139,7 @@ export function App() {
   // Every new page starts at the top. The phase alone is not enough: the press
   // room asks two questions and the summer runs three market rounds without it
   // ever changing, and each of those is a new page to whoever is reading it.
-  const screenKey = !entered ? 'gate' : !introDone ? 'intro' : !booted ? 'title'
+  const screenKey = !introDone ? 'intro' : !booted ? 'title'
     : `${gs.phase}|${gs.press?.q.text ?? ''}|${gs.preWeek}`;
   useLayoutEffect(scrollToTop, [screenKey]);
 
@@ -162,14 +155,6 @@ export function App() {
     const loaded = loadCareer();
     if (loaded) setGs(loaded);
     setBooted(true);
-  }
-
-  if (!entered) {
-    return (
-      <div className="frame">
-        <Gate onUnlock={() => setEntered(true)} />
-      </div>
-    );
   }
 
   if (!introDone) {
