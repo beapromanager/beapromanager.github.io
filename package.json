@@ -49,7 +49,8 @@
     "check:tutorial": "node --experimental-strip-types scripts/tutorial-check.mts",
     "check:pack": "node --experimental-strip-types scripts/pack-check.mts",
     "check:feed": "node --experimental-strip-types scripts/feed-check.mts",
-    "check:seed": "node --experimental-strip-types scripts/seed-check.mts"
+    "check:seed": "node --experimental-strip-types scripts/seed-check.mts",
+    "check:ads": "node --experimental-strip-types scripts/ads-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",
