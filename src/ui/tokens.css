@@ -1184,9 +1184,13 @@ input{font-family:inherit;}
   display:flex; align-items:center; justify-content:center;
   animation:fadeIn var(--t-fast) ease;
 }
+.ad-backdrop{
+  position:absolute; inset:-40px; background-size:cover; background-position:center;
+  filter:blur(30px) brightness(.45) saturate(1.2); transform:scale(1.15);
+}
 .ad-vid{
   position:absolute; inset:0; width:100%; height:100%;
-  object-fit:contain; background:#04060a;
+  object-fit:contain;
 }
 .ad-top{
   position:absolute; top:0; left:0; right:0;
@@ -1218,8 +1222,54 @@ input{font-family:inherit;}
   background:linear-gradient(0deg,rgba(4,6,10,.78),rgba(4,6,10,0));
   color:#fff; font-size:13.5px;
 }
-.ad-brand{opacity:.8}
-.ad-promise{display:inline-flex; align-items:center; gap:6px; font-weight:800;}
+.ad-site{
+  display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0;
+  background:none; border:none; padding:0; color:#fff; cursor:pointer; text-align:start;
+  font:inherit;
+}
+.ad-brand{font-weight:800; font-size:14px;}
+.ad-url{font-size:12.5px; color:var(--gold); font-weight:700; direction:ltr; unicode-bidi:isolate;}
+.ad-promise{display:inline-flex; align-items:center; gap:6px; font-weight:800; flex:none;}
+a.btn{text-decoration:none;}
+/* the gem count in the top strip, the place the reward flies to */
+.ad-pill{
+  display:inline-flex; align-items:center; gap:4px; flex:none;
+  padding:3px 8px; border-radius:999px; color:#fff;
+  background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.14);
+  font-size:13px; font-weight:800;
+}
+.ad-pill.pop{animation:adPillPop .5s var(--ease-out);}
+@keyframes adPillPop{
+  0%{transform:scale(1); background:rgba(255,255,255,.14);}
+  35%{transform:scale(1.35); background:var(--gold); color:#1B1305; box-shadow:0 0 0 8px rgba(233,185,73,.25);}
+  100%{transform:scale(1); background:rgba(255,255,255,.14);}
+}
+/* the reward: born mid screen, then sent up into the pill */
+.ad-flyer{
+  position:absolute; left:50%; top:50%; width:120px; height:120px;
+  margin:-60px 0 0 -60px;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  color:var(--gold); filter:drop-shadow(0 6px 24px rgba(233,185,73,.55));
+  will-change:transform;
+}
+.ad-flyer .score-face{font-size:40px; position:absolute; right:-44px; top:32px;}
+.ad-flyer.born{animation:adGemBorn .7s var(--ease-out) both;}
+.ad-flyer.flying{transition:transform .55s cubic-bezier(.55,-.15,.6,1); opacity:1;}
+.ad-flyer.flying .score-face{opacity:0; transition:opacity .2s;}
+@keyframes adGemBorn{
+  0%{transform:scale(0) rotate(-40deg); opacity:0;}
+  55%{transform:scale(1.3) rotate(8deg); opacity:1;}
+  100%{transform:scale(1) rotate(0);}
+}
+.ad-burst{
+  position:absolute; inset:-30px; border-radius:50%;
+  border:3px solid var(--gold); opacity:0;
+  animation:adBurst .8s .15s var(--ease-out) both;
+}
+@keyframes adBurst{
+  0%{transform:scale(.4); opacity:.9;}
+  100%{transform:scale(2.2); opacity:0;}
+}
 .ad-panel{
   position:absolute; left:0; right:0; bottom:0;
   display:flex; flex-direction:column; gap:12px;

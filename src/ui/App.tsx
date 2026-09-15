@@ -319,7 +319,7 @@ export function App() {
       {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
       {exitOpen && <ExitSheet onStay={() => setExitOpen(false)} onLeave={() => { setExitOpen(false); leaveGame(); }} />}
       {ad && (
-        <AdPlayer key={ad.key} ad={ad.ad} left={G.adsLeft(gs)} backRef={adBack}
+        <AdPlayer key={ad.key} ad={ad.ad} gems={gs.gems} left={G.adsLeft(gs)} backRef={adBack}
           onComplete={() => setGs(g => G.watchAdForGem(g))}
           onClose={() => setAd(null)}
           onRetry={() => setAd({ ad: pickAd(gs), key: Date.now() })} />

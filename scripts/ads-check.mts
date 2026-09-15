@@ -18,6 +18,10 @@
  *      opens the three again
  *   6. the rotation never shows the same clip two sittings running, across the
  *      season line as well, and every clip gets its turn
+ *   7. the catalogue is honest about the files: every clip and poster exists,
+ *      the length in the list is the length in the file (read off the mp4's
+ *      own header), clips run ten to sixteen seconds and weigh under the
+ *      budget, and every ad has an https door with the address printed bare
  */
 import * as G from '../src/game/state.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
@@ -26,6 +30,7 @@ import { saveCareer, loadCareer } from '../src/game/save.ts';
 import { ADS_PER_SEASON, GEMS_PER_AD } from '../src/game/packs.ts';
 import { ADS } from '../src/data/ads.ts';
 import * as A from '../src/game/adWatch.ts';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 
 const store = new Map<string, string>();
 (globalThis as unknown as { localStorage: unknown }).localStorage = {
@@ -239,6 +244,40 @@ function settle(gs: G.GameState, s: A.AdSession): G.GameState {
   if (A.pickAd(gs).id !== A.pickAd(gs).id) fails.push('pickAd is not deterministic');
   if (!ADS.some(a => a.id === A.pickAd(gs).id)) fails.push('pickAd returned a clip not in the catalogue');
   console.log('  the rotation never repeats a clip back to back and every clip gets its turn');
+}
+
+/* 7. THE CATALOGUE AGAINST THE FILES. */
+{
+  /** the movie header's duration in timescale units, what the player will read */
+  function mp4Seconds(path: string): number | null {
+    const b = readFileSync(path);
+    const at = b.indexOf('mvhd');
+    if (at < 0) return null;
+    const v = b[at + 4];
+    if (v === 1) return Number(b.readBigUInt64BE(at + 28)) / b.readUInt32BE(at + 24);
+    return b.readUInt32BE(at + 20) / b.readUInt32BE(at + 16);
+  }
+  const MAX_BYTES = 2_500_000;
+  const ids = new Set<string>();
+  for (const ad of ADS) {
+    checked += 7;
+    if (ids.has(ad.id)) fails.push(`two ads share the id ${ad.id}`);
+    ids.add(ad.id);
+    const clip = 'public' + ad.src, poster = 'public' + ad.poster;
+    if (!existsSync(clip)) { fails.push(`${ad.id}: no clip at ${clip}`); continue; }
+    if (!existsSync(poster)) fails.push(`${ad.id}: no poster at ${poster}`);
+    const real = mp4Seconds(clip);
+    if (real === null) fails.push(`${ad.id}: the clip has no movie header`);
+    else {
+      if (Math.abs(real - ad.seconds) > 0.5) fails.push(`${ad.id}: the catalogue says ${ad.seconds}s, the file is ${real.toFixed(2)}s`);
+      if (real < 10 || real > 16) fails.push(`${ad.id}: ${real.toFixed(1)}s is outside the ten to sixteen second window`);
+    }
+    const bytes = statSync(clip).size;
+    if (bytes > MAX_BYTES) fails.push(`${ad.id}: ${(bytes / 1e6).toFixed(2)}MB is over the ${MAX_BYTES / 1e6}MB budget`);
+    if (!/^https:\/\//.test(ad.link)) fails.push(`${ad.id}: the door is not https (${ad.link})`);
+    if (/^[a-z]+:\/\//.test(ad.site) || !ad.link.includes(ad.site)) fails.push(`${ad.id}: the printed address ${ad.site} is not the bare host of ${ad.link}`);
+  }
+  console.log(`  ${ADS.length} ads, every clip on disk at its listed length, under budget, with an https door`);
 }
 
 console.log(`\n${checked} checks`);
