@@ -1,12 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// GitHub Pages serves a project site under /<repo>/, so the production build
-// needs that base. Local dev stays at the root. Change REPO if the repo is renamed.
-const REPO = 'BE-A-PRO';
-
-export default defineConfig(({ command }) => ({
-  base: command === 'build' ? `/${REPO}/` : '/',
+// The game lives at the root of a GitHub Pages user site
+// (beapromanager.github.io), so the build base is the root too. It used to
+// be a project site under /BE-A-PRO/; if it ever moves back under a path,
+// this is the one line to change, everything else resolves through asset().
+export default defineConfig(() => ({
+  base: '/',
   plugins: [react()],
   // host:true exposes on the LAN; allowedHosts lets a tunnel domain
   // (cloudflared, ngrok) reach the dev server so it can be played on a phone

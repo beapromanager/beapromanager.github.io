@@ -116,10 +116,10 @@
 ### הסשן שלפניו: השקה + ליטושי UI/UX (המשחק כבר חי ומשוחק בנייד)
 
 **המשחק פרוס וחי, MVP לבדיקה:**
-- **אתר:** https://itzik200592-byte.github.io/BE-A-PRO/  ·  **קוד כניסה: 100**
-- **Repo ציבורי:** github.com/itzik200592-byte/BE-A-PRO (gh מחובר כ-`itzik200592-byte`, הרשאות repo+workflow).
+- **אתר:** https://beapromanager.github.io/  ·  **קוד כניסה: 100**
+- **Repo ציבורי:** github.com/beapromanager/beapromanager.github.io, חשבון המשחק (gh מחובר כ-`itzik200592-byte`, שהוא collaborator עם כתיבה). הריפו הישן itzik200592-byte/BE-A-PRO נשאר כארכיון.
 - **פריסה אוטומטית** ב-GitHub Actions (`.github/workflows/deploy.yml`) בכל `git push` ל-main. פרטים ב-`DEPLOY.md`.
-- **base=`/BE-A-PRO/`** ב-`vite.config.ts` (Pages תת-נתיב). **כל נתיבי ה-public עוברים דרך `asset()` ב-`src/ui/asset.ts`.** תמונה חדשה מ-public → חובה `asset('/...')`.
+- **base=`/`** ב-`vite.config.ts` (אתר משתמש של Pages, שורש). **כל נתיבי ה-public עוברים דרך `asset()` ב-`src/ui/asset.ts`.** תמונה חדשה מ-public → חובה `asset('/...')`.
 - Pages הודלק ידנית פעם אחת (`gh api repos/.../pages -X POST -f build_type=workflow`), לא צריך שוב.
 - **לעדכן:** commit + `git push` (במצב auto הדחיפה דורשת אישור/הרצה על ידי המשתמש). מחיקת שרת LAN/tunnel, לא בשימוש יותר.
 
