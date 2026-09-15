@@ -89,10 +89,11 @@ export function App() {
     return () => { setInviteHandler(null); setInstallHandler(null); };
   }, [booted]);
 
-  // an invite link carries the beta door code, so a friend walks straight in
+  // a link that carries the beta door code opens the door by itself: a
+  // friend's invite, or the address as it is passed around, walks straight in
   useEffect(() => {
     try {
-      if (ref && /[?&]k=100(&|$)/.test(location.search)) {
+      if (/[?&]k=100(&|$)/.test(location.search)) {
         localStorage.setItem('beapro.gate', '1');
         setEntered(true);
       }
