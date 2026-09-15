@@ -24,6 +24,7 @@ import type { Legend } from './legends.ts';
 import { legendByName } from './legends.ts';
 import { overall } from '../engine/matchEngine.ts';
 import { BRONZE_FROM } from '../game/cards.ts';
+import { originOfName } from './names.ts';
 
 export type Tone = 'fun' | 'warn' | 'heart' | 'pro';
 
@@ -76,6 +77,11 @@ const PETS = ['הכלב', 'התוכי', 'החתול'];
 const HUMMUS = ['חומוס', 'חומוס פול', 'מסבחה', 'חומוס עם ביצה'];
 const JOBS = ['במוסך', 'במשרד', 'בחשמלייה', 'בקייטרינג', 'במאפייה של הדוד', 'באבטחה'];
 const ORIGINS = ['אוקראינה', 'צרפת', 'אתיופיה', 'רוסיה', 'ארגנטינה'];
+
+// A few lines belong to one sector's life and not the other's: kiddush,
+// reserve duty, aliyah. A man from the Arab pool does not get them, or a
+// player in הפועל נצרת reads that his centre back runs home for kiddush.
+const jewish = (p: Player) => originOfName(p.name) === 'jewish';
 const HALLS = ['גן אירועים', 'אולם בפריפריה', 'מסעדה על המים'];
 
 /**
@@ -334,11 +340,13 @@ export const TRAITS: Trait[] = [
   {
     id: 'shabbat', group: 'family', label: 'שומר מסורת', tone: 'heart',
     line: n => `${n} משחק בשישי בצהריים ורץ הביתה לקידוש. אף פעם לא איחר לשבת.`,
+    fit: jewish,
   },
   {
     id: 'reserves', group: 'life', label: 'מילואים', tone: 'warn',
     line: n => `${n} נעלם שבועיים למילואים בדיוק באמצע העונה. חוזר בכושר של מחנה בסיס.`,
     tip: 'תבדוק מתי הצו שלו, אתה עלול להישאר בלעדיו לדרבי.',
+    fit: jewish,
   },
   {
     id: 'new-baby', group: 'life', label: 'נהיה אבא', tone: 'heart',
@@ -359,6 +367,7 @@ export const TRAITS: Trait[] = [
   {
     id: 'aliyah', group: 'roots', label: 'עולה חדש', tone: 'fun',
     line: (n, p) => `${n} עלה מ${p(ORIGINS)}. לומד עברית מחדר ההלבשה, וזה נשמע בקללות שהוא צועק על השופט.`,
+    fit: jewish,
   },
   {
     id: 'street-ball', group: 'street', label: 'כדורגל שכונה', tone: 'fun',

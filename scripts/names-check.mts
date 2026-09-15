@@ -16,6 +16,7 @@
 import { POOLS, makeName, originOfName, sectorForCity, surnameOf, ADDED_FIRST } from '../src/data/names.ts';
 import * as G from '../src/game/state.ts';
 import { isLegend } from '../src/data/legends.ts';
+import { assignTraits } from '../src/data/personalities.ts';
 import { makeSquad } from '../src/data/squadGen.ts';
 import { CITIES, clubFromCity } from '../src/data/cities.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
@@ -103,6 +104,32 @@ for (const t of ['תל אביב', 'חיפה', 'רמת גן', 'באר שבע'])
     if (isLegend({ name: makeName(rng6, 'arab') })) hits++;
   }
   if (hits) fails.push(hits + ' generated names out of 40000 were a ראש העין regular');
+}
+
+/* 7. a personality from one sector's life never lands on a man from the other.
+      Kiddush, reserve duty and aliyah are Jewish lines; an Arab club's centre
+      back was being described as running home for kiddush. Read off every
+      Arab club's dressing room, and checked the other way so the gate is not
+      simply switched off. */
+{
+  const SECTOR_TRAITS = new Set(['shabbat', 'reserves', 'aliyah']);
+  let arabMen = 0, jewishHits = 0;
+  for (const city of CITIES) {
+    const club = clubFromCity(city, 1);
+    const sq = makeSquad(60, createRng(city.name.length * 131 + 7), club.traits, sectorForCity(club.city));
+    const all = [...sq.starters, ...sq.bench];
+    const traits = assignTraits(all);
+    for (const p of all) {
+      const own = (traits.get(p.id) ?? []).map(t => t.id).filter(id => SECTOR_TRAITS.has(id));
+      if (originOfName(p.name) === 'arab') {
+        arabMen++;
+        if (own.length) fails.push(`${club.short}: ${p.name} is "${own.join(', ')}", a line from the other sector's life`);
+      } else if (own.length) jewishHits++;
+    }
+  }
+  if (!arabMen) fails.push('no Arab players were generated, so the sector gate was never tested');
+  if (!jewishHits) fails.push('no Jewish player received a sector line at all, so the gate may simply be off');
+  console.log(`  ${arabMen} Arab players, none with a Jewish-life line; ${jewishHits} Jewish players carry one`);
 }
 
 console.log(`${ADDED_FIRST.length} names added, all present in the Jewish pool`);

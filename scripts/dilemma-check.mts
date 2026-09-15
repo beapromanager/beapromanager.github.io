@@ -172,8 +172,13 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
 /* GUEST: the owner's boy is on the bench, and comes on at half time */
 {
   let gs = career(23);
+  const purse = gs.meters.money;
   ({ gs } = answer(gs, 'owner_son', 0));
-  checked += 3;
+  checked += 4;
+  // the owner pays a tenth of the purse, Itzik's number, not a flat hundred
+  // and twenty thousand that was forty percent of a ליגה ג׳ season
+  const paid = gs.meters.money - purse;
+  if (paid !== Math.round(purse * 0.10)) fails.push(`the owner paid ₪${paid} for his boy's half, expected a tenth of ₪${purse}`);
   if (!gs.matchMods.guest) fails.push('saying yes to the owner did not put his boy anywhere');
   const inp = G.liveMatchInput(gs);
   const guest = gs.matchMods.guest!;

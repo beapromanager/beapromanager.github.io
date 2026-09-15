@@ -4,6 +4,7 @@ import type { Player } from '../../engine/matchEngine.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { TopBack } from '../components/TopBack.tsx';
+import { Meters } from '../components/bits.tsx';
 import { ovrColor } from '../../game/cards.ts';
 
 /**
@@ -31,6 +32,7 @@ export function YouthScreen({ gs, onPromote, onRelease, onRegister, onBack }: {
 
   return (
     <>
+      <Meters {...gs.meters} gems={gs.gems} />
       <div className="screen pad stack pad-b" style={{ gap: 13 }}>
         <TopBack onBack={onBack} />
         <div className="row" style={{ gap: 10, marginTop: 2 }}>

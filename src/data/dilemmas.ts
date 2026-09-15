@@ -505,8 +505,11 @@ export const TEMPLATES: DilemmaTemplate[] = [
     speaker: 'owner',
     slots: { who: ['הבן של השותף שלי', 'החתן שלי', 'הנכד של הנשיא', 'בן של חבר מהמילואים'] },
     text: 'אחי אני בא לחדר הלבשה במחצית. תכניס את {who}, חצי שעה ולא יקרה כלום.',
-    options: () => [
-      { label: 'בסדר, הוא נכנס', effect: { money: 120000, morale: -12, prestige: -3 },
+    // ten percent of the purse, Itzik's number. A flat hundred and twenty
+    // thousand was forty percent of a ליגה ג׳ season for half an hour of a
+    // 41 rated boy, the best deal in the game by a mile
+    options: (c) => [
+      { label: 'בסדר, הוא נכנס', effect: { money: Math.round(c.money * 0.10), morale: -12, prestige: -3 },
         outcome: 'הוא ייכנס במחצית. תחזיק אצבעות.',
         act: [{ kind: 'guest' }] },
       { label: 'בכבוד, אבל ההרכב שלי', effect: { money: -40000, morale: +10, prestige: -2 },

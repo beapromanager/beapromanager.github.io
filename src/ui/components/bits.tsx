@@ -30,7 +30,11 @@ export function Meters({ money, morale, prestige, gems }: {
   // hide on 'none', which was every browser Chrome's install API does not
   // reach — Firefox, Samsung Internet, Opera, Brave — and those are exactly the
   // people who most needed telling where the option lives in their own menu.
-  const offerInstall = !!installHandler && installKind() !== 'installed';
+  // Not keyed off the handler: that is a module variable the App sets in an
+  // effect after the first paint, so the very first hub after every load drew
+  // the bar without the button and it only turned up on the next tap. The
+  // handler is there long before anyone can press it.
+  const offerInstall = installKind() !== 'installed';
 
   return (
     <div className="meters">

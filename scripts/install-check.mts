@@ -219,6 +219,20 @@ const IPHONE_CHROME = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Ap
   }
 }
 
+/* 11. AND THE BAR OFFERS IT FROM THE FIRST PAINT.
+       The button in the meters bar was keyed off a module variable the App
+       sets in an effect after the first render, so the first hub after every
+       load drew the bar without it, and it only appeared on the next tap.
+       The offer must depend on whether the game is installed, nothing else. */
+{
+  const fs = await import('node:fs');
+  const bits = fs.readFileSync('src/ui/components/bits.tsx', 'utf8');
+  const offer = /const offerInstall = ([^;]+);/.exec(bits)?.[1] ?? '';
+  checked += 2;
+  if (!offer) fails.push('the meters bar no longer decides whether to offer the install at all');
+  if (/installHandler/.test(offer)) fails.push('the install offer waits for the handler again, so the first hub after a load has no button');
+}
+
 console.log(`${checked} checks across iPhone, iPad, Android, and every browser we can name`);
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, every browser gets a route onto the home screen, and it is its own');

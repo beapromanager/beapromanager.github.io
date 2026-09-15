@@ -150,6 +150,9 @@ const back = readFileSync('src/ui/back.ts', 'utf8');
     if (!file) { fails.push(`no screen file is known for the "${room}" room`); continue; }
     const src = readFileSync(`src/ui/screens/${file}.tsx`, 'utf8');
     if (!/<TopBack\b/.test(src)) fails.push(`the "${room}" screen has no back at the top, only wherever the bottom is`);
+    // the meters ride on every room too. Two keep their own top by design:
+    // the packs screen shows the gems large, the table is one full list
+    if (!['packs', 'table'].includes(room) && !/<Meters\b/.test(src)) fails.push(`the "${room}" screen has no meters bar, every other room from the hub has one`);
   }
   console.log(`  ${rooms.length + 4} rooms opened from the hub show their way out at the top`);
 }
