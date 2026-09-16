@@ -298,7 +298,13 @@ export interface GameState {
   /** the question on screen, plus whatever the reporter still has waiting.
    *  q is kept as the current one so a save written before the second question
    *  existed still opens on a valid press room. */
-  press: { outlet: Outlet; q: PressQuestion; queue?: PressQuestion[] } | null;
+  press: {
+    outlet: Outlet; q: PressQuestion; queue?: PressQuestion[];
+    /** the answer given to the question on screen, once it has been given */
+    answered?: number;
+    /** the meters as they stood before that answer, so the room can show what it did */
+    before?: { morale: number; prestige: number };
+  } | null;
   /** set the moment the owner ends it, and never cleared: the career is over */
   sacking: Sacking | null;
   /** the shirt deal for this season, re-negotiated every summer */
@@ -3058,23 +3064,47 @@ export function continueFromResult(gs: GameState): GameState {
 }
 
 /** Apply the manager's answer to the reporter, then move on. */
-export function answerPress(gs: GameState, index: number): GameState {
-  const q = gs.press?.q;
-  const ans = q?.answers[index];
-  const meters = ans
-    ? {
-        money: cash(gs.meters.money),
-        morale: moraleShift(gs.meters.morale, (ans.effect.morale ?? 0)),
-        prestige: meter(gs.meters.prestige + (ans.effect.prestige ?? 0)),
-      }
-    : gs.meters;
-  const style = ans ? scoreStyle(gs.style, ans.effect) : gs.style;
+/**
+ * The answer is given, and it lands: the meters move now, while he is still in
+ * the room, and the room can say what it did. The answer is remembered on the
+ * question so a refresh mid reveal shows the same verdict and does not let it
+ * land twice. Nothing else moves until he walks on.
+ */
+export function pickPressAnswer(gs: GameState, index: number): GameState {
+  const p = gs.press;
+  const ans = p?.q.answers[index];
+  if (!p || !ans || p.answered != null) return gs;
+  const meters = {
+    money: cash(gs.meters.money),
+    morale: moraleShift(gs.meters.morale, (ans.effect.morale ?? 0)),
+    prestige: meter(gs.meters.prestige + (ans.effect.prestige ?? 0)),
+  };
+  return {
+    ...gs, meters, style: scoreStyle(gs.style, ans.effect),
+    press: { ...p, answered: index, before: { morale: gs.meters.morale, prestige: gs.meters.prestige } },
+  };
+}
+
+/** What the answer on screen did, as the meters actually moved, caps included. */
+export function pressVerdict(gs: GameState): { morale: number; prestige: number } | null {
+  const p = gs.press;
+  if (!p || p.answered == null || !p.before) return null;
+  return { morale: gs.meters.morale - p.before.morale, prestige: gs.meters.prestige - p.before.prestige };
+}
+
+/** On to the next question, or out of the room. */
+export function continuePress(gs: GameState): GameState {
   // he has another one. A press conference is not one question and out.
   const rest = gs.press?.queue ?? [];
   if (rest.length) {
-    return { ...gs, meters, style, press: { outlet: gs.press!.outlet, q: rest[0], queue: rest.slice(1) } };
+    return { ...gs, press: { outlet: gs.press!.outlet, q: rest[0], queue: rest.slice(1) } };
   }
-  return advancePastPress({ ...gs, meters, style });
+  return advancePastPress(gs);
+}
+
+/** Answer and walk on in one step, the way the checks drive a season. */
+export function answerPress(gs: GameState, index: number): GameState {
+  return continuePress(pickPressAnswer(gs, index));
 }
 
 /** How many questions are left, including the one on screen. */

@@ -17,6 +17,7 @@ import type { MatchResult, MatchEvent } from '../src/engine/matchEngine.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { LEGENDS } from '../src/data/legends.ts';
+import { readFileSync } from 'node:fs';
 
 /** Play the round the way the sacking arc does, then walk to the press room. */
 function play(gs: G.GameState, seed: number): G.GameState {
@@ -208,6 +209,66 @@ for (const town of ['רמת גן', 'חיפה', 'באר שבע']) {
 
 checked++;
 if (seen.size < 12) fails.push(`only ${seen.size} distinct questions across ${rounds} rounds, he repeats himself`);
+
+/* ------------------------------------------- 5. the answer is the reveal */
+/* The buttons show only the words. Picking one lands it on the meters right
+   there in the room, once, and the verdict says what actually moved, caps
+   included; a refresh mid reveal shows the same verdict and cannot land it
+   again; walking on is a separate step, and the one-shot the checks use is
+   the two put together. */
+{
+  let gs = G.newGame(5107);
+  gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+  gs = G.pickCity(gs, 'חיפה');
+  gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+  while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
+  let w = 0;
+  while (gs.phase !== 'press' && w < 14) gs = play(gs, w++ * 7);
+  checked++;
+  if (gs.phase !== 'press') fails.push('never reached a press room for the reveal');
+  else {
+    // sit the morale a point under its ceiling so a big answer is capped
+    const q = gs.press!.q;
+    const i = q.answers.findIndex(a => (a.effect.morale ?? 0) >= 2);
+    const idx = i >= 0 ? i : 0;
+    const eff = q.answers[idx].effect;
+    const room = { ...gs, meters: { ...gs.meters, morale: 99, prestige: 50 } };
+    checked++;
+    if (G.pressVerdict(room)) fails.push('a verdict exists before an answer is given');
+    const picked = G.pickPressAnswer(room, idx);
+    const v = G.pressVerdict(picked);
+    checked += 4;
+    if (picked.phase !== 'press' || picked.press?.q.text !== q.text) fails.push('picking an answer left the question');
+    if (picked.press?.answered !== idx) fails.push('the answer was not remembered on the question');
+    if (!v) fails.push('no verdict after the answer');
+    else {
+      const realMorale = picked.meters.morale - 99, realPrestige = picked.meters.prestige - 50;
+      if (v.morale !== realMorale || v.prestige !== realPrestige) fails.push(`the verdict says ${v.morale}/${v.prestige}, the meters moved ${realMorale}/${realPrestige}`);
+      if ((eff.morale ?? 0) >= 2 && v.morale >= (eff.morale ?? 0)) fails.push(`the verdict reports the promised ${eff.morale}, not the capped move ${v.morale}`);
+    }
+    // it lands once: a second pick, the same or another, does nothing
+    const twice = G.pickPressAnswer(picked, idx === 0 ? 1 : 0);
+    checked++;
+    if (twice.meters.morale !== picked.meters.morale || twice.meters.prestige !== picked.meters.prestige || twice.press?.answered !== idx) fails.push('an answer landed twice');
+    // a refresh mid reveal keeps the verdict and still cannot land it again
+    const back = JSON.parse(JSON.stringify(picked)) as G.GameState;
+    checked += 2;
+    if (!G.pressVerdict(back) || G.pressVerdict(back)!.morale !== v!.morale) fails.push('a refresh lost the verdict');
+    if (G.answerPress(back, 0).meters.morale !== picked.meters.morale) fails.push('answering again after a refresh moved the meters again');
+    // walking on is its own step, and the one-shot equals the two
+    const on = G.continuePress(picked);
+    checked += 2;
+    if (on.phase === 'press' && on.press?.q.text === q.text) fails.push('walking on stayed on the same question');
+    const oneShot = G.answerPress(room, idx);
+    if (oneShot.meters.morale !== on.meters.morale || oneShot.phase !== on.phase) fails.push('answerPress is not pick plus continue');
+  }
+  // and the buttons say nothing about what they do
+  const src = readFileSync('src/ui/screens/Press.tsx', 'utf8');
+  const buttons = src.slice(src.indexOf('{!answered && ('), src.indexOf('{answered && ('));
+  checked += 2;
+  if (!buttons.length || /effect/.test(buttons)) fails.push('the answer buttons still show what they do');
+  if (!/pressVerdict/.test(src) || !/onPick/.test(src)) fails.push('the room does not show a verdict after the answer');
+}
 
 console.log(`${checked} checks`);
 console.log(`${rounds} press conferences: ${twoQ} of two questions, ${oneQ} of one`);

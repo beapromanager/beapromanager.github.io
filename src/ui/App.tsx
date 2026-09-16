@@ -300,7 +300,7 @@ export function App() {
         <MatchBroadcast gs={gs} onDone={result => setGs(G.commitRound(gs, result))} />
       )}
       {gs.phase === 'result' && <ResultScreen gs={gs} onContinue={() => setGs(G.continueFromResult(gs))} />}
-      {gs.phase === 'press' && <PressScreen key={gs.press?.q.text} gs={gs} onAnswer={i => setGs(G.answerPress(gs, i))} />}
+      {gs.phase === 'press' && <PressScreen key={gs.press?.q.text} gs={gs} onPick={i => setGs(g => G.pickPressAnswer(g, i))} onNext={() => setGs(g => G.continuePress(g))} />}
       {gs.phase === 'chat' && <ChatScreen gs={gs} onDone={() => setGs(G.closeChat(gs))} />}
       {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
       {exitOpen && <ExitSheet onStay={() => setExitOpen(false)} onLeave={() => { setExitOpen(false); leaveGame(); }} />}

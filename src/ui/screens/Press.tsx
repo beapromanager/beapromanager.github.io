@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import * as G from '../../game/state.ts';
 import { Meters } from '../components/bits.tsx';
+import { Icon } from '../components/Icon.tsx';
 import type { PressTone } from '../../data/press.ts';
 
 const TONE: Record<PressTone, { label: string; color: string; bg: string }> = {
@@ -9,13 +9,21 @@ const TONE: Record<PressTone, { label: string; color: string; bg: string }> = {
   brutal: { label: 'קוטל', color: 'var(--loss)', bg: 'rgba(255,90,95,.14)' },
 };
 
-export function PressScreen({ gs, onAnswer }: { gs: G.GameState; onAnswer: (i: number) => void }) {
+/**
+ * The press room. The answers show only the words: what an answer does to the
+ * room and to his standing is the reveal, not the menu. Once he has spoken
+ * the meters move at the top and the verdict card says by how much, as the
+ * meters actually moved, so a line that sounded brave and cost him is a thing
+ * he finds out the way a manager does, afterwards.
+ */
+export function PressScreen({ gs, onPick, onNext }: { gs: G.GameState; onPick: (i: number) => void; onNext: () => void }) {
   const press = gs.press!;
   const q = press.q;
   const tone = TONE[q.tone];
-  const [picked, setPicked] = useState<number | null>(null);
+  const picked = press.answered ?? null;
   const answered = picked !== null;
-  const reply = answered ? q.answers[picked!].reply : null;
+  const reply = answered ? q.answers[picked].reply : null;
+  const verdict = G.pressVerdict(gs);
   // more of the conference to come, so the button says so rather than
   // promising the manager he is done
   const more = (press.queue?.length ?? 0) > 0;
@@ -45,12 +53,8 @@ export function PressScreen({ gs, onAnswer }: { gs: G.GameState; onAnswer: (i: n
         {!answered && (
           <div className="stack" style={{ gap: 10, marginTop: 4 }}>
             {q.answers.map((a, i) => (
-              <button key={i} className="btn dark" style={{ textAlign: 'start' }} onClick={() => setPicked(i)}>
-                <div style={{ fontWeight: 800 }}>"{a.label}"</div>
-                <div className="row" style={{ gap: 6, marginTop: 6 }}>
-                  {a.effect.morale ? <Delta label="מורל" v={a.effect.morale} /> : null}
-                  {a.effect.prestige ? <Delta label="מעמד" v={a.effect.prestige} /> : null}
-                </div>
+              <button key={i} className="btn dark" style={{ textAlign: 'start', minHeight: 58 }} onClick={() => onPick(i)}>
+                <div style={{ fontWeight: 800, lineHeight: 1.4 }}>"{a.label}"</div>
               </button>
             ))}
           </div>
@@ -60,15 +64,16 @@ export function PressScreen({ gs, onAnswer }: { gs: G.GameState; onAnswer: (i: n
           <>
             <div style={{ display: 'flex', justifyContent: 'flex-end', animation: 'riseIn .2s ease' }}>
               <div style={{ background: 'linear-gradient(180deg,var(--gold-hi),var(--gold))', color: '#1e1608', borderRadius: '16px 16px 4px 16px', padding: '11px 14px', fontSize: 16.5, maxWidth: '82%', fontWeight: 700 }}>
-                "{q.answers[picked!].label}"
+                "{q.answers[picked].label}"
               </div>
             </div>
             <div className="tile" style={{ fontSize: 16, animation: 'riseIn .25s ease .1s both' }}>
               <span style={{ color: 'var(--ink-dim)', fontWeight: 700, fontSize: 14.5 }}>התגובה </span>
               {reply}
             </div>
+            {verdict && <Verdict v={verdict} />}
             <div className="spacer" />
-            <button className="btn" onClick={() => onAnswer(picked!)}>
+            <button className="btn" onClick={onNext}>
               {more ? 'יש לו עוד שאלה ‹' : `סיום, ${gs.seasonOver ? 'לסיכום העונה' : 'למחזור הבא'} ‹`}
             </button>
           </>
@@ -78,12 +83,25 @@ export function PressScreen({ gs, onAnswer }: { gs: G.GameState; onAnswer: (i: n
   );
 }
 
-function Delta({ label, v }: { label: string; v: number }) {
-  const good = v > 0;
+/** What the answer did, one row per meter, landing one after the other. */
+function Verdict({ v }: { v: { morale: number; prestige: number } }) {
   return (
-    <span className="chip" style={{ background: good ? 'rgba(51,194,122,.16)' : 'rgba(255,90,95,.14)', color: good ? 'var(--win)' : 'var(--loss)' }}>
-      {label} <span className="num">{good ? '+' : ''}{v}</span>
-    </span>
+    <div className="tile verdict" style={{ animation: 'riseIn .3s var(--ease-out) .45s both' }}>
+      <div className="label-cap" style={{ marginBottom: 8 }}>מה זה עשה לך</div>
+      <VerdictRow icon="flame" label="המורל בחדר ההלבשה" v={v.morale} delay={.6} />
+      <VerdictRow icon="star" label="המעמד שלך" v={v.prestige} delay={.95} />
+    </div>
+  );
+}
+
+function VerdictRow({ icon, label, v, delay }: { icon: 'flame' | 'star'; label: string; v: number; delay: number }) {
+  const tone = v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
+  return (
+    <div className={`verdict-row ${tone}`} style={{ animation: `riseIn .3s var(--ease-out) ${delay}s both` }}>
+      <Icon name={icon} size={15} />
+      <span className="verdict-label">{label}</span>
+      <span className="verdict-v num">{v > 0 ? `+${v}` : v < 0 ? String(v) : 'לא זז'}</span>
+    </div>
   );
 }
 
