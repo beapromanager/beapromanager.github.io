@@ -110,7 +110,7 @@ function SponsorNotice({ gs, brand, onDismiss }: { gs: G.GameState; brand: G.Bra
           <div className="label-cap" style={{ color: 'var(--gold)' }}>הספונסר של העונה</div>
           <div className="h2" style={{ marginTop: 4 }}>ברוכים הבאים למשפחת {b.name}</div>
           <div style={{ margin: '14px auto 6px', animation: 'riseIn .45s var(--ease-out) both' }}>
-            <Kit kit={homeKit(c)} size={150} sponsor={b.chest} label={`המדים של ${c.short} העונה`} />
+            <Kit kit={homeKit(c)} size={150} sponsor={b.chest} sponsorLogo={logoOk ? asset(b.chestLogo ?? b.logo) : undefined} label={`המדים של ${c.short} העונה`} />
           </div>
           <p className="sponsor-voice">{b.welcome}</p>
           <div className="sponsor-deal">{dealLine}</div>

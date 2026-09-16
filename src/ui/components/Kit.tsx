@@ -14,13 +14,15 @@ import type { Kit as KitStrip, KitPattern } from '../../data/kits.ts';
 
 let uid = 0;
 
-export function Kit({ kit, pattern, size = 88, sponsor, label }: {
+export function Kit({ kit, pattern, size = 88, sponsor, sponsorLogo, label }: {
   kit: KitStrip;
   /** override the strip's own pattern; the strip's wins when this is omitted */
   pattern?: KitPattern;
   size?: number;
   /** the shirt front wordmark, once the club has sold the space */
   sponsor?: string;
+  /** the sponsor's mark printed on the chest, over the name when there is one */
+  sponsorLogo?: string;
   /** what a screen reader says; the shirt is decoration without one */
   label?: string;
 }) {
@@ -74,7 +76,12 @@ export function Kit({ kit, pattern, size = 88, sponsor, label }: {
       {/* a crew collar, stroked along the neckline so it sits like a band */}
       <path d="M31 9 Q50 25 69 9" fill="none" stroke={kit.trim} strokeWidth="6" strokeLinecap="round" />
 
-      {sponsor && (
+      {sponsorLogo ? (
+        <>
+          <rect x="30" y="43" width="40" height="36" rx="4" fill="rgba(0,0,0,.42)" />
+          <image href={sponsorLogo} x="34" y="46" width="32" height="30" preserveAspectRatio="xMidYMid meet" />
+        </>
+      ) : sponsor && (
         <>
           {/* a printed panel, so the name reads on a white half as well as a dark one */}
           <rect x="24" y="54" width="52" height="12" rx="2.5" fill="rgba(0,0,0,.42)" />

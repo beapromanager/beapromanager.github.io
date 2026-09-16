@@ -31,6 +31,8 @@ export interface Brand {
   /** what they come asking for mid season, in their own voice */
   wants: string[];
   logo: string;
+  /** the mark as printed on the chest; the same file unless a brand ships a tighter one */
+  chestLogo?: string;
   /** the deals this brand puts on the table */
   deals: SponsorId[];
   /** the ad in public/ads that belongs to this brand, if it has one */
