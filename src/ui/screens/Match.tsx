@@ -289,6 +289,7 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
         <HalfTime st={st}
           onTalk={id => { L.halfTimeTalk(st, id); force(); }}
           onShape={id => { L.changeFormation(st, id); force(); }}
+          onRevert={() => { L.revertFormation(st); force(); }}
           onSub={() => setSubOpen(true)} />
       ) : (
         <>
@@ -447,10 +448,18 @@ function FitRow({ p, bench, onTap, selected, role }: {
 }
 
 /** The dressing room at 45 minutes: what you say, and who you change. */
-function HalfTime({ st, onTalk, onShape, onSub }: {
-  st: LiveState; onTalk: (id: L.TalkId) => void; onShape: (id: FormationId) => void; onSub: () => void;
+function HalfTime({ st, onTalk, onShape, onRevert, onSub }: {
+  st: LiveState; onTalk: (id: L.TalkId) => void; onShape: (id: FormationId) => void; onRevert: () => void; onSub: () => void;
 }) {
   const shape = (st.iAmHome ? st.home : st.away).tactic.formation ?? '4-4-2';
+  const before = L.formationBefore(st);
+  const changed = st.shape ? L.FORMATION_CHOICES.find(f => f.id === shape) : null;
+  const wasLabel = L.FORMATION_CHOICES.find(f => f.id === before)?.label ?? before;
+  // a shape tapped but not yet confirmed. The card pops in under a finger that
+  // was closing the moment before the whistle, and a formation is not a thing
+  // to change by accident: one tap picks, a second says so
+  const [asking, setAsking] = useState<FormationId | null>(null);
+  const askingChoice = asking ? L.FORMATION_CHOICES.find(f => f.id === asking) : null;
   const idx = st.iAmHome ? 0 : 1;
   const diff = st.score[idx] - st.score[1 - idx];
   const mood = diff > 0 ? 'אתה מוביל. עכשיו לא מתפרקים.'
@@ -489,16 +498,31 @@ function HalfTime({ st, onTalk, onShape, onSub }: {
       <div className="label-cap" style={{ marginBottom: 8 }}>מערך למחצית השנייה</div>
       <div className="row" style={{ gap: 7, marginBottom: 13, alignItems: 'stretch' }}>
         {L.FORMATION_CHOICES.map(f => (
-          <button key={f.id} className={`ht-shape${f.id === shape ? ' on' : ''}`}
-            aria-pressed={f.id === shape} onClick={() => onShape(f.id)}>
+          <button key={f.id} className={`ht-shape${f.id === shape ? ' on' : ''}${f.id === asking ? ' ask' : ''}`}
+            aria-pressed={f.id === shape} onClick={() => setAsking(f.id === shape ? null : f.id)}>
             <span className="ht-shape-num num">{f.label}</span>
             <span className="ht-shape-name">{f.name}</span>
           </button>
         ))}
       </div>
-      <p className="hint" style={{ margin: '-6px 0 13px', textAlign: 'center' }}>
-        {L.FORMATION_CHOICES.find(f => f.id === shape)?.desc}
-      </p>
+      {askingChoice ? (
+        <div className="ht-confirm">
+          <div className="ht-confirm-line">לעבור ל-<b className="num">{askingChoice.label}</b> {askingChoice.name} במחצית השנייה? האחד עשר ייושבו מחדש.</div>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => { onShape(askingChoice.id); setAsking(null); }}>כן, לשנות</button>
+            <button className="btn dark btn-sm" style={{ flex: 1 }} onClick={() => setAsking(null)}>להשאיר <span className="num">{L.FORMATION_CHOICES.find(f => f.id === shape)?.label}</span></button>
+          </div>
+        </div>
+      ) : changed ? (
+        <div className="ht-confirm done">
+          <div className="ht-confirm-line">יוצאים ב-<b className="num">{changed.label}</b> {changed.name}. היה <span className="num">{wasLabel}</span>.</div>
+          <button className="btn dark btn-sm" onClick={onRevert}>בטל, חזרה ל-<span className="num">{wasLabel}</span></button>
+        </div>
+      ) : (
+        <p className="hint" style={{ margin: '-6px 0 13px', textAlign: 'center' }}>
+          {L.FORMATION_CHOICES.find(f => f.id === shape)?.desc}
+        </p>
+      )}
 
       <div className="label-cap" style={{ marginBottom: 8 }}>מה אתה אומר להם</div>
       <div className="stack" style={{ gap: 8 }}>

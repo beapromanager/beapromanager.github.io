@@ -240,6 +240,49 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
   if (st.events.length !== again) fails.push('re-picking the shape already being played logs it again');
 }
 
+/* 7. A CHANGE CAN BE TAKEN BACK IN THE DRESSING ROOM, AND THEN IT NEVER HAPPENED.
+      The card pops in under a finger that was closing the moment before the
+      whistle, and a manager who never meant to change was asked by the press
+      why he had. A change now takes two taps on screen, and one that is taken
+      back leaves nothing: not on the pitch, not in the feed, not in the result. */
+{
+  const st = toHalfTime(3030, '4-4-2');
+  const seats = mySide(st).onPitch.map(p => p.id).join(',');
+  checked++;
+  if (L.revertFormation(st)) fails.push('a dressing room with no change let a revert through');
+  L.changeFormation(st, '4-3-3');
+  checked += 2;
+  if (L.formationBefore(st) !== '4-4-2') fails.push(`the shape he went in with reads ${L.formationBefore(st)}`);
+  if (!st.shape) fails.push('the change was not recorded');
+  // a second change in the same room is still measured against the first shape
+  L.changeFormation(st, '3-5-2');
+  checked++;
+  if (L.formationBefore(st) !== '4-4-2' || st.shape?.to !== formation('3-5-2').label) fails.push('a second change lost the original shape or the final one');
+  checked++;
+  if (!L.revertFormation(st)) fails.push('the revert was refused');
+  checked += 4;
+  if (mySide(st).tactic.formation !== '4-4-2') fails.push(`after the revert the side plays ${mySide(st).tactic.formation}`);
+  if (mySide(st).onPitch.map(p => p.id).join(',') !== seats) fails.push('the eleven were not seated back where they started');
+  if (st.events.some(e => e.type === 'tactic' && e.text.startsWith('שינוי מערך'))) fails.push('the feed still says the shape changed');
+  if (st.shape || st.shapeFrom) fails.push('the result would still carry a change nobody left standing');
+  const res = L.finalize(st);
+  checked++;
+  if (res.shape) fails.push('the reporter would still be handed a shape change after the revert');
+  // and picking the original shape by hand is the same as taking it back
+  L.changeFormation(st, '4-3-3');
+  L.changeFormation(st, '4-4-2');
+  checked++;
+  if (st.shape || L.finalize(st).shape) fails.push('going back to the opening shape by hand still counts as a change');
+
+  // the screen asks before it changes, and offers the way back
+  const src = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  checked += 2;
+  if (!/onClick=\{\(\) => setAsking\(f\.id === shape/.test(src) || /onClick=\{\(\) => onShape\(f\.id\)\}/.test(src) || !/כן, לשנות/.test(src)) {
+    fails.push('the half time picker changes the shape on a single tap');
+  }
+  if (!/onRevert/.test(src) || !/revertFormation/.test(src)) fails.push('the dressing room offers no way back from a change');
+}
+
 console.log(`\n${checked} checks`);
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, the shape changes in the dressing room and everything downstream knows');

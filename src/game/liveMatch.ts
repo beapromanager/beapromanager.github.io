@@ -108,6 +108,10 @@ export interface LiveState {
   guestId?: string | null;
   /** the half-time shape change, kept so the reporter can ask about it */
   shape?: { to: string; atHalf: [number, number] };
+  /** the shape the side went in with, so a change can be taken back in the dressing room */
+  shapeFrom?: FormationId;
+  /** who sat where in that shape, the manager's own placing, restored on the way back */
+  shapeSeats?: string[];
   tacticOffered: boolean;
   pending: Moment | null;
   /** small personality effects, keyed by player id, see traitEffects.ts */
@@ -977,16 +981,55 @@ export function canChangeFormation(st: LiveState): boolean {
 export function changeFormation(st: LiveState, id: FormationId): boolean {
   if (!canChangeFormation(st)) return false;
   const side = playerSide(st);
-  if ((side.tactic.formation ?? DEFAULT_FORMATION) === id) return false;
+  const current = side.tactic.formation ?? DEFAULT_FORMATION;
+  if (current === id) return false;
 
+  // the shape he went in with is what a change is measured against, and what
+  // taking the change back returns to; a second change in the same dressing
+  // room does not move it
+  const from = st.shapeFrom ?? current;
+  const seats = st.shapeSeats ?? side.onPitch.map(p => p.id);
   side.tactic = { ...side.tactic, formation: id };
+  // back to the shape he started with is no change at all, and the eleven go
+  // back to where HE put them, not where a fit would; a man substituted since
+  // means his placing is gone, and a fit is the honest fallback
+  if (id === from) {
+    const byId = new Map(side.onPitch.map(p => [p.id, p]));
+    const same = seats.length === side.onPitch.length && seats.every(x => byId.has(x));
+    side.onPitch = same ? seats.map(x => byId.get(x)!) : fillFormation(side.onPitch, formation(id));
+    st.shape = undefined; st.shapeFrom = undefined; st.shapeSeats = undefined;
+    dropShapeEvents(st);
+    return true;
+  }
   side.onPitch = fillFormation(side.onPitch, formation(id));
+  st.shapeFrom = from;
+  st.shapeSeats = seats;
   st.shape = { to: formation(id).label, atHalf: [st.score[0], st.score[1]] };
+  dropShapeEvents(st);
   st.events.push({
     minute: 45, type: 'tactic', teamId: side.id,
     text: `שינוי מערך בהפסקה, ${formation(id).label} ${formation(id).name}`,
   });
   return true;
+}
+
+/**
+ * Take the change back, still in the dressing room. The eleven go back to the
+ * shape they came in with, the feed forgets it, and the result carries no
+ * change for the reporter to ask about, because none was left standing.
+ */
+export function revertFormation(st: LiveState): boolean {
+  if (!canChangeFormation(st) || !st.shapeFrom) return false;
+  return changeFormation(st, st.shapeFrom);
+}
+
+/** The shape the side went in with, or the one being played if it never moved. */
+export function formationBefore(st: LiveState): FormationId {
+  return st.shapeFrom ?? (playerSide(st).tactic.formation ?? DEFAULT_FORMATION);
+}
+
+function dropShapeEvents(st: LiveState) {
+  st.events = st.events.filter(e => !(e.type === 'tactic' && e.minute === 45 && e.text.startsWith('שינוי מערך בהפסקה')));
 }
 
 /**

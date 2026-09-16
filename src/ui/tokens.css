@@ -1182,6 +1182,15 @@ input{font-family:inherit;}
 .ht-shape-num{font-family:var(--font-display); font-size:17px; line-height:1.1;}
 .ht-shape.on .ht-shape-num{color:var(--gold-hi);}
 .ht-shape-name{font-size:12.5px; font-weight:700;}
+.ht-shape.ask{border-color:var(--gold); box-shadow:0 0 0 2px rgba(233,185,73,.25) inset;}
+/* the second tap: a shape is not a thing to change by accident */
+.ht-confirm{
+  margin:-4px 0 13px; padding:11px 12px; border-radius:var(--r-sm);
+  background:rgba(233,185,73,.08); border:1px solid rgba(233,185,73,.35);
+  display:flex; flex-direction:column; gap:9px;
+}
+.ht-confirm.done{background:rgba(51,194,122,.08); border-color:rgba(51,194,122,.35);}
+.ht-confirm-line{font-size:14px; line-height:1.5; font-weight:700;}
 
 /* ------------------------------------------------------ narrow phones */
 /* The meters bar on a narrow phone: tighter gutters, no label icons, smaller
