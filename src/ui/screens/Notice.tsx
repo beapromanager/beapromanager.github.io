@@ -7,9 +7,12 @@
  * here, one at a time, before the hub is shown, with the door to the place
  * that deals with it.
  */
+import { useState } from 'react';
 import * as G from '../../game/state.ts';
 import { Icon } from '../components/Icon.tsx';
-import { Meters } from '../components/bits.tsx';
+import { Meters, formatMoney, formatMoneyExact } from '../components/bits.tsx';
+import { Kit } from '../components/Kit.tsx';
+import { homeKit } from '../../data/kits.ts';
 import { asset } from '../asset.ts';
 
 export function NoticeScreen({ gs, onDismiss, onSquad, onYouth, onTransfers }: {
@@ -22,6 +25,7 @@ export function NoticeScreen({ gs, onDismiss, onSquad, onYouth, onTransfers }: {
   const n = gs.notices[0];
   if (!n) return null;
   if (n.kind === 'window') return <WindowNotice gs={gs} weeks={n.weeks} onDismiss={onDismiss} onTransfers={onTransfers} />;
+  if (n.kind === 'sponsor') return <SponsorNotice gs={gs} brand={n.brand} onDismiss={onDismiss} />;
 
   const red = n.kind === 'suspended';
   const title = red ? 'הרחקה' : n.kind === 'story' ? n.title : `${n.name} חוזר לנוער`;
@@ -72,6 +76,48 @@ export function NoticeScreen({ gs, onDismiss, onSquad, onYouth, onTransfers }: {
         ) : (
           <button className="btn" onClick={onDismiss}>הבנתי</button>
         )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * The shirt is theirs. The brand's mark up top, the season's shirt with the
+ * name across the chest, one line in the brand's own voice and the deal in
+ * numbers. It is the first thing on the way to the hub after the summer, so
+ * the sponsor is a face before it is a row in the ledger.
+ */
+function SponsorNotice({ gs, brand, onDismiss }: { gs: G.GameState; brand: G.BrandId; onDismiss: () => void }) {
+  const b = G.brandById(brand);
+  const s = gs.sponsor;
+  const c = G.club(gs);
+  const rounds = gs.league.rounds;
+  const [logoOk, setLogoOk] = useState(true);
+  const dealLine = s
+    ? `${s.name} · ${formatMoneyExact(s.perRound)} למחזור` + (s.promotionBonus > 0 ? ` · ${formatMoney(s.promotionBonus)} על עלייה` : s.followsCrowd ? ' · עד פי 2 לפי היציע' : ` · ${formatMoney(s.perRound * rounds)} לעונה`)
+    : '';
+
+  return (
+    <>
+      <Meters {...gs.meters} gems={gs.gems} />
+      <div className="screen pad stack pad-b" style={{ gap: 14 }}>
+        <div className="tile sponsor-welcome">
+          <div className="sponsor-mark">
+            {logoOk
+              ? <img src={asset(b.logo)} alt={b.name} onError={() => setLogoOk(false)} />
+              : <span className="sponsor-wordmark">{b.chest}</span>}
+          </div>
+          <div className="label-cap" style={{ color: 'var(--gold)' }}>הספונסר של העונה</div>
+          <div className="h2" style={{ marginTop: 4 }}>ברוכים הבאים למשפחת {b.name}</div>
+          <div style={{ margin: '14px auto 6px', animation: 'riseIn .45s var(--ease-out) both' }}>
+            <Kit kit={homeKit(c)} size={150} sponsor={b.chest} label={`המדים של ${c.short} העונה`} />
+          </div>
+          <p className="sponsor-voice">{b.welcome}</p>
+          <div className="sponsor-deal">{dealLine}</div>
+        </div>
+
+        <div className="spacer" />
+        <button className="btn" onClick={onDismiss}>יאללה, לעבודה</button>
       </div>
     </>
   );

@@ -74,6 +74,8 @@ export interface DilemmaTemplate {
    */
   subject?: 'star' | 'benched' | 'youngster' | 'veteranName' | 'scorer' | 'dry' | 'academy';
   slots: Record<string, string[]>;
+  /** slots that depend on the live save, laid over : the sponsor's own asks */
+  slotsFor?: (c: Ctx) => Record<string, string[]>;
   text: string;                 // uses {slot} and any Ctx field
   /** only offered when this holds, so the fiction never contradicts the save */
   when?: (c: Ctx) => boolean;
@@ -104,6 +106,9 @@ export interface Ctx {
   teams: number;
   week: number;
   isDerby: boolean;
+  /** the brand on the shirt, empty before one is signed */
+  sponsor: string;
+  sponsorWants: string[];
 }
 
 export const SPEAKER_LABEL: Record<Speaker, string> = {
@@ -344,7 +349,10 @@ export const TEMPLATES: DilemmaTemplate[] = [
     slots: {
       want: ['שהשחקנים יצטלמו בחנות שלי', 'שתעשה אירוע לחתימות ביום שישי', 'שהקפטן יגיע לחתונה של הבן שלי'],
     },
-    text: 'אני מזרים לכם כסף כל חודש. אני מבקש דבר אחד, {want}. זה סביר בעיניך?',
+    // the brand on the shirt asks in its own voice, for its own things
+    slotsFor: c => (c.sponsorWants.length ? { want: c.sponsorWants } : {}) as Record<string, string[]>,
+    when: c => !!c.sponsor,
+    text: 'אנחנו מזרימים לכם כסף כל מחזור. מבקשים דבר אחד, {want}. זה סביר בעיניך?',
     options: (c) => [
       { label: 'בכיף, אנחנו מעריכים אותך', effect: { money: +Math.round(c.money * 0.12) + 40000, morale: -7, prestige: 0 },
         outcome: 'החסות תוארך. השחקנים יוותרו על יום חופש, ולא יאהבו את זה.' },
@@ -664,7 +672,7 @@ export function eligible(ctx: Ctx, kind: Urgency): DilemmaTemplate[] {
 /** Fill a template from context and a seeded rng. */
 export function rollDilemma(tpl: DilemmaTemplate, ctx: Ctx, rng: Rng): RolledDilemma {
   const picks: Record<string, string> = {};
-  for (const [slot, values] of Object.entries(tpl.slots)) {
+  for (const [slot, values] of Object.entries({ ...tpl.slots, ...(tpl.slotsFor?.(ctx) ?? {}) })) {
     picks[slot] = fill(values[Math.floor(rng() * values.length)], ctx, {});
   }
   const text = fill(tpl.text, ctx, picks);
@@ -678,6 +686,7 @@ export function rollDilemma(tpl: DilemmaTemplate, ctx: Ctx, rng: Rng): RolledDil
   // a player with a name is a person, "שחקן בסגל" is scenery
   const speakerLabel = subjectName && tpl.speaker === 'player'
     ? `${subjectName} · ${SPEAKER_LABEL.player}`
+    : tpl.speaker === 'sponsor' && ctx.sponsor ? `${ctx.sponsor} · ${SPEAKER_LABEL.sponsor}`
     : SPEAKER_LABEL[tpl.speaker];
   return { id: tpl.id, speaker: tpl.speaker, speakerLabel, subjectName, text, options };
 }

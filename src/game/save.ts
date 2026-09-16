@@ -93,7 +93,13 @@ export function loadCareer(): GameState | null {
       prestige: Math.round(s.meters?.prestige ?? 30),
     },
     sacking: s.sacking ?? null,
-    sponsor: s.sponsor ?? null,
+    // a deal from before the brands were characters was ULTRASKIT's by name;
+    // it becomes that brand's, and its run starts the season it was signed
+    sponsor: s.sponsor ? {
+      ...s.sponsor,
+      brand: (s.sponsor as { brand: string }).brand === 'ULTRASKIT' ? 'ultraskit' : s.sponsor.brand,
+      since: s.sponsor.since ?? s.sponsor.season,
+    } : null,
     nemesis: s.nemesis ?? null,
     ultimatumSeason: s.ultimatumSeason ?? null,
     crisisDone: s.crisisDone ?? false,

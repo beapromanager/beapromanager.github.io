@@ -130,6 +130,13 @@ export function StatBox({ label, value, color }: { label: string; value: string;
   );
 }
 
+/** Money to the shekel below ten thousand, so a raise of a few hundred a round can be seen. */
+export function formatMoneyExact(n: number): string {
+  const v = Math.abs(n);
+  if (v >= 10_000) return formatMoney(n);
+  return `${n < 0 ? '-' : ''}₪${v.toLocaleString('en-US')}`;
+}
+
 export function formatMoney(n: number): string {
   // the sign belongs in front of the currency, not between it and the digits:
   // a purse in the red read as "₪-95K", which is not how anyone writes money

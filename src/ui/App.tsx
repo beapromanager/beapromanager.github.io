@@ -259,7 +259,7 @@ export function App() {
       )}
       {gs.phase === 'packs' && (
         <PacksScreen gs={gs}
-          onWatchAd={() => { if (G.adsLeft(gs) > 0) setAd({ ad: pickAd(gs), key: Date.now() }); }}
+          onWatchAd={() => { if (G.adsLeft(gs) > 0) setAd({ ad: pickAd({ ...gs, sponsorAd: G.sponsorAdId(gs) }), key: Date.now() }); }}
           onBuy={id => setGs(g => G.buyPack(g, id))}
           onSign={() => setGs(g => G.signPull(g))}
           onSell={() => setGs(g => G.sellPull(g))}
@@ -308,7 +308,7 @@ export function App() {
         <AdPlayer key={ad.key} ad={ad.ad} gems={gs.gems} left={G.adsLeft(gs)} backRef={adBack}
           onComplete={() => setGs(g => G.watchAdForGem(g))}
           onClose={() => setAd(null)}
-          onRetry={() => setAd({ ad: pickAd(gs), key: Date.now() })} />
+          onRetry={() => setAd({ ad: pickAd({ ...gs, sponsorAd: G.sponsorAdId(gs) }), key: Date.now() })} />
       )}
       {gs.phase === 'invite' && (
         <InviteScreen gs={gs}
@@ -325,7 +325,7 @@ export function App() {
       {gs.phase === 'sacked' && <SackedScreen gs={gs} onNext={() => setGs({ ...gs, phase: 'rescue' })} />}
       {gs.phase === 'rescue' && <RescueScreen gs={gs} onTake={() => setGs(G.takeRescue(gs))} onWalkAway={startNew} />}
       {gs.phase === 'kit' && <KitReveal gs={gs} onDone={() => setGs(G.closeKitReveal(gs))} />}
-      {gs.phase === 'sponsor' && <SponsorScreen gs={gs} onPick={id => setGs(G.takeSponsor(gs, id))} />}
+      {gs.phase === 'sponsor' && <SponsorScreen gs={gs} onPick={(id, brand) => setGs(G.takeSponsor(gs, id, brand))} />}
       {gs.phase === 'preseason' && <PreSeasonScreen gs={gs} onStart={() => setGs(G.enterPreseason(gs))} />}
 
       {/* the first-week explainer, owed by the save rather than by a click: it

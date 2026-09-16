@@ -65,6 +65,8 @@ function playRound(gs: G.GameState): G.GameState {
   // whatever stands between the summer and the hub: the shirt, the sponsor
   if (gs.phase === 'kit') gs = G.closeKitReveal(gs);
   if (gs.phase === 'sponsor') gs = G.takeSponsor(gs, 'base');
+  // the sponsor's welcome is read before the hub, and the explainer waits behind it
+  while (gs.notices[0]?.kind === 'sponsor') gs = G.dismissNotice(gs);
   checked += 2;
   if (gs.phase !== 'hub') fails.push(`expected the hub after the sponsor, got ${gs.phase}`);
   if (!G.tutorialDue(gs)) fails.push('the explainer is not due at the first hub of a new career');
@@ -101,6 +103,8 @@ function playRound(gs: G.GameState): G.GameState {
   gs = G.afterSigning(gs, {});
   gs = G.enterSeason(gs);
   if (gs.phase === 'sponsor') gs = G.takeSponsor(gs, 'base');
+  // the sponsor's welcome is read before the hub, and the explainer waits behind it
+  while (gs.notices[0]?.kind === 'sponsor') gs = G.dismissNotice(gs);
   store.clear();
   saveCareer(gs);
   // a save written before the flag existed has no such field at all
@@ -125,6 +129,8 @@ function playRound(gs: G.GameState): G.GameState {
   gs = G.afterSigning(gs, {});
   gs = G.enterSeason(gs);
   if (gs.phase === 'sponsor') gs = G.takeSponsor(gs, 'base');
+  // the sponsor's welcome is read before the hub, and the explainer waits behind it
+  while (gs.notices[0]?.kind === 'sponsor') gs = G.dismissNotice(gs);
   checked += 3;
   if (!G.tutorialDue(gs)) fails.push('not due at a fresh hub');
   if (G.tutorialDue(G.openSquad(gs))) fails.push('due on the squad screen');

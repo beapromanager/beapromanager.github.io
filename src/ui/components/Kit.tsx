@@ -75,10 +75,14 @@ export function Kit({ kit, pattern, size = 88, sponsor, label }: {
       <path d="M31 9 Q50 25 69 9" fill="none" stroke={kit.trim} strokeWidth="6" strokeLinecap="round" />
 
       {sponsor && (
-        <text x="50" y="62" textAnchor="middle" fill={kit.trim} fontSize="8.5" fontWeight="800"
-          letterSpacing="0.3" opacity=".92" style={{ fontFamily: 'inherit' }}>
-          {sponsor}
-        </text>
+        <>
+          {/* a printed panel, so the name reads on a white half as well as a dark one */}
+          <rect x="24" y="54" width="52" height="12" rx="2.5" fill="rgba(0,0,0,.42)" />
+          <text x="50" y="63" textAnchor="middle" fill="#fff" fontSize={sponsor.length > 10 ? 6.2 : 7.6} fontWeight="800"
+            letterSpacing="0.2" style={{ fontFamily: 'inherit' }}>
+            {sponsor}
+          </text>
+        </>
       )}
 
       <path d={SHIRT} fill="none" stroke="rgba(0,0,0,.3)" strokeWidth="1.3" />

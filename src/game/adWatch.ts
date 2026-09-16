@@ -117,6 +117,17 @@ export function adIndex(seasonSeed: number, season: number, k: number, n = ADS.l
   return i;
 }
 
-export function pickAd(gs: { seasonSeed: number; season: number; adsWatched: number }): Ad {
-  return ADS[adIndex(gs.seasonSeed, gs.season, gs.adsWatched)];
+/**
+ * The ad for this sitting. The brand on the shirt, if it has a clip, gets the
+ * first sitting of the season: the sponsor paid for the chest, the chest gets
+ * the screen first. The rest of the season rotates as before, and the sitting
+ * after the sponsor's never repeats it.
+ */
+export function pickAd(gs: { seasonSeed: number; season: number; adsWatched: number; sponsorAd?: string | null }): Ad {
+  const own = gs.sponsorAd ? ADS.find(a => a.id === gs.sponsorAd) : undefined;
+  if (!own) return ADS[adIndex(gs.seasonSeed, gs.season, gs.adsWatched)];
+  if (gs.adsWatched === 0) return own;
+  const pick = ADS[adIndex(gs.seasonSeed, gs.season, gs.adsWatched)];
+  if (gs.adsWatched === 1 && pick.id === own.id && ADS.length > 1) return ADS[(ADS.indexOf(pick) + 1) % ADS.length];
+  return pick;
 }

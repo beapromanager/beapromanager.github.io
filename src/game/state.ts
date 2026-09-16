@@ -19,10 +19,13 @@ import { debtState, debtLine, debtLimit } from './finance.ts';
 import { emptyYouth, seedYouth, advanceYouth } from './youth.ts';
 import type { Youth } from './youth.ts';
 export type { Youth };
-import { sponsorOffers, signSponsor, sponsorRound } from './sponsor.ts';
+import { sponsorOffers, signSponsor, sponsorRound, sponsorName } from './sponsor.ts';
 import type { Sponsor, SponsorOffer, SponsorId } from './sponsor.ts';
 export type { Sponsor, SponsorOffer, SponsorId };
-export { SPONSOR_BRAND } from './sponsor.ts';
+export { sponsorName } from './sponsor.ts';
+import { brandById, type BrandId } from '../data/sponsors.ts';
+export { BRANDS, brandById } from '../data/sponsors.ts';
+export type { BrandId, Brand } from '../data/sponsors.ts';
 import type { DebtState } from './finance.ts';
 export { debtLine };
 export type { DebtState };
@@ -132,7 +135,9 @@ export type SquadNotice =
   | { kind: 'suspended'; playerId: string; name: string; rival: string; needYouth: boolean }
   | { kind: 'youth_back'; name: string }
   | { kind: 'window'; weeks: number }
-  | { kind: 'story'; title: string; body: string };
+  | { kind: 'story'; title: string; body: string }
+  /** the brand that just took the shirt, with the shirt */
+  | { kind: 'sponsor'; brand: BrandId };
 
 /** A man of yours who went to another club in the league. */
 export interface PlayerExit {
@@ -1068,15 +1073,22 @@ function seasonWithLegend(gs: GameState): GameState {
   return { ...gs, league: { ...gs.league, squads: { ...gs.league.squads, [gs.clubId]: next } } };
 }
 
-/** The three deals on the table this summer. */
+/** The deals on the table this summer, every brand at this summer's price. */
 export function sponsorChoices(gs: GameState): SponsorOffer[] {
-  return sponsorOffers(club(gs).tier, gs.meters.prestige, gs.league.rounds);
+  return sponsorOffers(club(gs).tier, gs.meters.prestige, gs.league.rounds, gs.sponsor, gs.season);
 }
 
-export function takeSponsor(gs: GameState, id: SponsorId): GameState {
-  const offer = sponsorChoices(gs).find(o => o.id === id) ?? sponsorChoices(gs)[0];
+/**
+ * Sign the deal. The brand is optional because a deal type belongs to one
+ * brand; it is there for the day two brands offer the same kind. The welcome
+ * is queued as a notice, so it is the first thing seen on the way to the hub.
+ */
+export function takeSponsor(gs: GameState, id: SponsorId, brand?: BrandId): GameState {
+  const all = sponsorChoices(gs);
+  const offer = all.find(o => o.id === id && (!brand || o.brand === brand)) ?? all.find(o => o.id === id) ?? all[0];
   return maybeAssistantDeparture({
-    ...gs, phase: 'hub', sponsor: signSponsor(offer, gs.season),
+    ...gs, phase: 'hub', sponsor: signSponsor(offer, gs.season, gs.sponsor),
+    notices: [...gs.notices, { kind: 'sponsor', brand: offer.brand }],
   });
 }
 
@@ -1962,6 +1974,11 @@ export function openPacks(gs: GameState): GameState {
   return { ...gs, phase: 'packs' };
 }
 
+/** The ad on the shirt, if the sponsor has one: it leads the season's rotation. */
+export function sponsorAdId(gs: GameState): string | null {
+  return gs.sponsor ? (brandById(gs.sponsor.brand).adId ?? null) : null;
+}
+
 export function adsLeft(gs: GameState): number {
   return Math.max(0, ADS_PER_SEASON - gs.adsWatched);
 }
@@ -2458,6 +2475,8 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
     pos, teams: gs.league.clubs.length,
     week: gs.week,
     isDerby: isDerby(gs.clubId, rivalId),
+    sponsor: sponsorName(gs.sponsor),
+    sponsorWants: gs.sponsor ? brandById(gs.sponsor.brand).wants : [],
   };
 }
 
@@ -3337,6 +3356,10 @@ export function startNextSeason(gs: GameState): GameState {
   const wentUp = r.result === 'champion' || r.result === 'promoted';
   const shirtBonus = wentUp ? (gs.sponsor?.promotionBonus ?? 0) : 0;
   const rawMoney = gs.meters.money + r.purse + shirtBonus;
+  // the sponsor's lump is a moment, not a line lost in the summer's sums
+  const bonusNotice = shirtBonus > 0 && gs.sponsor
+    ? [{ kind: 'story' as const, title: `${sponsorName(gs.sponsor)} משלמים את המענק`, body: `עליתם ליגה, וחוזה ההישגים מכבד את המילה: ${formatShekels(shirtBonus)} נכנסו לקופה. ${brandById(gs.sponsor.brand).name} ירצו לדבר על העונה הבאה.` }]
+    : [];
   const brokeIt = gs.meters.money <= 0;
   const moraleDelta = (r.result === 'relegated' ? -12 : +6) + (brokeIt ? -10 : 0);
 
@@ -3400,9 +3423,9 @@ export function startNextSeason(gs: GameState): GameState {
     youth: academy.youth,
     youthBoost: [],
     youthLeaveRisk: null,
-    notices: academy.left
+    notices: [...(academy.left
       ? [...gs.notices, { kind: 'story' as const, title: ` עזב את הנוער`, body: 'מאמן הנוער הזהיר שאם לא יעלה, הוא ילך. הוא הלך. קבוצה אחרת חתמה אותו בקיץ.' }]
-      : gs.notices,
+      : gs.notices), ...bonusNotice],
   };
   // the man who was told "until the end of the season" goes now, to a club
   // in the league he is about to play in
