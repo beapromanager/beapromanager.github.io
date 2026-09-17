@@ -925,6 +925,22 @@ input{font-family:inherit;}
 .lineup-role[data-fit="covers"]{background:rgba(233,185,73,.24); color:var(--gold-hi);}
 .lineup-role[data-fit="out"]{background:rgba(226,72,77,.32); color:#ffb9bb;}
 .lineup-man[data-fit="out"] .lineup-shirt{border-style:dashed;}
+/* a man in a shirt that is not his: the name says so before the number does */
+.lineup-name[data-fit="out"]{color:#ff8a8e;}
+.lineup-name[data-fit="covers"]{color:var(--gold-hi);}
+/* in the air, and the shirt under the finger */
+.lineup-man{touch-action:none; cursor:grab;}
+.lineup-man[data-drag="1"]{opacity:.35;}
+.lineup-man[data-over="ok"] .lineup-shirt{transform:scale(1.22); box-shadow:0 0 0 3px var(--win), 0 4px 14px rgba(0,0,0,.5);}
+.lineup-man[data-over="no"] .lineup-shirt{transform:scale(1.1); box-shadow:0 0 0 3px var(--loss), 0 4px 14px rgba(0,0,0,.5);}
+body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
+.drag-ghost{
+  position:fixed; z-index:120; pointer-events:none; transform:translate(-50%,-50%);
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.6));
+}
+.drag-ghost .lineup-shirt{width:44px; height:44px; transform:scale(1.05);}
+.drag-ghost-name{font-size:12px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.9); white-space:nowrap;}
 
 .lineup-name{
   font-size:10.5px; font-weight:800; color:#fff; line-height:1.1; text-align:center;
@@ -945,6 +961,41 @@ input{font-family:inherit;}
 }
 .bench-pick[data-on="1"]{border-color:var(--gold); background:rgba(233,185,73,.12);}
 .bench-pick[data-blocked="1"]{opacity:.45;}
+.bench-pick[data-drag="1"]{opacity:.35;}
+.bench-pick[data-over="ok"]{border-color:var(--win); background:rgba(51,194,122,.14); box-shadow:0 0 0 2px rgba(51,194,122,.35);}
+.bench-pick[data-over="no"]{border-color:var(--loss); background:rgba(226,72,77,.10);}
+/* the handle a bench man is carried by; the row itself still scrolls the page */
+.bench-grip{
+  flex:none; width:40px; height:40px; margin-inline-end:-6px; border-radius:10px;
+  display:grid; place-items:center; color:var(--ink-faint);
+  touch-action:none; cursor:grab; background:rgba(255,255,255,.04);
+}
+.bench-grip:active{color:var(--gold);}
+
+/* a man's numbers, low, the pitch still in view above */
+.psheet{
+  position:fixed; left:0; right:0; bottom:0; z-index:60;
+  margin:0 auto; max-width:440px;
+  background:linear-gradient(180deg,var(--surface-3),var(--surface));
+  border:1px solid var(--line-2); border-bottom:none;
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  padding:12px 16px calc(14px + env(safe-area-inset-bottom));
+  box-shadow:0 -14px 40px rgba(0,0,0,.55);
+  animation:sheetUp var(--t-mid) var(--ease-out);
+}
+.psheet-x{
+  flex:none; width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+  background:rgba(255,255,255,.06); color:var(--ink-dim);
+}
+.psheet-warn{margin-top:10px; padding:9px 11px; border-radius:var(--r-sm); font-size:13.5px; line-height:1.5; font-weight:700;}
+.psheet-warn.out{background:rgba(226,72,77,.12); border:1px solid rgba(226,72,77,.4); color:#ffb9bb;}
+.psheet-warn.covers{background:rgba(233,185,73,.10); border:1px solid rgba(233,185,73,.35); color:var(--gold-hi);}
+.psheet-grid{display:grid; grid-template-columns:1fr 1fr; gap:5px 16px; margin-top:10px;}
+.psheet-attr{display:flex; align-items:center; gap:7px; font-size:12.5px;}
+.psheet-attr-k{width:46px; flex:none; color:var(--ink-dim); font-weight:700;}
+.psheet-attr-bar{flex:1; height:5px; border-radius:3px; background:rgba(255,255,255,.08); overflow:hidden;}
+.psheet-attr-bar i{display:block; height:100%; border-radius:3px;}
+.psheet-attr-v{width:22px; text-align:end; font-weight:900; flex:none;}
 
 /* bring a friend, always reachable from the bar that is always there */
 .meters-share{

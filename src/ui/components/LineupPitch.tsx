@@ -1,8 +1,8 @@
 import type { Player } from '../../engine/matchEngine.ts';
 import { surnameOf } from '../../data/names.ts';
 import { overall } from '../../engine/matchEngine.ts';
-import type { Formation, FormationSlot } from '../../data/formations.ts';
-import { ROLE_LABEL, roleFit } from '../../data/formations.ts';
+import type { Formation } from '../../data/formations.ts';
+import { ROLE_LABEL, roleFit, effectiveOverall } from '../../data/formations.ts';
 import type { Kit } from '../../data/kits.ts';
 import { ovrColor } from '../../game/cards.ts';
 
@@ -13,22 +13,25 @@ import { ovrColor } from '../../game/cards.ts';
  * you he is playing right back tonight because you have three centre backs and
  * no full back, which is exactly the thing a manager needs to see. Every shirt
  * here sits in its slot and says what that slot is, so the shape and the holes
- * in it are one glance.
+ * in it are one glance. The number on the shirt is what he is worth IN that
+ * shirt, the number the match will use, and a name in red is a man in a shirt
+ * that is not his.
+ *
+ * The shirts are drop targets: while a man is in the air, the shirt under the
+ * finger lights green when he can land there and red when he cannot.
  */
-
-export interface LineupSlot {
-  slot: FormationSlot;
-  player: Player;
-}
-
-export function LineupPitch({ formation, players, kit, captainId, selectedId, onPick }: {
+export function LineupPitch({ formation, players, kit, captainId, selectedId, dragId, overId, overOk, onPointerDown }: {
   formation: Formation;
   /** eleven, index for index with formation.slots */
   players: Player[];
   kit: Kit;
   captainId?: string | null;
   selectedId?: string | null;
-  onPick?: (p: Player, slot: FormationSlot) => void;
+  /** the man in the air, the shirt under the finger, and whether he can land there */
+  dragId?: string | null;
+  overId?: string | null;
+  overOk?: boolean;
+  onPointerDown?: (p: Player, e: React.PointerEvent) => void;
 }) {
   const label = shortNames(players);
 
@@ -58,18 +61,22 @@ export function LineupPitch({ formation, players, kit, captainId, selectedId, on
         const top = slot.line === 'GK' ? 92 : 82 - slot.d * 70;
         const left = slot.y * 100;
         const fit = roleFit(p.position, slot.role);
+        const ovr = overall(p);
+        const shown = effectiveOverall(p, slot.role, ovr);
         const on = selectedId === p.id;
+        const over = overId === p.id ? (overOk ? 'ok' : 'no') : '0';
         return (
           <button key={p.id} className="lineup-man" data-fit={fit} data-on={on ? '1' : '0'}
+            data-drop-id={p.id} data-over={over} data-drag={dragId === p.id ? '1' : '0'}
             style={{ top: `${top}%`, left: `${left}%` }}
-            onClick={() => onPick?.(p, slot)}
-            aria-label={`${p.name}, ${ROLE_LABEL[slot.role]}, דירוג ${overall(p)}${fit === 'out' ? ', לא בתפקידו' : ''}`}
+            onPointerDown={e => onPointerDown?.(p, e)}
+            aria-label={`${p.name}, ${ROLE_LABEL[slot.role]}, דירוג ${shown}${fit === 'out' ? ', לא בתפקידו' : ''}`}
             aria-pressed={on}>
             <span className="lineup-shirt" style={{ background: kit.shirt, borderColor: kit.trim }}>
-              <span className="lineup-ovr num" style={{ color: ovrColor(overall(p)) }}>{overall(p)}</span>
+              <span className="lineup-ovr num" style={{ color: ovrColor(shown) }}>{shown}</span>
             </span>
             <span className="lineup-role" data-fit={fit}>{slot.role}</span>
-            <span className="lineup-name">
+            <span className="lineup-name" data-fit={fit}>
               {captainId === p.id && <span className="lineup-cap">C</span>}
               {label.get(p.id)}
             </span>

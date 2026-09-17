@@ -83,7 +83,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
 
         {/* every room in the club, a word each */}
         <div className="hub-grid stagger">
-          <Cell i={0} icon="shirt" label="הסגל" onClick={onSquad} count={G.squadSize(gs)} />
+          <Cell i={0} icon="shirt" label="הסגל" onClick={onSquad} count={`${G.squadSize(gs)} · ${gs.tactic.formation}`} />
           <Cell i={1} icon="handshake" label="העברות" onClick={onTransfers}
             dot={win.open ? 'var(--win)' : undefined} />
           <Cell i={2} label="חבילות" onClick={onPacks} glyph={<Gem size={21} />}
@@ -262,7 +262,7 @@ function Side({ club, pos }: { club: Club; pos: number }) {
 
 function Cell({ i, icon, glyph, label, onClick, dot, badge, count }: {
   i: number; icon?: IconName; glyph?: React.ReactNode; label: string;
-  onClick: () => void; dot?: string; badge?: number; count?: number;
+  onClick: () => void; dot?: string; badge?: number; count?: number | string;
 }) {
   return (
     <button className="hub-cell" style={{ ...({ '--i': i } as React.CSSProperties) }} onClick={onClick}>

@@ -193,6 +193,8 @@ export function App() {
       {gs.phase === 'squad' && (
         <SquadScreen gs={gs} firstTime={!squadFromHub}
           onSwap={(a, b) => setGs(g => G.swapPlayers(g, a, b))}
+          onMove={(a, b) => setGs(g => G.movePlayers(g, a, b))}
+          onFormation={id => setGs(g => G.setTactic(g, { ...g.tactic, formation: id }))}
           onPart={(id, kind) => setGs(g => G.partWays(g, id, kind))}
           onDone={() => {
             if (squadFromHub) { setGs(G.backToHub(gs)); setSquadFromHub(false); }

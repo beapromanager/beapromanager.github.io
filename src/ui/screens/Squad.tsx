@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
 import type { Player, Position } from '../../engine/matchEngine.ts';
 import { overall } from '../../engine/matchEngine.ts';
@@ -16,9 +16,12 @@ import { TopBack } from '../components/TopBack.tsx';
 import { Stepper } from '../components/Stepper.tsx';
 import { CoachGuide } from '../components/CoachGuide.tsx';
 import { PlayerCard } from '../components/PlayerCard.tsx';
+import { Portal } from '../components/Portal.tsx';
+import { ShapeMap } from '../components/ShapeMap.tsx';
 import { LineupPitch } from '../components/LineupPitch.tsx';
 import { scrollToTop } from '../scroll.ts';
-import { formation, fillFormation, roleFit, ROLE_LABEL } from '../../data/formations.ts';
+import { formation, roleFit, ROLE_LABEL, FORMATIONS, effectiveOverall } from '../../data/formations.ts';
+import type { FormationId, SlotRole } from '../../data/formations.ts';
 
 export const LINE_OF: Record<Position, 'gk' | 'def' | 'mid' | 'atk'> = {
   GK: 'gk', CB: 'def', LB: 'def', RB: 'def',
@@ -43,7 +46,7 @@ export function CaptainMark({ size = 18 }: { size?: number }) {
   );
 }
 
-export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mark }: {
+export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mark, role }: {
   p: Player;
   /** squad-assigned traits, falls back to standalone when omitted */
   traits?: Trait[];
@@ -57,9 +60,13 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mar
   captain?: boolean;
   /** why he is not playing this round, when he is not: the chip text */
   mark?: string | null;
+  /** the shirt he wears on the sheet, when he is on it; red name when it is not his */
+  role?: SlotRole | null;
 }) {
   const o = overall(p);
   const line = LINE_OF[p.position];
+  const fit = role ? roleFit(p.position, role) : 'natural';
+  const shown = role ? effectiveOverall(p, role, o) : o;
   const young = p.age <= 21;
   const st = state ?? 'idle';
   const bg = st === 'selected' ? 'rgba(232,182,76,.18)'
@@ -72,9 +79,10 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mar
     <>
       <span className="chip" style={{ background: 'rgba(255,255,255,.07)', color: LINE_COLOR[line], minWidth: 36, textAlign: 'center' }}>{p.position}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontWeight: 700, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: fit === 'out' ? 'var(--loss)' : fit === 'covers' ? 'var(--gold-hi)' : undefined }}>
           {captain && <><CaptainMark size={16} /> </>}
           {p.name}
+          {role && fit !== 'natural' && <span className="chip" style={{ marginInlineStart: 6, background: fit === 'out' ? 'rgba(226,72,77,.18)' : 'rgba(233,185,73,.16)', color: fit === 'out' ? 'var(--loss)' : 'var(--gold-hi)' }}>{ROLE_LABEL[role]}</span>}
           {young && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(51,194,122,.18)', color: 'var(--win)' }}>כישרון</span>}
           {mark && <span className="chip" style={{ marginInlineStart: 6, background: mark === 'מורחק' ? 'rgba(226,72,77,.18)' : 'rgba(255,255,255,.08)', color: mark === 'מורחק' ? 'var(--loss)' : 'var(--ink-faint)' }}>{mark}</span>}
         </div>
@@ -90,7 +98,7 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mar
             : <>גיל <span className="num">{p.age}</span></>}
         </div>
       </div>
-      <div className="score-face" style={{ fontSize: 26, color: ovrColor(o), width: 34, textAlign: 'center' }}>{o}</div>
+      <div className="score-face" style={{ fontSize: 26, color: ovrColor(shown), width: 34, textAlign: 'center' }}>{shown}</div>
     </>
   );
 
@@ -149,18 +157,41 @@ function Line({ title, color, players, render }: {
   );
 }
 
-export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
+/**
+ * The squad room.
+ *
+ * The pitch is the team sheet: every shirt is a slot, and the manager decides
+ * who wears it. A tap on any man opens his numbers in a low panel that leaves
+ * the pitch in view; a second tap on the same man, or the button on the
+ * panel, opens the full card. Nobody has to open a card to learn who a man is.
+ *
+ * Moving men is a drag: a shirt or a bench row picked up follows the finger,
+ * the shirts and rows it can land on light up, and the goal, the one shirt
+ * that does not move, is marked as closed. A tap is still a tap (a drag needs
+ * six pixels of travel), and the two tap way of swapping stays for anyone who
+ * prefers it. Two men on the pitch change shirts; a man from the bench takes
+ * the shirt of the man he replaces.
+ *
+ * Anyone can wear any outfield shirt. A man in a shirt that is not his has a
+ * red name and a lower number, the number the match will actually use, and
+ * the panel says so in words.
+ */
+export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart, onDone }: {
   gs: G.GameState;
   firstTime: boolean;
   onSwap: (starterId: string, benchId: string) => void;
+  /** two men on the pitch change shirts */
+  onMove: (aId: string, bId: string) => void;
+  onFormation: (id: FormationId) => void;
   /** let a man go from his card, the way the card offered */
   onPart?: (playerId: string, kind: G.PartKind) => void;
   onDone: () => void;
 }) {
   const c = G.club(gs);
   const sq = G.mySquad(gs);
-  const [picked, setPicked] = useState<string | null>(null);   // a starter waiting for a sub
+  const [picked, setPicked] = useState<string | null>(null);   // armed for a swap, the two tap way
   const [flash, setFlash] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<string | null>(null);     // whose numbers are open
   const [card, setCard] = useState<Player | null>(null);       // the open player card
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
 
@@ -172,55 +203,88 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
   const markOf = (p: Player): string | null =>
     G.isSuspended(gs, p.id) ? 'מורחק' : gs.emergencyYouth === p.id ? 'רשום בלבד' : gs.sitOut[p.id] ?? null;
 
-  const pickedPlayer = picked ? [...sq.starters, ...sq.bench].find(p => p.id === picked) ?? null : null;
+  const all = useMemo(() => [...sq.starters, ...sq.bench], [sq]);
+  const byId = (id: string | null) => (id ? all.find(p => p.id === id) ?? null : null);
+  const pickedPlayer = byId(picked);
+  const sheetPlayer = byId(sheet);
   const avg = Math.round(sq.starters.reduce((s, p) => s + overall(p), 0) / sq.starters.length);
   const byLine = (line: 'gk' | 'def' | 'mid' | 'atk') => sq.starters.filter(p => LINE_OF[p.position] === line);
 
-  // the shape the manager picked, and who ends up in which shirt inside it
+  // the sheet: who wears which shirt, the manager's own placing
   const form = formation(gs.tactic?.formation);
-  const onPitch = useMemo(() => fillFormation(sq.starters, form), [sq.starters, form]);
+  const onPitch = useMemo(() => G.lineup(gs), [gs]);
+  const isStarter = (id: string) => onPitch.some(p => p.id === id);
+  const slotIndex = (id: string) => onPitch.findIndex(p => p.id === id);
+  const roleOf = (id: string): SlotRole | null => { const i = slotIndex(id); return i >= 0 ? form.slots[i].role : null; };
   // the men in a slot that is not theirs, which is the thing a list cannot show
   const outOfPosition = useMemo(() => onPitch
     .map((p, i) => ({ name: p.name, pos: p.position, role: form.slots[i].role, fit: roleFit(p.position, form.slots[i].role) }))
     .filter(x => x.fit === 'out'), [onPitch, form]);
 
+  /** Put a and b together: a swap across the line, or two shirts changing hands. */
+  function join(aId: string, bId: string): boolean {
+    const a = byId(aId), b = byId(bId);
+    if (!a || !b || a.id === b.id) return false;
+    const aOn = isStarter(a.id), bOn = isStarter(b.id);
+    if (aOn && bOn) {
+      const reason = G.moveBlockedReason(gs, a.id, b.id);
+      if (reason) { setFlash(reason); return false; }
+      onMove(a.id, b.id);
+      setFlash(`${surnameOf(a.name)} ו${surnameOf(b.name)} החליפו חולצות.`);
+      return true;
+    }
+    if (!aOn && !bOn) { setFlash('שניהם על הספסל. גרור אחד מהם על שחקן במגרש.'); return false; }
+    const starter = aOn ? a : b, sub = aOn ? b : a;
+    const reason = G.swapBlockedReason(starter, sub, gs);
+    if (reason) { setFlash(reason); return false; }
+    onSwap(starter.id, sub.id);
+    setFlash(`${sub.name} נכנס במקום ${starter.name}.`);
+    return true;
+  }
+
   /**
-   * One tap does everything, from either end. Nothing picked yet: this man is
-   * picked. Somebody already picked: if one of the two is on the pitch and the
-   * other on the bench, they change places; otherwise the pick simply moves.
-   * A manager should not have to know which one to press first.
+   * A tap. Somebody armed: this man joins him. Nobody armed: his numbers open;
+   * a second tap on the man whose numbers are open is the full card.
    */
   function tap(p: Player) {
     setFlash(null);
-    if (picked === p.id) { setPicked(null); return; }
-    const other = picked ? [...sq.starters, ...sq.bench].find(x => x.id === picked) ?? null : null;
-    if (!other) { setPicked(p.id); return; }
-
-    const onPitch = (x: Player) => sq.starters.some(s => s.id === x.id);
-    if (onPitch(other) === onPitch(p)) { setPicked(p.id); return; }   // both sides the same, just move the pick
-
-    const starter = onPitch(other) ? other : p;
-    const sub = onPitch(other) ? p : other;
-    const reason = G.swapBlockedReason(starter, sub, gs);
-    if (reason) { setFlash(reason); return; }
-    onSwap(starter.id, sub.id);
-    setPicked(null);
-    setFlash(`${sub.name} נכנס במקום ${starter.name}.`);
+    if (picked) {
+      if (picked === p.id) { setPicked(null); return; }
+      if (join(picked, p.id)) setPicked(null);
+      return;
+    }
+    if (sheet === p.id) { setCard(p); return; }
+    setSheet(p.id);
   }
 
-  // the swap side icon arms a starter, then completes onto a bench player
+  // the list view keeps its side controls: arm a starter, then הכנס on the bench
   function armStarter(p: Player) {
     setFlash(null);
+    setSheet(null);
     setPicked(picked === p.id ? null : p.id);
   }
   function subInBench(p: Player) {
     if (!pickedPlayer) { setFlash('קודם בחר שחקן מההרכב, לחץ על החצים שלידו'); return; }
-    const reason = G.swapBlockedReason(pickedPlayer, p, gs);
-    if (reason) { setFlash(reason); return; }
-    onSwap(pickedPlayer.id, p.id);
-    setPicked(null);
-    setFlash(`${p.name} נכנס במקום ${pickedPlayer.name}`);
+    if (join(pickedPlayer.id, p.id)) setPicked(null);
   }
+
+  /* ----------------------------------------------------------- the drag */
+  const drag = useDrag({
+    canDrop: (fromId, toId) => {
+      const a = byId(fromId), b = byId(toId);
+      if (!a || !b || a.id === b.id) return false;
+      const aOn = isStarter(a.id), bOn = isStarter(b.id);
+      if (aOn && bOn) return !G.moveBlockedReason(gs, a.id, b.id);
+      if (!aOn && !bOn) return false;
+      return !G.swapBlockedReason(aOn ? a : b, aOn ? b : a, gs);
+    },
+    onDrop: (fromId, toId) => { setFlash(null); setSheet(null); setPicked(null); join(fromId, toId); },
+    // let go over a shirt he cannot take: say why, the way a refused tap does
+    onRefuse: (fromId, toId) => { setSheet(null); join(fromId, toId); },
+    onTap: (id) => { const p = byId(id); if (p) tap(p); },
+  });
+
+  const dragging = byId(drag.fromId);
 
   return (
     <>
@@ -253,16 +317,16 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
       <div className="tile" style={{ padding: '10px 12px', background: pickedPlayer ? 'rgba(232,182,76,.12)' : 'var(--surface)', borderColor: pickedPlayer ? 'var(--gold)' : 'var(--line)' }}>
         <div className="row" style={{ gap: 10 }}>
           {/* a fresh message wins: a refused swap has to say why, and the
-              standing "who is picked" prompt was hiding the reason */}
+              standing prompt was hiding the reason */}
           <div style={{ flex: 1, fontSize: 14.5, fontWeight: 700 }} aria-live="polite">
             {flash
               ?? (pickedPlayer
                 ? `${pickedPlayer.name} נבחר. לחץ על מי שמחליף אותו.`
-                : 'לחץ על שחקן במגרש או בספסל כדי להחליף ביניהם.')}
+                : 'גרור שחקן על שחקן אחר כדי להחליף. לחיצה פותחת את הנתונים שלו.')}
           </div>
           {pickedPlayer && (
             <button className="btn ghost btn-sm" style={{ width: 'auto', padding: '7px 13px' }}
-              onClick={() => setCard(pickedPlayer)}>כרטיס</button>
+              onClick={() => setPicked(null)}>בטל</button>
           )}
         </div>
       </div>
@@ -281,13 +345,27 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
 
       {view === 'pitch' ? (
         <>
+          {/* the shape, changeable from here and not only on the way to a match.
+              A new shape seats the men by fit; he arranges from there */}
+          <div className="row" style={{ gap: 7, alignItems: 'stretch' }}>
+            {FORMATIONS.map(f => (
+              <button key={f.id} className="form-pick" data-on={form.id === f.id ? '1' : '0'}
+                onClick={() => { if (form.id !== f.id) { onFormation(f.id); setPicked(null); setSheet(null); setFlash(`עברתם ל-${f.label}. השחקנים יושבו מחדש, אפשר לסדר.`); } }}
+                aria-pressed={form.id === f.id}>
+                <ShapeMap f={f} on={form.id === f.id} />
+                <span className="form-num num">{f.label}</span>
+              </button>
+            ))}
+          </div>
           <LineupPitch formation={form} players={onPitch} kit={homeKit(c)}
-            captainId={captainId} selectedId={picked} onPick={tap} />
+            captainId={captainId} selectedId={picked ?? sheet}
+            dragId={drag.fromId} overId={drag.overId} overOk={drag.overOk}
+            onPointerDown={(p, e) => drag.start(p.id, e)} />
           {outOfPosition.length > 0 && (
             <p className="hint" style={{ margin: 0 }}>
               {outOfPosition.length === 1
-                ? `${outOfPosition[0].name} משחק ${ROLE_LABEL[outOfPosition[0].role]} והוא לא ${outOfPosition[0].pos}. שקול להחליף.`
-                : `${outOfPosition.length} שחקנים לא בתפקיד הטבעי שלהם. הסימון האדום במגרש מראה איפה.`}
+                ? `${outOfPosition[0].name} משחק ${ROLE_LABEL[outOfPosition[0].role]} והוא ${POS_LABEL[outOfPosition[0].pos]}. היכולת שלו שם נפגעת.`
+                : `${outOfPosition.length} שחקנים לא בתפקיד הטבעי שלהם. השם באדום מראה מי, והמספר על החולצה הוא מה שהמשחק ישתמש בו.`}
             </p>
           )}
         </>
@@ -296,8 +374,8 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
           <Line key={line} title={LINE_LABEL[line]} color={LINE_COLOR[line]} players={byLine(line)}
             render={p => (
               <PlayerRow p={p} traits={tr(p)} state={picked === p.id ? 'selected' : 'idle'}
-                captain={p.id === captainId} mark={markOf(p)}
-                onOpen={() => setCard(p)}
+                captain={p.id === captainId} mark={markOf(p)} role={roleOf(p.id)}
+                onOpen={() => tap(p)}
                 swap={picked === p.id ? 'armed' : 'arm'} onSwap={() => armStarter(p)} />
             )} />
         ))
@@ -307,19 +385,27 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
       {view === 'pitch' ? (
         <div className="stack" style={{ gap: 7 }}>
           {sq.bench.map(p => {
-            const blocked = !!pickedPlayer && sq.starters.some(s => s.id === pickedPlayer.id)
-              && !!G.swapBlockedReason(pickedPlayer, p, gs);
+            const blocked = !!pickedPlayer && isStarter(pickedPlayer.id) && !!G.swapBlockedReason(pickedPlayer, p, gs);
+            const over = drag.overId === p.id;
             return (
-              <button key={p.id} className="bench-pick" data-on={picked === p.id ? '1' : '0'}
-                data-blocked={blocked ? '1' : '0'} onClick={() => tap(p)}
-                aria-pressed={picked === p.id}>
+              <div key={p.id} className="bench-pick" data-drop-id={p.id}
+                data-on={picked === p.id || sheet === p.id ? '1' : '0'}
+                data-blocked={blocked ? '1' : '0'}
+                data-over={over ? (drag.overOk ? 'ok' : 'no') : '0'}
+                data-drag={drag.fromId === p.id ? '1' : '0'}
+                role="button" tabIndex={0} aria-pressed={picked === p.id}
+                onClick={() => tap(p)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(p); } }}>
                 <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: LINE_COLOR[LINE_OF[p.position]], minWidth: 36, justifyContent: 'center' }}>{p.position}</span>
                 <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {p.id === captainId && <span className="lineup-cap">C</span>}{p.name}
                   {markOf(p) && <span className="chip" style={{ marginInlineStart: 6, background: markOf(p) === 'מורחק' ? 'rgba(226,72,77,.18)' : 'rgba(255,255,255,.08)', color: markOf(p) === 'מורחק' ? 'var(--loss)' : 'var(--ink-faint)' }}>{markOf(p)}</span>}
                 </span>
                 <span className="num" style={{ fontWeight: 900, fontSize: 17, color: ovrColor(overall(p)) }}>{overall(p)}</span>
-              </button>
+                {/* the handle: the row body scrolls the page like any row, the grip lifts the man */}
+                <span className="bench-grip" onPointerDown={e => { e.stopPropagation(); drag.start(p.id, e); }} onClick={e => e.stopPropagation()} aria-label={`גרור את ${p.name}`}>
+                  <Icon name="sub" size={15} />
+                </span>
+              </div>
             );
           })}
         </div>
@@ -331,7 +417,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
               <PlayerRow key={p.id} p={p} traits={tr(p)}
                 state={blocked ? 'blocked' : pickedPlayer ? 'target' : 'idle'}
                 captain={p.id === captainId} mark={markOf(p)}
-                onOpen={() => setCard(p)}
+                onOpen={() => tap(p)}
                 swap={pickedPlayer ? 'in' : 'off'} onSwap={() => subInBench(p)} />
             );
           })}
@@ -341,13 +427,31 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
       <div className="spacer" />
       <button className="btn" onClick={onDone}>{firstTime ? 'ממשיכים לשוק ההעברות' : 'חזרה'}</button>
 
+      {/* the ghost under the finger */}
+      {dragging && drag.pos && (
+        <div className="drag-ghost" style={{ left: drag.pos.x, top: drag.pos.y }} aria-hidden="true">
+          <span className="lineup-shirt" style={{ background: homeKit(c).shirt, borderColor: homeKit(c).trim }}>
+            <span className="lineup-ovr num" style={{ color: ovrColor(overall(dragging)) }}>{overall(dragging)}</span>
+          </span>
+          <span className="drag-ghost-name">{surnameOf(dragging.name)}</span>
+        </div>
+      )}
+
+      {sheetPlayer && !card && (
+        <PlayerSheet p={sheetPlayer} role={roleOf(sheetPlayer.id)} traits={tr(sheetPlayer)}
+          captain={sheetPlayer.id === captainId} mark={markOf(sheetPlayer)}
+          onCard={() => setCard(sheetPlayer)}
+          onSwap={() => { setPicked(sheetPlayer.id); setSheet(null); setFlash(null); }}
+          onClose={() => setSheet(null)} />
+      )}
+
       {card && (
         <PlayerCard p={card} club={c} season={gs.seasonStats[card.id]} career={G.careerOf(gs, card.id)} traits={tr(card)}
           part={!firstTime && onPart ? {
             options: G.partOptions(gs, card.id), blocked: G.partBlockedReason(gs, card.id),
             onPart: kind => {
               const o = G.partOptions(gs, card.id).find(x => x.kind === kind);
-              const who = card.name; onPart(card.id, kind); setCard(null);
+              const who = card.name; onPart(card.id, kind); setCard(null); setSheet(null);
               const k = (n: number) => `₪${Math.round(n / 1000)}K`;
               setFlash(o
                 ? `${who} עזב. ${k(o.fee)} לקופה${kind === 'friends' ? `, ${k(o.wage)} לשבוע ירדו מההוצאות` : ''}.`
@@ -360,6 +464,171 @@ export function SquadScreen({ gs, firstTime, onSwap, onPart, onDone }: {
     </>
   );
 }
+
+/**
+ * A man's numbers, in a low panel that leaves the pitch in view. The six
+ * attributes as bars, the shirt he is in and what it costs him, and the two
+ * things a manager does next: swap him, or read the whole card.
+ */
+function PlayerSheet({ p, role, traits, captain, mark, onCard, onSwap, onClose }: {
+  p: Player; role: SlotRole | null; traits: Trait[]; captain: boolean; mark: string | null;
+  onCard: () => void; onSwap: () => void; onClose: () => void;
+}) {
+  const o = overall(p);
+  const fit = role ? roleFit(p.position, role) : 'natural';
+  const eff = role ? effectiveOverall(p, role, o) : o;
+  const isGk = p.position === 'GK';
+  const rows: [string, number][] = isGk
+    ? ([['diving', 'צלילה'], ['handling', 'תפיסה'], ['reflexes', 'רפלקסים'], ['positioning', 'מיקום'], ['kicking', 'בעיטה']] as const)
+        .map(([k, label]) => [label, (p.gk as Record<string, number> | undefined)?.[k] ?? 50] as [string, number])
+    : ([['pace', 'מהירות'], ['shooting', 'בעיטה'], ['passing', 'מסירה'], ['dribbling', 'כדרור'], ['defending', 'הגנה'], ['physical', 'פיזי']] as const)
+        .map(([k, label]) => [label, p.attrs[k]] as [string, number]);
+  const trait = traits[0] ?? null;
+
+  return (
+    <Portal>
+      <div className="psheet" role="dialog" aria-label={`הנתונים של ${p.name}`}>
+        <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 900, fontSize: 17, lineHeight: 1.2 }}>
+              {captain && <><CaptainMark size={16} /> </>}{p.name}
+            </div>
+            <div className="sub" style={{ fontSize: 13.5, marginTop: 2 }}>
+              <span style={{ color: LINE_COLOR[LINE_OF[p.position]], fontWeight: 800 }}>{POS_LABEL[p.position]}</span>
+              <span style={{ opacity: .5 }}> · </span>גיל <span className="num">{p.age}</span>
+              <span style={{ opacity: .5 }}> · </span>כושר <span className="num">{Math.round(p.fitness)}</span>
+              {mark && <><span style={{ opacity: .5 }}> · </span><span style={{ color: mark === 'מורחק' ? 'var(--loss)' : 'var(--ink-faint)' }}>{mark}</span></>}
+            </div>
+            {trait && <div style={{ fontSize: 13.5, marginTop: 3 }}><span style={{ color: TONE_COLOR[trait.tone], fontWeight: 700 }}>{trait.label}</span><span style={{ opacity: .5 }}> · </span><span className="sub">{renderLine(trait, { ...p, name: surnameOf(p.name) })}</span></div>}
+          </div>
+          <div style={{ textAlign: 'center', flex: 'none' }}>
+            <div className="score-face" style={{ fontSize: 30, color: ovrColor(eff), lineHeight: 1 }}>{eff}</div>
+            {eff !== o && <div className="sub num" style={{ fontSize: 12, textDecoration: 'line-through' }}>{o}</div>}
+          </div>
+          <button className="psheet-x" onClick={onClose} aria-label="סגור">
+            <Icon name="chevron" size={15} style={{ transform: 'rotate(90deg)' }} />
+          </button>
+        </div>
+
+        {role && fit !== 'natural' && (
+          <div className={`psheet-warn ${fit}`}>
+            {fit === 'out'
+              ? <>שים לב: {surnameOf(p.name)} לא בעמדה שלו. הוא {POS_LABEL[p.position]} ומשחק {ROLE_LABEL[role]}, והיכולת שלו כאן <b className="num">{eff}</b> במקום <b className="num">{o}</b>.</>
+              : <>{surnameOf(p.name)} מכסה את {ROLE_LABEL[role]}, לא העמדה הטבעית שלו. היכולת כאן <b className="num">{eff}</b> במקום <b className="num">{o}</b>.</>}
+          </div>
+        )}
+
+        <div className="psheet-grid">
+          {rows.map(([label, v]) => (
+            <div key={label} className="psheet-attr">
+              <span className="psheet-attr-k">{label}</span>
+              <span className="psheet-attr-bar"><i style={{ width: `${Math.max(4, Math.min(100, v))}%`, background: ovrColor(v) }} /></span>
+              <span className="psheet-attr-v num" style={{ color: ovrColor(v) }}>{v}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="row" style={{ gap: 8, marginTop: 10 }}>
+          <button className="btn btn-sm" style={{ flex: 1 }} onClick={onSwap}><Icon name="sub" size={15} /> החלף</button>
+          <button className="btn dark btn-sm" style={{ flex: 1 }} onClick={onCard}>הכרטיס המלא</button>
+        </div>
+      </div>
+    </Portal>
+  );
+}
+
+/**
+ * Pick up, carry, drop. Pointer events, so one code path serves finger and
+ * mouse. A press that travels under six pixels is a tap and is handed back as
+ * one; past that the man is in the air, whatever the pointer is over that
+ * carries a data-drop-id is the target, and letting go over a good one drops.
+ * The page scrolls itself when the finger nears an edge, so a man can be
+ * carried from the top of the pitch to the bench below it.
+ */
+function useDrag({ canDrop, onDrop, onRefuse, onTap }: {
+  canDrop: (fromId: string, toId: string) => boolean;
+  onDrop: (fromId: string, toId: string) => void;
+  onRefuse: (fromId: string, toId: string) => void;
+  onTap: (id: string) => void;
+}) {
+  const [fromId, setFromId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [overOk, setOverOk] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const live = useRef<{ id: string; x0: number; y0: number; moved: boolean; over: string | null; ok: boolean; scroll: number | null; scrollSpeed: number } | null>(null);
+  const cbs = useRef({ canDrop, onDrop, onRefuse, onTap }); cbs.current = { canDrop, onDrop, onRefuse, onTap };
+
+  const targetAt = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    return el?.closest<HTMLElement>('[data-drop-id]')?.dataset.dropId ?? null;
+  };
+
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const d = live.current; if (!d) return;
+      const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+      if (!d.moved) {
+        if (Math.hypot(dx, dy) < 6) return;
+        d.moved = true;
+        setFromId(d.id);
+      }
+      e.preventDefault();
+      setPos({ x: e.clientX, y: e.clientY });
+      const t = targetAt(e.clientX, e.clientY);
+      const over = t && t !== d.id ? t : null;
+      const ok = over ? cbs.current.canDrop(d.id, over) : false;
+      if (over !== d.over || ok !== d.ok) { d.over = over; d.ok = ok; setOverId(over); setOverOk(ok); }
+      // the edges scroll the page, so a shirt can reach the bench below it
+      const edge = 72, vh = window.innerHeight;
+      const speed = e.clientY < edge ? -Math.ceil((edge - e.clientY) / 6) : e.clientY > vh - edge ? Math.ceil((e.clientY - (vh - edge)) / 6) : 0;
+      d.scrollSpeed = speed;
+      if (speed && d.scroll === null) {
+        const tick = () => { const dd = live.current; if (!dd || dd.scroll === null) return; window.scrollBy(0, dd.scrollSpeed); dd.scroll = requestAnimationFrame(tick); };
+        d.scroll = requestAnimationFrame(tick);
+      }
+      if (!speed && d.scroll !== null) { cancelAnimationFrame(d.scroll); d.scroll = null; }
+    };
+    const up = (e: PointerEvent) => {
+      const d = live.current; if (!d) return;
+      live.current = null;
+      if (d.scroll !== null) cancelAnimationFrame(d.scroll);
+      document.body.classList.remove('dragging');
+      if (!d.moved) { cbs.current.onTap(d.id); return; }
+      const t = targetAt(e.clientX, e.clientY);
+      setFromId(null); setOverId(null); setOverOk(false); setPos(null);
+      if (t && t !== d.id) { if (cbs.current.canDrop(d.id, t)) cbs.current.onDrop(d.id, t); else cbs.current.onRefuse(d.id, t); }
+    };
+    const cancel = () => {
+      const d = live.current; if (!d) return;
+      live.current = null;
+      if (d.scroll !== null) cancelAnimationFrame(d.scroll);
+      document.body.classList.remove('dragging');
+      setFromId(null); setOverId(null); setOverOk(false); setPos(null);
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
+  }, []);
+
+  const start = (id: string, e: React.PointerEvent) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    live.current = { id, x0: e.clientX, y0: e.clientY, moved: false, over: null, ok: false, scroll: null, scrollSpeed: 0 };
+    document.body.classList.add('dragging');
+  };
+
+  return { fromId, overId, overOk, pos, start };
+}
+
+const POS_LABEL: Record<string, string> = {
+  GK: 'שוער', CB: 'בלם', LB: 'מגן שמאלי', RB: 'מגן ימני',
+  CDM: 'קשר הגנתי', CM: 'קשר', CAM: 'קשר התקפי',
+  LW: 'כנף שמאלית', RW: 'כנף ימנית', ST: 'חלוץ',
+};
 
 /**
  * First meeting with the squad. Nobody remembers sixteen ratings, so the
