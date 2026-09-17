@@ -125,6 +125,7 @@ export function loadCareer(): GameState | null {
     summerExits: s.summerExits ?? [],
     // anyone with a save from before the flag has been playing for a while
     tutorialSeen: s.tutorialSeen ?? true,
+    seats: s.seats ?? null,
     careerStats: s.careerStats ?? {},
     // season records gained name, club and assists. Older saves have none, so
     // recover name and club from the live squads by the player's stable id,

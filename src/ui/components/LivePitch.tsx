@@ -49,9 +49,11 @@ export function LivePitch({ st, home, away, myId, play = null, onPlayed }: {
   const kits = matchKits(home, away);
   const fHome = formation(st.home.tactic.formation);
   const fAway = formation(st.away.tactic.formation);
+  // the manager's eleven are drawn in the shirts he handed out; the AI is seated by fit
+  const seat = (s: typeof st.home, f: typeof fHome) => (s.isPlayer ? s.onPitch : fillFormation(s.onPitch, f));
   const slots: PitchSlot[] = [
-    ...fillFormation(st.home.onPitch, fHome).map((p, i) => ({ id: `h${p.id}`, home: true, i, fm: fHome })),
-    ...fillFormation(st.away.onPitch, fAway).map((p, i) => ({ id: `a${p.id}`, home: false, i, fm: fAway })),
+    ...seat(st.home, fHome).map((p, i) => ({ id: `h${p.id}`, home: true, i, fm: fHome })),
+    ...seat(st.away, fAway).map((p, i) => ({ id: `a${p.id}`, home: false, i, fm: fAway })),
   ];
   const slotsRef = useRef(slots); slotsRef.current = slots;
   const playRef = useRef(play); playRef.current = play;

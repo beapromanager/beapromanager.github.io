@@ -292,6 +292,14 @@ export interface GameState {
    * not lose it.
    */
   tutorialSeen: boolean;
+  /**
+   * Who the manager put in which shirt, eleven ids in the formation's slot
+   * order, or null when he has not arranged anything. It is a preference laid
+   * over the automatic seating, not the seating itself: a sale, a ban, a new
+   * season change the eleven and the pins that still apply still apply. A new
+   * formation clears it.
+   */
+  seats: string[] | null;
   pendingOutcome: string | null;
   lastPlayerMatch: MatchResult | null;
   lastRound: RoundResult[];
@@ -428,6 +436,7 @@ export function newGame(seed = 12345): GameState {
     youthLeaveRisk: null,
     summerExits: [],
     tutorialSeen: false,
+    seats: null,
     pendingOutcome: null,
     lastPlayerMatch: null,
     lastRound: [],
@@ -1667,6 +1676,60 @@ export function dismissNotice(gs: GameState): GameState {
   return { ...gs, notices: gs.notices.slice(1) };
 }
 
+/* ---------------------------------------------------------- the team sheet */
+
+/**
+ * The eleven in the formation's slot order: who wears which shirt.
+ *
+ * The automatic seating is the base, by fit; the manager's pins are laid over
+ * it, each pinned man swapped into his slot. A pin whose man is no longer a
+ * starter is simply skipped, so nothing has to be repaired when the eleven
+ * change under it.
+ */
+export function lineup(gs: GameState): Player[] {
+  const sq = mySquad(gs);
+  const f = formation(gs.tactic.formation);
+  const out = fillFormation(sq.starters, f);
+  if (!gs.seats) return out;
+  gs.seats.forEach((id, i) => {
+    if (!id || i >= out.length) return;
+    const j = out.findIndex(p => p.id === id);
+    if (j < 0 || j === i) return;
+    const tmp = out[i]; out[i] = out[j]; out[j] = tmp;
+  });
+  return out;
+}
+
+/** The slot a starter is in, or -1 off the sheet. */
+export function slotOf(gs: GameState, playerId: string): number {
+  return lineup(gs).findIndex(p => p.id === playerId);
+}
+
+/** Why two men on the sheet cannot change shirts, or null when they can. */
+export function moveBlockedReason(gs: GameState, aId: string, bId: string): string | null {
+  const men = lineup(gs);
+  const a = men.find(p => p.id === aId), b = men.find(p => p.id === bId);
+  if (!a || !b) return 'שניהם צריכים להיות בהרכב';
+  if (a.id === b.id) return null;
+  const f = formation(gs.tactic.formation);
+  const ia = men.indexOf(a), ib = men.indexOf(b);
+  const gkA = f.slots[ia]?.line === 'GK', gkB = f.slots[ib]?.line === 'GK';
+  // the goal is the one shirt that does not move: only a keeper wears it, and
+  // the keeper wears nothing else
+  if (gkA || gkB || a.position === 'GK' || b.position === 'GK') return 'בשער משחק רק שוער, והשוער נשאר בשער';
+  return null;
+}
+
+/** Two men on the sheet change shirts. Anyone can wear any outfield shirt. */
+export function movePlayers(gs: GameState, aId: string, bId: string): GameState {
+  if (moveBlockedReason(gs, aId, bId)) return gs;
+  const men = lineup(gs);
+  const ia = men.findIndex(p => p.id === aId), ib = men.findIndex(p => p.id === bId);
+  const seats = men.map(p => p.id);
+  seats[ia] = bId; seats[ib] = aId;
+  return { ...gs, seats };
+}
+
 /* ---------------------------------------------------------- squad editing */
 
 /** Why a swap is not allowed, or null when it is fine. */
@@ -1695,12 +1758,15 @@ export function swapPlayers(gs: GameState, starterId: string, benchId: string): 
   if (si < 0 || bi < 0) return gs;
   if (swapBlockedReason(sq.starters[si], sq.bench[bi], gs)) return gs;
 
+  // the man coming on takes the shirt of the man going off, so the sheet
+  // does not reshuffle around a substitution
+  const seats = lineup(gs).map(p => p.id === starterId ? benchId : p.id);
   const starters = [...sq.starters];
   const bench = [...sq.bench];
   const tmp = starters[si];
   starters[si] = bench[bi];
   bench[bi] = tmp;
-  return writeSquad(gs, { starters, bench });
+  return { ...writeSquad(gs, { starters, bench }), seats };
 }
 
 /* ------------------------------------------------------------- transfers */
@@ -2775,7 +2841,10 @@ export function clearInboxOutcome(gs: GameState): GameState {
   return { ...gs, pendingOutcome: null };
 }
 export function setTactic(gs: GameState, tactic: Tactic): GameState {
-  return { ...gs, tactic };
+  // a new shape is a new team sheet: the men are seated by fit and he starts
+  // arranging from there
+  const reseat = tactic.formation !== gs.tactic.formation;
+  return { ...gs, tactic, seats: reseat ? null : gs.seats };
 }
 
 /* --------------------------------------------------------------- the match */
@@ -2783,9 +2852,10 @@ export function setTactic(gs: GameState, tactic: Tactic): GameState {
 function teamInput(gs: GameState, clubId: string, isHome: boolean, tactic?: Tactic): TeamInput {
   const sq = gs.league.squads[clubId];
   const c = gs.league.clubs.find(x => x.id === clubId)!;
-  const players: Player[] = sq.starters.map(p => ({ ...p }));
   const t = tactic ?? { approach: 'balanced' as Approach, press: 'mid' as Press, formation: DEFAULT_FORMATION };
   const mine = clubId === gs.clubId;
+  // the manager's side plays in the shirts he handed out
+  const players: Player[] = (mine ? lineup(gs) : sq.starters).map(p => ({ ...p }));
   if (mine) {
     const bias = (gs.meters.morale - 65) / 100;
     players.forEach(p => { p.morale = clamp(p.morale + bias * 20, 0, 100); });
@@ -2799,6 +2869,7 @@ function teamInput(gs: GameState, clubId: string, isHome: boolean, tactic?: Tact
     chemistry: mine ? coachChemistry(gs.coach) : 0.7,
     coach: mine ? { att: coachAttBias(gs.coach), def: coachDefBias(gs.coach) } : undefined,
     isHome,
+    seated: mine,
   };
 }
 
@@ -2820,7 +2891,8 @@ export function liveMatchInput(gs: GameState) {
   // anything ever gets past that, the shape is refilled from the bench here
   const sq = mySquad(gs);
   const ok = (p: Player) => !isUnavailable(gs, p.id);
-  let starters = sq.starters.filter(ok);
+  // in slot order, the manager's own placing
+  let starters = lineup(gs).filter(ok);
   let bench = sq.bench.filter(ok);
   if (starters.length < 11) {
     starters = fillFormation([...starters, ...bench], formation(gs.tactic.formation)).slice(0, 11);
@@ -2849,7 +2921,7 @@ export function liveMatchInput(gs: GameState) {
     homeId: fx.homeId, homeName: homeClub.name,
     awayId: fx.awayId, awayName: awayClub.name,
     iAmHome,
-    playerStarters: mine.starters, playerBench: mine.bench, playerTactic: gs.tactic,
+    playerStarters: mine.starters, playerBench: mine.bench, playerTactic: gs.tactic, seated: true,
     oppStarters: opp.starters, oppBench: opp.bench,
     guestId: mods.guest?.id ?? null,
     moraleBias: (gs.meters.morale - 65) / 100,

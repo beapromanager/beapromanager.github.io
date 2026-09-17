@@ -167,6 +167,18 @@ const NEAR: Record<SlotRole, string[]> = {
 };
 
 /** How well a player suits the slot he has been put in. */
+/**
+ * What a man is worth in a shirt that is not his. A centre back at right back
+ * loses a little; a centre back up front loses a lot. This is the price the
+ * engine charges, and the number the team sheet shows next to the red name,
+ * so what the manager sees is exactly what the match will use.
+ */
+export const FIT_MULT: Record<'natural' | 'covers' | 'out', number> = { natural: 1.0, covers: 0.96, out: 0.88 };
+
+export function effectiveOverall(p: Player, role: SlotRole, ovr: number): number {
+  return Math.round(ovr * FIT_MULT[roleFit(p.position, role)]);
+}
+
 export function roleFit(playerPos: string, role: SlotRole): 'natural' | 'covers' | 'out' {
   if (playerPos === role) return 'natural';
   if (NEAR[role].includes(playerPos)) return 'covers';

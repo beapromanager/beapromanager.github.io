@@ -142,6 +142,8 @@ function sideRatings(s: Side) {
     chemistry: s.coach?.chemistry ?? 0.7,
     coach: s.coach ? { att: s.coach.att, def: s.coach.def } : undefined,
     isHome: s.isHome,
+    // the manager's eleven are in the shirts he handed out; the AI is seated by fit
+    seated: s.isPlayer,
   };
   const r = teamRatings(ti);
   const m = MODE_MOD[s.tactic.mode ?? 'normal'];   // the live only shout layer
@@ -194,6 +196,8 @@ export function createLive(input: {
   awayId: string; awayName: string;
   iAmHome: boolean;
   playerStarters: Player[]; playerBench: Player[]; playerTactic: SimpleTactic;
+  /** the eleven are already in the formation's slot order, the manager's own placing */
+  seated?: boolean;
   oppStarters: Player[]; oppBench: Player[];
   moraleBias: number;
   captainId?: string | null;
@@ -224,7 +228,9 @@ export function createLive(input: {
     id: input.iAmHome ? input.homeId : input.awayId,
     name: input.iAmHome ? input.homeName : input.awayName,
     isHome: input.iAmHome, isPlayer: true,
-    onPitch: pStarters, bench: pBench, tactic: input.playerTactic,
+    // slot order from here on: a caller that hands over a plain list gets it seated by fit
+    onPitch: input.seated ? pStarters : fillFormation(pStarters, formation(input.playerTactic.formation ?? DEFAULT_FORMATION)),
+    bench: pBench, tactic: input.playerTactic,
     coach: input.coach,
   };
   const oppSideObj: Side = {
@@ -1045,7 +1051,9 @@ export function slotRoles(st: LiveState): Map<string, string> {
   const side = playerSide(st);
   const f = formation(side.tactic.formation);
   const out = new Map<string, string>();
-  fillFormation(side.onPitch, f).forEach((p, i) => {
+  // the player's eleven ARE in slot order; re-seating them by fit would undo
+  // a man he deliberately put in a shirt that is not his
+  side.onPitch.forEach((p, i) => {
     if (f.slots[i]) out.set(p.id, f.slots[i].role);
   });
   return out;

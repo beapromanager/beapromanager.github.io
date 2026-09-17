@@ -9,7 +9,7 @@
  *   node -e "import('./matchEngine.ts').then(m => console.log(m.sanityCheck(A, B, 10000)))"
  */
 
-import { formation } from '../data/formations.ts';
+import { formation, fillFormation, FIT_MULT, roleFit } from '../data/formations.ts';
 import type { FormationId } from '../data/formations.ts';
 
 /* ------------------------------------------------------------------ types */
@@ -90,6 +90,12 @@ export interface TeamInput {
    */
   coach?: { att: number; def: number };
   isHome: boolean;
+  /**
+   * The eleven are already in the formation's slot order, the manager's own
+   * placing, and must not be re-seated. Without it the engine seats them by
+   * fit, which is what every AI side gets.
+   */
+  seated?: boolean;
 }
 
 export type EventType =
@@ -200,13 +206,6 @@ export function overall(p: Player): number {
 
 const FORWARDS: Position[] = ['ST', 'LW', 'RW'];
 const MIDS: Position[] = ['CAM', 'CM', 'CDM'];
-const DEFS: Position[] = ['CB', 'LB', 'RB'];
-
-function meanOvr(players: Player[], group: Position[]): number {
-  const sel = players.filter(p => group.includes(p.position));
-  if (!sel.length) return 55;
-  return sel.reduce((s, p) => s + overall(p), 0) / sel.length;
-}
 
 /** what the shape is worth. data/formations.ts is the single source of truth */
 const APPROACH_MOD: Record<Approach, { att: number; def: number }> = {
@@ -224,11 +223,24 @@ const PRESS_MOD: Record<Press, { mid: number; def: number; fatigue: number }> = 
 export interface TeamRatings { att: number; mid: number; def: number; gk: number }
 
 export function teamRatings(team: TeamInput): TeamRatings {
-  const f = meanOvr(team.players, FORWARDS);
-  const m = meanOvr(team.players, MIDS);
-  const d = meanOvr(team.players, DEFS);
-  const gkPlayer = team.players.find(p => p.position === 'GK');
-  const gk = gkPlayer ? overall(gkPlayer) : 55;
+  // a man is worth what he is worth IN THE SHIRT HE WEARS: the lines are read
+  // off the slots, and a man in a shirt that is not his is marked down by
+  // FIT_MULT. The AI is seated by fit here; the manager's side comes seated
+  const fm = formation(team.tactic.formation);
+  const seats = team.seated ? team.players : fillFormation(team.players, fm);
+  const eff = (i: number) => {
+    const p = seats[i]; const s = fm.slots[i];
+    return s ? overall(p) * FIT_MULT[roleFit(p.position, s.role)] : overall(p);
+  };
+  const lineMean = (line: 'DEF' | 'MID' | 'FWD') => {
+    const idx = fm.slots.map((s, i) => (s.line === line && i < seats.length ? i : -1)).filter(i => i >= 0);
+    return idx.length ? idx.reduce((sum, i) => sum + eff(i), 0) / idx.length : 55;
+  };
+  const f = lineMean('FWD');
+  const m = lineMean('MID');
+  const d = lineMean('DEF');
+  const gkSlot = fm.slots.findIndex(s => s.line === 'GK');
+  const gk = gkSlot >= 0 && seats[gkSlot] ? eff(gkSlot) : 55;
 
   const att = (f * 1.00 + m * 0.55 + d * 0.15) / 1.70;
   const mid = (f * 0.25 + m * 1.00 + d * 0.30) / 1.55;
@@ -239,7 +251,6 @@ export function teamRatings(team: TeamInput): TeamRatings {
   const morale = 0.96 + 0.09 * (avg(team.players.map(p => p.morale)) / 100);
   const home = team.isHome ? 1.05 : 1.0;
   const ap = APPROACH_MOD[team.tactic.approach];
-  const fm = formation(team.tactic.formation);
   const pr = PRESS_MOD[team.tactic.press];
 
   const base = chem * fitness * morale * home;
