@@ -29,7 +29,8 @@ export interface PressContext {
 
 export interface PressAnswer {
   label: string;
-  effect: { morale?: number; prestige?: number };
+  /** what the line does to the dressing room, to his standing, and to the terrace */
+  effect: { morale?: number; prestige?: number; fans?: number };
   reply: string;   // the reporter's or public reaction after you answer
 }
 

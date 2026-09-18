@@ -21,8 +21,8 @@ export function setInviteHandler(fn: (() => void) | null): void { inviteHandler 
 let installHandler: (() => void) | null = null;
 export function setInstallHandler(fn: (() => void) | null): void { installHandler = fn; }
 
-export function Meters({ money, morale, prestige, gems }: {
-  money: number; morale: number; prestige: number;
+export function Meters({ money, morale, prestige, fans, gems }: {
+  money: number; morale: number; prestige: number; fans: number;
   /** premium currency, shown as a compact pill when provided */
   gems?: number;
 }) {
@@ -43,6 +43,12 @@ export function Meters({ money, morale, prestige, gems }: {
       <Meter
         icon="flame" label="מורל" value={String(morale)} pct={morale}
         color={morale >= 55 ? 'var(--win)' : morale >= 35 ? 'var(--gold)' : 'var(--loss)'}
+      />
+      {/* the terrace: the town's own crowd, as against the trade's opinion in
+          the prestige box. Coloured like morale, because it reads the same way */}
+      <Meter
+        icon="flag" label="יציע" value={String(fans)} pct={fans}
+        color={fans >= 55 ? 'var(--win)' : fans >= 35 ? 'var(--gold)' : 'var(--loss)'}
       />
       {gems !== undefined && <GemPill n={gems} />}
       {/* read at render rather than passed in: fourteen screens draw this bar
@@ -78,7 +84,7 @@ function GemPill({ n }: { n: number }) {
 }
 
 function Meter({ icon, label, value, pct, color }: {
-  icon: 'coins' | 'star' | 'flame'; label: string; value: string; pct: number; color: string;
+  icon: 'coins' | 'star' | 'flame' | 'flag'; label: string; value: string; pct: number; color: string;
 }) {
   return (
     <div className="meter">

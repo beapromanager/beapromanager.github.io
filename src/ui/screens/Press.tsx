@@ -84,17 +84,18 @@ export function PressScreen({ gs, onPick, onNext }: { gs: G.GameState; onPick: (
 }
 
 /** What the answer did, one row per meter, landing one after the other. */
-function Verdict({ v }: { v: { morale: number; prestige: number } }) {
+function Verdict({ v }: { v: { morale: number; prestige: number; fans: number } }) {
   return (
     <div className="tile verdict" style={{ animation: 'riseIn .3s var(--ease-out) .45s both' }}>
       <div className="label-cap" style={{ marginBottom: 8 }}>מה זה עשה לך</div>
       <VerdictRow icon="flame" label="המורל בחדר ההלבשה" v={v.morale} delay={.6} />
       <VerdictRow icon="star" label="המעמד שלך" v={v.prestige} delay={.95} />
+      <VerdictRow icon="flag" label="האוהדים ביציע" v={v.fans} delay={1.3} />
     </div>
   );
 }
 
-function VerdictRow({ icon, label, v, delay }: { icon: 'flame' | 'star'; label: string; v: number; delay: number }) {
+function VerdictRow({ icon, label, v, delay }: { icon: 'flame' | 'star' | 'flag'; label: string; v: number; delay: number }) {
   const tone = v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
   return (
     <div className={`verdict-row ${tone}`} style={{ animation: `riseIn .3s var(--ease-out) ${delay}s both` }}>

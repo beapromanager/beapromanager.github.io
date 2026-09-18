@@ -395,6 +395,9 @@ export function roundCosts(input: {
 /** A few wooden benches by the touchline, which is exactly where a club starts. */
 export const STADIUM_START = 50;
 
+/** Where the terrace's opinion of a manager it has not met yet sits: the middle. */
+export const FANS_START = 50;
+
 /** Minimum capacity a division demands. Below it you cannot be promoted into it. */
 /**
  * The ground a division insists on before it will have you. Set just under what

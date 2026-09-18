@@ -9,6 +9,9 @@
  *   2. a press conference is two questions whenever the match gave him one
  *   3. answering the first leads to the second, not out of the room
  *   4. across a whole season he is not asking the same thing every week
+ *   5. the answer is the reveal: meters move in the room, once, and the
+ *      verdict reports the real move
+ *   6. the terrace is a meter the room can move, and the verdict reports it
  */
 import * as G from '../src/game/state.ts';
 import { matchFacts } from '../src/data/matchFacts.ts';
@@ -268,6 +271,63 @@ if (seen.size < 12) fails.push(`only ${seen.size} distinct questions across ${ro
   checked += 2;
   if (!buttons.length || /effect/.test(buttons)) fails.push('the answer buttons still show what they do');
   if (!/pressVerdict/.test(src) || !/onPick/.test(src)) fails.push('the room does not show a verdict after the answer');
+}
+
+/* ------------------------------------------------ 6. the terrace listens */
+/* What he says into the microphone is the one thing that moves the crowd's
+   opinion of him, so an answer that carries a fans figure lands on the fans
+   meter exactly like the other two: once, capped at the ends, reported by the
+   verdict as it actually moved, and remembered across a refresh. A room saved
+   before the terrace existed has nothing to report about it, not NaN. */
+{
+  let gs = G.newGame(5108);
+  gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+  gs = G.pickCity(gs, 'אשדוד');
+  gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+  while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
+  let w = 0;
+  while (gs.phase !== 'press' && w < 14) gs = play(gs, w++ * 7);
+  checked++;
+  if (gs.phase !== 'press') fails.push('never reached a press room for the terrace');
+  else {
+    checked++;
+    if (gs.meters.fans !== 50) fails.push(`a first season opens with the terrace at ${gs.meters.fans}, not 50`);
+    // a question whose lines move only the crowd, put in the reporter's mouth
+    const q = { ...gs.press!.q, answers: [
+      { label: 'a', effect: { fans: +3 }, reply: '' },
+      { label: 'b', effect: { fans: -4 }, reply: '' },
+    ] };
+    const room = { ...gs, press: { ...gs.press!, q }, meters: { ...gs.meters, fans: 50, morale: 60, prestige: 40 } };
+    const up = G.pickPressAnswer(room, 0);
+    const v = G.pressVerdict(up);
+    checked += 4;
+    if (up.meters.fans !== 53) fails.push(`+3 on the terrace left it at ${up.meters.fans}`);
+    if (up.meters.morale !== 60 || up.meters.prestige !== 40) fails.push('a fans-only line moved the other meters');
+    if (!v || v.fans !== 3) fails.push(`the verdict reports fans ${v?.fans}, the meter moved +3`);
+    if (!v || v.morale !== 0 || v.prestige !== 0) fails.push('the verdict invented a morale or prestige move');
+    // capped at the ends, and the verdict says the capped figure
+    const full = G.pickPressAnswer({ ...room, meters: { ...room.meters, fans: 99 } }, 0);
+    const empty = G.pickPressAnswer({ ...room, meters: { ...room.meters, fans: 2 } }, 1);
+    checked += 3;
+    if (full.meters.fans !== 100) fails.push(`+3 from 99 should stop at 100, the terrace reads ${full.meters.fans}`);
+    if (G.pressVerdict(full)?.fans !== 1) fails.push(`capped at 100 the verdict says ${G.pressVerdict(full)?.fans}, not +1`);
+    if (empty.meters.fans !== 0) fails.push(`the terrace went below 0, to ${empty.meters.fans}`);
+    // once, and once across a refresh
+    const twice = G.pickPressAnswer(up, 1);
+    const back = JSON.parse(JSON.stringify(up)) as G.GameState;
+    checked += 3;
+    if (twice.meters.fans !== 53) fails.push('a fans line landed twice');
+    if (G.pressVerdict(back)?.fans !== 3) fails.push('a refresh lost the terrace verdict');
+    if (G.answerPress(back, 1).meters.fans !== 53) fails.push('answering again after a refresh moved the terrace again');
+    // a room saved before the terrace: the verdict has nothing to say, not NaN
+    const old = { ...up, press: { ...up.press!, before: { morale: 60, prestige: 40 } } };
+    checked++;
+    if (G.pressVerdict(old)?.fans !== 0) fails.push(`a pre-terrace room reports fans ${G.pressVerdict(old)?.fans}`);
+  }
+  // and the verdict card has a row for it
+  const src = readFileSync('src/ui/screens/Press.tsx', 'utf8');
+  checked++;
+  if (!/v\.fans/.test(src)) fails.push('the verdict card does not show what the answer did to the terrace');
 }
 
 console.log(`${checked} checks`);

@@ -97,6 +97,19 @@ function roundTrip(gs: G.GameState): G.GameState | null {
     }
   }
   console.log(`  an old save loads, with all ${ADDED_SINCE.length} of the newer fields filled in`);
+
+  // the terrace is a field inside the meters, not a top level one, so the
+  // list above cannot strip it: take it out by hand and see it come back in
+  // the middle, where a crowd that has not met him yet belongs
+  {
+    const raw = JSON.parse(JSON.stringify(gs)) as { meters: Record<string, number> };
+    delete raw.meters.fans;
+    store.clear();
+    saveCareer(raw as unknown as G.GameState);
+    const back = loadCareer();
+    checked++;
+    if (back?.meters.fans !== 50) fails.push(`a save from before the terrace loads with fans = ${back?.meters.fans}, not 50`);
+  }
 }
 
 /* 2. AND IT KEEPS PLAYING.

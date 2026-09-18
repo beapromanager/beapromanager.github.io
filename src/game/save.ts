@@ -8,7 +8,7 @@
  */
 
 import type { GameState, PlayerSeason } from './state.ts';
-import { STADIUM_START } from './career.ts';
+import { STADIUM_START, FANS_START } from './career.ts';
 import { GEMS_AT_START } from './packs.ts';
 import { primePlayerIds } from '../data/squadGen.ts';
 import { setDerbies, derbiesFromClubs } from '../data/clubs.ts';
@@ -91,6 +91,8 @@ export function loadCareer(): GameState | null {
       money: Math.round(s.meters?.money ?? 0),
       morale: Math.round(s.meters?.morale ?? 65),
       prestige: Math.round(s.meters?.prestige ?? 30),
+      // the terrace arrived after these careers began: nobody has an opinion yet
+      fans: Math.round(s.meters?.fans ?? FANS_START),
     },
     sacking: s.sacking ?? null,
     // a deal from before the brands were characters was ULTRASKIT's by name;

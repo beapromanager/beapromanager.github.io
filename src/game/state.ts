@@ -59,7 +59,7 @@ import { chronicleAfterRound, chronicleAtSeasonEnd } from './chronicle.ts';
 import type { SeasonReport } from './career.ts';
 import {
   buildNextSeason, matchPrize, roundCosts, fillWithYouth, TOP_TIER, playerWage,
-  STADIUM_START, requiredCapacity, stadiumImageTier, gateIncome, crowdDemand, signageRound, expansionOptions,
+  STADIUM_START, FANS_START, requiredCapacity, stadiumImageTier, gateIncome, crowdDemand, signageRound, expansionOptions,
 } from './career.ts';
 import type { RoundCosts, ExpansionOption } from './career.ts';
 import type { Coach } from './coach.ts';
@@ -82,7 +82,13 @@ export type Phase =
 
 export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
 
-export interface Meters { money: number; morale: number; prestige: number; }
+/**
+ * The fourth meter is the terrace: what the town's own crowd makes of him,
+ * as against prestige, which is what the trade makes of him. It starts in
+ * the middle, because a new manager is neither loved nor hated yet, and for
+ * now only what he says into a microphone moves it.
+ */
+export interface Meters { money: number; morale: number; prestige: number; fans: number; }
 
 /**
  * The club that sacked you, pinned to the division it was in.
@@ -311,7 +317,7 @@ export interface GameState {
     /** the answer given to the question on screen, once it has been given */
     answered?: number;
     /** the meters as they stood before that answer, so the room can show what it did */
-    before?: { morale: number; prestige: number };
+    before?: { morale: number; prestige: number; fans?: number };
   } | null;
   /** set the moment the owner ends it, and never cleared: the career is over */
   sacking: Sacking | null;
@@ -411,7 +417,7 @@ export function newGame(seed = 12345): GameState {
     seasonSeed: seed,
     clubId: '',
     profile: { name: '', nickname: '', age: 38, type: 'mental' },
-    meters: { money: START_MONEY, morale: 65, prestige: 30 },
+    meters: { money: START_MONEY, morale: 65, prestige: 30, fans: FANS_START },
     tactic: { approach: 'balanced', press: 'mid', formation: DEFAULT_FORMATION },
     week: 1,
     league: initLeague(LEAGUE_C, seed),
@@ -595,6 +601,7 @@ export function pickClub(gs: GameState, clubId: string): GameState {
       money: Math.round(START_MONEY * m.budgetBias * c.traits.budget),
       morale: clamp(65 + ap.morale, 0, 100),
       prestige: clamp(c.traits.prestige + ap.prestige, 0, 100),
+      fans: FANS_START,
     },
     market: makeMarket(c.tier, rng, 12, takenNames),
     phase: 'onboard-archetype',
@@ -695,6 +702,8 @@ export function takeRescue(gs: GameState): GameState {
       money: cash(START_MONEY * 0.8 * c.traits.budget),
       morale: meter(58),
       prestige: meter(Math.max(18, gs.meters.prestige - 8)),
+      // a new town has not made its mind up about him yet
+      fans: FANS_START,
     },
     market: makeMarket(offer.tier, rng, 12, taken),
     marketFocus: null,
@@ -813,6 +822,7 @@ export function afterSigning(gs: GameState, effect: { morale?: number; prestige?
       money: cash(gs.meters.money),
       morale: moraleShift(gs.meters.morale, (effect.morale ?? 0)),
       prestige: meter(gs.meters.prestige + (effect.prestige ?? 0)),
+      fans: gs.meters.fans,
     },
     style: scoreStyle(gs.style, effect),
     phase: next,
@@ -2791,6 +2801,7 @@ export function chooseDilemma(gs: GameState, optionIndex: number): GameState {
       money: cash(gs.meters.money + (e.money ?? 0)),
       morale: moraleShift(gs.meters.morale, (e.morale ?? 0)),
       prestige: meter(gs.meters.prestige + (e.prestige ?? 0)),
+      fans: gs.meters.fans,
     },
     pendingOutcome: finishOutcome(opt.outcome, kept.note),
     style: scoreStyle(gs.style, e),
@@ -2828,6 +2839,7 @@ export function answerInbox(gs: GameState, itemIndex: number, optionIndex: numbe
       money: cash(gs.meters.money + (e.money ?? 0)),
       morale: moraleShift(gs.meters.morale, (e.morale ?? 0)),
       prestige: meter(gs.meters.prestige + (e.prestige ?? 0)),
+      fans: gs.meters.fans,
     },
     pendingOutcome: finishOutcome(opt.outcome, kept.note),
     style: scoreStyle(gs.style, e),
@@ -3015,6 +3027,7 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
       money: cash(gs.meters.money + prize + gate + shirt + boards - costs.total),
       morale: moraleShift(gs.meters.morale, moraleDelta),
       prestige: meter(gs.meters.prestige + (won ? 2 : draw ? 0 : -1)),
+      fans: gs.meters.fans,
     },
     league: { ...gs.league, table },
     stadium: built.stadium,
@@ -3150,18 +3163,24 @@ export function pickPressAnswer(gs: GameState, index: number): GameState {
     money: cash(gs.meters.money),
     morale: moraleShift(gs.meters.morale, (ans.effect.morale ?? 0)),
     prestige: meter(gs.meters.prestige + (ans.effect.prestige ?? 0)),
+    fans: meter(gs.meters.fans + (ans.effect.fans ?? 0)),
   };
   return {
     ...gs, meters, style: scoreStyle(gs.style, ans.effect),
-    press: { ...p, answered: index, before: { morale: gs.meters.morale, prestige: gs.meters.prestige } },
+    press: { ...p, answered: index, before: { morale: gs.meters.morale, prestige: gs.meters.prestige, fans: gs.meters.fans } },
   };
 }
 
 /** What the answer on screen did, as the meters actually moved, caps included. */
-export function pressVerdict(gs: GameState): { morale: number; prestige: number } | null {
+export function pressVerdict(gs: GameState): { morale: number; prestige: number; fans: number } | null {
   const p = gs.press;
   if (!p || p.answered == null || !p.before) return null;
-  return { morale: gs.meters.morale - p.before.morale, prestige: gs.meters.prestige - p.before.prestige };
+  return {
+    morale: gs.meters.morale - p.before.morale,
+    prestige: gs.meters.prestige - p.before.prestige,
+    // a room answered before the terrace was a meter has nothing to say about it
+    fans: gs.meters.fans - (p.before.fans ?? gs.meters.fans),
+  };
 }
 
 /** On to the next question, or out of the room. */
@@ -3483,6 +3502,7 @@ export function startNextSeason(gs: GameState): GameState {
       money: cash(rawMoney),
       morale: moraleShift(gs.meters.morale, moraleDelta),
       prestige: meter(gs.meters.prestige + prestigeDelta - (brokeIt ? 4 : 0)),
+      fans: gs.meters.fans,
     },
     seasonStats: {},
     careerStats,
