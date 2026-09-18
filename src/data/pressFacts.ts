@@ -332,6 +332,7 @@ export function pickPressQuestions(
 const BARE: PressContext = {
   result: 'win', isDerby: false, lowMorale: false, highPrestige: false,
   tablePos: 5, totalTeams: 10, star: '', rival: '', city: '',
+  isHome: true, fans: 50, lossRun: 0, gate: 0.7, justUp: false,
 };
 
 /** The ids each fact can lead with, for the checks. */

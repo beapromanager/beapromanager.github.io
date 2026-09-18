@@ -159,10 +159,10 @@ const state = readFileSync('src/game/state.ts', 'utf8');
       outright: they are the ones a later "improvement" is most likely to undo. */
 {
   // filled in, so a placeholder that lands next to a full stop is not an empty word
-  const BARE_CTX: PressContext = { result: 'win', isDerby: false, lowMorale: false, highPrestige: false, tablePos: 5, totalTeams: 10, star: 'כהן', rival: 'הפועל', city: 'חיפה' };
+  const BARE_CTX: PressContext = { result: 'win', isDerby: false, lowMorale: false, highPrestige: false, tablePos: 5, totalTeams: 10, star: 'כהן', rival: 'הפועל', city: 'חיפה', isHome: true, fans: 50, lossRun: 0, gate: 0.7, justUp: false };
   const qs = [...everyWideQuestion(BARE_CTX), ...everyFactQuestion(BARE_CTX)];
   checked++;
-  if (qs.length !== 53) fails.push(`${qs.length} questions read out of the press room, the document has 53`);
+  if (qs.length !== 61) fails.push(`${qs.length} questions read out of the press room, the document has 61`);
   // the typography rules hold on every line the manager reads
   const bad = [];
   for (const q of qs) for (const s of [q.text, ...q.answers.flatMap(a => [a.label, a.reply])]) {

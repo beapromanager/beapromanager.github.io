@@ -25,6 +25,12 @@ export interface PressContext {
   star: string;          // your best player's family name
   rival: string;         // opponent short name
   city: string;          // the club's home town, for the local press angle
+  /* what the terrace saw, for its own questions */
+  isHome: boolean;
+  fans: number;          // the fans meter
+  lossRun: number;       // defeats in a row, tonight's included
+  gate: number;          // how full the ground was, 0..1
+  justUp: boolean;       // the first rounds after a promotion, when the ticket costs more
 }
 
 export interface PressAnswer {
@@ -279,6 +285,97 @@ const LOCAL: QGen[] = [
   }),
 ];
 
+/**
+ * The terrace's own questions. Each one belongs to a night the crowd actually
+ * had, so it is gated on what happened rather than rolled from a pool: the
+ * away end that travelled for a defeat, the banner after a home win, the
+ * ticket that costs more since the promotion. Two of them are the story of
+ * the night and beat everything else, once: three defeats running, and a
+ * derby lost.
+ */
+const lost = (c: PressContext) => c.result === 'loss' || c.result === 'thrashing';
+const won = (c: PressContext) => c.result === 'win' || c.result === 'big_win';
+const FANS: Array<{ when: (c: PressContext) => boolean; urgent?: boolean; gen: QGen }> = [
+  { when: c => c.lossRun >= 3, urgent: true, gen: c => ({
+    id: 'fans_boo',
+    tone: 'brutal',
+    text: `האוהדים שורקים לך בוז ורוצים שתתפטר. מה אתה אומר על זה?`,
+    answers: [
+      { label: 'אף פעם לא הקשבתי להם, וגם עכשיו לא', effect: { morale: +1, prestige: +1, fans: -5 }, reply: 'החדר הזדקף. היציע רשם. שלט מוכן למחר.' },
+      { label: 'אשב עם הבעלים ונקבל החלטה ביחד', effect: { morale: -1, prestige: +1, fans: +1 }, reply: 'תשובה שקולה. הבעלים ראה שהוא לא לבד.' },
+    ],
+  }) },
+  { when: c => c.isDerby && lost(c), urgent: true, gen: c => ({
+    id: 'fans_ultras',
+    tone: 'brutal',
+    text: `האולטראס היה עצבני וחיכו לכם בחניה אחרי הדרבי. דיברת איתם?`,
+    answers: [
+      { label: 'דיברנו? אוהד כמעט קיבל סטירה. אף אחד לא יקלל את השחקנים שלי', effect: { morale: +4, prestige: -1, fans: -7 }, reply: 'קו אדום. האולטראס קבעו לך פגישה למחר.' },
+      { label: 'כן. הקשבתי, והם צודקים בחלק מהדברים', effect: { morale: -1, prestige: +2, fans: +3 }, reply: 'יצאת אליהם. זה נזכר יותר מהתוצאה.' },
+    ],
+  }) },
+  { when: c => !c.isHome && lost(c), gen: c => ({
+    id: 'fans_away',
+    tone: 'serious',
+    text: `ארבעים אוהדים נסעו שלוש שעות בשביל זה. מה אתה אומר להם?`,
+    answers: [
+      { label: 'הדלק עליי. תביאו קבלות', effect: { prestige: -1, fans: +3 }, reply: 'צחוק ביציע, וקבלות בבוקר.' },
+      { label: 'סליחה. הם היו טובים מאיתנו היום', effect: { morale: -1, prestige: +2, fans: +2 }, reply: 'כנות. הם נסעו הביתה פחות כועסים.' },
+    ],
+  }) },
+  { when: c => c.isHome && lost(c) && c.fans >= 60, gen: c => ({
+    id: 'fans_sing',
+    tone: 'serious',
+    text: `הפסדתם, והיציע שר עד הדקה התשעים. מה זה אומר עליהם, ומה עליכם?`,
+    answers: [
+      { label: 'לפעמים אני רוצה לעלות לשיר איתם, איזה תצוגה הם נתנו', effect: { morale: -3, prestige: +2, fans: +3 }, reply: 'היציע אהב. החדר שמע מי בא לפני מי.' },
+      { label: 'שאנחנו חייבים להם משחק. וזה חוב שנשלם', effect: { morale: +2, prestige: +1, fans: +2 }, reply: 'הבטחה קטנה ונכונה. כולם קיבלו.' },
+    ],
+  }) },
+  { when: c => c.isHome && c.gate < 0.5, gen: c => ({
+    id: 'fans_empty',
+    tone: 'funny',
+    text: `היציע היה חצי ריק היום. איפה כולם?`,
+    answers: [
+      { label: 'מה אתה שואל אותי? תשאל אותם. אנחנו על הדשא', effect: { morale: +1, prestige: -1, fans: -3 }, reply: 'קצת מתנשא. מי שנשאר בבית הרגיש צודק.' },
+      { label: 'זו העבודה שלי להחזיר אותם. נגביר את הקצב של המשחק', effect: { prestige: +2, fans: +3 }, reply: 'קיבלת את זה על עצמך. הם שמעו.' },
+    ],
+  }) },
+  { when: c => c.isHome && won(c), gen: c => ({
+    id: 'fans_kid',
+    tone: 'funny',
+    text: `ילד בן שמונה עם החולצה חיכה לך שעה אחרי המשחק. יצאת אליו?`,
+    answers: [
+      { label: 'אתה יודע כמה ילדים מחכים לי? מלא! אין לי זמן לזה', effect: { prestige: -2, fans: -3 }, reply: 'האמא שלו כתבה פוסט עליך. הוא הגיע לאלף לייקים.' },
+      { label: 'יצאתי. הוא קיבל חתימה', effect: { morale: +1, prestige: +1, fans: +4 }, reply: 'התמונה של השבוע. המקומון שם אותה בעמוד הראשון.' },
+    ],
+  }) },
+  { when: c => c.isHome && won(c) && c.fans >= 70, gen: c => ({
+    id: 'fans_banner',
+    tone: 'funny',
+    text: `היציע תלה שלט עם השם שלך. אתה מסתכל על זה?`,
+    answers: [
+      { label: 'ראיתי. שיתלו גם בבית של הבעלים', effect: { morale: +1, prestige: -1, fans: +2 }, reply: 'צחוק באולם. הבעלים שמע.' },
+      { label: 'השלט הזה שייך לשחקנים, לא לי', effect: { morale: +4, prestige: +1, fans: +1 }, reply: 'העברת את הקרדיט. גם היציע הנהן.' },
+    ],
+  }) },
+  { when: c => c.justUp, gen: c => ({
+    id: 'fans_prices',
+    tone: 'serious',
+    text: `המועדון העלה את מחירי הכרטיסים והיציע כועס. אתה תומך בהחלטה?`,
+    answers: [
+      { label: 'אני מאמן. מחירים זה לא האזור שלי', effect: { prestige: +1, fans: -2 }, reply: 'התחמקות מנומסת. היציע רצה שמישהו יעמוד לצידו.' },
+      { label: 'לא. ואמרתי את זה לבעלים, האוהדים לפני הכל', effect: { prestige: -4, fans: +7 }, reply: 'עמדת עם היציע נגד הבעלים. הבעלים לא שכח ושוקל לדבר איתך.' },
+    ],
+  }) },
+];
+
+/** The terrace questions that fit tonight. */
+export function fittingFans(c: PressContext): { urgent: QGen[]; rest: QGen[] } {
+  const fit = FANS.filter(f => f.when(c));
+  return { urgent: fit.filter(f => f.urgent).map(f => f.gen), rest: fit.filter(f => !f.urgent).map(f => f.gen) };
+}
+
 const TOP: QGen = c => ({
   id: 'top_say_it',
   tone: 'serious',
@@ -305,6 +402,12 @@ export function fresh(pool: QGen[], c: PressContext, rng: Rng, recent: string[])
 export function pickPressQuestion(c: PressContext, rng: Rng, recent: string[] = []): { outlet: Outlet; q: PressQuestion } {
   const outlet = OUTLETS[Math.floor(rng() * OUTLETS.length)];
   const roll = rng();
+  const terrace = fittingFans(c);
+
+  // the terrace's two big nights come before anything else, and are asked
+  // once: the whistling is one question, not one a week until a win
+  const shout = terrace.urgent.map(g => g(c)).find(q => !recent.includes(q.id));
+  if (shout) return { outlet, q: shout };
 
   // priority overrides. A derby and the top of the table are worth repeating
   // ourselves for. The relegation question is not: once it has been asked the
@@ -317,6 +420,13 @@ export function pickPressQuestion(c: PressContext, rng: Rng, recent: string[] = 
   // roughly a quarter of the time the town paper gets in first, with its own byline
   if (roll < 0.25) return { outlet: `מקומון ${c.city}` as Outlet, q: fresh(LOCAL, c, rng, recent) };
 
+  // and about a third of the nights the crowd gave him something to answer
+  // for, that is the question, provided it has not been asked lately
+  if (terrace.rest.length && rng() < 0.35) {
+    const unheard = terrace.rest.filter(g => !recent.includes(g(c).id));
+    if (unheard.length) return { outlet, q: fresh(unheard, c, rng, recent) };
+  }
+
   return { outlet, q: fresh(BY_RESULT[c.result], c, rng, recent) };
 }
 
@@ -327,12 +437,13 @@ export function pickPressQuestion(c: PressContext, rng: Rng, recent: string[] = 
 const BARE: PressContext = {
   result: 'win', isDerby: false, lowMorale: false, highPrestige: false,
   tablePos: 5, totalTeams: 10, star: '', rival: '', city: '',
+  isHome: true, fans: 50, lossRun: 0, gate: 0.7, justUp: false,
 };
 /** Every wider question there is, filled with the given context, for the checks. */
 export function everyWideQuestion(c: PressContext = BARE): PressQuestion[] {
-  return [...Object.values(BY_RESULT).flat(), ...DERBY, RELEGATION, ...LOCAL, TOP].map(g => g(c));
+  return [...Object.values(BY_RESULT).flat(), ...DERBY, RELEGATION, ...LOCAL, TOP, ...FANS.map(f => f.gen)].map(g => g(c));
 }
-export const WIDE_POOLS: Record<PressContext['result'] | 'local' | 'derby', string[]> = {
+export const WIDE_POOLS: Record<PressContext['result'] | 'local' | 'derby' | 'fans', string[]> = {
   big_win: BY_RESULT.big_win.map(g => g(BARE).id),
   win: BY_RESULT.win.map(g => g(BARE).id),
   draw: BY_RESULT.draw.map(g => g(BARE).id),
@@ -340,4 +451,5 @@ export const WIDE_POOLS: Record<PressContext['result'] | 'local' | 'derby', stri
   thrashing: BY_RESULT.thrashing.map(g => g(BARE).id),
   local: LOCAL.map(g => g(BARE).id),
   derby: DERBY.map(g => g(BARE).id),
+  fans: FANS.map(f => f.gen(BARE).id),
 };

@@ -3102,6 +3102,13 @@ const PRESS_MEMORY = 12;
 const CHAT_MEMORY = 8;
 
 /** From the result screen, the reporter is waiting outside. */
+/** Defeats in a row at the end of the form, tonight's included. */
+function lossRun(form: GameState['form']): number {
+  let n = 0;
+  for (let i = form.length - 1; i >= 0 && form[i] === 'L'; i--) n++;
+  return n;
+}
+
 export function continueFromResult(gs: GameState): GameState {
   gs = { ...gs, stadiumReveal: null };   // the unveil has had its moment
   // no press room, no next week: the owner is waiting
@@ -3114,6 +3121,23 @@ export function continueFromResult(gs: GameState): GameState {
   const r = gs.lastPlayerMatch;
   const fx = playerFixture(gs);
   if (!r || !fx) return advancePastPress(gs);
+  const ctx = pressContext(gs)!;
+  const rng = createRng(gs.seasonSeed * 100 + gs.week * 31 + 5);
+  // what the reporter actually watched, so his first question is about the
+  // match and not about the scoreline in the abstract
+  const facts = matchFacts(r, gs.clubId, mySquad(gs), new Set(gs.exits.map(e => e.id)));
+  const { outlet, qs } = pickPressQuestions(ctx, rng, facts, gs.pressHistory);
+  return {
+    ...gs, phase: 'press', press: { outlet, q: qs[0], queue: qs.slice(1) },
+    pressHistory: [...gs.pressHistory, ...qs.map(q => q.id)].slice(-PRESS_MEMORY),
+  };
+}
+
+/** The night as the reporter saw it, read off the result, the table and the ground. */
+export function pressContext(gs: GameState): PressContext | null {
+  const r = gs.lastPlayerMatch;
+  const fx = playerFixture(gs);
+  if (!r || !fx) return null;
 
   const iAmHome = fx.homeId === gs.clubId;
   const myGoals = iAmHome ? r.score[0] : r.score[1];
@@ -3127,7 +3151,7 @@ export function continueFromResult(gs: GameState): GameState {
   const oppId = iAmHome ? fx.awayId : fx.homeId;
   const rival = gs.league.clubs.find(c => c.id === oppId)!;
 
-  const ctx: PressContext = {
+  return {
     result,
     isDerby: isDerby(fx.homeId, fx.awayId),
     lowMorale: gs.meters.morale < 40,
@@ -3136,15 +3160,14 @@ export function continueFromResult(gs: GameState): GameState {
     star: topPlayerName(mySquad(gs)),
     rival: rival.short,
     city: club(gs).city,
-  };
-  const rng = createRng(gs.seasonSeed * 100 + gs.week * 31 + 5);
-  // what the reporter actually watched, so his first question is about the
-  // match and not about the scoreline in the abstract
-  const facts = matchFacts(r, gs.clubId, mySquad(gs), new Set(gs.exits.map(e => e.id)));
-  const { outlet, qs } = pickPressQuestions(ctx, rng, facts, gs.pressHistory);
-  return {
-    ...gs, phase: 'press', press: { outlet, q: qs[0], queue: qs.slice(1) },
-    pressHistory: [...gs.pressHistory, ...qs.map(q => q.id)].slice(-PRESS_MEMORY),
+    // what the terrace saw. The form already has tonight in it, so a run of
+    // defeats counts this one; the gate is the crowd against the seats, so a
+    // ground built past the town's appetite reads as half empty, as it is
+    isHome: iAmHome,
+    fans: gs.meters.fans,
+    lossRun: lossRun(gs.form),
+    gate: homeAttendance(gs, isDerby(fx.homeId, fx.awayId)) / Math.max(1, gs.stadium.capacity),
+    justUp: gs.week <= 3 && gs.chronicle.some(e => e.id === `season-${gs.season - 1}-promoted` || e.id === `season-${gs.season - 1}-champion`),
   };
 }
 

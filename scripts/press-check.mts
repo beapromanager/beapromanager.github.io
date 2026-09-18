@@ -12,8 +12,13 @@
  *   5. the answer is the reveal: meters move in the room, once, and the
  *      verdict reports the real move
  *   6. the terrace is a meter the room can move, and the verdict reports it
+ *   7. the terrace has eight questions of its own, each on its own night only
  */
 import * as G from '../src/game/state.ts';
+import { pickPressQuestion } from '../src/data/press.ts';
+import type { PressContext } from '../src/data/press.ts';
+import { createRng } from '../src/engine/matchEngine.ts';
+import { isDerby } from '../src/data/clubs.ts';
 import { matchFacts } from '../src/data/matchFacts.ts';
 import { pickPressQuestions, askableFacts } from '../src/data/pressFacts.ts';
 import type { MatchResult, MatchEvent } from '../src/engine/matchEngine.ts';
@@ -328,6 +333,102 @@ if (seen.size < 12) fails.push(`only ${seen.size} distinct questions across ${ro
   const src = readFileSync('src/ui/screens/Press.tsx', 'utf8');
   checked++;
   if (!/v\.fans/.test(src)) fails.push('the verdict card does not show what the answer did to the terrace');
+}
+
+/* ------------------------------------- 7. the terrace's own questions */
+/* Eight questions belong to nights the crowd actually had: the away end that
+   travelled for a defeat, the banner after a home win, the ticket that costs
+   more since the promotion. Each fires only on its night, read out of the
+   room's own picker with everything else held equal, and the two big ones
+   (three defeats running, a derby lost) lead the conference and are not
+   repeated. Then the state builds the context for real: a third straight
+   defeat driven through commitRound puts the whistling in the reporter's
+   mouth, and a derby lost brings the ultras. */
+{
+  const base: PressContext = {
+    result: 'loss', isDerby: false, lowMorale: false, highPrestige: false, tablePos: 5, totalTeams: 10,
+    star: 'כהן', rival: 'הפועל', city: 'חיפה', isHome: true, fans: 50, lossRun: 1, gate: 0.8, justUp: false,
+  };
+  const asked = (c: PressContext, n = 300) => {
+    const s = new Set<string>();
+    for (let i = 0; i < n; i++) s.add(pickPressQuestion(c, createRng(i + 1)).q.id);
+    return s;
+  };
+  const triggers: Array<{ id: string; on: Partial<PressContext>; off: Partial<PressContext> }> = [
+    { id: 'fans_boo', on: { lossRun: 3 }, off: { lossRun: 2 } },
+    { id: 'fans_ultras', on: { isDerby: true, result: 'loss' }, off: { isDerby: true, result: 'draw' } },
+    { id: 'fans_away', on: { isHome: false, result: 'loss' }, off: { isHome: true, result: 'loss' } },
+    { id: 'fans_sing', on: { isHome: true, result: 'loss', fans: 60 }, off: { isHome: true, result: 'loss', fans: 59 } },
+    { id: 'fans_empty', on: { isHome: true, gate: 0.49 }, off: { isHome: true, gate: 0.5 } },
+    { id: 'fans_kid', on: { isHome: true, result: 'win' }, off: { isHome: false, result: 'win' } },
+    { id: 'fans_banner', on: { isHome: true, result: 'win', fans: 70 }, off: { isHome: true, result: 'win', fans: 69 } },
+    { id: 'fans_prices', on: { justUp: true }, off: { justUp: false } },
+  ];
+  for (const t of triggers) {
+    checked += 2;
+    if (!asked({ ...base, ...t.on }).has(t.id)) fails.push(`${t.id} never comes up on its own night`);
+    if (asked({ ...base, ...t.off }).has(t.id)) fails.push(`${t.id} comes up on a night that is not its own`);
+  }
+  // the two big nights lead, and are asked once
+  checked += 3;
+  const boo = pickPressQuestion({ ...base, lossRun: 3 }, createRng(5));
+  if (boo.q.id !== 'fans_boo') fails.push(`a third straight defeat opened with ${boo.q.id}, not the whistling`);
+  if (pickPressQuestion({ ...base, lossRun: 4 }, createRng(5), ['fans_boo']).q.id === 'fans_boo') fails.push('the whistling was asked two weeks running');
+  const ultras = pickPressQuestion({ ...base, isDerby: true, result: 'thrashing' }, createRng(9));
+  if (ultras.q.id !== 'fans_ultras') fails.push(`a derby thrashing opened with ${ultras.q.id}, not the ultras`);
+  // the rest take a slice of the wide slot, not all of it and not none
+  checked++;
+  let kid = 0;
+  for (let i = 0; i < 300; i++) if (pickPressQuestion({ ...base, result: 'win' }, createRng(i + 1)).q.id === 'fans_kid') kid++;
+  if (kid < 40 || kid > 160) fails.push(`the kid at the gate came up ${kid} times in 300 home wins, wanted about a third of the nights the town paper leaves`);
+
+  // for real, through the state: the context is built from the form, the
+  // fixture and the ground, not handed in
+  let gs = G.newGame(5109);
+  gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+  gs = G.pickCity(gs, 'תל אביב');
+  gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+  while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
+  const lose = (g: G.GameState): G.GameState => {
+    const fx = G.playerFixture(g)!;
+    const home = fx.homeId === g.clubId;
+    const r = fake([], home ? [0, 2] : [2, 0]);
+    r.home.id = fx.homeId; r.away.id = fx.awayId;
+    return G.continueFromResult(G.commitRound(g, r));
+  };
+  const confs: string[][] = [];
+  for (let i = 0; i < 3; i++) {
+    gs = lose(gs);
+    confs.push([gs.press?.q.id ?? gs.phase, ...(gs.press?.queue ?? []).map(q => q.id)]);
+    while (gs.phase === 'press') gs = G.answerPress(gs, 1);
+  }
+  checked += 2;
+  if (!confs[2].includes('fans_boo')) fails.push(`three straight defeats for real asked ${confs[2].join(', ')}, not the whistling`);
+  if (confs[0].includes('fans_boo') || confs[1].includes('fans_boo')) fails.push('the whistling came before the third defeat');
+  // and a derby lost, at whichever round the fixture list has it
+  const derby = gs.league.fixtures.find(f => f.round > gs.week && (f.homeId === gs.clubId || f.awayId === gs.clubId) && isDerby(f.homeId, f.awayId));
+  checked++;
+  if (!derby) fails.push('no derby left in the season to lose');
+  else {
+    const night = lose({ ...gs, week: derby.round, form: ['W'] });
+    if (night.press?.q.id !== 'fans_ultras' && !night.press?.queue?.some(q => q.id === 'fans_ultras')) fails.push(`a derby lost for real asked ${night.press?.q.id}, not the ultras`);
+  }
+  // the rest of the context is read off the state too, not assumed: which
+  // end he was at, how full the ground was, whether the ticket just went up
+  {
+    const home = gs.league.fixtures.find(f => f.round > gs.week && f.homeId === gs.clubId)!;
+    const away = gs.league.fixtures.find(f => f.round > gs.week && f.awayId === gs.clubId)!;
+    const at = (fx: typeof home, extra: Partial<G.GameState> = {}) =>
+      G.pressContext(G.commitRound({ ...gs, week: fx.round, ...extra }, (() => { const r = fake([], [1, 1]); r.home.id = fx.homeId; r.away.id = fx.awayId; return r; })()))!;
+    checked += 5;
+    if (!at(home).isHome || at(away).isHome) fails.push('the context does not know which end he was at');
+    if (at(home).gate <= 0 || at(home).gate > 1) fails.push(`the gate reads ${at(home).gate}, wanted a fraction of the seats`);
+    if (at(home, { stadium: { ...gs.stadium, capacity: 100000 } }).gate >= 0.5) fails.push('a ground built far past the town does not read as half empty');
+    const up = { chronicle: [...gs.chronicle, { id: `season-${gs.season - 1}-promoted`, kind: 'season_end', week: 0, icon: 'trophy', tint: 'gold', title: '', body: '' }] } as Partial<G.GameState>;
+    if (!at(home, { ...up, week: 1 }).justUp) fails.push('the first round after a promotion does not know the ticket went up');
+    if (at(home, up).justUp) fails.push('the ticket question is still live weeks after the promotion');
+  }
+  console.log(`  8 terrace questions, each only on its own night; the whistling and the ultras came for real`);
 }
 
 console.log(`${checked} checks`);
