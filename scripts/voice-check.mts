@@ -12,6 +12,10 @@
  * things a later edit is most likely to undo.
  */
 import * as G from '../src/game/state.ts';
+import { everyWideQuestion } from '../src/data/press.ts';
+import { everyFactQuestion, pickPressQuestions } from '../src/data/pressFacts.ts';
+import type { PressContext } from '../src/data/press.ts';
+import { createRng } from '../src/engine/matchEngine.ts';
 import { readFileSync } from 'node:fs';
 
 const fails: string[] = [];
@@ -145,6 +149,66 @@ const state = readFileSync('src/game/state.ts', 'utf8');
     if (p.wrong && p.wrong.test(files[p.file])) fails.push(`${p.file} is back to the plural-only wording — ${p.why}`);
   }
   console.log(`  ${pins.length} counts that reach one have a singular sentence`);
+}
+
+/* 6. THE PRESS ROOM IS IN ITZIK'S WORDS.
+      Every question, every line and every reply was rewritten by hand from the
+      document, with the tempting answer first and a cost on most of them. The
+      questions are read out of the generators, filled in, so this measures
+      what the reporter actually says, not the file. A few lines are pinned
+      outright: they are the ones a later "improvement" is most likely to undo. */
+{
+  // filled in, so a placeholder that lands next to a full stop is not an empty word
+  const BARE_CTX: PressContext = { result: 'win', isDerby: false, lowMorale: false, highPrestige: false, tablePos: 5, totalTeams: 10, star: 'כהן', rival: 'הפועל', city: 'חיפה' };
+  const qs = [...everyWideQuestion(BARE_CTX), ...everyFactQuestion(BARE_CTX)];
+  checked++;
+  if (qs.length !== 53) fails.push(`${qs.length} questions read out of the press room, the document has 53`);
+  // the typography rules hold on every line the manager reads
+  const bad = [];
+  for (const q of qs) for (const s of [q.text, ...q.answers.flatMap(a => [a.label, a.reply])]) {
+    if (/\s[,.!?]/.test(s)) bad.push(`${q.id}: a space before punctuation in "${s}"`);
+    if (/[—–]/.test(s)) bad.push(`${q.id}: a long dash in "${s}"`);
+    if (/\{[א-ת]+\}/.test(s)) bad.push(`${q.id}: a document placeholder left in "${s}"`);
+  }
+  checked++;
+  if (bad.length) fails.push(...bad.slice(0, 3));
+  // two answers each, and the pair is never a free lunch: somewhere in every
+  // question at least one line costs something, or there is nothing to weigh
+  checked++;
+  const free = qs.filter(q => q.answers.every(a => Object.values(a.effect).every(v => (v ?? 0) >= 0)));
+  if (free.length > 16) fails.push(`${free.length} questions have no line that costs anything: ${free.slice(0, 4).map(q => q.id).join(', ')}`);
+  // the terrace is in the room: most lines say something to it
+  checked++;
+  const withFans = qs.flatMap(q => q.answers).filter(a => a.effect.fans);
+  if (withFans.length < 50) fails.push(`only ${withFans.length} of ${qs.length * 2} lines move the terrace`);
+  // pinned, first answer first: the tempting one leads
+  const pins: Array<{ id: string; first: string; reply?: string; gone: string }> = [
+    { id: 'big_win_real', first: 'תתרגלו, זה רק הפרומו! באנו לשבור את הליגה', gone: 'זאת הקבוצה שלנו, תתרגלו' },
+    { id: 'big_win_raise', first: 'מחר על הבוקר, מקווה שהוא יענה לי הקמצן הזה', gone: 'כבר שלחתי לו הודעה' },
+    { id: 'win_quiet', first: 'היציע צריך לחגוג? שיחגוג. אני מאמן לא ברמן', gone: 'ניצחון זה ניצחון. שיחגגו בבית' },
+    { id: 'loss_broke', first: 'בדקה שהשופט החליט למי הוא שורק, פעם באה שישים חולצה שלהם', gone: 'לקחתי אחריות, זו טעות שלי' },
+    { id: 'penalty_miss', first: 'הכלב שלי אם צריך, רק לא הוא.', reply: 'צחוק באולם. השחקנים לא אהבו את הבדיחה.', gone: 'הוא בועט. גם בפעם הבאה' },
+    { id: 'red_card', first: 'אם אתה מקבל אדום כזה, הקשר שלך לכדורגל מקרי בהחלט', gone: 'אין לזה מקום, והוא ישלם על זה' },
+    { id: 'top_man_rest', first: '90 דקות כל משחק, שמעת אותי? לא מוציא אותו בחיים.', gone: 'הוא ינוח בקיץ' },
+    { id: 'thrash_home', first: 'אחרי המשחק כזה אני לא רוצה לדבר עם אשתי. אז איתך? שחרר אותי', gone: 'אני פה, תשאל מה שבא לך' },
+  ];
+  for (const p of pins) {
+    const q = qs.find(x => x.id === p.id);
+    checked += 3;
+    if (!q) { fails.push(`${p.id} is gone from the press room`); continue; }
+    if (q.answers[0].label !== p.first) fails.push(`${p.id} no longer opens with "${p.first}" but with "${q.answers[0].label}"`);
+    if (p.reply && q.answers[0].reply !== p.reply) fails.push(`${p.id}'s reply is not Itzik's: "${q.answers[0].reply}"`);
+    if (q.answers.some(a => a.label === p.gone)) fails.push(`${p.id} is back to "${p.gone}", which the document replaced`);
+  }
+  // and nothing is halved on the way to the manager: the match question the
+  // room hands out pays exactly what its card says
+  const hat = everyFactQuestion().find(q => q.id === 'hat_trick')!;
+  const handed = pickPressQuestions(BARE_CTX, createRng(3), [{ kind: 'hat_trick', who: 'x', minute: 1, n: 3 }], []).qs[0];
+  checked += 2;
+  if (handed.id !== 'hat_trick') fails.push(`a hat trick led with ${handed.id}`);
+  else if (JSON.stringify(handed.answers.map(x => x.effect)) !== JSON.stringify(hat.answers.map(x => x.effect)))
+    fails.push(`the room hands out ${JSON.stringify(handed.answers[1].effect)} for a line whose card says ${JSON.stringify(hat.answers[1].effect)}`);
+  console.log(`  ${qs.length} questions in Itzik's words, ${pins.length} lines pinned, ${withFans.length} lines reach the terrace`);
 }
 
 console.log(`\n${checked} checks`);

@@ -23,8 +23,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `שלושה שערים ל${f.who} בערב אחד. הוא נשאר אצלך בקיץ או שכבר מצלצלים אליו?`,
     answers: [
-      { label: 'הוא לא הולך לשום מקום', effect: { morale: +4, prestige: +2 }, reply: 'הודעה ברורה. השחקן שמע, והסוכן שלו גם.' },
-      { label: 'לכל שחקן יש מחיר, גם לו', effect: { prestige: +2, morale: -3 }, reply: 'כנות שעולה. בחדר ההלבשה זה נשמע אחרת.' },
+      { label: 'אין סיכוי, הוא נשאר גם אם זה אומר שאני לא מקבל משכורת', effect: { morale: +3, prestige: +2, fans: +1 }, reply: 'נתת גב לשחקן ולאוהדים, האוהדים מעריכים אותך.' },
+      { label: 'אני המאמן יש בעלים שמקבל החלטות', effect: { morale: -3, prestige: -1, fans: -3 }, reply: 'הודעה ברורה. השחקן שמע והסוכן שלו מתחיל לבדוק הצעות.' },
     ],
   })],
 
@@ -33,33 +33,33 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `שני שערים ל${f.who}. מה הוא עשה הערב שלא עשה בשבועות האחרונים?`,
     answers: [
-      { label: 'עבד על זה כל השבוע באימונים', effect: { morale: +3 }, reply: 'קרדיט לעבודה. השחקנים אוהבים לשמוע את זה.' },
-      { label: 'כישרון. פשוט כישרון', effect: { prestige: +2, morale: +1 }, reply: 'קצר וקולע. הכותרת כותבת את עצמה.' },
+      { label: 'סוף סוף הקשיב לי', effect: { morale: -2, prestige: +3 }, reply: 'קרדיט למאמן. השחקן חשב שתיתן לו קרדיט גם.' },
+      { label: 'עבד קשה כל השבוע באימונים, מגיע לו', effect: { morale: +5 }, reply: 'קרדיט לעבודה. השחקנים אוהבים לשמוע את זה.' },
     ],
   }), (_c, f) => ({
     id: 'brace_supply',
     tone: 'serious',
     text: `שניים ל${f.who}. מי מכין לו את השערים האלה?`,
     answers: [
-      { label: 'עשרה אנשים. הוא רק מסיים', effect: { morale: +4 }, reply: 'חלוקת קרדיט. החדר אהב, החלוץ קצת פחות.' },
-      { label: 'הוא מכין לעצמו, זה מה שמיוחד בו', effect: { prestige: +2, morale: +1 }, reply: 'כותרת מוכנה. הוא ישמור אותה.' },
+      { label: 'הוא מכין לעצמו, זה מה שמיוחד בו', effect: { morale: +1, fans: +1 }, reply: 'השחקן מעריך את התשובה, שאר הקבוצה פחות.' },
+      { label: 'עשרה שחקנים. הוא רק מסיים', effect: { morale: +4, prestige: +1 }, reply: 'חלוקת קרדיט. חדר ההלבשה אהב, החלוץ קצת פחות.' },
     ],
   })],
 
   red_card: [(_c, f) => ({
     id: 'red_card',
     tone: 'brutal',
-    text: `${f.who} קיבל אדום בדקה ${f.minute} והשארתם עשרה. אתה מגבה אותו או שזאת חוסר משמעת?`,
+    text: `${f.who} קיבל אדום בדקה ${f.minute} ונשארתם עשרה. אתה מגבה אותו או שזאת חוסר משמעת?`,
     answers: [
+      { label: 'אם אתה מקבל אדום כזה, הקשר שלך לכדורגל מקרי בהחלט', effect: { morale: -3, prestige: +1, fans: +1 }, reply: 'קו ברור. חלק מהשחקנים לא אהבו, האוהדים דווקא כן.' },
       { label: 'הוא שלנו, נטפל בזה בפנים', effect: { morale: +4, prestige: -1 }, reply: 'הגנת עליו בפומבי. הקבוצה רשמה לעצמה.' },
-      { label: 'אין לזה מקום, והוא ישלם על זה', effect: { prestige: +3, morale: -3 }, reply: 'קו ברור. חלק מהחדר לא אהב.' },
     ],
   }), (_c, f) => ({
     id: 'red_card_after',
     tone: 'serious',
     text: `מדקה ${f.minute}, בלי ${f.who}, שיחקתם בעשרה. מה שינית ברגע שהוא יצא?`,
     answers: [
-      { label: 'כלום. עשרה משחקים אותו כדורגל', effect: { prestige: +2, morale: +2 }, reply: 'אמון בשיטה. מי שמבין הרים גבה.' },
+      { label: 'כלום. עשרה משחקים אותו כדורגל', effect: { morale: +2, prestige: +2 }, reply: 'אמון בשיטה. מי שמבין הרים גבה.' },
       { label: 'סגרנו, ושיחקנו על מה שיש', effect: { prestige: +2 }, reply: 'פרקטי. הכתב קיבל תשובה מקצועית.' },
     ],
   })],
@@ -67,18 +67,18 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
   their_red: [(_c, f) => ({
     id: 'their_red',
     tone: 'funny',
-    text: `הם שיחקו בעשרה מדקה ${f.minute}. זה עדיין נחשב?`,
+    text: `הם שיחקו בעשרה שחקנים מדקה ${f.minute}. זה עדיין נחשב?`,
     answers: [
-      { label: 'שיחקנו נגד מי שהיה על הדשא', effect: { prestige: +2 }, reply: 'תשובה שקטה. אף אחד לא מצא במה לתפוס אותך.' },
+      { label: 'נחשב, ואפילו יותר. תבדוק בתקנון', effect: { morale: +1, prestige: -1, fans: +1 }, reply: 'עוקצני. היריבה לא צחקה.' },
       { label: 'האדום שינה את המשחק, בלי להתחמק', effect: { morale: +2, prestige: +1 }, reply: 'הגינות. באולפן העריכו את זה.' },
     ],
   }), (_c, f) => ({
     id: 'their_red_use',
     tone: 'serious',
-    text: `היריבה בעשרה מדקה ${f.minute}. ניצלתם את זה מספיק?`,
+    text: `היריבה בעשרה שחקנים מדקה ${f.minute}. ניצלתם את זה מספיק?`,
     answers: [
-      { label: 'לא. נגד עשרה צריך לסגור מהר יותר', effect: { prestige: +2, morale: -1 }, reply: 'ביקורת עצמית בקול. השחקנים שמעו.' },
-      { label: 'עשרה שנסגרים זה לפעמים יותר קשה', effect: { morale: +2 }, reply: 'אמת של מאמנים. הכתב הנהן.' },
+      { label: 'עשרה שנסגרים זה לפעמים יותר קשה, בונקר לחלוטין', effect: { morale: +2, fans: -1 }, reply: 'אמת של מאמנים. היציע שמע תירוץ.' },
+      { label: 'לא. נגד עשרה שחקנים צריך לנצח', effect: { morale: -1, prestige: +2, fans: +1 }, reply: 'ביקורת עצמית בקול. השחקנים שמעו.' },
     ],
   })],
 
@@ -87,8 +87,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'brutal',
     text: `הובלתם ב${f.n} שערים ולא לקחתם את המשחק. איך קבוצה מאבדת ככה יתרון?`,
     answers: [
-      { label: 'הפסקנו לשחק, וזה עליי', effect: { prestige: +3, morale: +2 }, reply: 'לקחת אחריות. זה מרגיע את החדר.' },
-      { label: 'חוסר ניסיון, נלמד מזה', effect: { morale: +1 }, reply: 'תשובה בטוחה. גם משעממת.' },
+      { label: 'השחקנים חשבו שהם בטוחים בניצחון, מסתבר שלא.', effect: { morale: +1, prestige: -1, fans: -1 }, reply: 'תשובה בטוחה. גם משעממת. היציע שמע תירוץ.' },
+      { label: 'הפסקנו לשחק, וזה עליי', effect: { morale: +2, prestige: +3, fans: +1 }, reply: 'לקחת אחריות. זה מרגיע את חדר ההלבשה.' },
     ],
   })],
 
@@ -97,8 +97,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `הייתם בפיגור והפכתם את זה. מה אמרת להם כשהיו מאחור?`,
     answers: [
-      { label: 'שלא יפסיקו להאמין. כדורגל זה מומנטום', effect: { morale: +4, prestige: +2 }, reply: 'ואחר כך: תמשיכו לעבוד קשה. השחקנים קראו את זה בבוקר.' },
-      { label: 'צעקתי. לפעמים צריך', effect: { morale: +2, prestige: +1 }, reply: 'כנות. האוהדים אהבו את הסיפור.' },
+      { label: 'צעקתי עליהם. מה שנאמר שם לא מתאים לשידור', effect: { morale: +2, prestige: +1, fans: +2 }, reply: 'כנות. האוהדים אהבו את הסיפור.' },
+      { label: 'שלא יפסיקו להאמין. כדורגל זה מומנטום', effect: { morale: +4, prestige: +2, fans: +1 }, reply: 'ואחר כך: תמשיכו לעבוד קשה. השחקנים קראו את זה בבוקר.' },
     ],
   })],
 
@@ -107,8 +107,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `שער ניצחון בדקה ${f.minute}. זה מזל, או שהקבוצה הזאת פשוט לא מוותרת?`,
     answers: [
-      { label: 'הקבוצה הזאת לא מוותרת, נקודה', effect: { morale: +4, prestige: +2 }, reply: 'משפט לכותרת. היציע אימץ אותו.' },
-      { label: 'גם מזל צריך, והפעם הוא היה שלנו', effect: { morale: +2 }, reply: 'ענווה מחויכת. עבר טוב.' },
+      { label: 'מזל זה הכל בחיים, גם בקזינו', effect: { morale: +2 }, reply: 'האולם צחק, הבעלים לא הבין את הבדיחה.' },
+      { label: 'הקבוצה הזאת לא מוותרת, נקודה. תקראו לנו הפייטרים', effect: { morale: +4, prestige: +2, fans: +2 }, reply: 'משפט לכותרת. היציע אימץ אותו.' },
     ],
   })],
 
@@ -117,8 +117,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `שער שוויון בדקה ${f.minute}. נקודה שלקחתם או שתיים שאיבדתם?`,
     answers: [
+      { label: 'שתיים שאיבדנו, בואו לא נשקר', effect: { morale: -2, prestige: +2, fans: +1 }, reply: 'ישר וקשה. העיתונות אהבה, השחקנים פחות.' },
       { label: 'נקודה שלקחנו בשיניים', effect: { morale: +3 }, reply: 'מסגור חיובי. החדר קנה אותו.' },
-      { label: 'שתיים שאיבדנו, בואו לא נשקר', effect: { prestige: +2, morale: -2 }, reply: 'ישר וקשה. העיתונות אהבה, השחקנים פחות.' },
     ],
   })],
 
@@ -127,8 +127,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'brutal',
     text: `ספגתם בדקה ${f.minute} ואיבדתם את זה בסוף. איפה הריכוז נגמר?`,
     answers: [
-      { label: 'הריכוז עליי, זאת העבודה שלי', effect: { prestige: +3, morale: +2 }, reply: 'לקחת את זה עליך. מקצועי.' },
-      { label: 'שחקנים צריכים לסגור משחק לבד', effect: { prestige: +1, morale: -3 }, reply: 'האצבע הופנתה פנימה. זה נרשם.' },
+      { label: 'צעקתי להם לסגור את המשחק, לא הקשיבו', effect: { morale: -3, prestige: +1 }, reply: 'אצבע מאשימה על השחקנים. זה נרשם.' },
+      { label: 'הריכוז עליי, זאת העבודה שלי', effect: { morale: +2, prestige: -2 }, reply: 'לקחת את זה עליך. מקצועי.' },
     ],
   })],
 
@@ -137,8 +137,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'brutal',
     text: `${f.who} החמיץ פנדל בדקה ${f.minute}. מי בועט בפעם הבאה?`,
     answers: [
-      { label: 'הוא בועט. גם בפעם הבאה', effect: { morale: +4, prestige: -1 }, reply: 'אמון פומבי. הוא לא ישכח את זה.' },
-      { label: 'נחשוב על זה במהלך השבוע', effect: { prestige: +1, morale: -2 }, reply: 'התחמקות מנומסת. הבועט הבין.' },
+      { label: 'הכלב שלי אם צריך, רק לא הוא.', effect: { morale: -3, prestige: -2, fans: +2 }, reply: 'צחוק באולם. השחקנים לא אהבו את הבדיחה.' },
+      { label: 'הוא בועט, יש לו גיבוי ממני', effect: { morale: +4 }, reply: 'אמון פומבי. הוא לא ישכח את זה.' },
     ],
   })],
 
@@ -147,8 +147,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'brutal',
     text: `שער עצמי של ${f.who} בדקה ${f.minute}. איך מרימים שחקן אחרי ערב כזה?`,
     answers: [
-      { label: 'זה קורה לכל מגן בעולם', effect: { morale: +4 }, reply: 'חיבוק פומבי. החדר ראה.' },
-      { label: 'הוא מקצוען, הוא יסתדר עם זה', effect: { prestige: +1, morale: -1 }, reply: 'קר. נכון, אבל קר.' },
+      { label: 'בדקתי איתו אם קיבל כסף על השער הזה מהיריבה, שער מוזר', effect: { morale: -1, prestige: -1 }, reply: 'כולם צחקו, השחקן נפגע.' },
+      { label: 'זה קורה לכל מגן בעולם', effect: { morale: +4, fans: +1 }, reply: 'חיבוק פומבי. חדר ההלבשה שמע גם.' },
     ],
   })],
 
@@ -157,8 +157,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `${f.who} החזיק אתכם בשער הערב. הוא מספר אחת שלך לשארית העונה?`,
     answers: [
-      { label: 'הוא מספר אחת, אין ויכוח', effect: { morale: +3, prestige: +1 }, reply: 'החלטה ברורה. השוער יצא מהאולם מחייך.' },
-      { label: 'כל אחד משחק לפי מה שהוא נותן', effect: { prestige: +2, morale: -1 }, reply: 'תחרות פתוחה. מסר שנשמע גם בספסל.' },
+      { label: 'כל אחד משחק לפי מה שהוא נותן. גם הוא', effect: { morale: -1, prestige: +2 }, reply: 'תחרות פתוחה. מסר שנשמע גם בספסל.' },
+      { label: 'הוא מספר אחת, אין ויכוח', effect: { morale: +3, prestige: +1, fans: +1 }, reply: 'החלטה ברורה. השוער יצא מהאולם מחייך.' },
     ],
   })],
 
@@ -167,16 +167,16 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `${f.who} היה הטוב במגרש הערב. איפה מצאת אותו?`,
     answers: [
-      { label: 'הוא היה פה כל הזמן, רק חיכה', effect: { morale: +3, prestige: +1 }, reply: 'קרדיט לשחקן. יפה.' },
-      { label: 'עבדנו עליו יחד, זה לא במקרה', effect: { prestige: +3 }, reply: 'לקחת חלק מהקרדיט. מקובל.' },
+      { label: 'היה קשה להביא אותו, אבל מאמן כמוני מוציא מכל אחד את המקסימום', effect: { prestige: +3 }, reply: 'לקחת חלק מהקרדיט. מקובל.' },
+      { label: 'הוא עובד קשה, אין ספק שימשיך להשתפר', effect: { morale: +3, prestige: +1, fans: +1 }, reply: 'קרדיט לשחקן. יפה.' },
     ],
   }), (_c, f) => ({
     id: 'star_rating_agent',
     tone: 'funny',
     text: `${f.who} עם משחק כזה. הסוכן שלו כבר התקשר לדבר על החוזה?`,
     answers: [
-      { label: 'שיתקשר. יש לי מה להגיד לו', effect: { prestige: +3, morale: -1 }, reply: 'קשוח. השחקן קרא בין השורות.' },
-      { label: 'הוא יודע מה יש לו פה', effect: { morale: +3, prestige: +1 }, reply: 'חיבוק פומבי. השחקן ענה בלב בסטורי.' },
+      { label: 'אם יש לו אומץ שיתקשר, כל עוד יש לו חוזה לא לפנות אליי', effect: { morale: -1, prestige: +3, fans: +1 }, reply: 'קשוח. השחקנים יחשבו אם לחתום על חוזה ארוך.' },
+      { label: 'יש מי שמקבל החלטות על החוזים, הבעלים.', effect: { morale: +1 }, reply: 'הבעלים אהב את התשובה, הסוכן הבין למי לפנות.' },
     ],
   })],
 
@@ -185,8 +185,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'brutal',
     text: `כמעט לא הגעתם לשער היריב. איפה ההתקפה הזאת?`,
     answers: [
-      { label: 'לא מספיק טוב, נעבוד על זה', effect: { prestige: +2, morale: +1 }, reply: 'הודאה מדודה. הוגן.' },
-      { label: 'היריבה סגרה טוב, זה כדורגל', effect: { morale: +1, prestige: -1 }, reply: 'תירוץ מנומס. לא כולם קנו.' },
+      { label: 'היריבה סגרה טוב, זה כדורגל', effect: { morale: +1, prestige: -1, fans: -1 }, reply: 'תירוץ מנומס. לא כולם אהבו את זה.' },
+      { label: 'לא מספיק טוב, נעבוד על זה', effect: { morale: +1, prestige: +2 }, reply: 'תשובה ברורה. הוגן.' },
     ],
   })],
 
@@ -197,24 +197,24 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'funny',
     text: `לא בדיוק ערב לזכור. ${f.who} היה הכי טוב שלך, וגם הוא לא קרע את המגרש. מה חסר?`,
     answers: [
-      { label: 'קצב. אנחנו משחקים לאט מדי', effect: { prestige: +2, morale: +1 }, reply: 'אבחנה מקצועית. מי שמבין הנהן.' },
-      { label: 'כלום. ניקח את מה שיש ונמשיך', effect: { morale: +2, prestige: -1 }, reply: 'תשובה מגוננת. באולפן צחקו קצת.' },
+      { label: 'משחק חלש מאוד, הוא קיבל צעקות שאבא שלו ביציע שמע', effect: { morale: +2, prestige: +2 }, reply: 'תשובה חדה, חדר ההלבשה מבין שצריך להרים את הרמה.' },
+      { label: 'קצב. אנחנו משחקים לאט מדי, נמשיך לעבוד קשה', effect: { morale: +1, prestige: +1 }, reply: 'אבחנה מקצועית. מי שמבין הנהן.' },
     ],
   }), (_c, f) => ({
     id: 'top_man_carry',
     tone: 'serious',
     text: `${f.who} סחב אתכם הערב. כמה זמן אפשר לבנות עליו?`,
     answers: [
+      { label: 'כל עוד הוא סוחב, אני לא מתלונן', effect: { morale: -1 }, reply: 'כנות. השחקן חייך, השאר פחות.' },
       { label: 'לא בונים על אחד. מבחוץ זה רק נראה ככה', effect: { morale: +3, prestige: +1 }, reply: 'הגנת על עשרה אחרים. הם שמעו.' },
-      { label: 'כל עוד הוא סוחב, אני לא מתלונן', effect: { prestige: +2, morale: -1 }, reply: 'כנות. השחקן חייך, השאר פחות.' },
     ],
   }), (_c, f) => ({
     id: 'top_man_rest',
     tone: 'funny',
     text: `שוב ${f.who} הכי טוב שלכם. אתה נותן לו לנוח מתישהו?`,
     answers: [
-      { label: 'הוא ינוח בקיץ', effect: { prestige: +2, morale: +1 }, reply: 'צחוק באולם. הוא כנראה לא ינוח בקיץ.' },
-      { label: 'יש ספסל שרוצה את המקום שלו', effect: { morale: +2 }, reply: 'מסר לספסל. שמעו אותו טוב.' },
+      { label: '90 דקות כל משחק, שמעת אותי? לא מוציא אותו בחיים.', effect: { morale: -1, prestige: +2, fans: +1 }, reply: 'צחוק באולם. הוא כנראה לא ינוח בחיים.' },
+      { label: 'יש שחקנים בספסל שרוצים את המקום שלו, אולי יוכיחו שאפשר להחליף', effect: { morale: +2 }, reply: 'מסר לספסל. שמעו אותו טוב.' },
     ],
   })],
 
@@ -223,16 +223,16 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `שער נקי. ההגנה הזאת סוף סוף מסודרת?`,
     answers: [
-      { label: 'ההגנה מתחילה מהחלוצים', effect: { morale: +3, prestige: +1 }, reply: 'משפט של מאמן. כולם רשמו.' },
-      { label: 'מחזור אחד לא אומר כלום', effect: { prestige: +2 }, reply: 'רגליים על הקרקע.' },
+      { label: 'ההגנה מתחילה מהחלוצים', effect: { morale: +3, prestige: +3, fans: +1 }, reply: 'משפט של מאמן. כולם רשמו.' },
+      { label: 'מחזור אחד לא אומר כלום', effect: { morale: -1, prestige: +2 }, reply: 'רגליים על הקרקע.' },
     ],
   }), () => ({
     id: 'clean_sheet_why',
     tone: 'serious',
     text: `לא ספגתם. זה ההגנה, השוער, או שהיריבה פשוט לא ניסתה?`,
     answers: [
-      { label: 'כל האחד עשר. ככה מגינים', effect: { morale: +3 }, reply: 'קרדיט לכולם. החדר אהב.' },
       { label: 'עבדנו על זה כל השבוע, זה לא מקרה', effect: { prestige: +3 }, reply: 'לקחת את הקרדיט למגרש האימונים. מקובל.' },
+      { label: 'כל האחד עשר. ככה מגינים', effect: { morale: +3 }, reply: 'קרדיט לכולם. השחקנים אהבו.' },
     ],
   })],
 
@@ -242,8 +242,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `פנדל של ${f.who} בדקה ${f.minute} לא נכנס. השוער ניחש, או שמישהו אמר לו לאן?`,
     answers: [
-      { label: 'למדנו את הבועט. זו הכנה, לא ניחוש', effect: { prestige: +3, morale: +1 }, reply: 'עבודת צוות מקצועית. הכתב רשם.' },
-      { label: 'זה כולו שלו. שוער עם אינסטינקט', effect: { morale: +3 }, reply: 'הקרדיט הלך לשוער. הוא יצא מהאולם גבוה.' },
+      { label: 'למדנו את הבועט. זו הכנה, לא ניחוש', effect: { morale: +1, prestige: +3 }, reply: 'עבודת צוות מקצועית. הבעלים מרוצה.' },
+      { label: 'זה כולו שלו. שוער עם אינסטינקט', effect: { morale: +3, fans: +1 }, reply: 'הקרדיט הלך לשוער. הוא יצא מהאולם מבסוט.' },
     ],
   })],
 
@@ -252,8 +252,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'serious',
     text: `עברת ל-${f.who} בהפסקה והמחצית השנייה נראתה אחרת לגמרי. מה ראית בחדר ההלבשה?`,
     answers: [
-      { label: 'ראיתי שהם צריכים שינוי, לא צעקה', effect: { prestige: +3, morale: +2 }, reply: 'מאמן שקורא משחק. הכותרת של מחר.' },
-      { label: 'השחקנים עשו את זה, לא המערך', effect: { morale: +4 }, reply: 'העברת את הקרדיט. החדר לא שכח.' },
+      { label: 'ראיתי שהם צריכים שינוי, לא צעקה', effect: { morale: +2, prestige: +3 }, reply: 'מאמן שקורא משחק. הכותרת של מחר.' },
+      { label: 'השחקנים עשו את זה, לא המערך', effect: { morale: +4 }, reply: 'העברת את הקרדיט. השחקנים מעריכים אותך.' },
     ],
   })],
 
@@ -262,7 +262,7 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'brutal',
     text: `שינית ל-${f.who} בהפסקה וזה לא הזיז כלום. בדיעבד, טעות?`,
     answers: [
-      { label: 'לא. ניסיתי, לפעמים זה לא עובד', effect: { prestige: +2, morale: +1 }, reply: 'עמדת מאחורי ההחלטה. מכבדים.' },
+      { label: 'לא. ניסיתי, לפעמים זה לא עובד', effect: { morale: +1, prestige: +2 }, reply: 'עמדת מאחורי ההחלטה. מכבדים.' },
       { label: 'אולי. אני אסתכל על זה שוב', effect: { morale: +2, prestige: -1 }, reply: 'כנות. הכתב הופתע לשמוע אותה.' },
     ],
   })],
@@ -272,16 +272,16 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'brutal',
     text: `${f.who}, שמכרת בחלון, כבש נגדכם בדקה ${f.minute}. מתחרט?`,
     answers: [
-      { label: 'לא. הוא היה צריך ללכת, ואני שמח בשבילו', effect: { prestige: +3, morale: +1 }, reply: 'גדלות. גם הוא קרא את זה.' },
-      { label: 'כדורגל. הוא כבש, זה לא משנה את ההחלטה', effect: { prestige: +2 }, reply: 'יבש. הכתב חיפש רגש ולא מצא.' },
+      { label: 'איזה קללות הוא קיבל בחדר ההלבשה, העיקר אצלנו החטיא מול שער ריק', effect: { prestige: -2, fans: -1 }, reply: 'כולם ראו שאתה עצבני על זה, כנראה אתה מתחרט.' },
+      { label: 'לא. הוא היה צריך ללכת, ואני שמח בשבילו', effect: { morale: +1, prestige: +3, fans: +1 }, reply: 'לקחת אחריות. גם הוא קרא את זה.' },
     ],
   }), (_c, f) => ({
     id: 'ex_scored_room',
     tone: 'funny',
     text: `${f.who} כבש, ולא חגג. אתה יודע מה זה אומר?`,
     answers: [
-      { label: 'שהוא עדיין אוהד שלנו', effect: { morale: +3, prestige: +1 }, reply: 'חיוך באולם. היציע אהב את זה.' },
-      { label: 'שהוא מקצוען. וזה למה מכרתי אותו טוב', effect: { prestige: +3 }, reply: 'עסקים. המנכ״ל הנהן מהשורה השנייה.' },
+      { label: 'הוא נמכר בגלל הכסף, אנחנו עד היום בקשר', effect: { prestige: +3, fans: -1 }, reply: 'עסקים. המנכ״ל הנהן מהשורה השנייה.' },
+      { label: 'הוא בן אדם לפני שהוא שחקן', effect: { morale: +3, prestige: +1, fans: +2 }, reply: 'חיוך באולם. היציע אהב את זה.' },
     ],
   })],
 
@@ -290,8 +290,8 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
     tone: 'funny',
     text: `${f.who}, בן שלושים, ליגה ג׳, וכובש ככה. תסביר לי איך הוא עדיין פה`,
     answers: [
-      { label: 'כי זה הבית שלו. תשאל אותו', effect: { morale: +3, prestige: +1 }, reply: 'תשובה של ראש העין. העיר אהבה.' },
-      { label: 'כי אף אחד לא הסתכל מספיק טוב. אני הסתכלתי', effect: { prestige: +3 }, reply: 'לקחת קרדיט על מה שכולם פספסו. מגיע.' },
+      { label: 'כשיש לך מאמן כמוני אי אפשר ללכת לשום מקום, אני איתו 24/7', effect: { prestige: +3 }, reply: 'לקחת קרדיט על מה העבודה איתו. נשמע שאתה איתו כל הזמן.' },
+      { label: 'כי זה הבית שלו. תשאל אותו', effect: { morale: +3, prestige: +1, fans: +3 }, reply: 'תשובה של ראש העין. העיר אהבה.' },
     ],
   })],
 };
@@ -302,35 +302,14 @@ export function askableFacts(facts: MatchFact[]): MatchFact[] {
 }
 
 /**
- * Halve what an answer moves.
- *
- * The meters were tuned when a press conference was one question. Asking two
- * without touching the numbers quietly doubled how far a week could swing the
- * mood and the standing, which showed up straight away as careers being sacked
- * that should not have been. Two questions should be two decisions, not twice
- * the consequence, so the match question carries half a question's weight and
- * the pair lands about where one used to. The scaled figures are the ones the
- * manager is shown, so the chips never promise more than they pay.
- */
-function soften(q: PressQuestion): PressQuestion {
-  const half = (v: number | undefined): number | undefined => {
-    if (!v) return v;
-    // never round a real effect away to nothing
-    return Math.sign(v) * Math.max(1, Math.round(Math.abs(v) / 2));
-  };
-  return {
-    ...q,
-    answers: q.answers.map(a => ({
-      ...a,
-      effect: { morale: half(a.effect.morale), prestige: half(a.effect.prestige) },
-    })),
-  };
-}
-
-/**
  * The pair the manager faces. First the match, then the table, so a press
  * conference covers both the night he just had and the season he is having.
  * A match with nothing to say about it still gets its one wider question.
+ *
+ * The match question used to be halved on the way out, because two questions
+ * at the old numbers doubled what a week could swing. The numbers are now
+ * Itzik's, written per line with the pair in mind and with a cost on most of
+ * the tempting ones, so a line pays exactly what its card says.
  */
 export function pickPressQuestions(
   c: PressContext, rng: Rng, facts: MatchFact[] = [], recent: string[] = [],
@@ -347,14 +326,21 @@ export function pickPressQuestions(
   const unheard = (f: MatchFact) => pools(f).some(g => !recent.includes(g(c).id));
   let pick = usable[rng() > 0.72 && usable.length > 1 ? 1 : 0];
   if (!unheard(pick)) pick = usable.find(unheard) ?? pick;
-  return { outlet: wide.outlet, qs: [soften(fresh(pools(pick), c, rng, recent)), soften(wide.q)] };
+  return { outlet: wide.outlet, qs: [fresh(pools(pick), c, rng, recent), wide.q] };
 }
+
+const BARE: PressContext = {
+  result: 'win', isDerby: false, lowMorale: false, highPrestige: false,
+  tablePos: 5, totalTeams: 10, star: '', rival: '', city: '',
+};
 
 /** The ids each fact can lead with, for the checks. */
 export function factPool(kind: FactKind): string[] {
-  const bare: PressContext = {
-    result: 'win', isDerby: false, lowMorale: false, highPrestige: false,
-    tablePos: 5, totalTeams: 10, star: '', rival: '', city: '',
-  };
-  return (BY_FACT[kind] ?? []).map(g => g(bare, { kind }).id);
+  return (BY_FACT[kind] ?? []).map(g => g(BARE, { kind }).id);
+}
+
+/** Every match question there is, filled with a bare fact, for the checks. */
+export function everyFactQuestion(c: PressContext = BARE): PressQuestion[] {
+  return (Object.keys(BY_FACT) as FactKind[]).flatMap(kind =>
+    BY_FACT[kind]!.map(g => g(c, { kind, who: 'x', minute: 1, n: 1 } as MatchFact)));
 }

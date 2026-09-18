@@ -53,8 +53,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'serious',
       text: `ניצחון גדול. ${c.star} היה בלתי ניתן לעצירה. זו הקבוצה האמיתית או שהיריבה פשוט הייתה חלשה?`,
       answers: [
-        { label: 'זאת הקבוצה שלנו, תתרגלו', effect: { prestige: +4, morale: +3 }, reply: 'הצהרה בטוחה. הכותרות מחר יאהבו את זה.' },
-        { label: 'צעד אחד בכל פעם, בלי לעוף', effect: { morale: +4 }, reply: 'ענווה. השחקנים שמעו ואהבו.' },
+        { label: 'תתרגלו, זה רק הפרומו! באנו לשבור את הליגה', effect: { morale: +1, prestige: +1, fans: +2 }, reply: 'איזה ביטחון בקבוצה, מרגיש קצת שחצני ויהיר. נראה בסוף העונה.' },
+        { label: 'היריבה הייתה חלשה, ואנחנו עוד לא טובים מספיק', effect: { morale: -1, prestige: +2 }, reply: 'כנות זה דבר חשוב, לא סיפקת לנו משהו חדש.' },
       ],
     }),
     c => ({
@@ -62,8 +62,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'funny',
       text: `אחרי הביצוע הזה, מתי אתה מבקש העלאה מהבעלים?`,
       answers: [
-        { label: 'כבר שלחתי לו הודעה', effect: { morale: +2 }, reply: 'צחוק באולם. קטע נחמד לטיקטוק.' },
-        { label: 'קודם נשמור על הרגליים על הקרקע', effect: { prestige: +2 }, reply: 'תשובה מקצועית, קצת משעממת.' },
+        { label: 'מחר על הבוקר, מקווה שהוא יענה לי הקמצן הזה', effect: { morale: +3, prestige: -2, fans: +1 }, reply: 'צחוק באולם. קטע ענק לטיקטוק. הבעלים לקח רציני.' },
+        { label: 'קודם שנעלה ליגה, אחר כך נדבר על כסף', effect: { prestige: +2 }, reply: 'תשובה מקצועית, קצת משעממת.' },
       ],
     }),
     c => ({
@@ -71,8 +71,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'serious',
       text: `תוצאה כזאת מול ${c.rival} שולחת מסר לכל הליגה, ללא ספק. לא?`,
       answers: [
-        { label: 'אנחנו לא שולחים מסרים, אנחנו משחקים', effect: { morale: +3, prestige: +1 }, reply: 'ענווה עם שיניים. עבר מצוין.' },
-        { label: 'כן. שידעו', effect: { prestige: +4, morale: -1 }, reply: 'שורה שתישאר. גם אצל היריבות הבאות.' },
+        { label: 'כן. שיתחילו לפחד! אנחנו פה', effect: { morale: -1, prestige: +2, fans: +3 }, reply: 'שורה שתישאר. גם אצל היריבות הבאות.' },
+        { label: 'המסר היחיד הוא לשחקנים שלי: ממשיכים בעבודה קשה', effect: { morale: +3 }, reply: 'מסר לחדר ההלבשה דרך המיקרופון. יגיע ליעד.' },
       ],
     }),
   ],
@@ -82,8 +82,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'serious',
       text: `שלוש נקודות חשובות. הרגשת שהקבוצה בשליטה, או שזה היה יותר קרוב ממה שנראה?`,
       answers: [
-        { label: 'שלטנו מהדקה הראשונה', effect: { prestige: +3, morale: +2 }, reply: 'הצגת ביטחון. היריבה תזכור.' },
-        { label: 'עבדנו קשה על כל כדור', effect: { morale: +3 }, reply: 'הערכת את השחקנים. חדר ההלבשה מרוצה.' },
+        { label: 'שליטה מהדקה הראשונה. יכולנו לשחק בעיניים עצומות', effect: { morale: -1, prestige: +3, fans: +1 }, reply: 'ביטחון. היריבה גזרה את הכותרת ותלתה בחדר ההלבשה שלה. מחכה למשחק הבא' },
+        { label: 'היה קרוב ולקחנו. ככה מנצחים משחקים כאלה', effect: { morale: +3 }, reply: 'הערכת את השחקנים. חדר ההלבשה מרוצה מהתשובה.' },
       ],
     }),
     c => ({
@@ -91,8 +91,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'funny',
       text: `ניצחתם, והיציע יצא בשקט. איפה החגיגה?`,
       answers: [
-        { label: 'ניצחון זה ניצחון. שיחגגו בבית', effect: { prestige: +2, morale: +1 }, reply: 'יבש. מקצועי. הכתב חייך.' },
-        { label: 'גם אני רוצה יותר, ואני אגיד את זה בחדר', effect: { morale: -1, prestige: +3 }, reply: 'רעב. השחקנים קראו את זה בבוקר והבינו.' },
+        { label: 'היציע צריך לחגוג? שיחגוג. אני מאמן לא ברמן', effect: { morale: +2, prestige: -1, fans: -5 }, reply: 'השחקנים צחקו בחדר ההלבשה. היציע קרא את זה בבוקר ולא צחק.' },
+        { label: 'אני מבין אותם. ניצחון כזה לא מספיק לי גם', effect: { morale: -1, prestige: +1, fans: +2 }, reply: 'רעב. היציע הרגיש שמישהו מדבר בשמו.' },
       ],
     }),
     c => ({
@@ -100,17 +100,17 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'serious',
       text: `מתחילים להתרגל לנצח אצלכם. אתה לא מפחד שזה משעמם?`,
       answers: [
-        { label: 'שיתרגלו. בשביל זה באנו', effect: { prestige: +3, morale: +2 }, reply: 'ביטחון. היציע אהב.' },
-        { label: 'אף אחד לא נרדם אצלי, גם לא אני', effect: { morale: +2, prestige: +1 }, reply: 'מסר לחדר, לא לעיתונות. הגיע ליעד.' },
+        { label: 'משעמם? תגיד את זה ליריבות שמקבלות בראש', effect: { morale: +1, prestige: +1, fans: +3 }, reply: 'ביטחון. האוהדים אהבו את הגישה.' },
+        { label: 'מי שמשתעמם אצלי יושב בספסל', effect: { morale: -2, prestige: +2 }, reply: 'מסר לחדר ההלבשה, לא לעיתונות. חלק מהספסל נלחץ.' },
       ],
     }),
     c => ({
       id: 'win_rival',
       tone: 'serious',
-      text: `${c.rival} לא באה לפה להפסיד. מה הכריע בסוף?`,
+      text: `${c.rival} קבוצה חזקה היא לא באה לפה להפסיד. מה הכריע בסוף?`,
       answers: [
-        { label: 'סבלנות. חיכינו לרגע שלנו', effect: { morale: +2, prestige: +2 }, reply: 'ניתוח מדויק. מי שמבין הנהן.' },
-        { label: `הראש. רצינו את זה יותר מ${c.rival}`, effect: { morale: +3 }, reply: 'רגש. היציע לוקח את זה הביתה.' },
+        { label: 'השופט. הפעם הוא שרק לטובתנו', effect: { prestige: -3, fans: +1 }, reply: 'צחוק באולם, ותלונה של איגוד השופטים תוגש למועדון.' },
+        { label: 'סבלנות. חיכינו לרגע שלנו. ידענו שהם ייצאו קדימה', effect: { morale: +2, prestige: +2 }, reply: 'ניתוח מדויק. מי שמבין הנהן.' },
       ],
     }),
   ],
@@ -120,8 +120,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'brutal',
       text: `עוד תיקו. בקצב הזה לא עולים ליגה. אתה לא מרגיש שאתה מבזבז עונה?`,
       answers: [
-        { label: 'תשאל אותי בסוף העונה', effect: { prestige: +3, morale: -1 }, reply: 'עמדת מולו. חלק אהבו, חלק חשבו שהתחמקת.' },
-        { label: 'צודק, חייבים יותר', effect: { morale: -3, prestige: +2 }, reply: 'הודית בבעיה. השחקנים קצת נלחצו.' },
+        { label: 'מבזבז? תראה מה השופט עשה לנו בדקה 80', effect: { morale: +1, prestige: -3, fans: +1 }, reply: 'האוהדים הנהנו. איגוד השופטים פחות.' },
+        { label: 'צודק. עוד תיקו כזה ואני שולח שחקנים הביתה', effect: { morale: -3, prestige: +2, fans: +1 }, reply: 'איום פומבי. השחקנים קראו את זה בבוקר, פעמיים.' },
       ],
     }),
     c => ({
@@ -129,8 +129,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'serious',
       text: `נקודה בחוץ. אתה מרוצה או מאוכזב?`,
       answers: [
-        { label: 'לוקחים את הנקודה וממשיכים', effect: { morale: +2 }, reply: 'תשובה מאוזנת.' },
-        { label: 'באנו לנצח, זה מאכזב', effect: { prestige: +2, morale: -1 }, reply: 'שידרת רעב. היציע אוהב את זה.' },
+        { label: 'הבאתי אוטובוס, לקחתי נקודה, חוזר הביתה', effect: { morale: +2, prestige: -2, fans: -1 }, reply: 'כנות משעשעת. היציע רצה לשמוע על ניצחון.' },
+        { label: 'באנו לנצח, וזה מאכזב', effect: { morale: -1, prestige: +2, fans: +1 }, reply: 'שידרת רעב. היציע אוהב את זה.' },
       ],
     }),
     c => ({
@@ -138,8 +138,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'funny',
       text: `תיקו מול ${c.rival}. מי משתי הקבוצות יצאה מפה מרוצה יותר?`,
       answers: [
-        { label: 'הם. ואני לא אוהב את זה', effect: { prestige: +2, morale: -1 }, reply: 'כנות. לא נעים לשמוע, אבל מכבדים.' },
-        { label: 'אף אחד. וזה בסדר', effect: { morale: +2 }, reply: 'תשובה שקטה. הכתב עבר הלאה.' },
+        { label: 'הם. והם יזכרו את זה כשנפגוש אותם במחזור הבא', effect: { morale: -1, prestige: +3, fans: +1 }, reply: `איום מנומס. אצל ${c.rival} תלו את זה על הקיר.` },
+        { label: 'אף אחד. ואני בסדר עם זה', effect: { morale: +1 }, reply: 'תשובה שקטה. הכתב עבר הלאה.' },
       ],
     }),
   ],
@@ -149,17 +149,17 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'brutal',
       text: `הפסד שכואב. יש אוהדים שכבר קוראים להחליף אותך. יש לך מה להגיד להם?`,
       answers: [
-        { label: 'אני לא בורח מאחריות', effect: { prestige: +4, morale: +1 }, reply: 'עמדת זקוף. זה עובר טוב בעיתונות.' },
-        { label: 'הם צודקים לכעוס, נתקן', effect: { morale: +3, prestige: -2 }, reply: 'הזדהית עם הכאב שלהם. היציע התרכך.' },
+        { label: 'שיבואו לאימון ביום שני ויראו מי עובד פה', effect: { morale: -2, prestige: +2, fans: -2 }, reply: 'הזמנה עם עוקץ. ביום שני האוהדים רוצים להגיע לאימון.' },
+        { label: 'הם צודקים. אני כועס יותר', effect: { morale: -1, prestige: -1, fans: +2 }, reply: 'הזדהית עם הכאב שלהם. היציע התרכך.' },
       ],
     }),
     c => ({
       id: 'loss_broke',
       tone: 'serious',
-      text: `איפה המשחק נשבר לדעתך?`,
+      text: `איפה המשחק נגמר עבורכם לדעתך?`,
       answers: [
-        { label: 'לקחתי אחריות, זו טעות שלי', effect: { morale: +3, prestige: -1 }, reply: 'הגנת על השחקנים. הם יזכרו את זה.' },
-        { label: 'החמצנו את המצבים, זה הכל', effect: { morale: +1 }, reply: 'ניתוח יבש. עבר בשקט.' },
+        { label: 'בדקה שהשופט החליט למי הוא שורק, פעם באה שישים חולצה שלהם', effect: { morale: +1, prestige: -4, fans: +1 }, reply: 'החדר אהב שמישהו אמר את זה. איגוד השופטים רוצה להגיש קנס.' },
+        { label: 'ההרכב שלי, האחריות שלי', effect: { morale: +3, prestige: +2 }, reply: 'הגנת על השחקנים. הם יזכרו את זה.' },
       ],
     }),
     c => ({
@@ -167,8 +167,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'brutal',
       text: `אוהדי ${c.rival} יצאו מפה בטוחים שהיו הטובים יותר. הם צודקים?`,
       answers: [
-        { label: 'היום כן. ואני לא מתבייש להגיד', effect: { prestige: +3, morale: -1 }, reply: 'הגינות. גם היריבה כיבדה את זה.' },
-        { label: 'לא. איבדנו את זה לבד', effect: { morale: +1, prestige: +1 }, reply: 'לא נתת להם קרדיט. החדר שמע שזה בידיים שלו.' },
+        { label: 'אתה רציני? הם גנבו אותנו היום. היינו טובים בפער מהם.', effect: { morale: +1, prestige: +1, fans: +1 }, reply: 'לא נתת להם קרדיט. חדר ההלבשה שמע שנתת להם גב.' },
+        { label: 'היום כן. ואני לא מתבייש להגיד', effect: { morale: -1, prestige: +2, fans: -1 }, reply: 'הגינות. גם היריבה כיבדה את זה. היציע פחות.' },
       ],
     }),
     c => ({
@@ -176,8 +176,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'serious',
       text: `מה לוקחים מהערב הזה לשבוע הבא?`,
       answers: [
-        { label: 'שמשחק לא נגמר בשריקת הפתיחה', effect: { morale: +2, prestige: +1 }, reply: 'מסר לשחקנים דרך המיקרופון. הם קלטו.' },
-        { label: 'כלום. שוכחים ומתקדמים', effect: { morale: +2 }, reply: 'ראש קדימה. יש מי שחשב שזה קל מדי.' },
+        { label: 'את הפיצה אחרי המשחק, מה אפשר לקחת מהערב הזה?', effect: { morale: +2, prestige: -2, fans: +1 }, reply: 'כולם צוחקים, הבעלים חושב שזה לא הזמן לצחוק.' },
+        { label: 'שמשחק לא נגמר בשריקת הפתיחה', effect: { morale: +1, prestige: +1 }, reply: 'מסר לשחקנים דרך המיקרופון. הם קלטו.' },
       ],
     }),
   ],
@@ -185,12 +185,10 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
     c => ({
       id: 'thrash_shame',
       tone: 'brutal',
-      text: `ספגתם ביזיון. איך בכלל מסבירים משחק כזה לאוהדים שנסעו עד לכאן?`,
+      text: `ספגתם תבוסה היום. איך בכלל מסבירים משחק כזה לאוהדים שנסעו עד לכאן?`,
       answers: [
-        // the fans did not play, so there is nothing for them to carry. A
-        // manager taking the blame is taking it off his players.
-        { label: 'הביזיון עליי, לא על השחקנים', effect: { prestige: +3, morale: +2 }, reply: 'לקחת את הכדור. מהלך של מנהיג.' },
-        { label: 'יום כזה לא יחזור, אני מבטיח', effect: { morale: +2, prestige: -2 }, reply: 'הבטחה גדולה. עכשיו תצטרך לעמוד בה.' },
+        { label: 'יום כזה לא יחזור, אני מבטיח להם. גם אם זה אומר שאנחנו מתאמנים פעמיים ביום', effect: { morale: +2, prestige: -2, fans: +2 }, reply: 'הבטחה גדולה. עכשיו תצטרך לעמוד בה.' },
+        { label: 'הביזיון עליי, לא על השחקנים', effect: { morale: +3, prestige: -1 }, reply: 'לקחת אחריות על הביזיון. מהלך של מנהיג אבל פחות מקצועי.' },
       ],
     }),
     c => ({
@@ -198,8 +196,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'funny',
       text: `בתוצאה כזאת, בא לך בכלל לענות לי או שאתה מעדיף ללכת הביתה?`,
       answers: [
-        { label: 'אני פה, תשאל מה שבא לך', effect: { prestige: +2 }, reply: 'לא ברחת. מכובד.' },
-        { label: 'בוא נגמור עם זה מהר', effect: { morale: -1 }, reply: 'קצר וקצת עצבני. מובן.' },
+        { label: 'אחרי המשחק כזה אני לא רוצה לדבר עם אשתי. אז איתך? שחרר אותי', effect: { morale: -2, prestige: -3 }, reply: 'קצר ועצבני. האולם לא ידע אם לצחוק.' },
+        { label: 'אני פה כמו שאתה רואה, תשאל מה שבא לך', effect: { prestige: +1, fans: +1 }, reply: 'לא ברחת למרות ההפסד הקשה. מכובד.' },
       ],
     }),
     c => ({
@@ -207,8 +205,8 @@ const BY_RESULT: Record<PressContext['result'], QGen[]> = {
       tone: 'serious',
       text: `מה נאמר בחדר ההלבשה אחרי השריקה?`,
       answers: [
-        { label: 'כלום. שתיקה. לפעמים זה הכי חזק', effect: { prestige: +2, morale: +1 }, reply: 'תמונה שנשארת. הכתב לא שאל עוד.' },
-        { label: 'הכל. ואני לא אחזור על זה כאן', effect: { morale: -2, prestige: +3 }, reply: 'ברור שהייתה צעקה. היציע דווקא רצה לשמוע אותה.' },
+        { label: 'הכל כולל כמה דברים שעפו על השחקנים, בושה.', effect: { morale: -3, prestige: +2, fans: +3 }, reply: 'ברור לכולם שאתה עצבני כי זה חשוב לך. היציע אוהב את האכזבה שלך.' },
+        { label: 'כלום. שתיקה. לפעמים זה הכי חזק', effect: { morale: +1 }, reply: 'תשובה רגועה מדי לסיטואציה. הכתב לא שאל עוד.' },
       ],
     }),
   ],
@@ -221,17 +219,17 @@ const DERBY: QGen[] = [
     tone: 'serious',
     text: `דרבי מול ${c.rival} זה לא עוד משחק. הרגשת את הלחץ המיוחד היום?`,
     answers: [
-      { label: 'בשביל זה נכנסתי לעבודה הזאת', effect: { prestige: +4, morale: +3 }, reply: 'היציע ישתה את המילים האלה.' },
-      { label: 'לחץ זה חלק מהמשחק, התרגלנו', effect: { morale: +2 }, reply: 'קור רוח. מקצועי.' },
+      { label: 'בשביל משחקים כאלה אני בתחום הזה, אין על האווירה של דרבי', effect: { morale: +3, prestige: +4, fans: +3 }, reply: 'האוהדים אומרים שיצאת גבר ומאמן עם ביצים.' },
+      { label: 'לחץ זה חלק מהמשחק, אני לא ישן טוב לפני משחק כזה', effect: { fans: -3 }, reply: 'תשובה שהאוהדים לא אוהבים לשמוע, פחדן וקר מדי.' },
     ],
   }),
   c => ({
     id: 'derby_week',
     tone: 'funny',
-    text: `שבוע שלם העיר דיברה על המשחק. איך משאירים את הקבוצה בפוקוס למשחק הבא?`,
+    text: `שבוע שלם שכל העיר מדברת על המשחק הזה. איך משאירים את הקבוצה בפוקוס למשחק הבא?`,
     answers: [
-      { label: 'מחר בבוקר הדרבי כבר מאחורינו. זה החוק אצלנו', effect: { prestige: +3, morale: +1 }, reply: 'ראש של מקצוען. הכתב רשם את החוק.' },
-      { label: 'נותנים להם יום ליהנות, ואז עובדים', effect: { morale: +3, prestige: +1 }, reply: 'אנושי. החדר אהב לשמוע את זה.' },
+      { label: 'נותנים להם ליהנות הלילה בעיר, ואז עובדים', effect: { morale: +3, prestige: -1, fans: +2 }, reply: 'אנושי. חדר ההלבשה אהב לשמוע את זה. הבעלים פחות.' },
+      { label: 'מחר בבוקר הדרבי כבר מאחורינו. זה החוק אצלנו', effect: { morale: +1, prestige: +3 }, reply: 'ראש של מקצוען. הבעלים אהב את זה.' },
     ],
   }),
 ];
@@ -241,8 +239,8 @@ const RELEGATION: QGen = c => ({
   tone: 'brutal',
   text: `אתם מקום ${c.tablePos} מתוך ${c.totalTeams}, ממש בתחתית. אתה עדיין מאמין שאפשר להציל את העונה?`,
   answers: [
-    { label: 'העונה רק מתחילה מבחינתי', effect: { prestige: +3, morale: +2 }, reply: 'ביטחון מול המצוקה. חלק ישתכנעו.' },
-    { label: 'נילחם על כל נקודה, אין ויתור', effect: { morale: +3 }, reply: 'קריאת קרב. השחקנים הזדקפו.' },
+    { label: 'אם הייתי יודע כמה נקודות יש הייתי עונה ברצינות. נמשיך לשחק כדורגל', effect: { morale: +1, prestige: -3, fans: -1 }, reply: 'חוסר מקצועיות אבל כנה, האוהדים סופרים את הנקודות שיש בקופה ושולחים לך.' },
+    { label: 'נילחם על כל נקודה, אין ויתור', effect: { morale: +3, prestige: +2, fans: +2 }, reply: 'קריאת קרב. השחקנים הזדקפו, היציע גם.' },
   ],
 });
 
@@ -257,8 +255,8 @@ const LOCAL: QGen[] = [
     tone: 'serious',
     text: `כתב מקומון ${c.city} כאן. כל העיר שואלת אותי מתי סוף סוף חוזרים למקום שמגיע לנו. מה אני אגיד להם?`,
     answers: [
-      { label: `${c.city} תהיה גאה בקבוצה הזאת`, effect: { prestige: +3, morale: +3 }, reply: 'הבטחה ישירה לתושבים. הרחוב אהב.' },
-      { label: 'תגיד להם לבוא למגרש ולראות', effect: { morale: +2 }, reply: 'קריאה ליציע. פשוט ונכון.' },
+      { label: 'תגיד להם שרק ברגע שיגיע לעיר מאמן תותח זה יקרה. הוא הגיע, אני כאן!', effect: { morale: +1, prestige: +5, fans: +3 }, reply: 'שורה לכותרת בעיתון המקומון מחר. עכשיו היא תלויה על הצוואר שלך.' },
+      { label: 'תגיד להם לבוא למגרש ולראות, הם הדחיפה שלנו להצלחה', effect: { morale: +1, prestige: -1, fans: +5 }, reply: 'קריאה ליציע. פשוט ונכון.' },
     ],
   }),
   c => ({
@@ -266,8 +264,8 @@ const LOCAL: QGen[] = [
     tone: 'funny',
     text: `ב${c.city} כבר מדברים עליך בבתי קפה יותר מאשר על ראש העיר. איך זה מרגיש?`,
     answers: [
-      { label: 'שיפסיקו, אני בסך הכל עושה עבודה', effect: { morale: +2 }, reply: 'ענווה מקומית. חיבבו את זה.' },
-      { label: 'ראש עיר מתחלף, מאמן טוב נשאר', effect: { prestige: +3 }, reply: 'שורה לכותרת. חצי חייכו, חצי הרימו גבה.' },
+      { label: 'ראש עיר מתחלף, מאמן טוב כמוני נשאר', effect: { prestige: +3, fans: +1 }, reply: 'שורה לכותרת. חצי חייכו, חצי הרימו גבה. ראש העיר לא חייך.' },
+      { label: 'שיפסיקו, אני בסך הכל מאמן כדורגל', effect: { morale: +1 }, reply: 'צניעות זה חשוב. חיבבו את זה.' },
     ],
   }),
   c => ({
@@ -275,8 +273,8 @@ const LOCAL: QGen[] = [
     tone: 'serious',
     text: `הרבה ילדים ב${c.city} התחילו ללבוש את הצבעים בזכות מה שאתה עושה. אתה מרגיש את האחריות הזאת?`,
     answers: [
-      { label: 'זו הסיבה שאני פה', effect: { prestige: +2, morale: +3 }, reply: 'תשובה מהלב. המקומון יכתיר אותה.' },
-      { label: 'קודם תוצאות, אחר כך רגש', effect: { prestige: +2 }, reply: 'ענייני. חלק ציפו ליותר חום.' },
+      { label: 'הילדים בעיר צריכים ללבוש את החולצות עם השם שלי, הכל בזכותי', effect: { prestige: +3, fans: -2 }, reply: 'שחצן ויהיר, ההורים יחשבו אם לקנות עוד חולצות.' },
+      { label: 'זו הסיבה שאני פה, דור ההמשך חשוב', effect: { morale: +3, prestige: +2, fans: +3 }, reply: 'תשובה מהלב. המקומון מעריך אותך.' },
     ],
   }),
 ];
@@ -286,7 +284,7 @@ const TOP: QGen = c => ({
   tone: 'serious',
   text: `אתם בפסגת הטבלה. המילה אליפות כבר לא מוגזמת. אתה מוכן להגיד אותה בקול?`,
   answers: [
-    { label: 'אנחנו הולכים על האליפות', effect: { prestige: +5, morale: +2 }, reply: 'הכרזה נועזת. עכשיו כולם רודפים אותך.' },
+    { label: 'תגיד אתה רציני? פחות מ-10 הפרש זה בושה מבחינתי', effect: { morale: +2, prestige: +5, fans: +3 }, reply: 'הכרזה נועזת. עכשיו כולם יחכו לך בפינה בסוף העונה.' },
     { label: 'מחזור מחזור, בלי להתרברב', effect: { morale: +3, prestige: +1 }, reply: 'ראש שקט. השחקנים אוהבים את היציבות.' },
   ],
 });
@@ -330,6 +328,10 @@ const BARE: PressContext = {
   result: 'win', isDerby: false, lowMorale: false, highPrestige: false,
   tablePos: 5, totalTeams: 10, star: '', rival: '', city: '',
 };
+/** Every wider question there is, filled with the given context, for the checks. */
+export function everyWideQuestion(c: PressContext = BARE): PressQuestion[] {
+  return [...Object.values(BY_RESULT).flat(), ...DERBY, RELEGATION, ...LOCAL, TOP].map(g => g(c));
+}
 export const WIDE_POOLS: Record<PressContext['result'] | 'local' | 'derby', string[]> = {
   big_win: BY_RESULT.big_win.map(g => g(BARE).id),
   win: BY_RESULT.win.map(g => g(BARE).id),
