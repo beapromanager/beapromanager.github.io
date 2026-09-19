@@ -119,12 +119,17 @@ const words = 'המשחק נתקע אחרי הפנדל ולא זז';   // 22 let
   // the sheet is reachable, and it keeps the rule to itself
   const sheet = readFileSync('src/ui/components/ReportSheet.tsx', 'utf8');
   const app = readFileSync('src/ui/App.tsx', 'utf8');
-  const exit = readFileSync('src/ui/components/ExitSheet.tsx', 'utf8');
+  const bar = readFileSync('src/ui/components/bits.tsx', 'utf8');
   checked += 4;
   if (!/<ReportSheet/.test(app)) fails.push('the app never mounts the report sheet');
-  if (!/onReport/.test(exit)) fails.push('the exit question has no way to report');
+  if (!/meters-report/.test(bar) || !/setReportHandler/.test(app)) fails.push('the bar on every screen has no way to report');
   if (/REPORT_MIN_CHARS|REPORTS_PER_SEASON|reportEarnsGem/.test(sheet)) fails.push('the sheet reads the thank you rule, so it can show it');
   if (!/clipboard\.writeText/.test(sheet) || !/REPORT_CHAT_URL/.test(sheet)) fails.push('the sheet does not copy the message and open the chat');
+  // the message is shown before it goes, the copy is announced, and the way back is a button
+  checked += 3;
+  if (!/{message}/.test(sheet)) fails.push('the sheet sends without showing what it sends');
+  if (!/ההודעה הועתקה/.test(sheet)) fails.push('the sheet never says the message was copied');
+  if (!/חזרה למשחק/.test(sheet)) fails.push('the sheet has no way back to the game');
   console.log('  the phone line reads right, the chat link is a conversation, and the rule stays off screen');
 }
 

@@ -9,7 +9,7 @@ import { Icon } from './Icon.tsx';
  * ever actually lost, and this says so: the question is only whether he meant
  * to leave, not whether he is about to lose a season.
  */
-export function ExitSheet({ onStay, onLeave, onReport }: { onStay: () => void; onLeave: () => void; onReport: () => void }) {
+export function ExitSheet({ onStay, onLeave }: { onStay: () => void; onLeave: () => void }) {
   return (
     <Portal>
       <div className="moment-scrim" onClick={onStay}>
@@ -23,9 +23,6 @@ export function ExitSheet({ onStay, onLeave, onReport }: { onStay: () => void; o
           </div>
           <button className="btn" style={{ marginTop: 16 }} onClick={onStay}>נשארים</button>
           <button className="btn dark btn-sm" style={{ marginTop: 9 }} onClick={onLeave}>יציאה</button>
-          {/* the exit question is where a stuck manager ends up, so the way
-              to tell us about it lives here too */}
-          <button className="btn dark btn-sm" style={{ marginTop: 9 }} onClick={onReport}>דווח על תקלה</button>
         </div>
       </div>
     </Portal>

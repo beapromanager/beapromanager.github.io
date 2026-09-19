@@ -21,6 +21,10 @@ export function setInviteHandler(fn: (() => void) | null): void { inviteHandler 
 let installHandler: (() => void) | null = null;
 export function setInstallHandler(fn: (() => void) | null): void { installHandler = fn; }
 
+/** And for reporting a fault, which sits under the share button on every screen. */
+let reportHandler: (() => void) | null = null;
+export function setReportHandler(fn: (() => void) | null): void { reportHandler = fn; }
+
 export function Meters({ money, morale, prestige, fans, gems }: {
   money: number; morale: number; prestige: number; fans: number;
   /** premium currency, shown as a compact pill when provided */
@@ -64,10 +68,18 @@ export function Meters({ money, morale, prestige, fans, gems }: {
       {/* the same condition as the gems: a career is running. Keying it off the
           handler instead would not work, because a module variable changing
           does not tell React to draw the bar again. */}
+      {/* share on top, report underneath: one slot in the bar, two buttons,
+          because a fault has to be reportable from the screen it happened on
+          and the bar has no room for another column */}
       {gems !== undefined && (
-        <button className="meters-share" onClick={() => inviteHandler?.()} aria-label="תביא חבר, קבל יהלומים" title="תביא חבר">
-          <Icon name="crowd" size={17} />
-        </button>
+        <div className="meters-side">
+          <button className="meters-share" onClick={() => inviteHandler?.()} aria-label="תביא חבר, קבל יהלומים" title="תביא חבר">
+            <Icon name="crowd" size={17} />
+          </button>
+          <button className="meters-report" onClick={() => reportHandler?.()} aria-label="דווח על תקלה" title="דווח על תקלה">
+            <Icon name="alert" size={15} />
+          </button>
+        </div>
       )}
     </div>
   );

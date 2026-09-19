@@ -36,7 +36,7 @@ import { StadiumScreen } from './screens/Stadium.tsx';
 import { PacksScreen } from './screens/Packs.tsx';
 import { CoachScreen } from './screens/Coach.tsx';
 import { InviteScreen } from './screens/Invite.tsx';
-import { setInviteHandler, setInstallHandler } from './components/bits.tsx';
+import { setInviteHandler, setInstallHandler, setReportHandler } from './components/bits.tsx';
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
@@ -83,12 +83,13 @@ export function App() {
   // one handler for the share button that sits in the meters bar on every
   // screen. The functional update keeps it from closing over a stale state
   useEffect(() => {
-    if (!booted) { setInviteHandler(null); setInstallHandler(null); return; }
+    if (!booted) { setInviteHandler(null); setInstallHandler(null); setReportHandler(null); return; }
     setInviteHandler(() => setGs(prev => G.openInvite(prev)));
     // the install offer is a sheet rather than a phase, so it can be opened
     // from the middle of anything without losing where the manager was
     setInstallHandler(() => setInstallOpen(true));
-    return () => { setInviteHandler(null); setInstallHandler(null); };
+    setReportHandler(() => setReportOpen(true));
+    return () => { setInviteHandler(null); setInstallHandler(null); setReportHandler(null); };
   }, [booted]);
 
   // an invite link is read once on load; then the address bar is tidied so a
@@ -310,7 +311,7 @@ export function App() {
       {gs.phase === 'press' && <PressScreen key={gs.press?.q.text} gs={gs} onPick={i => setGs(g => G.pickPressAnswer(g, i))} onNext={() => setGs(g => G.continuePress(g))} />}
       {gs.phase === 'chat' && <ChatScreen gs={gs} onDone={() => setGs(G.closeChat(gs))} />}
       {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
-      {exitOpen && <ExitSheet onStay={() => setExitOpen(false)} onLeave={() => { setExitOpen(false); leaveGame(); }} onReport={() => { setExitOpen(false); setReportOpen(true); }} />}
+      {exitOpen && <ExitSheet onStay={() => setExitOpen(false)} onLeave={() => { setExitOpen(false); leaveGame(); }} />}
       {reportOpen && <ReportSheet gs={gs} onClose={() => setReportOpen(false)} onFiled={next => setGs(next)} />}
       {ad && (
         <AdPlayer key={ad.key} ad={ad.ad} gems={gs.gems} left={G.adsLeft(gs)} backRef={adBack}

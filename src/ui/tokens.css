@@ -998,13 +998,22 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
 .psheet-attr-v{width:22px; text-align:end; font-weight:900; flex:none;}
 
 /* bring a friend, always reachable from the bar that is always there */
+.meters-side{flex:none; display:flex; flex-direction:column; gap:4px; justify-content:center;}
 .meters-share{
-  flex:none; width:34px; height:34px; border-radius:11px;
+  flex:none; width:34px; height:32px; border-radius:11px;
   display:grid; place-items:center;
   background:rgba(233,185,73,.14); color:var(--gold-hi);
   border:1px solid color-mix(in srgb, var(--gold) 34%, transparent);
 }
 .meters-share:active{transform:scale(.94);}
+/* the fault report, under the share button: quiet, so it is there when needed and not before */
+.meters-report{
+  flex:none; width:34px; height:32px; border-radius:11px;
+  display:grid; place-items:center;
+  background:rgba(255,255,255,.06); color:var(--ink-dim);
+  border:1px solid var(--line-2);
+}
+.meters-report:active{transform:scale(.94);}
 
 /* onto the home screen. Sits beside the share button in the always-on bar */
 .meters-install{
@@ -1392,5 +1401,5 @@ a.btn{text-decoration:none;}
   .meter .top{gap:0;}
   .meter .top .meter-ic{display:none;}
   .gem-pill{min-width:44px; padding:8px 8px 9px;}
-  .meters-share,.meters-install{width:32px; height:32px;}
+  .meters-share,.meters-install,.meters-report{width:32px; height:30px;}
 }
