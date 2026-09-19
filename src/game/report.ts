@@ -71,13 +71,32 @@ export function deviceLine(ua: string, standalone: boolean): string {
 }
 
 /**
+ * The error itself, when the game caught one: its name and message and the
+ * first few frames, with the site's own address stripped so it fits a chat
+ * message. This is the part of a crash report that points at a line of code.
+ */
+export function describeError(err: unknown): string {
+  // a thrown string has no frames worth the name; only a real Error carries a stack
+  const e = err instanceof Error ? err : new Error(String(err));
+  const frames = (err instanceof Error ? e.stack ?? '' : '')
+    .split('\n').slice(1, 4)
+    .map(l => l.trim().replace(/https?:\/\/[^/]+\//g, '').replace(/\?[^:)]*/g, ''))
+    .filter(Boolean);
+  return [`${e.name}: ${e.message}`, ...frames].join(' · ').slice(0, 320);
+}
+
+/**
  * The message itself. The manager's words first, because that is what he
  * wrote; then the line that makes it a bug report rather than a complaint.
+ * A game that crashed before a career loaded still has a build and a phone
+ * to report, so the state may be missing; the error, when there is one,
+ * goes in its own line.
  */
-export function composeReport(gs: GameState, kind: ReportKind, text: string, env: ReportEnv): string {
+export function composeReport(gs: GameState | null, kind: ReportKind, text: string, env: ReportEnv, error?: string): string {
   const k = REPORT_KINDS.find(x => x.id === kind)!;
-  const c = club(gs);
-  const where = `${c.short} · ${LEAGUE_NAMES[c.tier] ?? ''} · עונה ${gs.season} · מחזור ${gs.week} · מסך ${gs.phase}`;
+  const where = gs
+    ? `${club(gs).short} · ${LEAGUE_NAMES[club(gs).tier] ?? ''} · עונה ${gs.season} · מחזור ${gs.week} · מסך ${gs.phase}`
+    : 'לפני שקריירה נטענה';
   return [
     `BE A PRO · ${k.label}`,
     '',
@@ -85,6 +104,7 @@ export function composeReport(gs: GameState, kind: ReportKind, text: string, env
     '',
     `[${where}]`,
     `[גרסה ${env.build} · ${env.device}]`,
+    ...(error ? [`[שגיאה: ${error}]`] : []),
   ].join('\n');
 }
 

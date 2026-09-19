@@ -11,7 +11,7 @@
  */
 import * as G from '../src/game/state.ts';
 import {
-  composeReport, realLength, reportEarnsGem, fileReport, deviceLine, reportsThisSeason,
+  composeReport, realLength, reportEarnsGem, fileReport, deviceLine, reportsThisSeason, describeError,
   REPORT_MIN_CHARS, REPORTS_PER_SEASON, GEMS_PER_REPORT, REPORT_CHAT_URL, REPORT_KINDS,
 } from '../src/game/report.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
@@ -126,6 +126,42 @@ const words = 'המשחק נתקע אחרי הפנדל ולא זז';   // 22 let
   if (/REPORT_MIN_CHARS|REPORTS_PER_SEASON|reportEarnsGem/.test(sheet)) fails.push('the sheet reads the thank you rule, so it can show it');
   if (!/clipboard\.writeText/.test(sheet) || !/REPORT_CHAT_URL/.test(sheet)) fails.push('the sheet does not copy the message and open the chat');
   console.log('  the phone line reads right, the chat link is a conversation, and the rule stays off screen');
+}
+
+/* 6. WHEN THE GAME ITSELF BREAKS. */
+{
+  const err = new Error("Cannot read properties of undefined (reading 'starters')");
+  err.stack = ["TypeError: Cannot read properties of undefined (reading 'starters')",
+    '    at lineup (http://localhost:5180/src/game/state.ts?t=1789797000:1466:22)',
+    '    at SquadScreen (http://localhost:5180/src/ui/screens/Squad.tsx:88:19)',
+    '    at renderWithHooks (http://localhost:5180/node_modules/.vite/deps/react-dom_client.js:11548:26)',
+    '    at deeper (http://localhost:5180/x.js:1:1)'].join('\n');
+  const d = describeError(err);
+  checked += 6;
+  if (!d.startsWith('Error: Cannot read properties')) fails.push(`the error line does not lead with the error: "${d}"`);
+  if (!/state\.ts:1466/.test(d)) fails.push('the frame that threw is not in the description');
+  if (/localhost|http:/.test(d)) fails.push('the site address is still in the frames');
+  if (/\?t=/.test(d)) fails.push('a cache-busting query is still in the frames');
+  if (/deeper/.test(d)) fails.push('more than three frames were kept');
+  if (describeError('plain string') !== 'Error: plain string') fails.push('a thrown string does not read as an error');
+  // the crash report carries the error, with or without a career to name
+  const gs = career();
+  const withCareer = composeReport(gs, 'broken', words, env, d);
+  const noCareer = composeReport(null, 'broken', words, env, d);
+  checked += 3;
+  if (!withCareer.includes('[שגיאה: Error: Cannot read')) fails.push('the crash report does not carry the error');
+  if (!noCareer.includes('abc1234') || !noCareer.includes('[שגיאה:')) fails.push('a crash before a career loaded loses the build or the error');
+  if (composeReport(gs, 'broken', words, env).includes('שגיאה')) fails.push('an ordinary report has an error line');
+  // and the net is under the whole game, keeps the save, and offers both doors
+  const main = readFileSync('src/main.tsx', 'utf8');
+  const net = readFileSync('src/ui/components/Crashed.tsx', 'utf8');
+  checked += 5;
+  if (!/<ErrorBoundary>\s*<App \/>/.test(main)) fails.push('the boundary does not wrap the app');
+  if (!/getDerivedStateFromError/.test(net)) fails.push('no React error boundary');
+  if (!/addEventListener\('error'/.test(net) || !/unhandledrejection/.test(net)) fails.push('errors thrown outside render are not caught');
+  if (/clearCareer|removeItem/.test(net)) fails.push('the crash screen touches the save');
+  if (!/<ReportSheet[^>]*crash=/.test(net) || !/location\.reload/.test(net)) fails.push('the crash screen lacks the report or the way back');
+  console.log('  a crash is described in three frames without the address, reported with the error, and the net keeps the save');
 }
 
 console.log(`\n${checked} checks`);

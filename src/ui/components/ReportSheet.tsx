@@ -23,13 +23,15 @@ import type { ReportKind } from '../../game/report.ts';
  * The thank you: a gem, when the report earned one. The rule for earning it
  * is not on screen on purpose. See report.ts.
  */
-export function ReportSheet({ gs, onClose, onFiled }: {
-  gs: GameState;
+export function ReportSheet({ gs, onClose, onFiled, crash }: {
+  gs: GameState | null;
   onClose: () => void;
   /** the state after the thank you landed, if it did */
   onFiled: (next: GameState) => void;
+  /** the game caught an error: the kind is known and the error rides along */
+  crash?: string;
 }) {
-  const [kind, setKind] = useState<ReportKind | null>(null);
+  const [kind, setKind] = useState<ReportKind | null>(crash ? 'broken' : null);
   const [text, setText] = useState('');
   const [sent, setSent] = useState<{ gem: boolean; copied: boolean } | null>(null);
   const [shot, setShot] = useState<File | null>(null);
@@ -44,7 +46,7 @@ export function ReportSheet({ gs, onClose, onFiled }: {
 
   async function send() {
     if (!kind) return;
-    const message = composeReport(gs, kind, text, env);
+    const message = composeReport(gs, kind, text, env, crash);
     let copied = false;
     try { await navigator.clipboard.writeText(message); copied = true; } catch { /* no clipboard: he can still type it */ }
     // a screenshot chosen on a phone that can share it goes with the words
@@ -53,9 +55,10 @@ export function ReportSheet({ gs, onClose, onFiled }: {
       try { await navigator.share({ files: [shot], text: message }); shared = true; } catch { /* he backed out of the share sheet */ }
     }
     if (!shared) window.open(REPORT_CHAT_URL, '_blank', 'noopener');
-    const filed = fileReport(gs, text);
+    // no career, no thank you to put anywhere; the report still goes
+    const filed = gs ? fileReport(gs, text) : { gs: null, gem: false };
     setSent({ gem: filed.gem, copied });
-    onFiled(filed.gs);
+    if (filed.gs) onFiled(filed.gs);
   }
 
   const prompt = REPORT_KINDS.find(k => k.id === kind)?.prompt;
@@ -72,7 +75,7 @@ export function ReportSheet({ gs, onClose, onFiled }: {
                 <Icon name="alert" size={26} color="var(--gold)" />
                 <div className="h2" style={{ fontSize: 21 }}>דווח על תקלה</div>
                 <p className="hint" style={{ margin: 0, textAlign: 'center', maxWidth: 300 }}>
-                  מה קרה?
+                  {crash ? 'המשחק צילם את השגיאה בשבילך. ספר לנו מה עשית רגע לפני.' : 'מה קרה?'}
                 </p>
               </div>
 
