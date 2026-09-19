@@ -90,6 +90,10 @@ export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
  */
 export interface Meters { money: number; morale: number; prestige: number; fans: number; }
 
+/** Faults reported and thanked, per season. Lives here so report.ts can lean on the state without a cycle. */
+export interface ReportLog { season: number; count: number; }
+export const NO_REPORTS: ReportLog = { season: 0, count: 0 };
+
 /**
  * The club that sacked you, pinned to the division it was in.
  *
@@ -368,6 +372,8 @@ export interface GameState {
   gems: number;
   /** ads watched for gems this season, capped at ADS_PER_SEASON */
   adsWatched: number;
+  /** faults reported this season, for the thank you's cap. See report.ts */
+  reports: ReportLog;
   /** friends brought in, and who brought me */
   invite: InviteState;
   /** the screen to return to when the invite sheet closes */
@@ -473,6 +479,7 @@ export function newGame(seed = 12345): GameState {
     preResolved: [],
     gems: GEMS_AT_START,
     adsWatched: 0,
+    reports: NO_REPORTS,
     invite: emptyInvite(),
     inviteFrom: null,
     summerMark: null,

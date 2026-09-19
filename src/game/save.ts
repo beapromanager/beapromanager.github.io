@@ -8,6 +8,7 @@
  */
 
 import type { GameState, PlayerSeason } from './state.ts';
+import { NO_REPORTS } from './state.ts';
 import { STADIUM_START, FANS_START } from './career.ts';
 import { GEMS_AT_START } from './packs.ts';
 import { primePlayerIds } from '../data/squadGen.ts';
@@ -155,6 +156,7 @@ export function loadCareer(): GameState | null {
     // a save from before packs existed starts with the opening grant
     gems: s.gems ?? GEMS_AT_START,
     adsWatched: s.adsWatched ?? 0,
+    reports: s.reports ?? NO_REPORTS,
     pull: s.pull ?? null,
     // a career from before the coach had a CV starts as an amateur on the
     // archetype it was saved with, which no longer exists, so newCoach falls

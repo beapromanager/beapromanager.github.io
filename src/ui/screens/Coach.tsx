@@ -12,7 +12,7 @@ import type { Coach } from '../../game/coach.ts';
  * Your own coaching CV. The badges are a ladder you climb across a career, and
  * this is where you see how far up it you are and what the next rung demands.
  */
-export function CoachScreen({ gs, onBack }: { gs: G.GameState; onBack: () => void }) {
+export function CoachScreen({ gs, onBack, onReport }: { gs: G.GameState; onBack: () => void; onReport: () => void }) {
   const c = gs.coach;
   const m = getManager(c.archetype);
   const held = licenceRank(c.licence);
@@ -124,6 +124,15 @@ export function CoachScreen({ gs, onBack }: { gs: G.GameState; onBack: () => voi
         </div>
 
         <p className="hint">קורסים נלמדים בפרה־סיזן בלבד, בין העונות.</p>
+
+        <div className="tile" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icon name="alert" size={18} color="var(--gold)" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800 }}>משהו לא עובד?</div>
+            <div className="hint" style={{ margin: 0 }}>דווח לנו, זה מגיע ישר אלינו.</div>
+          </div>
+          <button className="btn dark btn-sm" onClick={onReport}>דווח על תקלה</button>
+        </div>
 
         <div className="spacer" />
         <button className="btn dark" onClick={onBack}>חזרה ›</button>

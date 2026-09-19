@@ -52,6 +52,7 @@ const ADDED_SINCE = [
   'sitOut', 'sitOutNext', 'matchMods', 'followUps', 'youthBoost', 'youthLeaveRisk', 'summerExits',   // answers that act
   'tutorialSeen',                   // the first-week explainer
   'seats',                          // the manager's own team sheet
+  'reports',                        // faults reported, for the thank you's cap
 ] as const;
 
 function career(town = LEGEND_TOWN, seed = 4242): G.GameState {
