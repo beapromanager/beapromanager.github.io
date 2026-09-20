@@ -421,6 +421,53 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   console.log('  the phone: legs for the squad and a word from the terrace when it pays, and one for standing up to the owner');
 }
 
+/* THE MEETING HE PROMISED: "I'll talk to the team" books a team meeting for
+   the next week, which opens as that week's talk, once, and never on its own.
+   What he says there lands as morale and as legs, in his own three lines. */
+{
+  checked++;
+  if (G.rollNamedDilemma({ ...career(71), week: 5 }, 'team_meeting', 1)) fails.push('a team meeting was offered without anyone promising one');
+  // the owner's warning needs the bottom of the table: lose until we are there
+  let gs = { ...career(71), week: 1 };
+  for (let i = 0; i < 6 && !G.rollNamedDilemma({ ...gs, week: Math.max(gs.week, 4) }, 'owner_relegation_warning', 1); i++) {
+    const home = G.playerFixture(gs)!.homeId === gs.clubId;
+    gs = playRound(gs, 300 + i, home ? [0, 3] : [3, 0]);
+    while (gs.notices.length) gs = G.dismissNotice(gs);
+    gs = { ...gs, phase: 'hub' };
+  }
+  gs = { ...gs, week: Math.max(gs.week, 4) };
+  checked++;
+  if (!G.rollNamedDilemma(gs, 'owner_relegation_warning', 1)) fails.push('could not reach the owner\'s warning by losing');
+  else {
+    ({ gs } = answer(gs, 'owner_relegation_warning', 2));
+    checked++;
+    if (gs.queued?.id !== 'team_meeting' || gs.queued.week !== gs.week + 1) fails.push('promising to talk to the team booked nothing for next week');
+    // the week turns, and the meeting is the talk that opens it
+    const home = G.playerFixture(gs)!.homeId === gs.clubId;
+    let next = playRound(gs, 310, home ? [1, 1] : [1, 1]);
+    while (next.notices.length) next = G.dismissNotice(next);
+    next = G.startWeek({ ...next, phase: 'hub' });
+    checked += 2;
+    if (next.phase !== 'dilemma' || next.dilemma?.id !== 'team_meeting') fails.push(`the week after the promise opened with ${next.dilemma?.id ?? next.phase}, not the team meeting`);
+    if (next.queued) fails.push('the meeting is still booked after it opened');
+    if (next.dilemma?.id === 'team_meeting') {
+      const all = [...G.mySquad(next).starters, ...G.mySquad(next).bench];
+      const fire = G.chooseDilemma(next, 0), blame = G.chooseDilemma(next, 2);
+      checked += 3;
+      if (!all.every(p => fire.matchMods.fitness?.[p.id] === 10)) fails.push('"from here it is on you" did not give the squad legs');
+      if (!all.every(p => blame.matchMods.fitness?.[p.id] === -12)) fails.push('blaming the squad did not take their legs');
+      if (fire.meters.morale <= blame.meters.morale) fails.push('the room did not read the difference between the two speeches');
+      // and it does not come round again by itself
+      let again = G.chooseDilemma(next, 1);
+      again = playRound({ ...again, phase: 'hub', dilemma: null }, 320);
+      while (again.notices.length) again = G.dismissNotice(again);
+      checked++;
+      if (G.startWeek({ ...again, phase: 'hub' }).dilemma?.id === 'team_meeting') fails.push('the meeting came round a second time on its own');
+    }
+    console.log('  the meeting: booked by the promise, opens the next week once, and the speech lands as legs');
+  }
+}
+
 /* THE TERRACE: an answer the crowd heard about moves the fans meter, by the card's figure */
 {
   const gs = career(23);

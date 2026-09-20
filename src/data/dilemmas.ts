@@ -25,7 +25,8 @@ import type { ChatTrigger } from './chats.ts';
 
 export type Speaker =
   | 'owner' | 'veteran' | 'reporter' | 'ultras'
-  | 'player' | 'agent' | 'director' | 'physio' | 'youth' | 'sponsor';
+  | 'player' | 'agent' | 'director' | 'physio' | 'youth' | 'sponsor'
+  | 'squad';   // the whole dressing room, when he calls a meeting
 
 export interface DilemmaEffect {
   money?: number;
@@ -46,6 +47,7 @@ export type Act =
   | { kind: 'fitness'; who: Who; delta: number }                   // condition for this match only
   | { kind: 'fitnessAll'; delta: number }                          // the whole squad's condition, this match only
   | { kind: 'chatAfter'; trigger: ChatTrigger; onlyIfWon?: boolean } // the phone buzzes about this after the match
+  | { kind: 'queue'; id: string; weeks: number }                   // another talk, this one, opens a week or so on
   | { kind: 'injury'; who: Who; risk: number }                     // may sit the round after, "פצוע"
   | { kind: 'mud' }                                                // both sides slower and sloppier this match
   | { kind: 'formation'; id: FormationId }                         // the shape for this round
@@ -114,6 +116,8 @@ export interface Ctx {
   teams: number;
   week: number;
   isDerby: boolean;
+  /** a talk booked by an earlier answer, due now: its template id, or empty */
+  queued: string;
   /** the brand on the shirt, empty before one is signed */
   sponsor: string;
   sponsorWants: string[];
@@ -130,6 +134,7 @@ export const SPEAKER_LABEL: Record<Speaker, string> = {
   physio: 'הפיזיותרפיסט',
   youth: 'מאמן הנוער',
   sponsor: 'הספונסר',
+  squad: 'חדר ההלבשה',
 };
 
 function fill(t: string, ctx: Ctx, picks: Record<string, string>): string {
@@ -295,7 +300,30 @@ export const TEMPLATES: DilemmaTemplate[] = [
       { label: 'תפטר אותי אם אתה לא מאמין בי', effect: { morale: +9, prestige: -4 },
         outcome: 'הימרת הכל. הוא יכבד את האומץ, והשחקנים ישמעו שהגנת על עצמך.' },
       { label: 'אני אקח אחריות מלאה על הקבוצה. אכנס שיחה עם הקבוצה', effect: { morale: -3, prestige: +5 },
-        outcome: 'לקחת את זה על עצמך. הבעלים יירגע, השחקנים יבינו שיש קו.' },
+        outcome: 'לקחת את זה על עצמך. הבעלים יירגע, השחקנים יבינו שיש קו.',
+        // he said he would talk to them: next week, before the match, he does
+        act: [{ kind: 'queue', id: 'team_meeting', weeks: 1 }] },
+    ],
+  },
+  {
+    // the meeting he promised the owner. Only ever reached through that
+    // answer, so the room is the one that was told the manager is on the line.
+    // What he says is the choice; what the room says back is the outcome, and
+    // it goes onto the grass as legs or the lack of them, not as a scoreline
+    id: 'team_meeting',
+    speaker: 'squad',
+    when: c => c.queued === 'team_meeting',
+    slots: {},
+    text: 'אסיפת קבוצה לפני המשחק מול {rival}. כולם יושבים ומחכים שתדבר.',
+    options: () => [
+      { label: 'תקשיבו, לקחתי עליי את הכל עד עכשיו. מפה זה עליכם', effect: { morale: +12, prestige: +2 },
+        outcome: 'הקבוצה: "אנחנו איתך באש ובמים." הם יעלו לתת הכל.',
+        act: [{ kind: 'fitnessAll', delta: +10 }] },
+      { label: 'נתנו לי 3 משחקים לפני פיטורים. צריך אתכם איתי', effect: { morale: +4, prestige: 0 },
+        outcome: 'הקבוצה: "ננסה לעשות הכל." לא בטוח שזה מספיק.' },
+      { label: 'תקשיבו טוב, הרסתם לי את הקריירה. בגללכם רוצים לפטר אותי. תעלו למגרש ותנצחו', effect: { morale: -15, prestige: -3 },
+        outcome: 'הקבוצה: "בגללנו? תדע לאמן וננצח." הם יעלו בלי רגליים.',
+        act: [{ kind: 'fitnessAll', delta: -12 }] },
     ],
   },
   {

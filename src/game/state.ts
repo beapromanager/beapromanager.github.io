@@ -262,6 +262,8 @@ export interface GameState {
   marketFocus: MarketLine | null;
   dilemma: RolledDilemma | null;
   dilemmaHistory: string[];
+  /** a talk booked by an answer, for a coming week */
+  queued: { id: string; week: number } | null;
   /** messages that can wait, read from the hub whenever you like */
   inbox: RolledDilemma[];
   /** the money in and out of the round just played, shown on the result screen */
@@ -441,6 +443,7 @@ export function newGame(seed = 12345): GameState {
     marketFocus: null,
     dilemma: null,
     dilemmaHistory: [],
+    queued: null,
     inbox: [],
     lastLedger: null,
     chat: null,
@@ -2576,6 +2579,7 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
     pos, teams: gs.league.clubs.length,
     week: gs.week,
     isDerby: isDerby(gs.clubId, rivalId),
+    queued: gs.queued && gs.queued.week <= gs.week ? gs.queued.id : '',
     sponsor: sponsorName(gs.sponsor),
     sponsorWants: gs.sponsor ? brandById(gs.sponsor.brand).wants : [],
   };
@@ -2603,9 +2607,13 @@ export function startWeek(gs: GameState): GameState {
     return rollDilemma(source[Math.floor(rng() * source.length)], ctx, rng);
   };
 
-  // the blocking one is about the match you are walking into
-  const urgent = pick('now')
-    ?? rollDilemma(TEMPLATES[Math.floor(rng() * TEMPLATES.length)], ctx, rng);
+  // the blocking one is about the match you are walking into. A talk booked
+  // by an earlier answer comes first, and only that once
+  const booked = ctx.queued ? TEMPLATES.find(t => t.id === ctx.queued) : undefined;
+  const urgent = booked
+    ? rollDilemma(booked, ctx, rng)
+    : (pick('now') ?? rollDilemma(TEMPLATES[Math.floor(rng() * TEMPLATES.length)], ctx, rng));
+  if (booked) gs = { ...gs, queued: null };
 
   // and something that can wait lands in the inbox, capped so it never piles up
   const inbox = [...gs.inbox];
@@ -2738,6 +2746,7 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
         break;
       }
       case 'chatAfter': gs = { ...gs, matchMods: { ...gs.matchMods, chatAfter: { trigger: a.trigger, onlyIfWon: a.onlyIfWon } } }; break;
+      case 'queue': gs = { ...gs, queued: { id: a.id, week: gs.week + a.weeks } }; break;
       case 'promiseStart': {
         // nothing moves on the sheet: the squad screen shows the promise, and
         // the round settles whether it was kept
