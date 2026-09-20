@@ -30,6 +30,8 @@ export interface DilemmaEffect {
   money?: number;
   morale?: number;
   prestige?: number;
+  /** the terrace: what the crowd makes of the answer */
+  fans?: number;
 }
 
 /** Who an act is about, resolved against the live squad when it is applied. */
@@ -146,14 +148,14 @@ export const TEMPLATES: DilemmaTemplate[] = [
       job: ['משמרות לילה במפעל', 'עבודה מהבוקר', 'תואר שאני חייב לסיים', 'עסק קטן שאני מזניח', 'אישה שכבר אומרת לי די', 'שתי משרות ואין לי כוח'],
       tone: ['אני לא בא בטענות', 'אני מכבד אותך', 'לא באתי לריב', 'תסלח לי שאני ישיר'],
     },
-    text: 'מאמן, {tone}, אבל אני צריך תשובה אמיתית. {week} מחזורים ואני כמעט לא רואה דקה. יש לי {job}, ואני קם בחמש בבוקר בשביל האימונים. אם אני לא משחק, אני פורש לעבוד בשווארמה בשכונה. תגיד לי מה המצב.',
+    text: 'מאמן, {tone}, אני צריך תשובה אמיתית. {week} מחזורים ואני כמעט לא רואה דקה. יש לי {job}, ואני קם בחמש בבוקר בשביל האימונים. אם אני לא משחק, אני פורש לעבוד בשווארמה בשכונה. תגיד לי מה המצב.',
     options: () => [
-      { label: 'אתה בהרכב במשחק הבא, מילה שלי', effect: { morale: +8, prestige: -3 },
-        outcome: 'הוא יצא מהחדר בן אדם אחר. עכשיו הוא בהרכב, וכל הסגל מסתכל אם תעמוד במילה.',
+      { label: 'רק את האמת, תתכונן אתה בהרכב במשחק הבא, מילה שלי', effect: { morale: +8, prestige: -3 },
+        outcome: 'הוא יצא מהחדר בן אדם אחר. הוא מתכונן להיות בהרכב, וכל הסגל מסתכל אם תעמוד במילה.',
         act: [{ kind: 'play', who: 'subject' }] },
-      { label: 'תילחם על המקום שלך', effect: { morale: -6, prestige: +5 },
+      { label: 'תילחם על המקום שלך, אין מקום לאף אחד בהרכב', effect: { morale: -6, prestige: +5 },
         outcome: 'הוא הנהן ויצא בשקט. נראה אותו באימון מחר.' },
-      { label: 'אני משחרר אותך לשווארמה', effect: { money: +18000, morale: -4, prestige: -2 }, release: true,
+      { label: 'עזוב עדיף לך לפרוש, אני משחרר אותך לשווארמה', effect: { money: +5000, morale: -4, prestige: -2 }, release: true,
         outcome: 'נפרדתם בכבוד. הסגל התקצר בשחקן.' },
     ],
   },
@@ -167,12 +169,12 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'מאמן, {reason}. אני לא רוצה לעשות רעש בתקשורת, באתי אליך קודם. תשחרר אותי?',
     options: (c) => [
-      { label: 'לך, בהצלחה', effect: { money: +Math.round(c.money * 0.18) + 60000, morale: -8, prestige: -2 }, release: true,
+      { label: 'לך, בהצלחה. אל תשכח אותנו שתגיע לאירופה', effect: { money: +Math.round(c.money * 0.18) + 60000, morale: -8, prestige: -2 }, release: true,
         outcome: 'הכסף נכנס לקופה. בחדר ההלבשה ידעו שמי שרוצה ללכת, הולך.' },
       { label: 'אתה חתום, אתה נשאר', effect: { morale: -3, prestige: +4 },
-        outcome: 'הוא נשאר, חמוץ. נראה אם הוא רץ בשבת.',
+        outcome: 'הוא נשאר, מבואס. נראה אם הוא ירוץ בשבת.',
         act: [{ kind: 'fitness', who: 'subject', delta: -10 }] },
-      { label: 'תישאר עד סוף העונה ואז נדבר', effect: { morale: +5, prestige: +1 },
+      { label: 'תישאר עד סוף העונה ואז נדבר, אתה חשוב לנו להמשך העונה', effect: { morale: +5, prestige: +1 },
         outcome: 'קנית שקט. הוא ישחק עד הקיץ, ואז הוא עובר לקבוצה בליגה, כמו שסיכמתם.',
         act: [
           { kind: 'summerExit', who: 'subject' },
@@ -188,12 +190,12 @@ export const TEMPLATES: DilemmaTemplate[] = [
     slots: {
       body: ['הברך שלי מתה', 'הגב לא נותן לי לישון', 'אני מתאושש שלושה ימים אחרי משחק'],
     },
-    text: 'מאמן, {body}. אני חושב שזאת העונה האחרונה שלי. אתה רוצה שאני אכריז עכשיו ונעשה מזה משהו יפה, או שנשתוק ונראה איך זה הולך?',
+    text: 'מאמן, {body}. אני חושב שזאת העונה האחרונה שלי. אתה רוצה שאני אכריז עכשיו ונעשה מזה משהו יפה במשחק הבא? או שנעשה מסיבת פרידה בסוף העונה?',
     options: () => [
-      { label: 'תכריז, נעשה לך משחק פרידה', effect: { money: +45000, morale: +9, prestige: +3 },
-        outcome: 'יכריזו השבוע. במשחק הבית הבא היציע יתמלא לכבודו.',
+      { label: 'תכריז, נעשה לך משחק פרידה עכשיו.', effect: { money: +45000, morale: +9, prestige: +3 },
+        outcome: 'הקבוצה העלתה פוסט פרידה השבוע. במשחק הבית הבא היציע יתמלא לכבודו.',
         act: [{ kind: 'gate', mult: 1.3 }] },
-      { label: 'נשתוק, אל תשים על עצמך לחץ', effect: { morale: +4, prestige: 0 },
+      { label: 'נשמור בינינו, אל תשים על עצמך לחץ עכשיו', effect: { morale: +4, prestige: 0 },
         outcome: 'הורדת ממנו את הרעש. הוא ישחק משוחרר.',
         act: [{ kind: 'fitness', who: 'subject', delta: +6 }] },
     ],
@@ -208,11 +210,11 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'מאמן, קיבלתי {duty} בדיוק על המשחק מול {rival}. אני יכול לנסות לדחות, אבל זה יעלה לי. מה אתה אומר?',
     options: (_c, picks) => [
-      { label: 'לך, הקבוצה תסתדר', effect: { morale: +7, prestige: -2 },
-        outcome: 'הוא הודה לך בלב. במשחק הזה הוא לא איתך.',
+      { label: 'לך, הקבוצה תסתדר בלעדייך. גם ככה אתה לא בהרכב', effect: { morale: +7, prestige: -2 },
+        outcome: 'הוא מעריך מאוד את התשובה. במשחק הזה הוא לא איתך.',
         act: [{ kind: 'sit', who: 'subject', label: picks.duty?.startsWith('מילואים') ? 'במילואים' : 'לא זמין' }] },
-      { label: 'תנסה לדחות, אני צריך אותך', effect: { morale: -4, prestige: +3 },
-        outcome: 'הוא יסתדר ויגיע. עייף.',
+      { label: 'תנסה לדחות, אני צריך אותך בסגל', effect: { morale: -4, prestige: +3 },
+        outcome: 'הוא יסתדר ויגיע. עייף למשחק.',
         act: [{ kind: 'fitness', who: 'subject', delta: -15 }] },
     ],
   },
@@ -223,13 +225,13 @@ export const TEMPLATES: DilemmaTemplate[] = [
     slots: {
       issue: ['אני לא מבין את השפה בחדר', 'אף אחד לא מדבר איתי', 'אני גר לבד ולא מכיר אף אחד בעיר'],
     },
-    text: 'מאמן, אני חדש פה ו{issue}. אני משחק רע כי אני לא בראש. אתה יכול לעזור לי?',
+    text: 'מאמן, אני חדש פה ו{issue}. אני משחק רע כי אני לא מרגיש בנוח. אתה יכול לעזור לי?',
     options: () => [
-      { label: 'אני משבץ אותך עם ותיק שיאמץ אותך', effect: { morale: +8, prestige: +1 },
+      { label: 'אני משבץ אותך עם ותיק שיעזור לך, אחרי זה תרגיש בבית. מילה שלי.', effect: { morale: +8, prestige: +1 },
         outcome: 'הוותיק לוקח אותו תחת חסותו. תוך שבועיים תראה שחקן אחר.',
-        act: [{ kind: 'follow', weeks: 2, title: 'החדש כבר מדבר בחדר', body: 'הוותיק עשה את העבודה. החדש יושב עם כולם בארוחת הצהריים, וגם צוחק. זה נראה על הדשא.' }] },
-      { label: 'תתמודד, זאת הרמה', effect: { morale: -6, prestige: +2 },
-        outcome: 'הוא הפסיק לבוא בטענות.' },
+        act: [{ kind: 'follow', weeks: 2, title: 'החדש כבר מקלל בעברית כאילו נולד בישראל', body: 'הוותיק עשה את העבודה. החדש יושב עם כולם בארוחת הצהריים, וגם צוחק. זה נראה טוב גם על הדשא.' }] },
+      { label: 'תתמודד, בשביל לשחק כדורגל לא צריך משהו מיוחד', effect: { morale: -6, prestige: -2 },
+        outcome: 'הוא הפסיק לבוא בטענות. היכולת שלו לא עולה (בסוף העונה מבקש לעזוב )' },
     ],
   },
 
@@ -243,28 +245,28 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: '{why} איך אתה מתכוון לנצח במשחק מול {rival}. {extra}. מה אני אומר להם?',
     options: () => [
-      { label: 'עולים עליהם בטירוף מהדקה הראשונה', effect: { morale: +6, prestige: +3 },
+      { label: 'עולים עליהם בטירוף מהדקה הראשונה, סמוך עליי', effect: { morale: +3, prestige: +3 },
         outcome: 'ההנהלה אהבה את הביטחון. עכשיו הם רוצים לראות את זה על הדשא.',
         act: [{ kind: 'formation', id: '4-3-3' }] },
-      { label: 'סבלני עם מתפרצות', effect: { morale: -2, prestige: +1 },
+      { label: 'סבלני עם מתפרצות, נלך על בטוח הכי טוב', effect: { morale: -1, prestige: +1 },
         outcome: 'רשמו שאתה שקול.',
         act: [{ kind: 'formation', id: '5-4-1' }] },
-      { label: 'זה התפקיד שלי, תכבד אותי', effect: { morale: +5, prestige: -6 },
-        outcome: 'המנכ״ל יעביר את זה הלאה, במילים שלך.' },
+      { label: 'זה התפקיד שלי, תכבד אותי ואל תשאל אותי עוד פעם', effect: { morale: +3, prestige: -3 },
+        outcome: 'המנכ״ל יעביר את זה הלאה, במילים שלך. לא בטוח שיאהבו את זה' },
     ],
   },
   {
     id: 'director_budget',
     speaker: 'director',
     slots: {
-      cut: ['לקצץ בכביסה ובאוטובוסים', 'לוותר על מאמן הכושר', 'לצמצם ימי אימון'],
+      cut: ['לקצץ בכביסה ובאוטובוסים', 'לוותר על מאמן הכושר', 'לצמצם ימי אימון', 'לצמצם בדוד של המים החמים'],
     },
     text: 'המצב בקופה לא מבריק. ביקשו ממני {cut} כדי לאזן. אתה מוכן לחתום על זה?',
     options: (c) => [
-      { label: 'תחתוך, נסתדר', effect: { money: +Math.round(c.money * 0.1) + 55000, morale: -9, prestige: -1 },
-        outcome: 'הקופה תנשום. השחקנים יגיעו לאימון באוטובוס בלי מזגן, וידברו על זה שבוע.' },
-      { label: 'לא נוגעים בתנאים של השחקנים', effect: { money: -35000, morale: +8, prestige: +3 },
-        outcome: 'תעמוד מול ההנהלה בשביל הסגל. הם לא ישכחו את זה.' },
+      { label: 'תחתוך, נסתדר', effect: { money: +Math.round(c.money * 0.1) + 35000, morale: -9, prestige: -1 },
+        outcome: 'הקופה גדלה. השחקנים אומרים שהבעלים קמצן. זה הפך להיות נושא השיחה בליגה.' },
+      { label: 'לא נוגעים בתנאים של השחקנים, תחפשו מאיפה לצמצם', effect: { money: -25000, morale: +8, prestige: +3 },
+        outcome: 'עמדת מול ההנהלה בשביל הסגל. הם לא ישכחו את זה.' },
     ],
   },
   {
@@ -274,13 +276,13 @@ export const TEMPLATES: DilemmaTemplate[] = [
     slots: {
       threat: ['אני מחפש מחליף כבר עכשיו', 'יש לי שני קורות חיים על השולחן', 'אני לא ארד ליגה בגללך'],
     },
-    text: 'תשמע טוב. אנחנו במקום {pos} בטבלה. {threat}. תגיד לי משהו שישכנע אותי לא לפטר אותך היום.',
+    text: 'תשמע טוב. אנחנו במקום {pos} בטבלה. {threat}. תגיד לי משהו שישכנע אותי לא לפטר אותך היום. המצב לא לטובתך.',
     options: () => [
-      { label: 'תן לי חמישה מחזורים ותראה', effect: { morale: +3, prestige: +2 },
-        outcome: 'הוא ייתן לך זמן, ויספור אותו. מעכשיו יש שעון מעל הראש שלך.' },
-      { label: 'תפטר אותי אם אתה לא מאמין', effect: { morale: +9, prestige: -4 },
+      { label: 'תן לי שלושה מחזורים ותראה', effect: { morale: +2, prestige: +2 },
+        outcome: 'הוא ייתן לך זמן אבל אמר שייבדוק אותך בכל אימון. מעכשיו יש שעון מעל הראש שלך.' },
+      { label: 'תפטר אותי אם אתה לא מאמין בי', effect: { morale: +9, prestige: -4 },
         outcome: 'הימרת הכל. הוא יכבד את האומץ, והשחקנים ישמעו שהגנת על עצמך.' },
-      { label: 'אני אקח אחריות מלאה', effect: { morale: -3, prestige: +5 },
+      { label: 'אני אקח אחריות מלאה על הקבוצה. אכנס שיחה עם הקבוצה', effect: { morale: -3, prestige: +5 },
         outcome: 'לקחת את זה על עצמך. הבעלים יירגע, השחקנים יבינו שיש קו.' },
     ],
   },
@@ -293,7 +295,7 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'אנחנו במקום {pos}. אני מתחיל לחלום. אתה רוצה ש{ask}?',
     options: (c, picks) => [
-      { label: 'כן, זאת ההזדמנות שלנו', effect: { money: -Math.round(c.money * 0.25) - 40000, morale: +11, prestige: +5 },
+      { label: 'כן, זה נשמע כמו תוכנית מצוינת. אני איתך', effect: { money: -Math.round(c.money * 0.25) - 40000, morale: +11, prestige: +5 },
         outcome: picks.ask?.includes('חלוץ')
           ? 'ההשקעה נכנסת. חלוץ חדש מגיע השבוע.'
           : picks.ask?.includes('העיר')
@@ -302,7 +304,7 @@ export const TEMPLATES: DilemmaTemplate[] = [
         act: picks.ask?.includes('חלוץ') ? [{ kind: 'sign', profile: 'striker' }]
           : picks.ask?.includes('העיר') ? [{ kind: 'gate', mult: 1.5 }]
           : [] },
-      { label: 'בוא נישאר עם הרגליים על הקרקע', effect: { morale: +2, prestige: +2 },
+      { label: 'בוא נישאר עם הרגליים על הקרקע, השחקנים יתחילו לעשות שטויות אם יישמעו על זה', effect: { morale: +2, prestige: +2 },
         outcome: 'שמרת על שפיות. חלק מהשחקנים קיוו לראות אותך מהמר עליהם.' },
     ],
   },
@@ -315,16 +317,16 @@ export const TEMPLATES: DilemmaTemplate[] = [
     slots: {
       claim: ['הוא מקבל פחות מכולם בסגל', 'יש שתי קבוצות שמחכות לשיחה שלי', 'הוא הביא לכם את הנקודות עד עכשיו'],
     },
-    text: 'שלום מאמן. אני מייצג את {star}. {claim}. אנחנו רוצים לפתוח את החוזה. אתה איתי או שאני מתחיל לעבוד?',
+    text: 'שלום מאמן. אני מייצג את {star}. {claim}. אנחנו רוצים לפתוח את החוזה. אתה בעניין או שאני מתחיל לחפש לו קבוצה?',
     options: (c) => [
       { label: 'נעלה לו, מגיע לו, נותן את הנשמה במגרש', effect: { money: -Math.round(c.money * 0.14) - 30000, morale: +9, prestige: +2 },
         outcome: 'הוא יחתום מחר ויפרסם סטורי עם הצעיף.',
         act: [{ kind: 'fitness', who: 'subject', delta: +8 }] },
-      { label: 'החוזה בתוקף, אין על מה לדבר כרגע', effect: { morale: -6, prestige: +4 },
-        outcome: 'הסוכן ניתק. {star} ישחק את המשחק הבא בפרצוף חמוץ.',
+      { label: 'תכבד, החוזה בתוקף, אין על מה לדבר כרגע.', effect: { morale: -6, prestige: +4 },
+        outcome: 'הסוכן ניתק. {star} ישחק את המשחק הבא בפרצוף.',
         act: [{ kind: 'fitness', who: 'subject', delta: -10 }] },
-      { label: 'נכניס לו בונוסים', effect: { money: -12000, morale: +4, prestige: +3 },
-        outcome: 'הוא רץ יותר, כי עכשיו זה נספר לו.',
+      { label: 'נכניס לו בונוסים, ככה הכי טוב לכולם', effect: { money: -12000, morale: +4, prestige: +3 },
+        outcome: 'הוא רץ יותר כי הוא ידוע שעכשיו הוא מקבל בונוסים.',
         act: [{ kind: 'fitness', who: 'subject', delta: +5 }] },
     ],
   },
@@ -336,11 +338,11 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'יש לי {pitch}. הוא מוכן לבוא אליכם מחר בבוקר. רק תגיד מילה.',
     options: (c, picks) => [
-      { label: 'תביא אותו', effect: { money: -Math.round(c.money * 0.12) - 25000, morale: +5, prestige: +4 },
-        outcome: 'הוא מגיע מחר בבוקר. נראה אם זה כסף טוב.',
+      { label: 'תביא אותו, חייב שחקן שישנה את הקבוצה', effect: { money: -Math.round(c.money * 0.12) - 25000, morale: -2, prestige: +1 },
+        outcome: 'הוא מגיע מחר בבוקר. תכין את הקבוצה לשחקן ברמה מעל הליגה.',
         act: [{ kind: 'sign', profile: picks.pitch?.includes('ברזילאי') ? 'brazilian' : picks.pitch?.includes('ותיק') ? 'veteran' : 'dropped' }] },
-      { label: 'מרוצה מהסגל שיש לנו, לא צריך', effect: { morale: +6, prestige: -2 },
-        outcome: 'השחקנים ישמעו שלא הבאת מישהו מעליהם.' },
+      { label: 'מרוצה מהסגל שיש לנו, לא צריך', effect: { morale: +6, prestige: -1 },
+        outcome: 'השחקנים אהבו שלא הבאת מישהו עליהם.' },
     ],
   },
   {
@@ -354,10 +356,10 @@ export const TEMPLATES: DilemmaTemplate[] = [
     when: c => !!c.sponsor,
     text: 'אנחנו מזרימים לכם כסף כל מחזור. מבקשים דבר אחד, {want}. זה סביר בעיניך?',
     options: (c) => [
-      { label: 'בכיף, אנחנו מעריכים אותך', effect: { money: +Math.round(c.money * 0.12) + 40000, morale: -7, prestige: 0 },
+      { label: 'בכיף, אנחנו מעריכים אותך', effect: { money: +Math.round(c.money * 0.12) + 70000, morale: -7, prestige: 0 },
         outcome: 'החסות תוארך. השחקנים יוותרו על יום חופש, ולא יאהבו את זה.' },
-      { label: 'השחקנים מתאמנים, לא עובדים בשבילך', effect: { money: -50000, morale: +10, prestige: +2 },
-        outcome: 'הספונסר יצמצם. הסגל ישמע שאתה מגן עליהם גם מול כסף.' },
+      { label: 'השחקנים מתאמנים קשה, לא עובדים בשבילך.', effect: { money: -50000, morale: +10, prestige: +2 },
+        outcome: 'הספונסר יצמצם. הסגל ישמע שאתה מגן עליהם גם מול כסף. ישתו מים מהברז במשחק הבא.' },
     ],
   },
 
@@ -372,8 +374,8 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: '{star} לא ב-100 אחוז, {part} מדאיג אותי. {risk}. אתה מכניס אותו מול {rival}?',
     options: () => [
-      { label: 'חייבים אותו, הוא משחק', effect: { morale: +4, prestige: +2 },
-        outcome: 'הוא ייכנס וישחק על שן ועין. הפיזיו רושם הערה ביומן.',
+      { label: 'חייבים אותו, תן לו זריקה, הוא בהרכב', effect: { morale: +2, prestige: +1 },
+        outcome: 'הוא ייכנס וישחק בכל מצב. הפיזיו רושם הערה ביומן.',
         act: [{ kind: 'fitness', who: 'subject', delta: -25 }, { kind: 'injury', who: 'subject', risk: 0.35 }] },
       { label: 'ניתן לו מנוחה', effect: { morale: -3, prestige: -1 },
         outcome: 'שמרת עליו. במשחק הזה יחסר לך מה שהוא נותן.',
@@ -389,11 +391,11 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: '{state}. אני ממליץ לבקש דחייה, אבל אתה יודע איך זה נראה מבחוץ.',
     options: () => [
-      { label: 'מבקשים דחייה, בריאות קודמת', effect: { morale: +5, prestige: -5 },
-        outcome: 'הליגה תסרב, אבל תשלח סמן. משחקים בכל מקרה.',
+      { label: 'נבקש דחייה, בריאות קודמת להכל', effect: { morale: +3, prestige: -3 },
+        outcome: 'הליגה מסרבת, אבל תשלח משקיף שייבדוק את המגרש ויטפל בזה. משחקים בכל מקרה.',
         act: [{ kind: 'mud' }] },
       { label: 'משחקים, גם הם באותו בוץ', effect: { morale: +3, prestige: +4 },
-        outcome: 'המשחק הזה לא יהיה יפה. למי שיש רגליים, יש יתרון.',
+        outcome: 'המשחק הזה לא יהיה יפה. הכדור יעוף באוויר, למי שיש שחקנים גבוהים יש יתרון במשחק הזה.',
         act: [{ kind: 'mud' }] },
     ],
   },
@@ -407,10 +409,10 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'יש לי ילד בנוער, {academy}, {note}. אם לא תיתן לו דקות אצלך, הוא ילך למקום אחר. אתה מעלה אותו?',
     options: () => [
-      { label: 'מעלה אותו לסגל הבוגרים', effect: { morale: +7, prestige: +3 },
-        outcome: 'הוא נכנס לחדר עם עיניים גדולות. הוא בסגל מעכשיו.',
+      { label: 'מעלה אותו לסגל הבוגרים, צריך דם צעיר בקבוצה', effect: { morale: +5, prestige: +3 },
+        outcome: 'הוא ייכנס לחדר הלבשה בהתלהבות גדולה. הוא בסגל מעכשיו.',
         act: [{ kind: 'promote' }] },
-      { label: 'עוד לא, שיבשיל בנוער', effect: { morale: -2, prestige: +1 },
+      { label: 'עוד לא, שימשיך בנוער אין לי זמן לילדים.', effect: { morale: -2, prestige: -1 },
         outcome: 'מאמן הנוער חושש שהוא יילך בקיץ.',
         act: [{ kind: 'youthLeaveRisk', p: 0.4 }] },
     ],
@@ -424,14 +426,14 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'אני מבקש ממך {ask}. אני יודע שאתה עסוק בבוגרים, אבל משם יבואו השחקנים שלך.',
     options: (c) => [
-      { label: 'אני איתך, זאת ההשקעה הכי טובה', effect: { money: -Math.round(c.money * 0.06) - 15000, morale: +6, prestige: +4 },
+      { label: 'אני איתך, זאת ההשקעה הכי טובה, הדור הצעיר יצעיד את המועדון הזה, הבוגרים גמורים', effect: { money: -Math.round(c.money * 0.06) - 15000, morale: +6, prestige: +4 },
         outcome: '{kids3} יתחילו להגיע לאימוני הבוגרים מיום ראשון.',
         act: [
           { kind: 'youthBoost' },
           { kind: 'follow', weeks: 4, title: 'מהנוער: הם מוכנים', body: '{kids3} כבר מתאמנים עם הבוגרים כמו שביקשת. מאמן הנוער אומר שהקיץ הזה תראה קפיצה.' },
         ] },
-      { label: 'תמשיך להתרכז בנוער, לא בבוגרים', effect: { morale: -3, prestige: -2 },
-        outcome: 'מאמן הנוער יצא מאוכזב.' },
+      { label: 'תמשיך להתרכז בנוער, לא בבוגרים. יש לנו פה לחץ שהם לא יעמדו בו', effect: { morale: -3, prestige: -2 },
+        outcome: 'מאמן הנוער יצא מאוכזב מהתשובה.' },
     ],
   },
 
@@ -446,11 +448,11 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'לגבי {dry}, {angle}. החלוץ נראה לא בעניינים כל כך. רוצה להגן עליו בציטוט או שאני כותב מה שאני רואה?',
     options: () => [
-      { label: 'הוא החלוץ שלי, הוא עוד יביא שערים', effect: { morale: +8, prestige: -3 },
-        outcome: 'הכתבה תצא רכה. הוא יקרא אותה.',
+      { label: 'הוא החלוץ שלי, הוא עוד יביא שערים. סמוך עליי', effect: { morale: +8, prestige: -1 },
+        outcome: 'מצטט אותך "הוא עוד יסיים מלך השערים". החלוץ יישמח מהתשובה.',
         act: [{ kind: 'fitness', who: 'subject', delta: +5 }] },
-      { label: 'גם אני מחכה שיתעורר, חושב לשנות מערך בגללו', effect: { morale: -8, prestige: +4 },
-        outcome: 'זה יצא מחר בבוקר, והוא יקרא.',
+      { label: 'גם אני מחכה שיתעורר, חושב לשנות מערך בגללו', effect: { morale: -8, prestige: +3 },
+        outcome: 'זה יצא מחר בבוקר, והוא יקרא, לא בטוח שיאהב את זה.',
         act: [{ kind: 'fitness', who: 'subject', delta: -8 }] },
     ],
   },
@@ -463,10 +465,10 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'יש לי מקור ש{club} התעניינה בך. אתה מכחיש או שאני מפרסם?',
     options: () => [
-      { label: 'אני פה, נקודה, תכחיש בשמי', effect: { morale: +9, prestige: -2 },
-        outcome: 'ההכחשה תצא בשמך. הסגל יבין שאתה לא עם רגל בחוץ.' },
-      { label: 'תפרסם, שידעו שיש עליי ביקוש', effect: { morale: -7, prestige: +6 },
-        outcome: 'השם שלך יעלה. בחדר ההלבשה יתלחששו שאתה כבר לא כאן.' },
+      { label: 'אני פה, נקודה, תכחיש בשמי', effect: { morale: +9, prestige: -1 },
+        outcome: 'מצטט"אני נשאר בקבוצה ולא הולך לשום מקום", הסגל ייקרא את התשובה ויסמוך עלייך יותר.' },
+      { label: 'תפרסם, אני רוצה להתקדם לא רוצה להישאר פה', effect: { morale: -7, prestige: +3 },
+        outcome: 'השם שלך יעלה בכותרות. בחדר ההלבשה יתלחששו שאתה כבר לא כאן.' },
     ],
   },
   {
@@ -478,15 +480,15 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'זה דרבי מול {rival}. אנחנו מארגנים כניסה שלא ראית. אנחנו מבקשים דבר אחד, {want}.',
     options: (_c, picks) => [
-      { label: 'סגור, אתם הכוח שלנו', effect: { morale: +11, prestige: +2 },
+      { label: 'סגור, אתם הכוח שלנו, דרבי מעל הכל!', effect: { morale: +11, prestige: +2, fans: +10 },
         outcome: 'האצטדיון יבער. עכשיו תעמוד בזה.',
         act: picks.want?.includes('שלושה חלוצים')
           ? [{ kind: 'formation', id: '4-3-3' }, { kind: 'gate', mult: 1.3 }]
           : picks.want?.includes('ליציע')
             ? [{ kind: 'gate', mult: 1.3 }, { kind: 'follow', weeks: 1, title: 'אחרי המשחק, ביציע', body: 'הקבוצה עלתה ליציע אחרי השריקה, כמו שהבטחת. מנהיג היציע שלח: "זה מה שביקשנו. תודה."' }]
             : [{ kind: 'gate', mult: 1.3 }, { kind: 'promiseWin' }] },
-      { label: 'ההרכב שלי, היציע שלכם, תמשיכו בעידוד', effect: { morale: -5, prestige: +5 },
-        outcome: 'הם לא אהבו, אבל יבואו. דרבי.' },
+      { label: 'ההרכב שלי, היציע שלכם, תמשיכו בעידוד', effect: { morale: -5, prestige: +5, fans: -12 },
+        outcome: 'הם לא אהבו, אבל יבואו. בכל זאת דרבי.' },
     ],
   },
   {
@@ -498,11 +500,11 @@ export const TEMPLATES: DilemmaTemplate[] = [
     },
     text: 'מקום {pos} בטבלה. היציע רוצה לראות שאתה מוציא {who} מההרכב. אחרת מתחילות קריאות.',
     options: (_c, picks) => [
-      { label: 'הוא לא ייפתח, אתם צודקים', effect: { morale: -10, prestige: +2 },
-        outcome: 'היציע ישקוט. חדר ההלבשה יבין שהיציע קובע הרכב.',
-        act: [{ kind: 'sit', who: picks.who?.includes('השוער') ? 'gk' : picks.who?.includes('הקפטן') ? 'captain' : 'striker', label: 'יושב' }] },
-      { label: 'לא זורק שחקנים לכלבים בגלל כמה אוהדים', effect: { morale: +12, prestige: -4 },
-        outcome: 'תקבל קריאות מהיציע. ותקבל סגל שילך אחריך לאש.',
+      { label: 'הוא לא ייפתח, אתם צודקים', effect: { morale: -10, prestige: +2, fans: +2 },
+        outcome: 'היציע לא יישרוק בוז. חדר ההלבשה יבין שהיציע קובע הרכב.',
+        act: [{ kind: 'sit', who: picks.who?.includes('השוער') ? 'gk' : picks.who?.includes('הקפטן') ? 'captain' : 'striker', label: 'יושב בחוץ' }] },
+      { label: 'לא זורק שחקנים לכלבים בגלל כמה אוהדים', effect: { morale: +12, prestige: -4, fans: -3 },
+        outcome: 'תקבל קריאות מהיציע להתפטר ותקבל סגל שילך אחריך באש ובמים.',
         act: [{ kind: 'gate', mult: 0.85 }] },
     ],
   },
@@ -511,17 +513,17 @@ export const TEMPLATES: DilemmaTemplate[] = [
   {
     id: 'owner_son',
     speaker: 'owner',
-    slots: { who: ['הבן של השותף שלי', 'החתן שלי', 'הנכד של הנשיא', 'בן של חבר מהמילואים'] },
-    text: 'אחי אני בא לחדר הלבשה במחצית. תכניס את {who}, חצי שעה ולא יקרה כלום.',
+    slots: { who: ['הבן של השותף שלי', 'החתן שלי', 'הבן של ראש העיר', 'בן של חבר מהמילואים'] },
+    text: 'תקשיב טוב אני בא לחדר הלבשה במחצית. תכניס את {who}, חצי שעה ולא יקרה כלום.',
     // ten percent of the purse, Itzik's number. A flat hundred and twenty
     // thousand was forty percent of a ליגה ג׳ season for half an hour of a
     // 41 rated boy, the best deal in the game by a mile
     options: (c) => [
-      { label: 'בסדר, הוא נכנס', effect: { money: Math.round(c.money * 0.10), morale: -12, prestige: -3 },
-        outcome: 'הוא ייכנס במחצית. תחזיק אצבעות.',
+      { label: 'בסדר, הוא נכנס, אתה הבעלים', effect: { money: Math.round(c.money * 0.10), morale: -12, prestige: -3 },
+        outcome: 'הוא ייכנס במחצית. תחזיק אצבעות. פס הוא לא יודע לתת. הסגל לא אוהב את הקומבינות.',
         act: [{ kind: 'guest' }] },
-      { label: 'בכבוד, אבל ההרכב שלי', effect: { money: -40000, morale: +10, prestige: -2 },
-        outcome: 'הבעלים יטרוק דלת. השחקנים יראו שאתה מגן עליהם.' },
+      { label: 'מכבד אותך, אבל ההרכב שלי עם כל הכבוד.', effect: { money: -40000, morale: +10, prestige: +1 },
+        outcome: 'הבעלים מעיף כסא וטורק את דלת. השחקנים יראו שאתה מגן עליהם.' },
     ],
   },
   {
@@ -532,13 +534,13 @@ export const TEMPLATES: DilemmaTemplate[] = [
       place: ['במועדון בתל אביב', 'בבר בעיר', 'במסיבה פרטית'],
       hour: ['שלוש', 'ארבע', 'שתיים וחצי'],
     },
-    text: '{star} צולם שותה אלכוהול {place} ב{hour} בלילה, לילה לפני המשחק מול {rival}. יש לי את התמונות. מגיב?',
+    text: '{star} צולם שותה אלכוהול {place} ב{hour} בלילה, לילה לפני המשחק מול {rival}. יש לי את התמונות. אתה רוצה להגיב?',
     options: () => [
-      { label: 'אני מטפל בזה פנימית', effect: { morale: +5, prestige: -3 },
-        outcome: 'התמונות לא יעלו. דיברת איתו, הוא הבין.',
+      { label: 'אני מטפל בזה בחדר ההלבשה, אל תוציא. תכבד', effect: { morale: +5, prestige: -3 },
+        outcome: 'התמונות לא יעלו. דיברת איתו, הוא הבין ולא יחזור על זה.',
         act: [{ kind: 'fitness', who: 'subject', delta: -10 }] },
-      { label: 'הוא לא משחק, קנס כבד', effect: { money: +20000, morale: -10, prestige: +4 },
-        outcome: 'הצבת גבול. הוא יושב, והקנס בקופה.',
+      { label: 'הוא לא משחק, קנס כבד, תוציא את זה לעיתונות', effect: { money: +20000, morale: -10, prestige: +4 },
+        outcome: 'הצבת גבול לשחקנים, חדר ההלבשה לא אהב את זה. הכסף נכנס לקופה.',
         act: [{ kind: 'sit', who: 'subject', label: 'בקנס' }] },
     ],
   },
@@ -560,15 +562,15 @@ export const TEMPLATES: DilemmaTemplate[] = [
   {
     id: 'ultras_boycott',
     speaker: 'ultras',
-    slots: { demand: ['להוריד מחירי מנויים', 'להחזיר את הקפטן הוותיק', 'לשחק בהתקפה'] },
+    slots: { demand: ['תורידו מחירי מנויים', 'תחזירו את הקפטן הוותיק', 'תתחילו לשחק התקפי'] },
     text: 'תקשיב טוב. אם לא {demand}, היציע לא בא לדרבי מול {rival}. ברור?',
     options: (ctx) => [
-      { label: 'בסדר, אני איתכם', effect: { money: -Math.round(ctx.money * 0.05) - 20000, morale: +9, prestige: +4 },
-        outcome: 'היציע יבוא. ויירעד.',
+      { label: 'אין צורך באיומים, אני אתכם', effect: { money: -Math.round(ctx.money * 0.05) - 20000, morale: +9, prestige: +4, fans: +5 },
+        outcome: 'היציע יבוא בטירוף עם זיקוקים ואבוקות.',
         act: [{ kind: 'gate', mult: 1.3 }] },
-      { label: 'אני לא נכנע לאיומים', effect: { morale: -6, prestige: -5 },
+      { label: 'אני לא נכנע לאיומים, אל תבואו מבחינתי', effect: { morale: -6, prestige: -5, fans: -6 },
         outcome: 'היציע יהיה חצי ריק. קר.',
-        act: [{ kind: 'gate', mult: 0.6 }] },
+        act: [{ kind: 'gate', mult: 0.8 }] },
     ],
   },
   {
@@ -577,9 +579,9 @@ export const TEMPLATES: DilemmaTemplate[] = [
     slots: { issue: ['הקבוצה עייפה מהנסיעות', 'יש קליקה בחדר הלבשה', 'הצעיר החדש מפחד לשחק'] },
     text: 'ביני לבינך, {issue}. אתה רוצה שאני אטפל בזה בשקט?',
     options: () => [
-      { label: 'כן, סמוך עליך', effect: { morale: +8, prestige: -1 },
+      { label: 'כן אחי, בשביל זה אתה פה. סומך עלייך', effect: { morale: +8, prestige: -1 },
         outcome: 'הוותיק יסדר את זה בחדר ההלבשה, בדרך שלו.' },
-      { label: 'אני מטפל בזה בעצמי', effect: { morale: +3, prestige: +2 },
+      { label: 'תודה על העדכון, אני מטפל בזה', effect: { morale: +3, prestige: +2 },
         outcome: 'לקחת אחריות. חלק יאהבו, חלק יחשבו שהתערבת יותר מדי.' },
     ],
   },
@@ -591,10 +593,10 @@ export const TEMPLATES: DilemmaTemplate[] = [
     slots: { buyer: ['קבוצה מהליגה שמעלינו', 'קבוצה מקפריסין', 'סוכן עשיר מהמרכז'] },
     text: '{buyer} מציעה כסף רציני על {star}. אנחנו צריכים את המזומן. מוכרים?',
     options: (ctx) => [
-      { label: 'מוכרים, אין ברירה', effect: { money: +Math.round(ctx.money * 0.6) + 250000, morale: -14, prestige: -3 },
+      { label: 'ברור, תביא את הכסף נביא 4 כמוהו', effect: { money: +Math.round(ctx.money * 0.6) + 250000, morale: -14, prestige: -3, fans: -4 },
         outcome: 'הכסף ייכנס. הוא עובר ל{buyerClub}.',
         act: [{ kind: 'sell', who: 'subject' }] },
-      { label: 'לא מוכר, הוא כוכב אצלנו', effect: { money: -30000, morale: +12, prestige: +5 },
+      { label: 'השתגעתם? לא מוכר, הוא כוכב אצלנו', effect: { money: -30000, morale: +12, prestige: +5, fans: +5 },
         outcome: 'המסר ברור, בונים סביבו. הבעלים לוחץ.' },
     ],
   },
@@ -607,8 +609,8 @@ export const TEMPLATES: DilemmaTemplate[] = [
     options: () => [
       { label: 'פעם ראשונה, נותן לו צ׳אנס', effect: { morale: +3, prestige: -2 },
         outcome: 'הראית אנושיות. חלק מהוותיקים יחשבו שהיית רך מדי.' },
-      { label: 'ספסל, שילמד מזה', effect: { morale: -4, prestige: +4 },
-        outcome: 'המסר יעבור. הוא יושב.',
+      { label: 'לא מעניין אותי מה הסיבה. הוא בספסל, שילמד מזה', effect: { morale: -4, prestige: +4 },
+        outcome: 'המסר יעבור. הוא יישב בספסל.',
         act: [{ kind: 'sit', who: 'subject', label: 'יושב' }] },
     ],
   },
@@ -616,12 +618,12 @@ export const TEMPLATES: DilemmaTemplate[] = [
     id: 'player_social_media',
     speaker: 'reporter',
     slots: { post: ['ביקורת על השופטים', 'סטורי מהמסיבה של אתמול', 'לייק לפוסט של היריבה'] },
-    text: 'שחקן שלך העלה {post} לפני הדרבי מול {rival}, וזה מתחיל להתפוצץ ברשת. רוצה שאני ארכך?',
+    text: 'שחקן שלך העלה {post} לפני הדרבי מול {rival}, וזה מתחיל להתפוצץ ברשת. רוצה שאני אעזור לך בזה?',
     options: () => [
-      { label: 'שימחק ונמשיך הלאה', effect: { morale: +2, prestige: 0 },
+      { label: 'תעשה טובה, תמחק את זה. אדאג לך לכותרת פעם אחרת', effect: { morale: +2, prestige: 0 },
         outcome: 'תסגרו את זה מהר. הסערה תירגע עד הערב.' },
-      { label: 'אסור לו להתראיין חודש', effect: { morale: -5, prestige: +3 },
-        outcome: 'הצבת כללים ברורים לחדר ההלבשה. יהיה שם קצת קר.' },
+      { label: 'רציני? איזה טיפש! אסור לו להתראיין חודש', effect: { morale: -5, prestige: +3 },
+        outcome: 'הצבת כללים ברורים לחדר ההלבשה. יש תחושה שבודקים כל דבר עכשיו.' },
     ],
   },
   {
@@ -630,9 +632,9 @@ export const TEMPLATES: DilemmaTemplate[] = [
     slots: { rank: ['אחרונים', 'בתחתית', 'קבוצת סף ירידה'] },
     text: 'הוצאתי טור שאתם תסיימו {rank} העונה. רוצה לענות לי לפני הדרבי מול {rival}?',
     options: () => [
-      { label: 'תכתוב מה שבא לך', effect: { morale: +4, prestige: -2 },
+      { label: 'תכתוב מה שבא לך, לא מעניין עיתונים', effect: { morale: +4, prestige: -2 },
         outcome: 'התעלמת בגדול. השחקנים ייקחו את זה אישית, לטובה.' },
-      { label: 'תזמין אותנו לאליפות', effect: { morale: +7, prestige: -6 },
+      { label: 'תזמין אותנו לחגיגות אליפות בסוף העונה', effect: { morale: +7, prestige: -2 },
         outcome: 'עכשיו כל הליגה תחכה לראות אותך נופל.' },
     ],
   },

@@ -56,7 +56,7 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: GOLD,
     lines: [
       { from: 'מוקי', text: '{score}' },
-      { from: 'מוקי', text: 'תגידו לי שזה קרה באמת' },
+      { from: 'מוקי', text: 'תגידו לי שזה קרה באמת, מפחד לצבוט את עצמי באמא!' },
       { from: 'רפי', text: 'אחייי איזה משחק' },
       { from: 'שמעון', text: '30 שנה אני בא ליציע המזרחי, מזמן לא ראיתי כזה דבר' },
       { from: 'אלי צ׳יקו', text: 'אמרתי לכם. אמרתי לכם על {star}' },
@@ -83,10 +83,10 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: 'מנכ״ל המועדון', subtitle: 'מקוון', group: false, accent: BLUE,
     lines: [
       { from: 'מנכ״ל המועדון', text: 'ראיתי את המשחק' },
-      { from: 'מנכ״ל המועדון', text: '{score} מול {rival}. אין לי מילים' },
+      { from: 'מנכ״ל המועדון', text: '{score} מול {rival}. אין לי מילים, בושה' },
       { from: 'מנכ״ל המועדון', text: 'הטלפון שלי לא מפסיק לצלצל מאז שריקת הסיום' },
       { from: 'מנכ״ל המועדון', text: 'אני צריך ממך הסבר על צורת המשחק. לא לתקשורת, לי' },
-      { from: 'מנכ״ל המועדון', text: 'מחר בתשע במשרד' },
+      { from: 'מנכ״ל המועדון', text: 'מחר בתשע אצלי במשרד. תכין מצגת מסודרת.' },
     ],
   },
   {
@@ -95,11 +95,11 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: RED,
     lines: [
       { from: 'מוקי', text: 'מישהו יכול להסביר לי מה ראיתי היום' },
-      { from: 'שמעון', text: 'אל תשאל' },
-      { from: 'רפי', text: 'נסעתי שעה וחצי בשביל {score}' },
+      { from: 'שמעון', text: 'אל תשאל יותר טוב' },
+      { from: 'רפי', text: 'נסעתי שעה וחצי בפקקים בשביל {score}' },
       { from: 'אלי צ׳יקו', text: 'הבעיה היא לא השחקנים. הבעיה היא שאין שיטה' },
-      { from: 'מוקי', text: 'אלי תעזוב אותך משיטה, לא רצו בכלל' },
-      { from: 'שמעון', text: 'בשבוע הבא אני בא בכל מקרה. תמיד באתי' },
+      { from: 'מוקי', text: 'אלי תעזוב אותך משיטה, לא רצו בכלל. אסור להם ללבוש את המדים' },
+      { from: 'שמעון', text: 'תאכלס שבוע הבא שוב פעם נלך למשחק, נמשיך לעודד' },
     ],
   },
 
@@ -109,7 +109,7 @@ export const THREADS: ChatThreadTemplate[] = [
     trigger: 'derby_win',
     contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: GOLD,
     lines: [
-      { from: 'רפי', text: 'דרררררבי!!!' },
+      { from: 'רפי', text: 'דרררררבי מעל הכלללל!!!' },
       { from: 'מוקי', text: 'אני צרוד לגמרי' },
       { from: 'מוקי', text: 'הם היו צריכים לראות את הפרצופים שלהם ביציע ממול' },
       { from: 'אלי צ׳יקו', text: 'שנה שלמה אני אזכיר להם את {score} הזה' },
@@ -123,10 +123,10 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: RED,
     lines: [
       { from: 'מוקי', text: 'לא מדבר עם אף אחד שבוע' },
-      { from: 'רפי', text: 'מכל המשחקים בעולם, דווקא זה' },
-      { from: 'אלי צ׳יקו', text: 'אני עובד מול העבודה שלהם. אתם מבינים מה עובר עליי מחר בבוקר' },
-      { from: 'שמעון', text: 'חבר׳ה מספיק. הפסדנו דרבי, לא נגמר העולם' },
-      { from: 'מוקי', text: 'שמעון עם כל הכבוד, כן נגמר' },
+      { from: 'רפי', text: 'מכל המשחקים בעולם, דווקא זה. איזה בושות' },
+      { from: 'אלי צ׳יקו', text: 'יש לי 4 אוהדים שלהם במשרד איזה דכאון. אתם מבינים מה עובר עליי מחר בבוקר' },
+      { from: 'שמעון', text: 'חבר׳ה מספיק. הפסדנו דרבי, לא סוף העולם.' },
+      { from: 'מוקי', text: 'שמעון עם כל הכבוד, כן נגמר!!! דרבי מעל הכל!' },
     ],
   },
 
@@ -136,10 +136,10 @@ export const THREADS: ChatThreadTemplate[] = [
     trigger: 'hot_streak',
     contact: 'הקפטן', subtitle: 'מקוון', group: false, accent: GREEN,
     lines: [
-      { from: 'הקפטן', text: 'מאמן שלושה ברצף' },
-      { from: 'הקפטן', text: 'החבר׳ה מגיעים לאימונים חצי שעה לפני, מעצמם' },
+      { from: 'הקפטן', text: 'מאמן שלושה משחקים ברצף' },
+      { from: 'הקפטן', text: 'החבר׳ה מגיעים לאימונים חצי שעה לפני, מעצמם.' },
       { from: 'הקפטן', text: 'לא ראיתי דבר כזה מאז שאני במועדון' },
-      { from: 'הקפטן', text: 'רק תשמור אותנו על הקרקע, אני מכיר את החבורה הזאת' },
+      { from: 'הקפטן', text: 'רק תשמור אותנו על הקרקע, אני מכיר את החבורה הדבילית הזאת' },
     ],
   },
   {
@@ -147,12 +147,12 @@ export const THREADS: ChatThreadTemplate[] = [
     trigger: 'hot_streak',
     contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: GOLD,
     lines: [
-      { from: 'אלי צ׳יקו', text: 'שלוש ברצף חברים' },
+      { from: 'אלי צ׳יקו', text: 'שלוש נצחונות ברצף חברים' },
       { from: 'רפי', text: 'מישהו כבר בדק כמה נקודות אנחנו מהעלייה' },
-      { from: 'מוקי', text: 'רפי אל תקלל' },
-      { from: 'שמעון', text: 'תשמעו לי, לא מדברים על זה. אף אחד לא מדבר על זה' },
-      { from: 'אלי צ׳יקו', text: 'שמעון צודק. שקט. ממשיכים משחק משחק' },
-      { from: 'רפי', text: 'טוב אבל בשקט אני כבר מסדר כרטיסים' },
+      { from: 'מוקי', text: 'רפי אל תקלל, יא מנחוס' },
+      { from: 'שמעון', text: 'תשמעו לי, לא מדברים על זה יותר. שחררו מהנושא.' },
+      { from: 'אלי צ׳יקו', text: 'שמעון צודק. שקט. ממשיכים משחק למשחק' },
+      { from: 'רפי', text: 'טוב אבל אם כבר שקט אז לפחות נחגוג היום בערב את הנצחון' },
     ],
   },
   {
@@ -164,7 +164,7 @@ export const THREADS: ChatThreadTemplate[] = [
       { from: 'הבעלים', text: 'אני לא איש שמאבד סבלנות מהר, אתה יודע את זה' },
       { from: 'הבעלים', text: 'אבל אני יושב מול אנשים שכן' },
       { from: 'הבעלים', text: 'תגיד לי מה התוכנית שלך. במילים שלך, לא סיסמאות' },
-      { from: 'הבעלים', text: 'ואל תגיד לי שצריך זמן' },
+      { from: 'הבעלים', text: 'ואל תגיד לי שצריך זמן, זה מעבר לזה.' },
     ],
   },
   {
@@ -173,9 +173,9 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: 'הקפטן', subtitle: 'מקוון', group: false, accent: BLUE,
     lines: [
       { from: 'הקפטן', text: 'מאמן אני מדבר איתך בפתיחות כי אני חושב שמגיע לך' },
-      { from: 'הקפטן', text: 'החדר לחוץ. שומעים את היציע ומתחילים לפחד לקבל כדור' },
+      { from: 'הקפטן', text: 'החדר הלבשה לחוץ. שומעים את הבוז מהיציע ולא רוצים לקבל כדור' },
       { from: 'הקפטן', text: 'הצעירים במיוחד' },
-      { from: 'הקפטן', text: 'אם תדבר איתם השבוע זה יעשה הבדל. הם מחכים שתגיד משהו' },
+      { from: 'הקפטן', text: 'אם תדבר איתם השבוע זה יעשה הבדל לדעתי. הם מחכים שתגיד משהו' },
     ],
   },
 
@@ -187,13 +187,13 @@ export const THREADS: ChatThreadTemplate[] = [
     trigger: 'derby_win',
     contact: MOTHER, subtitle: 'מקוון', group: false, accent: PLUM,
     lines: [
-      { from: MOTHER, text: 'ראיתי אותך בטלוויזיה' },
+      { from: MOTHER, text: 'ראיתי אותך בטלוויזיה כפרעלייך' },
       { from: MOTHER, text: 'למה אתה צועק ככה על השופט, יש לך לחץ דם' },
       { from: MOTHER, text: 'אבא אומר כל הכבוד' },
-      { from: MOTHER, text: 'הוא לא אומר את זה, אני אומרת. אבל הוא חושב' },
+      { from: MOTHER, text: 'האמת הוא לא אומר את זה, אני אומרת. אבל הוא חושב ככה (נראה לי)' },
       { from: MOTHER, text: 'תבוא לאכול בשישי. תביא את {star} אם הוא רוצה' },
       { from: '', text: 'אמא הוא לא יבוא לאכול אצלך' },
-      { from: MOTHER, text: 'שיבוא. אני מכינה בכל מקרה' },
+      { from: MOTHER, text: 'שיבוא. אני מכינה לו קציצות בכל מקרה' },
     ],
   },
   {
@@ -201,13 +201,13 @@ export const THREADS: ChatThreadTemplate[] = [
     trigger: 'derby_loss',
     contact: MOTHER, subtitle: 'מקוון', group: false, accent: PLUM,
     lines: [
-      { from: MOTHER, text: 'ראיתי' },
+      { from: MOTHER, text: 'ראיתי את המשחק' },
       { from: MOTHER, text: 'לא צריך לדבר' },
-      { from: MOTHER, text: 'תאכל משהו' },
-      { from: MOTHER, text: 'הדודה שלך התקשרה לשאול אם אתה בסדר. אמרתי לה שאתה גדול' },
-      { from: MOTHER, text: 'אתה בסדר?' },
+      { from: MOTHER, text: 'לך תאכל משהו ותנוח' },
+      { from: MOTHER, text: 'הדודה שלך המעצבנת התקשרה לשאול אם אתה בסדר. אמרתי לה "רק בהפסדים את שואלת?"' },
+      { from: MOTHER, text: 'אתה בסדר נכון?' },
       { from: '', text: 'כן אמא' },
-      { from: MOTHER, text: 'תאכל משהו' },
+      { from: MOTHER, text: 'תאכל משהו ולך לנוח אוהבת המון' },
     ],
   },
   {
@@ -216,9 +216,9 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: MOTHER, subtitle: 'מקוון', group: false, accent: PLUM,
     lines: [
       { from: MOTHER, text: '{score}!' },
-      { from: MOTHER, text: 'השכנה שאלה אם זה הבן שלי. אמרתי לה שכן, כבר הרבה שנים' },
+      { from: MOTHER, text: 'השכנה שאלה אם זה הבן שלי. אמרתי לה שכן בגאווה' },
       { from: MOTHER, text: 'אתה נראה עייף בטלוויזיה' },
-      { from: MOTHER, text: 'תבוא לאכול' },
+      { from: MOTHER, text: 'תבוא לאכול אני מכינה לך שווארמה' },
     ],
   },
   {
@@ -227,10 +227,10 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: MOTHER, subtitle: 'מקוון', group: false, accent: PLUM,
     lines: [
       { from: MOTHER, text: 'שמעתי ברדיו מה שאמרו עליך' },
-      { from: MOTHER, text: 'מי זה בכלל האיש הזה, מה הוא מבין' },
-      { from: MOTHER, text: 'אבא רצה להתקשר לתחנה. אמרתי לו שלא' },
+      { from: MOTHER, text: 'מי זה בכלל האיש הזה, מה הוא מבין. דביל.' },
+      { from: MOTHER, text: 'אבא רצה להתקשר לתחנה להתלונן. אמרתי לו שלא' },
       { from: MOTHER, text: 'אתה יודע שאתה טוב. אני יודעת שאתה טוב' },
-      { from: MOTHER, text: 'תאכל משהו' },
+      { from: MOTHER, text: 'תאכל משהו, אתה נראה חיוור.' },
     ],
   },
 
@@ -245,8 +245,8 @@ export const THREADS: ChatThreadTemplate[] = [
       { from: 'המאמן של {rival}', text: 'כל הכבוד' },
       { from: 'המאמן של {rival}', text: '{score}. לא מגיע לנו, אבל כל הכבוד' },
       { from: 'המאמן של {rival}', text: 'בסיבוב השני נדבר' },
-      { from: '', text: 'תודה. תשמור על עצמך' },
-      { from: 'המאמן של {rival}', text: 'אל תדאג לי' },
+      { from: '', text: 'תודה. תשמור על עצמך.' },
+      { from: 'המאמן של {rival}', text: 'אל תדאג לי אחי' },
     ],
   },
   {
@@ -256,8 +256,8 @@ export const THREADS: ChatThreadTemplate[] = [
     lines: [
       { from: 'המאמן של {rival}', text: '{score}. הוגן?' },
       { from: '', text: 'לא' },
-      { from: 'המאמן של {rival}', text: 'גם אני חושב שלא. כל אחד לכיוון שלו' },
-      { from: 'המאמן של {rival}', text: 'בסיבוב השני נראה' },
+      { from: 'המאמן של {rival}', text: 'גם אני חושב שלא. כל אחד לקח נקודה' },
+      { from: 'המאמן של {rival}', text: 'בסיבוב השני נפרק אתכם' },
     ],
   },
 
@@ -270,7 +270,7 @@ export const THREADS: ChatThreadTemplate[] = [
       { from: 'מנכ״ל המועדון', text: 'הבעלים ישב בתא עם שני אנשים מ{rival}' },
       { from: 'מנכ״ל המועדון', text: 'אני לא צריך לתאר לך את הפרצוף שלו ב{score}' },
       { from: 'מנכ״ל המועדון', text: 'הוא לא אמר כלום. זה מה שמדאיג אותי' },
-      { from: 'מנכ״ל המועדון', text: 'תנצח בשבוע הבא. בבקשה' },
+      { from: 'מנכ״ל המועדון', text: 'תנצח בשבוע הבא. בשבילי.' },
     ],
   },
   {
@@ -278,11 +278,11 @@ export const THREADS: ChatThreadTemplate[] = [
     trigger: 'hot_streak',
     contact: 'הבעלים', subtitle: 'מקוון', group: false, accent: GREEN,
     lines: [
-      { from: 'הבעלים', text: 'שלוש ברצף' },
+      { from: 'הבעלים', text: 'פששש שלוש נצחונות ברצף' },
       { from: 'הבעלים', text: 'אני לא מתלהב מהר. אתה יודע' },
       { from: 'הבעלים', text: 'אבל ישבתי היום בתא ומישהו לידי אמר "סוף סוף יש פה מאמן"' },
       { from: 'הבעלים', text: 'לא תיקנתי אותו' },
-      { from: 'הבעלים', text: 'תמשיך' },
+      { from: 'הבעלים', text: 'תמשיך ככה ואולי נדבר על חוזה חדש.' },
     ],
   },
   {
@@ -292,10 +292,10 @@ export const THREADS: ChatThreadTemplate[] = [
     lines: [
       { from: 'רפי', text: 'תיקו בדרבי' },
       { from: 'מוקי', text: 'אני לא יודע אם לשמוח או לבכות' },
-      { from: 'שמעון', text: 'לא הפסדנו. בדרבי זה נחשב' },
-      { from: 'אלי צ׳יקו', text: 'שמעון, תיקו בדרבי זה כמו לנשק את אחותך' },
-      { from: 'מוקי', text: 'אלי מאיפה אתה מביא את זה' },
-      { from: 'רפי', text: 'הם בטח חוגגים אצלם. זה אומר שאנחנו לא צריכים' },
+      { from: 'שמעון', text: 'לא הפסדנו. בדרבי זה מה שחשוב' },
+      { from: 'אלי צ׳יקו', text: 'שמעון, תיקו בדרבי זה כמו לאכול וופל לימון.' },
+      { from: 'מוקי', text: 'אלי מאיפה אתה מביא את השטויות האלה?!' },
+      { from: 'רפי', text: 'הם בטח חוגגים, משחק הבא חייבים לנצח אותם.' },
     ],
   },
 
@@ -309,7 +309,7 @@ export const THREADS: ChatThreadTemplate[] = [
       { from: 'הסוכן של {who}', text: 'שלושה שערים. ראית, כל הארץ ראתה' },
       { from: 'הסוכן של {who}', text: 'יש עניין. לא מפה. רק שתדע לפני שזה יגיע מהעיתונות' },
       { from: 'הסוכן של {who}', text: 'אני לא מאיץ בכלום. רק שתדע' },
-      { from: '', text: 'רשמתי. לילה טוב' },
+      { from: '', text: 'רשמתי לעצמי. לילה טוב' },
     ],
   },
   {
@@ -318,12 +318,12 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: GOLD,
     lines: [
       { from: 'מוקי', text: '{who} {who} {who}' },
-      { from: 'רפי', text: 'שלוש!!! שלוש!!!' },
+      { from: 'רפי', text: 'שלוש!!! שלוש!!! שלוש!!!' },
       { from: 'אלי צ׳יקו', text: 'אמרתי לכם עליו מהאימון הראשון' },
-      { from: 'מוקי', text: 'אלי אתה לא היית באימון הראשון' },
-      { from: 'אלי צ׳יקו', text: 'הייתי ברוח' },
-      { from: 'שמעון', text: 'הכדור אצלו בבית עכשיו. ככה זה צריך להיות' },
-      { from: 'רפי', text: '{mgr} רק אל תמכור אותו' },
+      { from: 'מוקי', text: 'אלי אתה לא היית באימון הראשון בכלל.' },
+      { from: 'אלי צ׳יקו', text: 'לא הייתי נוכח אבל הייתי ברוח ובלב' },
+      { from: 'שמעון', text: 'אלוף הוא לקח את הכדור! איזה שחקן!' },
+      { from: 'רפי', text: '{mgr} רק אל תמכור אותו, בבקשה' },
     ],
   },
 
@@ -334,10 +334,10 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: '{who}', subtitle: 'מקוון', group: false, accent: RED,
     lines: [
       { from: '{who}', text: 'מאמן' },
-      { from: '{who}', text: 'סליחה' },
-      { from: '{who}', text: 'אני יודע שהשארתי אותם בעשרה' },
-      { from: '{who}', text: 'לא ישן. תגיד לי מה שאתה רוצה להגיד, אני אקבל' },
-      { from: '', text: 'מחר באימון. תישן' },
+      { from: '{who}', text: 'סליחה על השעה' },
+      { from: '{who}', text: 'אני יודע שהשארתי אתכם בעשרה שחקנים' },
+      { from: '{who}', text: 'לא מצליח לישון. תגיד לי מה שאתה רוצה להגיד, אני אקבל' },
+      { from: '', text: 'מחר באימון נדבר. תישן' },
       { from: '{who}', text: 'תודה מאמן' },
     ],
   },
@@ -360,10 +360,10 @@ export const THREADS: ChatThreadTemplate[] = [
     contact: 'כתב, ספורט 555', subtitle: 'נראה לאחרונה היום', group: false, accent: GREY,
     lines: [
       { from: 'כתב, ספורט 555', text: 'ערב טוב, סליחה על השעה' },
-      { from: 'כתב, ספורט 555', text: 'יש לי ציטוט משחקן שלך. לא אגיד מי. "החדר איבד את הכיוון"' },
+      { from: 'כתב, ספורט 555', text: 'יש לי ציטוט משחקן שלך. לא אגיד מי. "החדר הלבשה לא מאמין במאמן יותר"' },
       { from: 'כתב, ספורט 555', text: 'זה עולה מחר בבוקר. רוצה להגיב לפני?' },
       { from: '', text: 'אין תגובה' },
-      { from: 'כתב, ספורט 555', text: 'חבל. הייתי נותן לך את השורה האחרונה' },
+      { from: 'כתב, ספורט 555', text: 'חבל. זה יעלה ככה ויעשה לך בלאגן יותר גדול.' },
     ],
   },
 ];

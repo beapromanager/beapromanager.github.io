@@ -161,11 +161,14 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
     if (fx.homeId === gs.clubId) { gs = { ...gs, week: w }; break; }
   }
   const full = playRound(gs, 5).lastLedger!.gate;
-  const boycott = answer(gs, 'ultras_boycott', 1).gs;
+  // the answer also costs prestige, which thins the crowd on its own, so the
+  // act is measured with the meters put back: only the boycott itself is on trial
+  const answered = answer(gs, 'ultras_boycott', 1).gs;
+  const boycott = { ...answered, meters: gs.meters };
   const empty = playRound(boycott, 5).lastLedger!.gate;
   checked += 2;
   if (full <= 0) fails.push('the home fixture paid no gate at all');
-  if (Math.abs(empty / full - 0.6) > 0.02) fails.push(`the boycott left ${Math.round(100 * empty / full)}% of the gate, expected 60%`);
+  if (Math.abs(empty / full - 0.8) > 0.02) fails.push(`the boycott left ${Math.round(100 * empty / full)}% of the gate, expected 80%`);
   console.log(`  gate: the boycott left ${Math.round(100 * empty / full)}% of the gate`);
 }
 
@@ -339,6 +342,18 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
     }
   }
   console.log(`  the sweep: ${rolls} answers applied without a throw, none in the past tense`);
+}
+
+/* THE TERRACE: an answer the crowd heard about moves the fans meter, by the card's figure */
+{
+  const gs = career(23);
+  const before = gs.meters.fans;
+  const gave = answer(gs, 'ultras_boycott', 0).gs;    // "אין צורך באיומים, אני אתכם": +5
+  const stood = answer(gs, 'ultras_boycott', 1).gs;   // "אני לא נכנע לאיומים": -6
+  checked += 2;
+  if (gave.meters.fans !== before + 5) fails.push(`giving the terrace what it asked moved fans ${before} -> ${gave.meters.fans}, expected +5`);
+  if (stood.meters.fans !== before - 6) fails.push(`refusing the terrace moved fans ${before} -> ${stood.meters.fans}, expected -6`);
+  console.log(`  terrace: the boycott answers move the fans meter ${before} -> ${gave.meters.fans} / ${stood.meters.fans}`);
 }
 
 console.log('');

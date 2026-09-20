@@ -16,6 +16,8 @@ import { everyWideQuestion } from '../src/data/press.ts';
 import { everyFactQuestion, pickPressQuestions } from '../src/data/pressFacts.ts';
 import type { PressContext } from '../src/data/press.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
+import { TEMPLATES } from '../src/data/dilemmas.ts';
+import { THREADS } from '../src/data/chats.ts';
 import { readFileSync } from 'node:fs';
 
 const fails: string[] = [];
@@ -209,6 +211,50 @@ const state = readFileSync('src/game/state.ts', 'utf8');
   else if (JSON.stringify(handed.answers.map(x => x.effect)) !== JSON.stringify(hat.answers.map(x => x.effect)))
     fails.push(`the room hands out ${JSON.stringify(handed.answers[1].effect)} for a line whose card says ${JSON.stringify(hat.answers[1].effect)}`);
   console.log(`  ${qs.length} questions in Itzik's words, ${pins.length} lines pinned, ${withFans.length} lines reach the terrace`);
+}
+
+/* 7. THE TALKS BEFORE AND AFTER THE MATCH ARE IN ITZIK'S WORDS TOO.
+      The pre-match dilemmas and the post-match chats came back from his
+      document rewritten line by line. The typography rules hold across all of
+      them, read out of the data, and a handful of lines are pinned: the ones
+      he singled out, starting with the reservist's thank you. */
+{
+  const bare = {
+    star: 'כהן', rival: 'הפועל', club: 'חיפה', money: 180000, benched: 'לוי', benchedApps: 1, youngster: 'בר', veteranName: 'דהן', scorer: 'מור', dry: 'סבג',
+    academy: 'גל', kids3: 'א, ב, ג', squadSize: 18, pos: 4, teams: 8, week: 6, isDerby: true, sponsor: 'ULTRAS KIT', sponsorWants: ['x'],
+  };
+  const lines: Array<[string, string]> = [];
+  for (const t of TEMPLATES) {
+    const slots = { ...t.slots, ...(t.slotsFor ? t.slotsFor(bare) : {}) };
+    const picks: Record<string, string> = {}; for (const [k, v] of Object.entries(slots)) picks[k] = v[0];
+    lines.push([t.id, t.text]);
+    for (const v of Object.values(slots).flat()) lines.push([t.id, v]);
+    for (const o of t.options(bare, picks)) { lines.push([t.id, o.label], [t.id, o.outcome]); }
+  }
+  for (const th of THREADS) for (const l of th.lines) lines.push([th.id, l.text]);
+  const bad: string[] = [];
+  for (const [id, s] of lines) {
+    if (/\s[,.!?]/.test(s)) bad.push(`${id}: a space before punctuation in "${s}"`);
+    if (/[—–]/.test(s)) bad.push(`${id}: a long dash in "${s}"`);
+  }
+  checked += 2;
+  if (bad.length) fails.push(...bad.slice(0, 3));
+  if (lines.length < 350) fails.push(`only ${lines.length} lines read out of the talks`);
+  const pins: Array<{ id: string; right: string; gone: string }> = [
+    { id: 'player_army', right: 'הוא מעריך מאוד את התשובה. במשחק הזה הוא לא איתך.', gone: 'הוא הודה לך בלב' },
+    { id: 'player_minutes_or_quit', right: 'עזוב עדיף לך לפרוש, אני משחרר אותך לשווארמה', gone: 'אני משחרר אותך לשווארמה\'' },
+    { id: 'owner_son', right: 'הבן של ראש העיר', gone: 'הנכד של הנשיא' },
+    { id: 'reporter_dry_spell', right: 'מצטט אותך "הוא עוד יסיים מלך השערים". החלוץ יישמח מהתשובה.', gone: 'הכתבה תצא רכה' },
+    { id: 'mother_derby_loss', right: 'אמרתי לה "רק בהפסדים את שואלת?"', gone: 'אמרתי לה שאתה גדול' },
+    { id: 'fans_derby_draw', right: 'תיקו בדרבי זה כמו לאכול וופל לימון.', gone: 'לנשק את אחותך' },
+  ];
+  for (const p of pins) {
+    const mine = lines.filter(([id]) => id === p.id).map(([, s]) => s).join('\n');
+    checked += 2;
+    if (!mine.includes(p.right)) fails.push(`${p.id} no longer says "${p.right}"`);
+    if (mine.includes(p.gone)) fails.push(`${p.id} is back to "${p.gone}", which the document replaced`);
+  }
+  console.log(`  ${lines.length} lines of talk in Itzik's words, ${pins.length} pinned`);
 }
 
 console.log(`\n${checked} checks`);

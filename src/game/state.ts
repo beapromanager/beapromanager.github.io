@@ -2808,7 +2808,8 @@ export function chooseDilemma(gs: GameState, optionIndex: number): GameState {
       money: cash(gs.meters.money + (e.money ?? 0)),
       morale: moraleShift(gs.meters.morale, (e.morale ?? 0)),
       prestige: meter(gs.meters.prestige + (e.prestige ?? 0)),
-      fans: gs.meters.fans,
+      // an answer the terrace heard about moves the terrace
+      fans: meter(gs.meters.fans + (e.fans ?? 0)),
     },
     pendingOutcome: finishOutcome(opt.outcome, kept.note),
     style: scoreStyle(gs.style, e),
@@ -2846,7 +2847,8 @@ export function answerInbox(gs: GameState, itemIndex: number, optionIndex: numbe
       money: cash(gs.meters.money + (e.money ?? 0)),
       morale: moraleShift(gs.meters.morale, (e.morale ?? 0)),
       prestige: meter(gs.meters.prestige + (e.prestige ?? 0)),
-      fans: gs.meters.fans,
+      // an answer the terrace heard about moves the terrace
+      fans: meter(gs.meters.fans + (e.fans ?? 0)),
     },
     pendingOutcome: finishOutcome(opt.outcome, kept.note),
     style: scoreStyle(gs.style, e),
