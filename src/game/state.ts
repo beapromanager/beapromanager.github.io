@@ -42,6 +42,7 @@ import type { InviteState } from './invite.ts';
 import { pickPressQuestions } from '../data/pressFacts.ts';
 import { matchFacts } from '../data/matchFacts.ts';
 import { pickTrigger, rollChat } from '../data/chats.ts';
+import { fansAfterResult, fansDrift, fansAfterSeason, crowdMultiplier, FANS_STAR_SOLD } from './fans.ts';
 import type { ChatTrigger } from '../data/chats.ts';
 import type { RolledChat } from '../data/chats.ts';
 import { fanMessage } from '../data/fans.ts';
@@ -1242,7 +1243,7 @@ export function resolveDeparture(gs: GameState, kind: 'star' | 'young', optionIn
       const next = removePlayer(gs, p.id);
       return {
         ...next, preResolved: resolved,
-        meters: { ...gs.meters, money: cash(gs.meters.money + fee), morale: moraleShift(gs.meters.morale, 2) },
+        meters: { ...gs.meters, money: cash(gs.meters.money + fee), morale: moraleShift(gs.meters.morale, 2), fans: meter(gs.meters.fans + FANS_STAR_SOLD) },
         style: scoreStyle(gs.style, { money: fee, morale: 2 }),
         // the count is said out loud, because a squad that reads the same size
         // afterwards (the summer tops it back up) made the sale look ignored
@@ -1343,7 +1344,8 @@ export function stadiumImg(gs: GameState): 0 | 1 | 2 | 3 | 4 {
 export function attendanceFill(gs: GameState, isDerby: boolean): number {
   const recent = gs.form.slice(-3);
   const formBump = recent.reduce((s, r) => s + (r === 'W' ? 0.03 : r === 'L' ? -0.02 : 0), 0);
-  const f = 0.5 + gs.meters.prestige / 250 + formBump + (isDerby ? 0.12 : 0);
+  // and the terrace: a crowd that loves him comes, one that does not stays home
+  const f = (0.5 + gs.meters.prestige / 250 + formBump + (isDerby ? 0.12 : 0)) * crowdMultiplier(gs.meters.fans);
   return Math.max(0.35, Math.min(0.99, f));
 }
 
@@ -3055,6 +3057,8 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
   const moraleDelta = (won ? +4 : draw ? -1 : -6) + coachMoraleBias(gs.coach) + (broken ? BROKEN_PROMISE_MORALE : 0);
 
   const derby = isDerby(fx.homeId, fx.awayId);
+  // the terrace: what it felt before tonight fades a point, then the table has its say
+  const fansTonight = meter(gs.meters.fans + fansDrift(gs.meters.fans) + fansAfterResult(myGoals - oppGoals, derby));
   // the week also costs money to run, so a result is a real financial event
   const costs = roundCosts({
     squad: mySquad(gs), tier: club(gs).tier, isHome: iAmHome,
@@ -3077,7 +3081,7 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
       money: cash(gs.meters.money + prize + gate + shirt + boards - costs.total),
       morale: moraleShift(gs.meters.morale, moraleDelta),
       prestige: meter(gs.meters.prestige + (won ? 2 : draw ? 0 : -1)),
-      fans: gs.meters.fans,
+      fans: fansTonight,
     },
     league: { ...gs.league, table },
     stadium: built.stadium,
@@ -3585,7 +3589,7 @@ export function startNextSeason(gs: GameState): GameState {
       money: cash(rawMoney),
       morale: moraleShift(gs.meters.morale, moraleDelta),
       prestige: meter(gs.meters.prestige + prestigeDelta - (brokeIt ? 4 : 0)),
-      fans: gs.meters.fans,
+      fans: meter(gs.meters.fans + fansAfterSeason(r.result)),
     },
     seasonStats: {},
     careerStats,

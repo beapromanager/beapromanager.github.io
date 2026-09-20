@@ -296,7 +296,8 @@ if (seen.size < 12) fails.push(`only ${seen.size} distinct questions across ${ro
   if (gs.phase !== 'press') fails.push('never reached a press room for the terrace');
   else {
     checked++;
-    if (gs.meters.fans !== 50) fails.push(`a first season opens with the terrace at ${gs.meters.fans}, not 50`);
+    // the round just played has had its say on the terrace by now; the opening figure is the new game's
+    if (G.newGame(5108).meters.fans !== 50) fails.push(`a career opens with the terrace at ${G.newGame(5108).meters.fans}, not 50`);
     // a question whose lines move only the crowd, put in the reporter's mouth
     const q = { ...gs.press!.q, answers: [
       { label: 'a', effect: { fans: +3 }, reply: '' },

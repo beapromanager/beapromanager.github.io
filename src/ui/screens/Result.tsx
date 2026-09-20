@@ -5,6 +5,9 @@ import { MiniTable } from './Table.tsx';
 import { FanNote } from '../components/FanNote.tsx';
 import { CoachCelebrate } from '../components/CoachGuide.tsx';
 import { StadiumRevealOverlay } from './Stadium.tsx';
+import { fansAfterResult } from '../../game/fans.ts';
+import { isDerby } from '../../data/clubs.ts';
+import { Icon } from '../components/Icon.tsx';
 
 export function ResultScreen({ gs, onContinue }: { gs: G.GameState; onContinue: () => void }) {
   // a build that opened this round unveils itself over the result, once
@@ -25,6 +28,8 @@ export function ResultScreen({ gs, onContinue }: { gs: G.GameState; onContinue: 
       : `הפסד ${oppGoals}:${myGoals}. קורה, מתקנים בשבוע הבא.`;
 
   const color = won ? 'var(--win)' : draw ? 'var(--draw)' : 'var(--loss)';
+  // what the scoreline did to the terrace, the same sum the round applied
+  const fansMove = fansAfterResult(myGoals - oppGoals, isDerby(fx.homeId, fx.awayId));
 
   return (
     <>
@@ -46,6 +51,13 @@ export function ResultScreen({ gs, onContinue }: { gs: G.GameState; onContinue: 
             <Badge club={awayClub} size={40} />
           </div>
           <div style={{ marginTop: 8, fontWeight: 700 }}>{headline}</div>
+          {fansMove !== 0 && (
+            <div className="row" style={{ justifyContent: 'center', gap: 6, marginTop: 8, fontSize: 14, color: fansMove > 0 ? 'var(--win)' : 'var(--loss)' }}>
+              <Icon name="flag" size={14} />
+              <span>היציע</span>
+              <b className="num">{fansMove > 0 ? `+${fansMove}` : fansMove}</b>
+            </div>
+          )}
         </div>
 
         {gs.lastLedger && <Ledger l={gs.lastLedger} />}

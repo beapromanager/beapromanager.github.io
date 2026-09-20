@@ -52,7 +52,8 @@
     "check:seed": "node --experimental-strip-types scripts/seed-check.mts",
     "check:ads": "node --experimental-strip-types scripts/ads-check.mts",
     "check:sponsor": "node --experimental-strip-types scripts/sponsor-check.mts",
-    "check:report": "node --experimental-strip-types scripts/report-check.mts"
+    "check:report": "node --experimental-strip-types scripts/report-check.mts",
+    "check:fans": "node --experimental-strip-types scripts/fans-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",
