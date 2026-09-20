@@ -53,6 +53,7 @@ const ADDED_SINCE = [
   'tutorialSeen',                   // the first-week explainer
   'seats',                          // the manager's own team sheet
   'reports',                        // faults reported, for the thank you's cap
+  'arrivals',                       // who signed this season
 ] as const;
 
 function career(town = LEGEND_TOWN, seed = 4242): G.GameState {

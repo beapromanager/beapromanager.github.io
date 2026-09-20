@@ -220,7 +220,7 @@ const state = readFileSync('src/game/state.ts', 'utf8');
       he singled out, starting with the reservist's thank you. */
 {
   const bare = {
-    star: 'כהן', rival: 'הפועל', club: 'חיפה', money: 180000, benched: 'לוי', benchedApps: 1, youngster: 'בר', veteranName: 'דהן', scorer: 'מור', dry: 'סבג',
+    star: 'כהן', rival: 'הפועל', club: 'חיפה', money: 180000, benched: 'לוי', benchedApps: 1, youngster: 'בר', veteranName: 'דהן', scorer: 'מור', dry: 'סבג', newcomer: 'רוסו',
     academy: 'גל', kids3: 'א, ב, ג', squadSize: 18, pos: 4, teams: 8, week: 6, isDerby: true, sponsor: 'ULTRAS KIT', sponsorWants: ['x'],
   };
   const lines: Array<[string, string]> = [];

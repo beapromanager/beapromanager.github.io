@@ -126,6 +126,7 @@ export function loadCareer(): GameState | null {
     youthBoost: s.youthBoost ?? [],
     youthLeaveRisk: s.youthLeaveRisk ?? null,
     summerExits: s.summerExits ?? [],
+    arrivals: s.arrivals ?? [],
     // anyone with a save from before the flag has been playing for a while
     tutorialSeen: s.tutorialSeen ?? true,
     seats: s.seats ?? null,

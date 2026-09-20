@@ -338,6 +338,37 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   console.log('  summer exit: he plays the season, then goes to a club in the league, with a word');
 }
 
+/* THE NEW MAN: "I'm new here" is said by a man who actually is. Nobody signed,
+   nobody asks; sign one and it is him, by name, and a cold answer books his
+   summer exit while a warm one keeps him. */
+{
+  const opened = career(53);
+  checked++;
+  if (G.rollNamedDilemma({ ...opened, week: 3 }, 'player_new_signing_lost', 1)) fails.push('the new signing spoke up on a squad nobody has joined');
+  // the summer market is over on a career(); reopen the window the way the game does and sign a man
+  let gs = G.enterPreseason({ ...opened, phase: 'preseason-market' } as never);
+  const fa = gs.market.find(f => !G.signBlockedReason(gs, f));
+  checked++;
+  if (!fa) fails.push('no free agent to sign for the newcomer test');
+  else {
+    gs = G.signPlayer(gs, fa.player.id);
+    while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
+    gs = { ...gs, phase: 'hub', week: 3 };
+    const rolled = G.rollNamedDilemma(gs, 'player_new_signing_lost', 1);
+    checked += 2;
+    if (!rolled || !rolled.subjectName || !fa.player.name.endsWith(rolled.subjectName)) fails.push(`the new signing dilemma is about "${rolled?.subjectName}", not the man who just signed (${fa.player.name})`);
+    if (rolled) {
+      const cold = answer(gs, 'player_new_signing_lost', 1).gs;
+      const warm = answer(gs, 'player_new_signing_lost', 0).gs;
+      if (!cold.summerExits.includes(fa.player.id) || warm.summerExits.includes(fa.player.id)) fails.push('the cold answer did not book the newcomer\'s summer exit, or the warm one did');
+    }
+    // a new summer forgets the arrivals
+    checked++;
+    if (G.enterPreseason({ ...gs, phase: 'preseason-market' } as never).arrivals.length) fails.push('last season\'s arrivals are still new in the summer');
+    console.log('  the new man: the dilemma names the latest signing, and a cold answer sends him off in the summer');
+  }
+}
+
 /* THE SWEEP: every template, every option, on several saves, never throws; no past tense about the match ahead */
 {
   const PAST = ['שיחקתם', 'ניצחתם', 'הפסדתם', 'היציע היה', 'האצטדיון בער', 'הוא נכנס וסחב', 'הוא איבד כדור', 'הוא הגיע ו'];

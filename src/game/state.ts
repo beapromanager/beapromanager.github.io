@@ -299,6 +299,8 @@ export interface GameState {
   youthLeaveRisk: { name: string; p: number } | null;
   /** men who agreed to stay until the summer, and then go */
   summerExits: string[];
+  /** who joined this season, latest last, so "the new man" is a real man */
+  arrivals: string[];
   /**
    * The first-week explainer has been read. A flag in the save rather than a
    * moment in the UI: it used to fire off the step that led to the hub, and
@@ -452,6 +454,7 @@ export function newGame(seed = 12345): GameState {
     youthBoost: [],
     youthLeaveRisk: null,
     summerExits: [],
+    arrivals: [],
     tutorialSeen: false,
     seats: null,
     pendingOutcome: null,
@@ -861,7 +864,7 @@ export function enterPreseason(gs: GameState): GameState {
     else if (firstEver) contracts[id] = seedContract(id);
     else contracts[id] = 3;   // a kid up from the youth signs a three year deal
   }
-  const opened = { ...gs, phase: 'preseason-market' as const, preWeek: 1, preResolved: [], contracts, pendingOutcome: null };
+  const opened = { ...gs, phase: 'preseason-market' as const, preWeek: 1, preResolved: [], contracts, pendingOutcome: null, arrivals: [] };
   return { ...opened, summerMark: summerFingerprint(opened) };
 }
 
@@ -1809,7 +1812,7 @@ export function signPlayer(gs: GameState, playerId: string): GameState {
   const fa = gs.market.find(f => f.player.id === playerId);
   if (!fa || signBlockedReason(gs, fa)) return gs;
   const sq = mySquad(gs);
-  const next = writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, fa.player] });
+  const next = { ...writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, fa.player] }), arrivals: [...gs.arrivals, fa.player.id] };
   return {
     ...next,
     meters: { ...gs.meters, money: cash(gs.meters.money - fa.fee) },
@@ -2142,7 +2145,7 @@ export function signPull(gs: GameState): GameState {
   if (!pull) return gs;
   if (squadSize(gs) >= MAX_SQUAD) return gs;
   const sq = mySquad(gs);
-  const next = writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, pull.player] });
+  const next = { ...writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, pull.player] }), arrivals: [...gs.arrivals, pull.player.id] };
   return {
     ...next,
     pull: null,
@@ -2560,6 +2563,7 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
     veteranName: old ? surname(old.name) : '',
     scorer: scorer && goals(scorer) > 0 ? surname(scorer.name) : '',
     dry: drought ? surname(drought.name) : '',
+    newcomer: (() => { const him = [...gs.arrivals].reverse().map(id => all.find(p => p.id === id)).find(Boolean); return him ? surname(him.name) : ''; })(),
     // the academy, for the youth coach: his best kid, and the first three by name
     academy: [...gs.youth.players].sort((a, b) => overall(b) - overall(a))[0]?.name ?? '',
     kids3: gs.youth.players.length >= 3
@@ -2760,7 +2764,7 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
         if (squadSize(gs) >= MAX_SQUAD) { note += ' הסגל מלא, הוא לא נכנס.'; break; }
         const p = agentSigning(gs, a.profile);
         const sq = mySquad(gs);
-        gs = { ...writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, p] }), contracts: { ...gs.contracts, [p.id]: 1 } };
+        gs = { ...writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, p] }), contracts: { ...gs.contracts, [p.id]: 1 }, arrivals: [...gs.arrivals, p.id] };
         note += ` ${p.name} (${p.position}, ${overall(p)}) הצטרף לסגל.`;
         break;
       }

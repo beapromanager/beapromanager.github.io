@@ -75,7 +75,7 @@ export interface DilemmaTemplate {
    * it "שחקן בסגל" asked for minutes, you promised or refused, and there was no
    * way to ever know whether your answer meant anything, because it did not.
    */
-  subject?: 'star' | 'benched' | 'youngster' | 'veteranName' | 'scorer' | 'dry' | 'academy';
+  subject?: 'star' | 'benched' | 'youngster' | 'veteranName' | 'scorer' | 'dry' | 'academy' | 'newcomer';
   slots: Record<string, string[]>;
   /** slots that depend on the live save, laid over : the sponsor's own asks */
   slotsFor?: (c: Ctx) => Record<string, string[]>;
@@ -99,6 +99,8 @@ export interface Ctx {
   veteranName: string;
   scorer: string;
   dry: string;
+  /** the latest man to sign this season, empty when nobody has */
+  newcomer: string;
   /** the best kid at the academy, and the first three of them, for the youth coach */
   academy: string;
   kids3: string;
@@ -223,7 +225,8 @@ export const TEMPLATES: DilemmaTemplate[] = [
   {
     id: 'player_new_signing_lost',
     speaker: 'player',
-    when: c => c.week >= 2,
+    subject: 'newcomer',
+    when: c => !!c.newcomer && c.week >= 2,
     slots: {
       issue: ['אני לא מבין את השפה בחדר', 'אף אחד לא מדבר איתי', 'אני גר לבד ולא מכיר אף אחד בעיר'],
     },
@@ -233,7 +236,9 @@ export const TEMPLATES: DilemmaTemplate[] = [
         outcome: 'הוותיק לוקח אותו תחת חסותו. תוך שבועיים תראה שחקן אחר.',
         act: [{ kind: 'follow', weeks: 2, title: 'החדש כבר מקלל בעברית כאילו נולד בישראל', body: 'הוותיק עשה את העבודה. החדש יושב עם כולם בארוחת הצהריים, וגם צוחק. זה נראה טוב גם על הדשא.' }] },
       { label: 'תתמודד, בשביל לשחק כדורגל לא צריך משהו מיוחד', effect: { morale: -6, prestige: -2 },
-        outcome: 'הוא הפסיק לבוא בטענות. היכולת שלו לא עולה (בסוף העונה מבקש לעזוב )' },
+        outcome: 'הוא הפסיק לבוא בטענות. היכולת שלו לא עולה (בסוף העונה מבקש לעזוב)',
+        // a cold answer to a man who does not feel at home: he sees the season out and goes
+        act: [{ kind: 'summerExit', who: 'subject' }] },
     ],
   },
 
