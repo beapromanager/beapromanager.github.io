@@ -46,6 +46,9 @@ export function CaptainMark({ size = 18 }: { size?: number }) {
   );
 }
 
+/** the chip on a man the manager gave his word to this week */
+const PROMISED = 'הבטחת לו';
+
 export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mark, role }: {
   p: Player;
   /** squad-assigned traits, falls back to standalone when omitted */
@@ -84,7 +87,7 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mar
           {p.name}
           {role && fit !== 'natural' && <span className="chip" style={{ marginInlineStart: 6, background: fit === 'out' ? 'rgba(226,72,77,.18)' : 'rgba(233,185,73,.16)', color: fit === 'out' ? 'var(--loss)' : 'var(--gold-hi)' }}>{ROLE_LABEL[role]}</span>}
           {young && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(51,194,122,.18)', color: 'var(--win)' }}>כישרון</span>}
-          {mark && <span className="chip" style={{ marginInlineStart: 6, background: mark === 'מורחק' ? 'rgba(226,72,77,.18)' : 'rgba(255,255,255,.08)', color: mark === 'מורחק' ? 'var(--loss)' : 'var(--ink-faint)' }}>{mark}</span>}
+          {mark && <span className="chip" style={{ marginInlineStart: 6, background: mark === 'מורחק' ? 'rgba(226,72,77,.18)' : mark === PROMISED ? 'rgba(233,185,73,.18)' : 'rgba(255,255,255,.08)', color: mark === 'מורחק' ? 'var(--loss)' : mark === PROMISED ? 'var(--gold-hi)' : 'var(--ink-faint)' }}>{mark}</span>}
         </div>
         <div className="sub" style={{ fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {/* Pace and shooting used to follow the age here. Two numbers out of
@@ -200,8 +203,11 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   const tr = (p: Player): Trait[] => traitMap.get(p.id) ?? [];
   const captainId = G.currentCaptainId(gs);
   // banned for the round, or the youth on the sheet who never plays
+  // a place promised in the week is a chip on his row and a line at the top,
+  // until the round settles whether the word was kept
+  const promised = gs.matchMods.promised ?? null;
   const markOf = (p: Player): string | null =>
-    G.isSuspended(gs, p.id) ? 'מורחק' : gs.emergencyYouth === p.id ? 'רשום בלבד' : gs.sitOut[p.id] ?? null;
+    G.isSuspended(gs, p.id) ? 'מורחק' : gs.emergencyYouth === p.id ? 'רשום בלבד' : gs.sitOut[p.id] ?? (promised?.id === p.id ? PROMISED : null);
 
   const all = useMemo(() => [...sq.starters, ...sq.bench], [sq]);
   const byId = (id: string | null) => (id ? all.find(p => p.id === id) ?? null : null);
@@ -313,6 +319,19 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
       </div>
 
       {firstTime && <DressingRoom sq={sq} traitMap={traitMap} onOpen={setCard} />}
+
+      {promised && (() => {
+        const kept = onPitch.some(p => p.id === promised.id);
+        return (
+          <div className="tile" style={{ padding: '10px 12px', borderColor: kept ? 'var(--win)' : 'var(--gold)', background: kept ? 'rgba(51,194,122,.10)' : 'rgba(233,185,73,.10)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Icon name={kept ? 'handshake' : 'alert'} size={18} color={kept ? 'var(--win)' : 'var(--gold)'} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800 }}>{`הבטחת ל${promised.name} מקום בהרכב.`}</div>
+              <div className="hint" style={{ margin: 0 }}>{kept ? 'הוא בו. מילה זה מילה.' : 'הוא עוד לא בו. אם המשחק יתחיל בלעדיו, כל הסגל יזכור.'}</div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="tile" style={{ padding: '10px 12px', background: pickedPlayer ? 'rgba(232,182,76,.12)' : 'var(--surface)', borderColor: pickedPlayer ? 'var(--gold)' : 'var(--line)' }}>
         <div className="row" style={{ gap: 10 }}>

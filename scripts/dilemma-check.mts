@@ -78,7 +78,10 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   console.log('  sit: rested, out of the eleven, off the sheet, free next week');
 }
 
-/* PLAY: the forgotten man is promised the eleven, and he is in it */
+/* PROMISE OF A PLACE: the forgotten man is promised the eleven, and the
+   manager has to keep that word himself. The game does not put him in; the
+   round settles it: start him and nothing more is said, leave him on the
+   bench and the room pays and a word comes back next week. */
 {
   let gs = { ...career(7), week: 3 };
   const r = G.rollNamedDilemma(gs, 'player_minutes_or_quit', 1);
@@ -87,10 +90,22 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   else {
     const him = [...G.mySquad(gs).starters, ...G.mySquad(gs).bench].find(p => p.name.endsWith(r.subjectName!))!;
     ({ gs } = answer(gs, 'player_minutes_or_quit', 0));
-    checked++;
-    if (!inXI(gs, him.id)) fails.push('the man promised the eleven is not in it');
+    checked += 3;
+    if (inXI(gs, him.id)) fails.push('the promise put him in the eleven by itself; that is the manager\'s job');
+    if (gs.matchMods.promised?.id !== him.id) fails.push('the promise was not written on the week');
+    // left on the bench: the room pays, and next week he is reminded
+    const benched = playRound(gs, 1, [1, 1]);
+    const kept = playRound(G.swapPlayers(gs, G.mySquad(gs).starters.find(p => p.position !== 'GK')!.id, him.id), 1, [1, 1]);
+    // the word is due next week, and by then the round has moved it from the queue to a notice
+    const reminder = benched.followUps.find(f => f.title === 'לא עמדת במילה') ?? benched.notices.find(n => n.kind === 'story' && n.title === 'לא עמדת במילה');
+    if (!reminder || !reminder.body.includes(him.name)) fails.push('breaking the promise sent no word back, or one without his name');
+    checked += 3;
+    // the coach's fractional bias rounds once per path, so a point either way is rounding, not the rule
+    if (Math.abs((kept.meters.morale - benched.meters.morale) + G.BROKEN_PROMISE_MORALE) > 1) fails.push(`breaking the promise cost ${kept.meters.morale - benched.meters.morale} morale, expected ${-G.BROKEN_PROMISE_MORALE}`);
+    if (kept.followUps.some(f => f.title === 'לא עמדת במילה') || kept.notices.some(n => n.title === 'לא עמדת במילה')) fails.push('a promise kept still sent the reminder');
+    if (benched.matchMods.promised || kept.matchMods.promised) fails.push('the promise outlived the week');
+    console.log(`  promise: kept on the sheet or paid for, ${-G.BROKEN_PROMISE_MORALE} morale and a word back`);
   }
-  console.log('  play: a promise of the eleven puts him in it');
 }
 
 /* RELEASE: the old path matched a surname against a full name and did nothing */

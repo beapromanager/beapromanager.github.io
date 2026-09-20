@@ -41,6 +41,7 @@ export type Who = 'subject' | 'star' | 'gk' | 'captain' | 'striker' | 'dry' | 'b
 export type Act =
   | { kind: 'sit'; who: Who; label: string }                      // out of this round, with the chip saying why
   | { kind: 'play'; who: Who }                                     // into the eleven for this round
+  | { kind: 'promiseStart'; who: Who }                             // a place promised; the manager has to pick him himself
   | { kind: 'fitness'; who: Who; delta: number }                   // condition for this match only
   | { kind: 'injury'; who: Who; risk: number }                     // may sit the round after, "פצוע"
   | { kind: 'mud' }                                                // both sides slower and sloppier this match
@@ -152,7 +153,8 @@ export const TEMPLATES: DilemmaTemplate[] = [
     options: () => [
       { label: 'רק את האמת, תתכונן אתה בהרכב במשחק הבא, מילה שלי', effect: { morale: +8, prestige: -3 },
         outcome: 'הוא יצא מהחדר בן אדם אחר. הוא מתכונן להיות בהרכב, וכל הסגל מסתכל אם תעמוד במילה.',
-        act: [{ kind: 'play', who: 'subject' }] },
+        // the promise is his to keep on the team sheet, not the game's to keep for him
+        act: [{ kind: 'promiseStart', who: 'subject' }] },
       { label: 'תילחם על המקום שלך, אין מקום לאף אחד בהרכב', effect: { morale: -6, prestige: +5 },
         outcome: 'הוא הנהן ויצא בשקט. נראה אותו באימון מחר.' },
       { label: 'עזוב עדיף לך לפרוש, אני משחרר אותך לשווארמה', effect: { money: +5000, morale: -4, prestige: -2 }, release: true,

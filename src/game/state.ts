@@ -172,7 +172,12 @@ export interface MatchMods {
   guest?: Player | null;
   /** the terrace was promised a result */
   promiseWin?: boolean;
+  /** a man promised a place in the eleven, by the manager's own word */
+  promised?: { id: string; name: string };
 }
+
+/** What breaking a promise to a player costs the dressing room. */
+export const BROKEN_PROMISE_MORALE = -8;
 
 /** A word that comes back to the hub in a few weeks. */
 export interface FollowUp {
@@ -2718,6 +2723,14 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
         gs = startHim(gs, him.id);
         break;
       }
+      case 'promiseStart': {
+        // nothing moves on the sheet: the squad screen shows the promise, and
+        // the round settles whether it was kept
+        const him = whoIs(gs, rolled, a.who);
+        if (!him) break;
+        gs = { ...gs, matchMods: { ...gs.matchMods, promised: { id: him.id, name: him.name } } };
+        break;
+      }
       case 'fitness': {
         const him = whoIs(gs, rolled, a.who);
         if (!him) break;
@@ -3010,8 +3023,12 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
   const oppGoals = iAmHome ? playerResult.score[1] : playerResult.score[0];
   const won = myGoals > oppGoals, draw = myGoals === oppGoals;
   const prize = matchPrize(club(gs).tier, won ? 'W' : draw ? 'D' : 'L');
+  // a promise made in the week is settled by the team sheet: the man he gave
+  // his word to either started or watched, and the whole room knows which
+  const promised = gs.matchMods.promised;
+  const broken = !!promised && !lineup(gs).some(p => p.id === promised.id);
   // a motivator lifts the room after any result, a cold coach lets it sag
-  const moraleDelta = (won ? +4 : draw ? -1 : -6) + coachMoraleBias(gs.coach);
+  const moraleDelta = (won ? +4 : draw ? -1 : -6) + coachMoraleBias(gs.coach) + (broken ? BROKEN_PROMISE_MORALE : 0);
 
   const derby = isDerby(fx.homeId, fx.awayId);
   // the week also costs money to run, so a result is a real financial event
@@ -3048,9 +3065,15 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
     // a man who played hurt may pay for it next round; a promise to the terrace
     // that was not kept comes back to the hub next week
     sitOutNext: settleInjuries(gs),
-    followUps: gs.matchMods.promiseWin && !won
-      ? [...gs.followUps, { season: gs.season, week: gs.week + 1, title: 'היציע זוכר', body: 'הבטחת להם שלא תפסידו בדרבי. הם באו, הם שרו, והם זוכרים. מנהיג היציע: "בפעם הבאה אל תבטיח. תעשה."' }]
-      : gs.followUps,
+    followUps: [
+      ...gs.followUps,
+      ...(gs.matchMods.promiseWin && !won
+        ? [{ season: gs.season, week: gs.week + 1, title: 'היציע זוכר', body: 'הבטחת להם שלא תפסידו בדרבי. הם באו, הם שרו, והם זוכרים. מנהיג היציע: "בפעם הבאה אל תבטיח. תעשה."' }]
+        : []),
+      ...(broken
+        ? [{ season: gs.season, week: gs.week + 1, title: 'לא עמדת במילה', body: `הבטחת ל${gs.matchMods.promised!.name} מקום בהרכב, והוא ישב. כל הסגל ראה.` }]
+        : []),
+    ],
     form: [...gs.form, won ? 'W' : draw ? 'D' : 'L'].slice(-6) as ('W'|'D'|'L')[],
     seasonOver: gs.week + 1 > gs.league.rounds,
   };
