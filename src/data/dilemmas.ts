@@ -244,7 +244,7 @@ export const TEMPLATES: DilemmaTemplate[] = [
         outcome: 'הוותיק לוקח אותו תחת חסותו. תוך שבועיים תראה שחקן אחר.',
         act: [{ kind: 'follow', weeks: 2, title: 'החדש כבר מקלל בעברית כאילו נולד בישראל', body: 'הוותיק עשה את העבודה. החדש יושב עם כולם בארוחת הצהריים, וגם צוחק. זה נראה טוב גם על הדשא.' }] },
       { label: 'תתמודד, בשביל לשחק כדורגל לא צריך משהו מיוחד', effect: { morale: -6, prestige: -2 },
-        outcome: 'הוא הפסיק לבוא בטענות. היכולת שלו לא עולה (בסוף העונה מבקש לעזוב)',
+        outcome: 'הוא הפסיק לבוא בטענות. בסוף העונה הוא יבקש לעזוב.',
         // a cold answer to a man who does not feel at home: he sees the season out and goes
         act: [{ kind: 'summerExit', who: 'subject' }] },
     ],
