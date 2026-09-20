@@ -42,6 +42,7 @@ import type { InviteState } from './invite.ts';
 import { pickPressQuestions } from '../data/pressFacts.ts';
 import { matchFacts } from '../data/matchFacts.ts';
 import { pickTrigger, rollChat } from '../data/chats.ts';
+import type { ChatTrigger } from '../data/chats.ts';
 import type { RolledChat } from '../data/chats.ts';
 import { fanMessage } from '../data/fans.ts';
 import type { Post, FeedContext } from '../data/feed.ts';
@@ -174,6 +175,8 @@ export interface MatchMods {
   promiseWin?: boolean;
   /** a man promised a place in the eleven, by the manager's own word */
   promised?: { id: string; name: string };
+  /** the phone will buzz about what he said this week, after the match */
+  chatAfter?: { trigger: ChatTrigger; onlyIfWon?: boolean };
 }
 
 /** What breaking a promise to a player costs the dressing room. */
@@ -2727,6 +2730,14 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
         gs = startHim(gs, him.id);
         break;
       }
+      case 'fitnessAll': {
+        const sq = mySquad(gs);
+        const fitness = { ...(gs.matchMods.fitness ?? {}) };
+        for (const p of [...sq.starters, ...sq.bench]) fitness[p.id] = (fitness[p.id] ?? 0) + a.delta;
+        gs = { ...gs, matchMods: { ...gs.matchMods, fitness } };
+        break;
+      }
+      case 'chatAfter': gs = { ...gs, matchMods: { ...gs.matchMods, chatAfter: { trigger: a.trigger, onlyIfWon: a.onlyIfWon } } }; break;
       case 'promiseStart': {
         // nothing moves on the sheet: the squad screen shows the promise, and
         // the round settles whether it was kept
@@ -3328,10 +3339,14 @@ export function advancePastPress(gs: GameState): GameState {
 
   const iAmHome = fx.homeId === gs.clubId;
   const margin = (iAmHome ? r.score[0] : r.score[1]) - (iAmHome ? r.score[1] : r.score[0]);
-  const picked = pickTrigger({
-    margin, isDerby: isDerby(fx.homeId, fx.awayId), form: gs.form,
-    facts: matchFacts(r, gs.clubId, mySquad(gs), new Set(gs.exits.map(e => e.id))),
-  });
+  // what he said in the week comes before what the scoreline says, when it applies
+  const promised = gs.matchMods.chatAfter;
+  const picked = promised && (!promised.onlyIfWon || margin > 0)
+    ? { trigger: promised.trigger }
+    : pickTrigger({
+      margin, isDerby: isDerby(fx.homeId, fx.awayId), form: gs.form,
+      facts: matchFacts(r, gs.clubId, mySquad(gs), new Set(gs.exits.map(e => e.id))),
+    });
   if (!picked) return endOfWeek(gs);
 
   const oppId = iAmHome ? fx.awayId : fx.homeId;

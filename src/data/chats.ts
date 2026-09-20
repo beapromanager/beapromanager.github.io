@@ -14,7 +14,9 @@ import type { MatchFact } from './matchFacts.ts';
 
 export type ChatTrigger =
   | 'derby_win' | 'derby_loss' | 'derby_draw' | 'hat_trick'
-  | 'hot_streak' | 'cold_streak' | 'big_win' | 'big_loss' | 'red_card';
+  | 'hot_streak' | 'cold_streak' | 'big_win' | 'big_loss' | 'red_card'
+  /* set off by what the manager said in the week, not by the scoreline */
+  | 'backed_win' | 'stood_up_owner';
 
 export interface ChatLine {
   /** the sender's display name, empty string means the manager himself */
@@ -364,6 +366,34 @@ export const THREADS: ChatThreadTemplate[] = [
       { from: 'כתב, ספורט 555', text: 'זה עולה מחר בבוקר. רוצה להגיב לפני?' },
       { from: '', text: 'אין תגובה' },
       { from: 'כתב, ספורט 555', text: 'חבל. זה יעלה ככה ויעשה לך בלאגן יותר גדול.' },
+    ],
+  },
+
+  /* ------------------------------ what he said in the week, come back to him */
+  {
+    id: 'fans_backed_win',
+    trigger: 'backed_win',
+    contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: GOLD,
+    lines: [
+      { from: 'מוקי', text: '{score} מול {rival}' },
+      { from: 'רפי', text: 'שמעתם מה היה השבוע? המנכ״ל רצה לקצץ להם בתנאים' },
+      { from: 'אלי צ׳יקו', text: 'והמאמן אמר לו לא. עמד מולו בשביל השחקנים' },
+      { from: 'שמעון', text: 'וזה מה שקיבלנו בחזרה. עלו ופירקו את {rival}' },
+      { from: 'מוקי', text: 'ככה נותנים גב וככה מקבלים גב' },
+      { from: 'רפי', text: '{mgr} אתה גבר' },
+    ],
+  },
+  {
+    id: 'fans_stood_up',
+    trigger: 'stood_up_owner',
+    contact: `${FANS} 🔥`, subtitle: '4 משתתפים', group: true, accent: GOLD,
+    lines: [
+      { from: 'רפי', text: 'ראיתם מי לא נכנס במחצית?' },
+      { from: 'מוקי', text: 'הבן של מי שזה לא יהיה. המאמן לא הכניס אותו' },
+      { from: 'אלי צ׳יקו', text: 'הבעלים אמר לו להכניס והוא אמר לו ההרכב שלי' },
+      { from: 'שמעון', text: 'מאמן שלא מפחד מהבעלים. מזמן לא היה לנו כזה' },
+      { from: 'מוקי', text: 'בלי קומבינות. גבר' },
+      { from: 'רפי', text: '{mgr} רק תשמור על הראש, הבעלים לא שוכח' },
     ],
   },
 ];

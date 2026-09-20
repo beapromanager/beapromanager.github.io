@@ -390,6 +390,37 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   console.log(`  the sweep: ${rolls} answers applied without a throw, none in the past tense`);
 }
 
+/* THE WEEK COMES BACK ON THE PHONE: standing up for the squad's terms gives
+   every man legs for the match, and if they win with them the fans say why;
+   refusing the owner's boy gets talked about whatever the score. */
+{
+  const drive = (g: G.GameState, score: [number, number]): G.GameState => {
+    const inp = G.liveMatchInput(g);
+    const res: MatchResult = { seed: 1, home: { id: inp.homeId, name: 'a', stats: { possession: .5, chances: 6, goals: score[0], xg: 1 } }, away: { id: inp.awayId, name: 'b', stats: { possession: .5, chances: 6, goals: score[1], xg: 1 } }, score, events: [], ratings: {} } as unknown as MatchResult;
+    let next = G.continueFromResult(G.commitRound(g, res));
+    while (next.phase === 'press') next = G.answerPress(next, 0);
+    return next;
+  };
+  let gs = career(61);
+  ({ gs } = answer(gs, 'director_budget', 1));
+  const all = [...G.mySquad(gs).starters, ...G.mySquad(gs).bench];
+  checked += 4;
+  if (!all.every(p => gs.matchMods.fitness?.[p.id] === 8)) fails.push('standing up for the squad did not give every man +8 for the match');
+  const home = G.playerFixture(gs)!.homeId === gs.clubId;
+  const win = drive(gs, home ? [3, 0] : [0, 3]);
+  const loss = drive(gs, home ? [0, 3] : [3, 0]);
+  if (win.phase !== 'chat' || win.chat?.id !== 'fans_backed_win') fails.push(`a win after backing the squad brought ${win.phase === 'chat' ? win.chat?.id : 'no chat'}, not the fans on the back you gave`);
+  if (loss.phase === 'chat' && loss.chat?.id === 'fans_backed_win') fails.push('the fans thanked the manager for a defeat');
+  if (win.phase === 'chat' && G.closeChat(win).matchMods.chatAfter) fails.push('the buzz outlived the week');
+  let g2 = career(62);
+  ({ gs: g2 } = answer(g2, 'owner_son', 1));
+  const home2 = G.playerFixture(g2)!.homeId === g2.clubId;
+  const talked = drive(g2, home2 ? [0, 1] : [1, 0]);
+  checked++;
+  if (talked.phase !== 'chat' || talked.chat?.id !== 'fans_stood_up') fails.push(`refusing the owner's boy brought ${talked.phase === 'chat' ? talked.chat?.id : 'no chat'}, not the fans on standing up to him`);
+  console.log('  the phone: legs for the squad and a word from the terrace when it pays, and one for standing up to the owner');
+}
+
 /* THE TERRACE: an answer the crowd heard about moves the fans meter, by the card's figure */
 {
   const gs = career(23);

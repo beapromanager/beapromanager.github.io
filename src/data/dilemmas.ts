@@ -21,6 +21,7 @@
 
 import type { Rng } from '../engine/matchEngine.ts';
 import type { FormationId } from './formations.ts';
+import type { ChatTrigger } from './chats.ts';
 
 export type Speaker =
   | 'owner' | 'veteran' | 'reporter' | 'ultras'
@@ -43,6 +44,8 @@ export type Act =
   | { kind: 'play'; who: Who }                                     // into the eleven for this round
   | { kind: 'promiseStart'; who: Who }                             // a place promised; the manager has to pick him himself
   | { kind: 'fitness'; who: Who; delta: number }                   // condition for this match only
+  | { kind: 'fitnessAll'; delta: number }                          // the whole squad's condition, this match only
+  | { kind: 'chatAfter'; trigger: ChatTrigger; onlyIfWon?: boolean } // the phone buzzes about this after the match
   | { kind: 'injury'; who: Who; risk: number }                     // may sit the round after, "פצוע"
   | { kind: 'mud' }                                                // both sides slower and sloppier this match
   | { kind: 'formation'; id: FormationId }                         // the shape for this round
@@ -273,7 +276,9 @@ export const TEMPLATES: DilemmaTemplate[] = [
       { label: 'תחתוך, נסתדר', effect: { money: +Math.round(c.money * 0.1) + 35000, morale: -9, prestige: -1 },
         outcome: 'הקופה גדלה. השחקנים אומרים שהבעלים קמצן. זה הפך להיות נושא השיחה בליגה.' },
       { label: 'לא נוגעים בתנאים של השחקנים, תחפשו מאיפה לצמצם', effect: { money: -25000, morale: +8, prestige: +3 },
-        outcome: 'עמדת מול ההנהלה בשביל הסגל. הם לא ישכחו את זה.' },
+        outcome: 'עמדת מול ההנהלה בשביל הסגל. הם לא ישכחו את זה.',
+        // the back he gave them comes back as legs, and if they win with it the terrace says so
+        act: [{ kind: 'fitnessAll', delta: +8 }, { kind: 'chatAfter', trigger: 'backed_win', onlyIfWon: true }] },
     ],
   },
   {
@@ -530,7 +535,8 @@ export const TEMPLATES: DilemmaTemplate[] = [
         outcome: 'הוא ייכנס במחצית. תחזיק אצבעות. פס הוא לא יודע לתת. הסגל לא אוהב את הקומבינות.',
         act: [{ kind: 'guest' }] },
       { label: 'מכבד אותך, אבל ההרכב שלי עם כל הכבוד.', effect: { money: -40000, morale: +10, prestige: +1 },
-        outcome: 'הבעלים מעיף כסא וטורק את דלת. השחקנים יראו שאתה מגן עליהם.' },
+        outcome: 'הבעלים מעיף כסא וטורק את דלת. השחקנים יראו שאתה מגן עליהם.',
+        act: [{ kind: 'chatAfter', trigger: 'stood_up_owner' }] },
     ],
   },
   {
