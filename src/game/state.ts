@@ -79,7 +79,7 @@ import {
 } from './packs.ts';
 
 export type Phase =
-  | 'onboard-archetype' | 'onboard-manager' | 'onboard-club' | 'signing' | 'squad' | 'hub' | 'transfers' | 'invite'
+  | 'onboard-archetype' | 'onboard-manager' | 'onboard-club' | 'signing' | 'friends' | 'squad' | 'hub' | 'transfers' | 'invite'
   | 'dilemma' | 'tactic' | 'vs' | 'match' | 'result' | 'press' | 'season-end' | 'chronicle'
   | 'captain' | 'assistant' | 'coach' | 'preseason' | 'preseason-market' | 'inbox' | 'chat' | 'table' | 'stadium'
   | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit';
@@ -841,7 +841,7 @@ export function afterSigning(gs: GameState, effect: { morale?: number; prestige?
   // the onboarding tour again, he needs somebody on the shirt. A rescue is the
   // one path that arrives here with a nemesis set, so that, not the incidental
   // crisisDone, is what tells a returning manager from a first timer.
-  const next = gs.nemesis ? 'sponsor' as const : 'squad' as const;
+  const next = gs.nemesis ? 'sponsor' as const : 'friends' as const;
   gs = ensureYouth(gs);
   // the shirt he arrives in goes into the wardrobe here, not at the season
   // opening, because a fresh career walks to the squad screen and never passes
@@ -871,7 +871,7 @@ export function afterSigning(gs: GameState, effect: { morale?: number; prestige?
  * reads off this list.
  */
 export function addFriends(gs: GameState, specs: FriendSpec[]): GameState {
-  if (gs.friends.length || !specs.length) return gs;
+  if (gs.friends.length || !specs.length) return { ...gs, phase: 'squad' };
   const tier = club(gs).tier;
   const rng = createRng(gs.seasonSeed * 31 + 7717);
   const sq = mySquad(gs);
@@ -889,6 +889,7 @@ export function addFriends(gs: GameState, specs: FriendSpec[]): GameState {
     friends: made.map(({ p, spec }) => ({
       id: p.id, name: p.name, trait: spec.trait, position: spec.position, texter: spec.texter,
     })),
+    phase: 'squad',
   };
 }
 

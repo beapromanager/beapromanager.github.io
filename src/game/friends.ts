@@ -36,6 +36,13 @@ export interface FriendTrait {
   /** the chip on his row */
   label: string;
   /**
+   * What the man who has known him since school says about him, with his name
+   * in it. This is the only thing on the screen where the choice is made, so
+   * it carries the price as well as the promise: the one who goes through
+   * people mentions the referee, and the quick one mentions the month out.
+   */
+  line: string;
+  /**
    * How he is shaped at twenty one, in raw attribute points. The shape is
    * applied first and the whole player is then shifted back onto his starting
    * level, so a quality changes what he is good at, never how good he is on
@@ -63,26 +70,31 @@ export interface FriendTrait {
 export const FRIEND_TRAITS: FriendTrait[] = [
   {
     id: 'bull', label: 'פיזי ולא עוצר',
+    line: '{שם} נכנס בכל כדור כאילו זה הגמר. מי שעבר לידו זוכר את זה, והשופט גם.',
     bias: { physical: 14, defending: 6, pace: -4 },
     lateBy: 0, ceiling: 80, cardWeight: 2.2, injuryWeight: 1, slowStart: false, squadMorale: 0,
   },
   {
     id: 'wind', label: 'עף ברוח',
+    line: 'אף אחד לא השיג את {שם} מהיסודי, וגם היום לא. רק שכניסה אחת חזקה ואתה לא רואה אותו חודש.',
     bias: { pace: 18, dribbling: 6, physical: -6 },
     lateBy: 0, ceiling: 83, cardWeight: 1, injuryWeight: 2.5, slowStart: false, squadMorale: 0,
   },
   {
     id: 'brain', label: 'מסירה ואיטיות',
+    line: '{שם} לא ירוץ אחרי אף אחד, אבל הוא רואה את המסירה שלושה מהלכים קדימה. תן לו זמן, הוא הפרויקט הארוך שלך.',
     bias: { passing: 14, pace: -10 },
     lateBy: 3, ceiling: 86, cardWeight: 1, injuryWeight: 1, slowStart: true, squadMorale: 0,
   },
   {
     id: 'engine', label: 'רץ בלי הפסקה',
+    line: '{שם} רץ תשעים דקות ואז שואל אם יש עוד. לא נפצע, לא מתלונן, ולא נותן לאף אחד בחדר להוריד ראש.',
     bias: { physical: 8, pace: 4 },
     lateBy: 0, ceiling: 81, cardWeight: 1, injuryWeight: 0.3, slowStart: false, squadMorale: 2,
   },
   {
     id: 'boot', label: 'בעיטה וטכניקה',
+    line: 'לרגל של {שם} יש רובה. הוא ינסה מארבעים מטר, וכשזה נכנס אתה סולח לו על השלושים שלא.',
     bias: { shooting: 14, dribbling: 8, defending: -8 },
     lateBy: 0, ceiling: 84, cardWeight: 1, injuryWeight: 1, slowStart: false, squadMorale: 0,
   },
@@ -90,6 +102,11 @@ export const FRIEND_TRAITS: FriendTrait[] = [
 
 export function friendTrait(id: FriendTraitId): FriendTrait {
   return FRIEND_TRAITS.find(t => t.id === id) ?? FRIEND_TRAITS[0];
+}
+
+/** His line with his name in it, or with the blank left standing. */
+export function friendLine(trait: FriendTrait, name: string): string {
+  return trait.line.replace('{שם}', name.trim() || 'הוא');
 }
 
 /** What the save remembers about each of them, beyond the player himself. */

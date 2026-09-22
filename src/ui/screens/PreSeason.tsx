@@ -101,7 +101,7 @@ export function PreSeasonMarket({
     <>
       <Meters {...gs.meters} gems={gs.gems} />
       <div className="screen pad stack pad-b" style={{ gap: 13, minHeight: '100%' }}>
-        {firstCareer && <Stepper current={6} />}
+        {firstCareer && <Stepper current={7} />}
 
         {/* The banner. No football is played here, this is the window, three rounds. */}
         <div className="tile-hero" style={{ padding: '16px 16px 15px', marginTop: firstCareer ? 2 : 6 }}>

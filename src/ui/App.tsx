@@ -9,6 +9,7 @@ import { OnboardManager, OnboardClub } from './screens/Onboard.tsx';
 import { ArchetypeScreen } from './screens/Archetype.tsx';
 import { SquadScreen } from './screens/Squad.tsx';
 import { SigningScreen } from './screens/Signing.tsx';
+import { FriendsScreen } from './screens/Friends.tsx';
 import { PreSeasonMarket } from './screens/PreSeason.tsx';
 import { TransfersScreen } from './screens/Transfers.tsx';
 import { Hub } from './screens/Hub.tsx';
@@ -195,6 +196,9 @@ export function App() {
       )}
       {gs.phase === 'signing' && (
         <SigningScreen gs={gs} onDone={effect => setGs(G.afterSigning(gs, effect))} />
+      )}
+      {gs.phase === 'friends' && (
+        <FriendsScreen gs={gs} onDone={specs => setGs(G.addFriends(gs, specs))} />
       )}
       {gs.phase === 'squad' && (
         <SquadScreen gs={gs} firstTime={!squadFromHub}

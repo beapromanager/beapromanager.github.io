@@ -3,7 +3,7 @@
  * so signing on feels like a journey rather than a form and a button.
  */
 
-export const INTRO_STEPS = ['מי אתה', 'המועדון', 'הרזומה', 'החתימה', 'הסגל', 'השוק'] as const;
+export const INTRO_STEPS = ['מי אתה', 'המועדון', 'הרזומה', 'החתימה', 'החברים', 'הסגל', 'השוק'] as const;
 
 export function Stepper({ current }: { current: number }) {
   return (

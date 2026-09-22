@@ -300,7 +300,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
     {!firstTime && <Meters {...gs.meters} gems={gs.gems} />}
     <div className="screen pad stack pad-b" style={{ gap: 12 }}>
       {!firstTime && <TopBack onBack={onDone} />}
-      {firstTime && <Stepper current={5} />}
+      {firstTime && <Stepper current={6} />}
       {firstTime && <CoachGuide text="אלה השחקנים שלך. שלושה שכדאי להכיר למעלה, כל השאר בלחיצה על השם." />}
       <div className="row" style={{ marginTop: 8 }}>
         <Crest club={c} size={46} />

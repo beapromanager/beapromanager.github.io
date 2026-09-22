@@ -14,7 +14,7 @@ import type { Kit as KitStrip, KitPattern } from '../../data/kits.ts';
 
 let uid = 0;
 
-export function Kit({ kit, pattern, size = 88, sponsor, sponsorLogo, label }: {
+export function Kit({ kit, pattern, size = 88, sponsor, sponsorLogo, label, back }: {
   kit: KitStrip;
   /** override the strip's own pattern; the strip's wins when this is omitted */
   pattern?: KitPattern;
@@ -25,6 +25,15 @@ export function Kit({ kit, pattern, size = 88, sponsor, sponsorLogo, label }: {
   sponsorLogo?: string;
   /** what a screen reader says; the shirt is decoration without one */
   label?: string;
+  /**
+   * Turn the shirt around: a name across the shoulders and a number under it.
+   *
+   * The shape is symmetrical enough to read as a back, and what it buys is the
+   * only thing that matters on the screen where a manager names the two men he
+   * is bringing with him. Seeing his friend's surname printed on his own club's
+   * shirt is the moment the feature exists for.
+   */
+  back?: { name: string; number: number };
 }) {
   // gradients and clips are referenced by id, so two shirts on one screen must
   // not share them
@@ -90,6 +99,23 @@ export function Kit({ kit, pattern, size = 88, sponsor, sponsorLogo, label }: {
             {sponsor}
           </text>
         </>
+      )}
+
+      {back && (
+        <g>
+          {/* printed twice: a dark pass underneath so the name survives a white
+              kit and a yellow one alike, then the letters themselves */}
+          <text x="50" y="40" textAnchor="middle" fontSize={back.name.length > 8 ? 8.5 : 11}
+            fontWeight="900" fill="rgba(0,0,0,.55)" stroke="rgba(0,0,0,.55)" strokeWidth="2.4"
+            paintOrder="stroke" style={{ fontFamily: 'inherit' }}>{back.name}</text>
+          <text x="50" y="40" textAnchor="middle" fontSize={back.name.length > 8 ? 8.5 : 11}
+            fontWeight="900" fill="#fff" style={{ fontFamily: 'inherit' }}>{back.name}</text>
+          <text x="50" y="82" textAnchor="middle" fontSize="34" fontWeight="900"
+            fill="rgba(0,0,0,.55)" stroke="rgba(0,0,0,.55)" strokeWidth="3" paintOrder="stroke"
+            style={{ fontFamily: 'inherit', direction: 'ltr' }}>{back.number}</text>
+          <text x="50" y="82" textAnchor="middle" fontSize="34" fontWeight="900" fill="#fff"
+            style={{ fontFamily: 'inherit', direction: 'ltr' }}>{back.number}</text>
+        </g>
       )}
 
       <path d={SHIRT} fill="none" stroke="rgba(0,0,0,.3)" strokeWidth="1.3" />
