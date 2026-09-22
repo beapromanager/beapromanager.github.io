@@ -187,6 +187,11 @@ const POSITION_WEIGHTS: Record<Exclude<Position, 'GK'>, Attributes> = {
   CB:  { pace: 0.10, shooting: 0.02, passing: 0.10, dribbling: 0.06, defending: 0.50, physical: 0.22 },
 };
 
+/** What a rating is made of in this shirt, for anything that shapes a player. */
+export function positionWeights(pos: Position): Attributes | null {
+  return POSITION_WEIGHTS[pos as Exclude<Position, 'GK'>] ?? null;
+}
+
 export function overall(p: Player): number {
   if (p.position === 'GK') {
     const g = p.gk;

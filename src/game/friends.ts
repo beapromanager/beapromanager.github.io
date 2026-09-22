@@ -25,7 +25,7 @@
  */
 
 import type { Player, Position, Attributes, Rng } from '../engine/matchEngine.ts';
-import { overall, playerSeed } from '../engine/matchEngine.ts';
+import { overall, playerSeed, positionWeights } from '../engine/matchEngine.ts';
 import { makePlayer } from '../data/squadGen.ts';
 import { leagueCeiling } from '../data/clubs.ts';
 
@@ -143,11 +143,43 @@ export function shiftTo(p: Player, target: number): void {
   }
 }
 
-/** Give a generated player the shape his quality calls for, at his own level. */
+/**
+ * How far above his own rating a quality may push one attribute.
+ *
+ * The rest of the game reads a man through overall(), so a friend rated 44
+ * weakens the side by exactly what 44 says. One number escapes that: the goal
+ * model finishes on shooter.attrs.shooting directly, so a low rated man with
+ * a high shot converts like somebody he is not.
+ *
+ * The trap is that overall() weights an attribute differently by position. A
+ * centre back's shooting is worth 0.02 of his rating, so handing him a shot
+ * costs him nothing and he keeps all of it: measured, the 'boot' quality on a
+ * centre back left him shooting eighteen points above his level, which is a
+ * free striker standing in defence. So the tilt is scaled per player until no
+ * attribute clears his rating by more than this.
+ */
+export const TILT_CAP = 12;
+
+/**
+ * Give a generated player the shape his quality calls for, at his own level.
+ *
+ * The bias moves attributes and then the whole man is shifted back onto the
+ * level he is meant to arrive at, so a quality says what kind of player he is
+ * and never how good he is. Since the shift is the weighted average of the
+ * bias, the amount any one attribute ends up ahead is known before it is
+ * applied, and the whole tilt is scaled down when that would clear the cap.
+ */
 export function shapeFriend(p: Player, trait: FriendTrait, level: number): void {
-  for (const [k, v] of Object.entries(trait.bias)) {
-    const key = k as keyof Attributes;
-    p.attrs[key] = Math.max(25, Math.min(99, p.attrs[key] + v));
+  const w = positionWeights(p.position) ?? ({} as Attributes);
+  const entries = Object.entries(trait.bias) as [keyof Attributes, number][];
+  // what the bias does to the rating, and therefore how far the shift pulls back
+  const drift = entries.reduce((sum, [k, v]) => sum + v * (w[k] ?? 0), 0);
+  const widest = entries.reduce((m, [, v]) => Math.max(m, v - drift), 0);
+  // aimed a point under the cap, because six attributes rounded to whole
+  // numbers and a rating rounded after them can hand a point back
+  const scale = widest > TILT_CAP ? (TILT_CAP - 1) / widest : 1;
+  for (const [k, v] of entries) {
+    p.attrs[k] = Math.max(25, Math.min(99, Math.round(p.attrs[k] + v * scale)));
   }
   shiftTo(p, level);
 }

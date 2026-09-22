@@ -22,6 +22,7 @@ import {
 } from '../src/game/friends.ts';
 import type { FriendSpec, FriendTraitId } from '../src/game/friends.ts';
 import { overall, createRng } from '../src/engine/matchEngine.ts';
+import { makePlayer } from '../src/data/squadGen.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { leagueCeiling } from '../src/data/clubs.ts';
@@ -260,6 +261,48 @@ const friendById = (gs: G.GameState, id: string) => mine(gs).find(p => p.id === 
       else console.log(`  sacked at חיפה, and both of them turn up at ${G.club(after).name}`);
     }
   }
+}
+
+/* 5. A QUALITY IS A TILT, NOT A LOOPHOLE.
+      Team strength is read off overall(), so a friend rated 44 weakens the
+      side by exactly what 44 says. One attribute escapes that: the goal model
+      reads shooter.attrs.shooting directly, so a man whose rating is low but
+      whose shooting is high finishes like somebody he is not. That is the one
+      place where giving a quality its shape could quietly hand the manager a
+      free striker, so it is the one place with a bar on it.
+
+      Measured over sixty careers a side, putting both of them in the eleven
+      costs about seven league points in the first season, which is the price
+      the whole feature is built on. That number is not asserted here: with a
+      standard deviation of sixteen points a season it needs sixty runs to see
+      at all, and a check that takes ten minutes to say "probably" is worse
+      than one that says nothing. What is asserted is the thing that would
+      make the price disappear. */
+{
+  const plainAt = (pos: 'ST' | 'CM' | 'CB', target: number) => {
+    const p = makePlayer(pos, 44, createRng(5));
+    for (let i = 0; i < 20 && overall(p) !== target; i++) {
+      const d = target - overall(p);
+      for (const k of Object.keys(p.attrs) as (keyof typeof p.attrs)[]) p.attrs[k] += d;
+    }
+    return p;
+  };
+  const worst = { shooting: 0, any: 0, where: '' };
+  for (const t of FRIEND_TRAITS) for (const pos of ['ST', 'CM', 'CB'] as const) {
+    const him = makeFriend({ name: 'ש', position: pos, trait: t.id, texter: false }, 1, 'x', createRng(5));
+    const plain = plainAt(pos, overall(him));
+    checked++;
+    if (overall(him) !== overall(plain)) { fails.push(`could not build a plain ${pos} at ${overall(him)}`); continue; }
+    const gap = (k: keyof typeof him.attrs) => him.attrs[k] - plain.attrs[k];
+    if (gap('shooting') > worst.shooting) { worst.shooting = gap('shooting'); worst.where = `${t.id} ${pos}`; }
+    for (const k of Object.keys(him.attrs) as (keyof typeof him.attrs)[]) worst.any = Math.max(worst.any, gap(k));
+  }
+  checked += 2;
+  // the engine finishes on (shooting/75)^0.55, so twelve points of shooting is
+  // about a tenth on every chance he takes. Past that a raw friend is a ringer
+  if (worst.shooting > 12) fails.push(`a friend's shooting runs ${worst.shooting} past his rating (${worst.where}), and the goal model reads it straight`);
+  if (worst.any > 20) fails.push(`a quality bends an attribute ${worst.any} past the rating, which is no longer a tilt`);
+  console.log(`  the widest a quality bends him: ${worst.any} on any attribute, ${worst.shooting} on shooting`);
 }
 
 console.log(`\n${checked} checks`);
