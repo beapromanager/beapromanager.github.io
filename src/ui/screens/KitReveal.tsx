@@ -109,7 +109,7 @@ export function KitReveal({ gs, onDone }: { gs: G.GameState; onDone: () => void 
       </button>
 
       <p className="hint">
-        הצבע של {c.short} לא משתנה לעולם. מה שמשתנה זה הגזרה — ומה שהיא מספרת
+        הצבע של {c.short} לא משתנה לעולם. מה שמשתנה זה הגזרה, ומה שהיא מספרת
         על העונה שעברה.
       </p>
     </div>

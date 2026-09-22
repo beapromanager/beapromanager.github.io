@@ -18,7 +18,8 @@ import type { PressContext } from '../src/data/press.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 import { TEMPLATES } from '../src/data/dilemmas.ts';
 import { THREADS } from '../src/data/chats.ts';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const fails: string[] = [];
 let checked = 0;
@@ -255,6 +256,34 @@ const state = readFileSync('src/game/state.ts', 'utf8');
     if (mine.includes(p.gone)) fails.push(`${p.id} is back to "${p.gone}", which the document replaced`);
   }
   console.log(`  ${lines.length} lines of talk in Itzik's words, ${pins.length} pinned`);
+}
+
+/* 8. NO LONG DASH ANYWHERE THE PLAYER READS.
+      Sections 6 and 7 read the press room and the talks out of their data, and
+      four long dashes still shipped: three in the assistant's pre-match read
+      and one on the kit reveal, none of them in a file those sections look at.
+      So this one reads every source file under src instead. Comments are
+      stripped first, because the English that explains a fix is allowed to
+      punctuate however it likes; what is left is code, and the only Hebrew in
+      code is a line the player will see. */
+{
+  const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true })
+    .flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [join(dir, e.name)] : []);
+  const files = walk('src');
+  const bad: string[] = [];
+  for (const f of files) {
+    const code = readFileSync(f, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+    for (const line of code.split('\n')) {
+      if (/[—–]/.test(line)) bad.push(`${f}: a long dash in "${line.trim()}"`);
+    }
+  }
+  checked++;
+  if (files.length < 40) fails.push(`only ${files.length} source files walked under src`);
+  checked++;
+  if (bad.length) fails.push(...bad.slice(0, 4));
+  console.log(`  ${files.length} source files, no long dash outside a comment`);
 }
 
 console.log(`\n${checked} checks`);
