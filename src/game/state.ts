@@ -14,6 +14,10 @@ import { kitColor, type KitColorId } from '../data/palette.ts';
 import { isLegend, isLegendClub, withLegend } from '../data/legends.ts';
 import type { Friend, FriendSpec } from './friends.ts';
 import { makeFriend, friendTrait, friendAfterSummer, shiftTo, isFriend } from './friends.ts';
+import type { MateMemory } from './mate.ts';
+import { emptyMate, texterOf, pickMateTrigger, afterRound as mateAfterRound } from './mate.ts';
+import type { MateAnswer, MateTrigger } from '../data/mateChats.ts';
+import { mateThread, fillMate } from '../data/mateChats.ts';
 import { seasonKit, firstKit, reasonFor } from '../data/seasonKit.ts';
 import type { SeasonKit } from '../data/seasonKit.ts';
 import type { KitPattern } from '../data/kits.ts';
@@ -273,6 +277,8 @@ export interface GameState {
   lastLedger: RoundLedger | null;
   /** the conversation waiting on the phone after a week worth talking about */
   chat: RolledChat | null;
+  /** when the phone is his, the three things you can write back */
+  chatAnswers: { answers: MateAnswer[]; mateId: string; trigger: MateTrigger } | null;
   chatHistory: string[];
   /** press question ids asked lately, so the reporter does not repeat himself */
   pressHistory: string[];
@@ -316,6 +322,8 @@ export interface GameState {
    * the two is the one who never stops texting.
    */
   friends: Friend[];
+  /** what has to be carried between rounds for the friend's phone to work */
+  mate: MateMemory;
   /**
    * The first-week explainer has been read. A flag in the save rather than a
    * moment in the UI: it used to fire off the step that led to the hub, and
@@ -457,6 +465,7 @@ export function newGame(seed = 12345): GameState {
     inbox: [],
     lastLedger: null,
     chat: null,
+    chatAnswers: null,
     chatHistory: [],
     pressHistory: [],
     suspensions: {},
@@ -472,6 +481,7 @@ export function newGame(seed = 12345): GameState {
     summerExits: [],
     arrivals: [],
     friends: [],
+    mate: emptyMate(),
     tutorialSeen: false,
     seats: null,
     pendingOutcome: null,
@@ -2695,6 +2705,14 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
 export function startWeek(gs: GameState): GameState {
   // the sheet has to be in order first: nobody banned in the eleven, sixteen names
   if (weekBlockedReason(gs)) return gs;
+  // a shirt promised on the phone last week lands on this week's sheet
+  if (gs.mate.promiseNext) {
+    gs = {
+      ...gs,
+      matchMods: { ...gs.matchMods, promised: gs.mate.promiseNext },
+      mate: { ...gs.mate, promiseNext: undefined },
+    };
+  }
   const fx = playerFixture(gs);
   const rivalId = fx ? (fx.homeId === gs.clubId ? fx.awayId : fx.homeId) : gs.clubId;
   const rival = gs.league.clubs.find(c => c.id === rivalId)!;
@@ -3218,7 +3236,13 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
   // The crisis lands after the books are read for this round, so the week the
   // money disappears is never also the week you are sacked. The warning has to
   // come first, always.
-  return maybeCrisis(checkTheBooks(withChron, !won && !draw));
+  // his phone remembers whether he played, before anything else reads the week
+  const mateNow = (() => {
+    const him = texterOf(withChron.friends);
+    if (!him) return withChron.mate;
+    return mateAfterRound(withChron.mate, withChron.seasonStats[him.id]?.apps ?? 0);
+  })();
+  return maybeCrisis(checkTheBooks({ ...withChron, mate: mateNow }, !won && !draw));
 }
 
 /**
@@ -3458,6 +3482,12 @@ export function advancePastPress(gs: GameState): GameState {
 
   const iAmHome = fx.homeId === gs.clubId;
   const margin = (iAmHome ? r.score[0] : r.score[1]) - (iAmHome ? r.score[1] : r.score[0]);
+  // the friend goes first. Once every three rounds at most, and only when
+  // something has actually happened to him, which is the whole difference
+  // between this thread and the twenty six that are about the scoreline
+  const mine = mateChatNow(gs, r);
+  if (mine) return mine;
+
   // what he said in the week comes before what the scoreline says, when it applies
   const promised = gs.matchMods.chatAfter;
   const picked = promised && (!promised.onlyIfWon || margin > 0)
@@ -3486,9 +3516,122 @@ export function advancePastPress(gs: GameState): GameState {
   return { ...gs, phase: 'chat', press: null, chat, chatHistory: [...gs.chatHistory, chat.id].slice(-CHAT_MEMORY) };
 }
 
+/**
+ * Is the phone his this week?
+ *
+ * Everything the picker needs is read off the save as it stands, except the
+ * two things that cannot be: whether he was sent off in the round just played,
+ * which is in the match, and whether the other one has gone, which is on the
+ * friends list.
+ */
+function mateChatNow(gs: GameState, r: MatchResult): GameState | null {
+  const f = texterOf(gs.friends);
+  if (!f) return null;
+  const sq = mySquad(gs);
+  const him = [...sq.starters, ...sq.bench].find(p => p.id === f.id);
+  if (!him) return null;
+
+  const others = [...sq.starters, ...sq.bench].filter(p => p.id !== him.id);
+  const squadAvg = others.length
+    ? others.reduce((s, p) => s + overall(p), 0) / others.length : 99;
+  const stat = gs.seasonStats[him.id];
+  const trigger = pickMateTrigger(gs.mate, gs.week, {
+    him,
+    apps: stat?.apps ?? 0,
+    goals: stat?.goals ?? 0,
+    squadAvg,
+    injured: gs.sitOutNext[him.id] === 'פצוע',
+    sentOff: r.events.some(e => e.type === 'red' && e.playerId === him.id),
+    aloneNow: gs.friends.some(x => x.sold),
+    seasonOver: gs.week >= gs.league.rounds,
+    rounds: gs.league.rounds,
+    justUp: gs.chronicle.some(e => e.id === `season-${gs.season - 1}-promoted` || e.id === `season-${gs.season - 1}-champion`),
+  });
+  if (!trigger) return null;
+
+  const t = mateThread(trigger);
+  if (!t) return null;
+  const league = LEAGUE_NAMES[club(gs).tier] ?? '';
+  return {
+    ...gs,
+    phase: 'chat',
+    press: null,
+    chat: {
+      id: t.id,
+      contact: him.name.split(' ')[0],
+      subtitle: 'מקוון',
+      group: false,
+      accent: '#2FA96B',
+      lines: t.lines.map(text => ({ from: him.name.split(' ')[0], text: fillMate(text, { league }) })),
+    },
+    chatAnswers: { answers: t.answers, mateId: him.id, trigger },
+    mate: { ...gs.mate, seen: [...gs.mate.seen, trigger], lastWeek: gs.week },
+  };
+}
+
+/**
+ * What the manager wrote back, and what it costs him.
+ *
+ * The reply lands in the thread first, because the screen is a phone and a
+ * phone shows you what you sent. Everything else happens behind it.
+ */
+export function answerMateChat(gs: GameState, index: number): GameState {
+  const pack = gs.chatAnswers;
+  if (!gs.chat || !pack) return gs;
+  const a = pack.answers[index];
+  if (!a) return gs;
+  const e = a.effect;
+
+  const sq = mySquad(gs);
+  const him = [...sq.starters, ...sq.bench].find(p => p.id === pack.mateId);
+  const name = him?.name ?? '';
+
+  // his own morale and condition, on the player rather than on the club
+  let squads = gs.league.squads;
+  if (him && (e.morale || e.fitness)) {
+    const tune = (p: Player): Player => p.id !== him.id ? p : {
+      ...p,
+      morale: Math.max(0, Math.min(100, p.morale + (e.morale ?? 0))),
+      fitness: Math.max(20, Math.min(100, p.fitness + (e.fitness ?? 0))),
+    };
+    squads = { ...squads, [gs.clubId]: { starters: sq.starters.map(tune), bench: sq.bench.map(tune) } };
+  }
+
+  let out: GameState = {
+    ...gs,
+    league: { ...gs.league, squads },
+    meters: {
+      ...gs.meters,
+      morale: moraleShift(gs.meters.morale, e.squadMorale ?? 0),
+      prestige: meter(gs.meters.prestige + (e.prestige ?? 0)),
+      money: cash(gs.meters.money + (e.money ?? 0)),
+    },
+    chat: { ...gs.chat, lines: [...gs.chat.lines, { from: '', text: a.label }, { from: gs.chat.contact, text: a.reply }] },
+    chatAnswers: null,
+  };
+
+  switch (e.act) {
+    case 'promiseStart':
+      // not on this week's sheet, which is already played and about to be
+      // wiped, but on next week's, which is the week he was promised
+      if (him) out = { ...out, mate: { ...out.mate, promiseNext: { id: him.id, name } } };
+      break;
+    case 'mayLeave':
+      out = { ...out, mate: { ...out.mate, mayLeave: true } };
+      break;
+    case 'leaves':
+      if (him) out = { ...out, summerExits: [...out.summerExits, him.id] };
+      break;
+    case 'neverSell':
+      out = { ...out, mate: { ...out.mate, neverSell: true } };
+      break;
+  }
+  return out;
+}
+
 /** The player closed the phone, now the week can end. */
 export function closeChat(gs: GameState): GameState {
-  return endOfWeek(gs);
+  return endOfWeek({ ...gs, chatAnswers: null });
 }
 
 /** TEMP dev preview: a career with a few rounds played, for the /?league route. */

@@ -15,6 +15,7 @@ import { primePlayerIds } from '../data/squadGen.ts';
 import { setDerbies, derbiesFromClubs } from '../data/clubs.ts';
 import { newCoach } from './coach.ts';
 import { emptyInvite } from './invite.ts';
+import { emptyMate } from './mate.ts';
 import { DEFAULT_FORMATION } from '../data/formations.ts';
 
 const KEY = 'beapro.career.v1';
@@ -129,6 +130,8 @@ export function loadCareer(): GameState | null {
     arrivals: s.arrivals ?? [],
     // a career that started before the two of them existed simply has none
     friends: s.friends ?? [],
+    mate: s.mate ?? emptyMate(),
+    chatAnswers: s.chatAnswers ?? null,
     queued: s.queued ?? null,
     // anyone with a save from before the flag has been playing for a while
     tutorialSeen: s.tutorialSeen ?? true,

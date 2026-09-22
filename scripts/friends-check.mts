@@ -26,6 +26,8 @@ import { overall, createRng } from '../src/engine/matchEngine.ts';
 import { makePlayer } from '../src/data/squadGen.ts';
 import { assignTraits, isFriendTrait, renderLine } from '../src/data/personalities.ts';
 import { potentialBand } from '../src/game/career.ts';
+import { MATE_THREADS, MATE_GAP, mateThread, everyMateLine } from '../src/data/mateChats.ts';
+import { emptyMate, pickMateTrigger, texterOf } from '../src/game/mate.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { leagueCeiling } from '../src/data/clubs.ts';
@@ -365,6 +367,124 @@ const friendById = (gs: G.GameState, id: string) => mine(gs).find(p => p.id === 
   }
   const labels = gs.friends.map(fr => (map.get(fr.id) ?? [])[0]?.label).join(' and ');
   console.log(`  the two of them read as ${labels}, and nobody else in the eighteen does`);
+}
+
+/* 7. THE PHONE, FROM THE ONE WHO WRITES.
+      Ten threads, thirty answers, all of them Itzik's. Everything here is the
+      joinery rather than the prose: that the right thread fires for the right
+      reason, that none of them fires twice, that he cannot write two weeks
+      running, and that an answer moves what it says it moves and never moves
+      the one thing no answer may touch, which is how fast he improves. */
+{
+  const look = (over: Partial<Parameters<typeof pickMateTrigger>[2]> = {}) => ({
+    him: { id: 'x', morale: 70, fitness: 90, position: 'CM', age: 21, name: 'א',
+      attrs: { pace: 50, shooting: 50, passing: 50, dribbling: 50, defending: 50, physical: 50 } } as never,
+    apps: 0, goals: 0, squadAvg: 99, injured: false, sentOff: false,
+    aloneNow: false, seasonOver: false, rounds: 14, justUp: false, ...over,
+  });
+
+  checked++;
+  if (MATE_THREADS.length !== 10) fails.push(`${MATE_THREADS.length} threads on his phone, the document had 10`);
+  checked++;
+  for (const t of MATE_THREADS) {
+    if (t.answers.length !== 3) fails.push(`${t.id} has ${t.answers.length} answers, every one of them has three`);
+    if (!t.lines.length) fails.push(`${t.id} has nothing to say`);
+  }
+
+  // the loudest thing that happened to him wins, and nothing fires twice
+  const fresh = emptyMate();
+  checked += 4;
+  if (pickMateTrigger(fresh, 9, look({ sentOff: true, apps: 3, goals: 1 })) !== 'mate_red')
+    fails.push('a red card lost to something quieter');
+  if (pickMateTrigger(fresh, 9, look({ injured: true, apps: 3 })) !== 'mate_injured')
+    fails.push('an injury lost to something quieter');
+  if (pickMateTrigger(fresh, 9, look({ goals: 1, apps: 2 })) !== 'mate_first_goal')
+    fails.push('his first goal did not fire');
+  if (pickMateTrigger({ ...fresh, quiet: 3 }, 9, look()) !== 'mate_benched')
+    fails.push('three rounds on the bench and he said nothing');
+
+  checked += 2;
+  const seen = { ...fresh, seen: ['mate_first_goal'] as never };
+  if (pickMateTrigger(seen, 9, look({ goals: 3, apps: 3 })) === 'mate_first_goal')
+    fails.push('he sent his first goal twice');
+  // and he cannot write two weeks running
+  if (pickMateTrigger({ ...fresh, lastWeek: 8 }, 9, look({ sentOff: true })) !== null)
+    fails.push(`he wrote again after one round, the gap is ${MATE_GAP}`);
+  checked++;
+  if (pickMateTrigger({ ...fresh, lastWeek: 6 }, 9, look({ sentOff: true })) !== 'mate_red')
+    fails.push('he stayed silent past the gap');
+
+  // a season he played and a season he watched are different letters
+  checked += 2;
+  if (pickMateTrigger(fresh, 14, look({ seasonOver: true, apps: 12 })) !== 'mate_season_played')
+    fails.push('a full season went unmentioned');
+  if (pickMateTrigger(fresh, 14, look({ seasonOver: true, apps: 1 })) !== 'mate_season_benched')
+    fails.push('a season on the bench went unmentioned');
+
+  /* ---- and the answers, through the real save */
+  let gs = career('חיפה', 4242, SPECS('engine', 'boot'));
+  const texter = texterOf(gs.friends)!;
+  checked++;
+  if (!texter || !texter.texter) fails.push('nobody was marked as the one who writes');
+
+  const him0 = mine(gs).find(p => p.id === texter.id)!;
+  const t = mateThread('mate_benched')!;
+  const openThread = (id: 'mate_benched' | 'mate_season_benched' | 'mate_alone') => ({
+    ...gs, phase: 'chat' as const,
+    chat: { id, contact: 'א', subtitle: '', group: false, accent: '#000',
+      lines: mateThread(id)!.lines.map(text => ({ from: 'א', text })) },
+    chatAnswers: { answers: mateThread(id)!.answers, mateId: texter.id, trigger: id },
+  });
+
+  // the promise: his morale up, and the squad now knows he was promised a shirt
+  const promised = G.answerMateChat(openThread('mate_benched'), 0);
+  checked += 3;
+  const after = mine(promised).find(p => p.id === texter.id)!;
+  if (after.morale <= him0.morale) fails.push(`the promise did not lift him: ${him0.morale} -> ${after.morale}`);
+  if (promised.mate.promiseNext?.id !== texter.id) fails.push('the promise was not written down anywhere');
+  // and it has to survive the end of the week, which wipes the match mods.
+  // He asks after a match, so a promise landed straight onto this week's sheet
+  // would be swept away before the week he was actually promised
+  checked++;
+  const nextWeek = G.startWeek(G.closeChat(promised));
+  if (nextWeek.matchMods.promised?.id !== texter.id)
+    fails.push('the shirt promised on the phone never reached the next team sheet');
+  if (promised.chatAnswers) fails.push('the three answers are still on offer after one was sent');
+  checked++;
+  if (promised.chat!.lines.length !== t.lines.length + 2)
+    fails.push('what you wrote and what he wrote back are not both in the thread');
+
+  // the cold one costs him and nothing else
+  const cold = G.answerMateChat(openThread('mate_benched'), 2);
+  checked += 2;
+  if (mine(cold).find(p => p.id === texter.id)!.morale >= him0.morale) fails.push('the cold answer cost him nothing');
+  if (cold.meters.morale !== gs.meters.morale) fails.push('the cold answer moved the whole dressing room');
+
+  // the hard one: he actually goes
+  const gone = G.answerMateChat(openThread('mate_season_benched'), 2);
+  checked += 2;
+  if (!gone.summerExits.includes(texter.id)) fails.push('he was told to find a club and stayed');
+  if (gone.meters.morale >= gs.meters.morale) fails.push('telling a friend to leave cost the room nothing');
+
+  // and your word, which has no expiry date
+  const word = G.answerMateChat(openThread('mate_alone'), 0);
+  checked++;
+  if (!word.mate.neverSell) fails.push('the promise never to sell him was not written down');
+
+  // no answer anywhere may touch how fast he improves
+  checked++;
+  const touching = MATE_THREADS.flatMap(x => x.answers)
+    .filter(ans => 'growth' in ans.effect || 'ceiling' in ans.effect);
+  if (touching.length) fails.push(`${touching.length} answers try to move his growth, which only minutes may do`);
+
+  // the typography rules hold on his phone as well
+  const said = everyMateLine();
+  checked += 2;
+  const bad = said.filter(l => /[—–]/.test(l.text) || /\s[,.!?]/.test(l.text) || /\{[א-ת]+\}/.test(l.text) && !/\{ליגה\}/.test(l.text));
+  if (bad.length) fails.push(`${bad[0].id}: "${bad[0].text}"`);
+  if (said.length < 100) fails.push(`only ${said.length} lines on his phone`);
+
+  console.log(`  ${MATE_THREADS.length} threads, ${MATE_THREADS.flatMap(x => x.answers).length} answers, ${said.length} lines, one every ${MATE_GAP} rounds at most`);
 }
 
 console.log(`\n${checked} checks`);

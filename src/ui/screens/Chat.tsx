@@ -25,13 +25,18 @@ function clockFrom(week: number) {
   };
 }
 
-export function ChatScreen({ gs, onDone }: { gs: G.GameState; onDone: () => void }) {
+export function ChatScreen({ gs, onDone, onAnswer }: {
+  gs: G.GameState; onDone: () => void; onAnswer?: (index: number) => void;
+}) {
   const chat = gs.chat;
   const [shown, setShown] = useState(0);      // how many lines have landed
   const [typing, setTyping] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
 
   const total = chat?.lines.length ?? 0;
+  // his three answers, while they are still unanswered. Once one is sent the
+  // pack is cleared and the two new bubbles are simply part of the thread
+  const pack = gs.chatAnswers;
 
   // messages arrive one at a time, with the other side "typing" in between
   useEffect(() => {
@@ -108,6 +113,21 @@ export function ChatScreen({ gs, onDone }: { gs: G.GameState; onDone: () => void
         flex: 'none', padding: '9px 11px calc(env(safe-area-inset-bottom, 0px) + 11px)',
         background: '#0b141a',
       }}>
+        {pack && done ? (
+          <div className="stack" style={{ gap: 7 }}>
+            {pack.answers.map((a, i) => (
+              <button key={i} onClick={() => onAnswer?.(i)}
+                style={{
+                  width: '100%', minHeight: 46, borderRadius: 20, textAlign: 'start',
+                  border: '1px solid rgba(0,168,132,.5)', background: '#111b21', color: '#e9edef',
+                  padding: '10px 14px', fontSize: 14.5, lineHeight: 1.4, fontWeight: 600,
+                  animation: `riseIn .22s var(--ease-out) ${i * 0.05}s both`,
+                }}>
+                {a.label}
+              </button>
+            ))}
+          </div>
+        ) : (
         <button onClick={onDone} disabled={!done}
           style={{
             width: '100%', minHeight: 48, borderRadius: 24, border: 'none',
@@ -119,6 +139,7 @@ export function ChatScreen({ gs, onDone }: { gs: G.GameState; onDone: () => void
           }}>
           {done ? 'סגור ותמשיך' : 'ממתין להודעות...'}
         </button>
+        )}
       </div>
     </div>
   );

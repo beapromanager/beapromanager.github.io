@@ -229,7 +229,9 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   // banned for the round, or the youth on the sheet who never plays
   // a place promised in the week is a chip on his row and a line at the top,
   // until the round settles whether the word was kept
-  const promised = gs.matchMods.promised ?? null;
+  // a shirt promised on the phone counts from the moment it was promised, not
+  // from the moment the week starts and moves it onto the sheet
+  const promised = gs.matchMods.promised ?? gs.mate.promiseNext ?? null;
   const markOf = (p: Player): string | null =>
     G.isSuspended(gs, p.id) ? 'מורחק' : gs.emergencyYouth === p.id ? 'רשום בלבד' : gs.sitOut[p.id] ?? (promised?.id === p.id ? PROMISED : null);
 
