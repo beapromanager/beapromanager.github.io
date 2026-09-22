@@ -53,7 +53,8 @@
     "check:ads": "node --experimental-strip-types scripts/ads-check.mts",
     "check:sponsor": "node --experimental-strip-types scripts/sponsor-check.mts",
     "check:report": "node --experimental-strip-types scripts/report-check.mts",
-    "check:fans": "node --experimental-strip-types scripts/fans-check.mts"
+    "check:fans": "node --experimental-strip-types scripts/fans-check.mts",
+    "check:friends": "node --experimental-strip-types scripts/friends-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

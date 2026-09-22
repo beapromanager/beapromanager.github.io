@@ -127,6 +127,8 @@ export function loadCareer(): GameState | null {
     youthLeaveRisk: s.youthLeaveRisk ?? null,
     summerExits: s.summerExits ?? [],
     arrivals: s.arrivals ?? [],
+    // a career that started before the two of them existed simply has none
+    friends: s.friends ?? [],
     queued: s.queued ?? null,
     // anyone with a save from before the flag has been playing for a while
     tutorialSeen: s.tutorialSeen ?? true,

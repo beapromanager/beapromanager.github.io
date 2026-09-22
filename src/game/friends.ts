@@ -1,0 +1,242 @@
+/**
+ * The two you bring with you.
+ *
+ * At the start of a career the manager names two real friends, gives each of
+ * them a standout quality and a position, and they join the club as twenty one
+ * year olds who are, honestly, the worst players in the dressing room. That is
+ * the whole point. Playing them costs points now, and only playing them turns
+ * them into the two men the climb is built on.
+ *
+ * So they do not grow on the calendar like everybody else. They grow on
+ * minutes: a friend who played every week has a summer, and a friend who
+ * watched from the bench barely moves. Measured over five seasons, an ordinary
+ * twenty one year old out of the generator gains four rating points and never
+ * gets near seventy, because growth there is dominated by a hidden factor read
+ * off his id and by an age bracket that shuts at twenty four. A friend is not
+ * an ordinary player and does not use that road at all. He has his own ceiling,
+ * written here, and his own rate, and both of them are Itzik's numbers.
+ *
+ * For scale, measured across twenty squads a division: the best player in
+ * ליגה ג׳ rates 61, in ליגה א׳ 74, in the לאומית 80, in ליגת העל 84, and the
+ * generator cannot hand anybody a ceiling above 90. Every quality below tops
+ * out past the best man in the לאומית, and the passer, the one who is
+ * deliberately dull for two summers, tops out above anything the game can
+ * otherwise produce.
+ */
+
+import type { Player, Position, Attributes, Rng } from '../engine/matchEngine.ts';
+import { overall, playerSeed } from '../engine/matchEngine.ts';
+import { makePlayer } from '../data/squadGen.ts';
+import { leagueCeiling } from '../data/clubs.ts';
+
+export type FriendTraitId = 'bull' | 'wind' | 'brain' | 'engine' | 'boot';
+
+export interface FriendTrait {
+  id: FriendTraitId;
+  /** the chip on his row */
+  label: string;
+  /**
+   * How he is shaped at twenty one, in raw attribute points. The shape is
+   * applied first and the whole player is then shifted back onto his starting
+   * level, so a quality changes what he is good at, never how good he is on
+   * day one. Two friends with different qualities arrive equally raw.
+   */
+  bias: Partial<Record<keyof Attributes, number>>;
+  /** the rating he can reach. His own, not the one the generator hands out */
+  ceiling: number;
+  /** how a booking finds him, 1 = like anybody else */
+  cardWeight: number;
+  /** and how an injury does */
+  injuryWeight: number;
+  /** the passer is dull before he is good: three summers at half rate */
+  slowStart: boolean;
+  /**
+   * And how many years late he peaks. A man who plays on his head rather than
+   * his legs is still improving at thirty, which is the other half of the
+   * gamble: he is the last of them to be any good and the last to stop.
+   */
+  lateBy: number;
+  /** what his presence does to the room every summer */
+  squadMorale: number;
+}
+
+export const FRIEND_TRAITS: FriendTrait[] = [
+  {
+    id: 'bull', label: 'פיזי ולא עוצר',
+    bias: { physical: 14, defending: 6, pace: -4 },
+    lateBy: 0, ceiling: 80, cardWeight: 2.2, injuryWeight: 1, slowStart: false, squadMorale: 0,
+  },
+  {
+    id: 'wind', label: 'עף ברוח',
+    bias: { pace: 18, dribbling: 6, physical: -6 },
+    lateBy: 0, ceiling: 83, cardWeight: 1, injuryWeight: 2.5, slowStart: false, squadMorale: 0,
+  },
+  {
+    id: 'brain', label: 'מסירה ואיטיות',
+    bias: { passing: 14, pace: -10 },
+    lateBy: 3, ceiling: 86, cardWeight: 1, injuryWeight: 1, slowStart: true, squadMorale: 0,
+  },
+  {
+    id: 'engine', label: 'רץ בלי הפסקה',
+    bias: { physical: 8, pace: 4 },
+    lateBy: 0, ceiling: 81, cardWeight: 1, injuryWeight: 0.3, slowStart: false, squadMorale: 2,
+  },
+  {
+    id: 'boot', label: 'בעיטה וטכניקה',
+    bias: { shooting: 14, dribbling: 8, defending: -8 },
+    lateBy: 0, ceiling: 84, cardWeight: 1, injuryWeight: 1, slowStart: false, squadMorale: 0,
+  },
+];
+
+export function friendTrait(id: FriendTraitId): FriendTrait {
+  return FRIEND_TRAITS.find(t => t.id === id) ?? FRIEND_TRAITS[0];
+}
+
+/** What the save remembers about each of them, beyond the player himself. */
+export interface Friend {
+  /** the player's id, which survives ageing, a summer and a sacking */
+  id: string;
+  name: string;
+  trait: FriendTraitId;
+  position: Position;
+  /** the one who never stops texting. Exactly one of the two */
+  texter: boolean;
+  /** sold by the manager himself, which the other one does not forget */
+  sold?: boolean;
+}
+
+/** They are both twenty one, because that is the age you can still promise. */
+export const FRIEND_AGE = 21;
+
+/**
+ * How raw they arrive. Nine under the division's own level puts them below
+ * every man in the dressing room on day one, which is the price of the story
+ * and the reason the payoff is worth anything.
+ */
+export const FRIEND_BELOW = 9;
+
+export function friendStartLevel(tier: number): number {
+  return Math.round(leagueCeiling(tier) - FRIEND_BELOW);
+}
+
+/**
+ * Move a player onto an exact rating without changing what kind of player he
+ * is. The position weights sum to one, so adding the same number to every
+ * attribute moves the overall by that number, and the shape survives.
+ */
+export function shiftTo(p: Player, target: number): void {
+  const d = target - overall(p);
+  if (!d) return;
+  for (const k of Object.keys(p.attrs) as (keyof Attributes)[]) {
+    p.attrs[k] = Math.max(25, Math.min(99, Math.round(p.attrs[k] + d)));
+  }
+  if (p.gk) {
+    for (const k of Object.keys(p.gk) as (keyof NonNullable<Player['gk']>)[]) {
+      p.gk[k] = Math.max(25, Math.min(99, Math.round(p.gk[k] + d)));
+    }
+  }
+  // rounding on six attributes can leave us a point out either way
+  const off = target - overall(p);
+  if (off) {
+    const k = p.position === 'GK' ? null : (Object.keys(p.attrs) as (keyof Attributes)[])[0];
+    if (k) p.attrs[k] = Math.max(25, Math.min(99, p.attrs[k] + off * 3));
+  }
+}
+
+/** Give a generated player the shape his quality calls for, at his own level. */
+export function shapeFriend(p: Player, trait: FriendTrait, level: number): void {
+  for (const [k, v] of Object.entries(trait.bias)) {
+    const key = k as keyof Attributes;
+    p.attrs[key] = Math.max(25, Math.min(99, p.attrs[key] + v));
+  }
+  shiftTo(p, level);
+}
+
+/**
+ * The summer's climb, in rating points at full minutes.
+ *
+ * Front loaded, and it runs out: a friend who plays every week is a different
+ * player by twenty four, at the top of his range around twenty nine, and after
+ * that the ordinary ageing curve owns him like everybody else. A late bloomer
+ * reads the same table a few years shifted, so he is still climbing at an age
+ * where the others have stopped.
+ */
+function rateAt(age: number, lateBy: number): number {
+  const a = age - lateBy;
+  if (a <= 22) return 7;
+  if (a === 23) return 6.5;
+  if (a === 24) return 6;
+  if (a === 25) return 5;
+  if (a === 26) return 4;
+  if (a === 27) return 3;
+  if (a === 28) return 2.5;
+  if (a === 29) return 2;
+  if (a === 30) return 1.5;
+  return 0;
+}
+
+/** How close to the ceiling a man has to be before he starts flattening. */
+const TAPER = 6;
+
+/** Half a season on the pitch is most of a summer; none of it is almost none. */
+export const MINUTES_FLOOR = 0.15;
+
+export function minutesFactor(apps: number, rounds: number): number {
+  if (rounds <= 0) return MINUTES_FLOOR;
+  const share = Math.max(0, Math.min(1, apps / rounds));
+  return MINUTES_FLOOR + (1 - MINUTES_FLOOR) * share;
+}
+
+/**
+ * What a friend's rating becomes after one summer. Returns the new rating,
+ * never below where he already is: a friend does not go backwards while he is
+ * still young, whatever the minutes were.
+ */
+export function friendAfterSummer(
+  current: number, age: number, trait: FriendTrait, apps: number, rounds: number, season: number,
+): number {
+  const rate = rateAt(age, trait.lateBy);
+  if (rate <= 0) return current;
+  // the passer is worth watching only after everybody has stopped watching
+  const slow = trait.slowStart && season <= 3 ? 0.5 : 1;
+  // and everybody flattens as they close on their own ceiling
+  const room = Math.max(0, Math.min(1, (trait.ceiling - current) / TAPER));
+  const gain = rate * minutesFactor(apps, rounds) * slow * room;
+  return Math.min(trait.ceiling, current + gain);
+}
+
+/** Is this man one of the two? */
+export function isFriend(friends: Friend[], p: { id: string }): boolean {
+  return friends.some(f => f.id === p.id && !f.sold);
+}
+
+export function friendOf(friends: Friend[], p: { id: string }): Friend | undefined {
+  return friends.find(f => f.id === p.id && !f.sold);
+}
+
+/** What the manager typed in, before anybody exists. */
+export interface FriendSpec {
+  name: string;
+  position: Position;
+  trait: FriendTraitId;
+  texter: boolean;
+}
+
+/**
+ * Build one of them. He is generated like any other player so that every
+ * derived thing in the game still works on him, and then given his name, his
+ * age and his shape. The seed is recomputed off the finished player, because
+ * a stable seed is what the rest of the game reads a man's habits from.
+ */
+export function makeFriend(spec: FriendSpec, tier: number, id: string, rng: Rng): Player {
+  const level = friendStartLevel(tier);
+  const p = makePlayer(spec.position, level, rng);
+  p.id = id;
+  p.name = spec.name.trim();
+  p.age = FRIEND_AGE;
+  p.fitness = 92;
+  p.morale = 75;
+  shapeFriend(p, friendTrait(spec.trait), level);
+  p.seed = playerSeed(p.name, p.position, p.age, p.attrs);
+  return p;
+}

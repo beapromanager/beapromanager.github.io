@@ -12,6 +12,8 @@ import { LEAGUE_C, isDerby, LEAGUE_NAMES, setDerbies, derbiesFromClubs, leagueCe
 import { buildRegionLeague, buildSiblingLeague, siblingClub } from '../data/cities.ts';
 import { kitColor, type KitColorId } from '../data/palette.ts';
 import { isLegend, isLegendClub, withLegend } from '../data/legends.ts';
+import type { Friend, FriendSpec } from './friends.ts';
+import { makeFriend, friendTrait, friendAfterSummer, shiftTo, isFriend } from './friends.ts';
 import { seasonKit, firstKit, reasonFor } from '../data/seasonKit.ts';
 import type { SeasonKit } from '../data/seasonKit.ts';
 import type { KitPattern } from '../data/kits.ts';
@@ -308,6 +310,13 @@ export interface GameState {
   /** who joined this season, latest last, so "the new man" is a real man */
   arrivals: string[];
   /**
+   * The two he brought with him. They are ordinary players in every squad
+   * function; this is only what the game has to remember about them that the
+   * player object does not carry: which quality they were given, and which of
+   * the two is the one who never stops texting.
+   */
+  friends: Friend[];
+  /**
    * The first-week explainer has been read. A flag in the save rather than a
    * moment in the UI: it used to fire off the step that led to the hub, and
    * the day a sponsor screen was put between the summer and the hub it never
@@ -462,6 +471,7 @@ export function newGame(seed = 12345): GameState {
     youthLeaveRisk: null,
     summerExits: [],
     arrivals: [],
+    friends: [],
     tutorialSeen: false,
     seats: null,
     pendingOutcome: null,
@@ -715,7 +725,7 @@ export function takeRescue(gs: GameState): GameState {
     // Already in the same division, the account is open on the pitch instead.
     nemesis: offer.sameLeague ? null : nemesis,
     clubId: region.myId,
-    league,
+    league: { ...league, squads: friendsFollow(gs, league.squads, region.myId) },
     seasonSeed: seed,
     season: gs.season + 1,
     week: 1,
@@ -849,6 +859,99 @@ export function afterSigning(gs: GameState, effect: { morale?: number; prestige?
     style: scoreStyle(gs.style, effect),
     phase: next,
   };
+}
+
+/**
+ * The two friends join, on the bench, where they belong on day one: they are
+ * the worst players here and the manager is about to find that out.
+ *
+ * Nothing else in the game needs to know they are special. They are in the
+ * squad like anybody else, they can be picked, dropped, and sold, and the only
+ * thing that separates them is the summer they have, which startNextSeason
+ * reads off this list.
+ */
+export function addFriends(gs: GameState, specs: FriendSpec[]): GameState {
+  if (gs.friends.length || !specs.length) return gs;
+  const tier = club(gs).tier;
+  const rng = createRng(gs.seasonSeed * 31 + 7717);
+  const sq = mySquad(gs);
+  const made = specs.map(spec => {
+    const p = makeFriend(spec, tier, nextPlayerId(), rng);
+    return { p, spec };
+  });
+  const squads = {
+    ...gs.league.squads,
+    [gs.clubId]: { starters: [...sq.starters], bench: [...sq.bench, ...made.map(m => m.p)] },
+  };
+  return {
+    ...gs,
+    league: { ...gs.league, squads },
+    friends: made.map(({ p, spec }) => ({
+      id: p.id, name: p.name, trait: spec.trait, position: spec.position, texter: spec.texter,
+    })),
+  };
+}
+
+/**
+ * Their summer, which is their minutes.
+ *
+ * The ordinary ageing pass has already run over them with everybody else, and
+ * whatever it decided is overwritten here: a friend's road is his own. It is
+ * read off the rating he had before the summer, not after, so the two curves
+ * never compound.
+ */
+function friendsSummer(
+  gs: GameState, before: Squad, aged: Squad, rounds: number,
+): Squad {
+  if (!gs.friends.length) return aged;
+  const was = new Map([...before.starters, ...before.bench].map(p => [p.id, overall(p)]));
+  const grow = (p: Player): Player => {
+    const f = gs.friends.find(x => x.id === p.id && !x.sold);
+    const start = was.get(p.id);
+    if (!f || start === undefined) return p;
+    const apps = gs.seasonStats[p.id]?.apps ?? 0;
+    // the rate belongs to the season he just played, not to the birthday he
+    // has just had, so his first summer is the one he spent being twenty one
+    const target = friendAfterSummer(start, p.age - 1, friendTrait(f.trait), apps, rounds, gs.season);
+    const out: Player = { ...p, attrs: { ...p.attrs }, gk: p.gk ? { ...p.gk } : undefined };
+    shiftTo(out, Math.round(target));
+    return out;
+  };
+  return { starters: aged.starters.map(grow), bench: aged.bench.map(grow) };
+}
+
+/**
+ * They leave with you.
+ *
+ * Being sacked hands the manager a new club in a new town with a squad he has
+ * never met, and the two men he started the whole thing with would otherwise
+ * simply cease to exist. So they come: the same players, the same ids, the
+ * same ratings they had earned, onto the new bench. If there is no room, the
+ * weakest man there makes it, because he is a name from a generator and they
+ * are the reason this save is worth keeping.
+ */
+function friendsFollow(gs: GameState, squads: Record<string, Squad>, toClubId: string): Record<string, Squad> {
+  const mine = gs.league.squads[gs.clubId];
+  if (!gs.friends.length || !mine) return squads;
+  const here = [...mine.starters, ...mine.bench];
+  const coming = gs.friends.filter(x => !x.sold).map(x => here.find(p => p.id === x.id)).filter((p): p is Player => !!p);
+  if (!coming.length) return squads;
+
+  const sq = squads[toClubId];
+  let bench = [...sq.bench];
+  const weakest = () => bench.reduce((lo, p, i) => (overall(p) < overall(bench[lo]) ? i : lo), 0);
+  for (const p of coming) {
+    if (sq.starters.length + bench.length >= MAX_SQUAD && bench.length) bench.splice(weakest(), 1);
+    bench.push({ ...p, fitness: 90, morale: 70 });
+  }
+  return { ...squads, [toClubId]: { starters: sq.starters, bench } };
+}
+
+/** What the two of them do to the room every summer, by their qualities. */
+export function friendsMorale(gs: GameState): number {
+  return gs.friends
+    .filter(f => !f.sold && isFriend(gs.friends, { id: f.id }))
+    .reduce((s, f) => s + friendTrait(f.trait).squadMorale, 0);
 }
 
 /* ------------------------------------------------------------- pre season */
@@ -3501,6 +3604,10 @@ export function startNextSeason(gs: GameState): GameState {
     youthGrowth: coachYouthGrowth(gs.coach),
     fitnessBonus: coachFitnessBonus(gs.coach),
   });
+
+  // their minutes, before anything else reads the squad
+  next.squads[gs.clubId] = friendsSummer(
+    gs, gs.league.squads[gs.clubId], next.squads[gs.clubId], gs.league.rounds);
 
   // the whole division carries forward, aged, rather than being regenerated
   // The day you climb back into his division, he is in it, and he is your derby.
