@@ -19,6 +19,9 @@ import { createRng } from '../src/engine/matchEngine.ts';
 import { TEMPLATES } from '../src/data/dilemmas.ts';
 import { THREADS } from '../src/data/chats.ts';
 import { everyFanLine, FANS } from '../src/data/fans.ts';
+import { TRAITS, renderLine } from '../src/data/personalities.ts';
+import { LEGENDS } from '../src/data/legends.ts';
+import type { Player } from '../src/engine/matchEngine.ts';
 import type { FanContext } from '../src/data/fans.ts';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -356,6 +359,82 @@ const state = readFileSync('src/game/state.ts', 'utf8');
   if (griped.size !== 3) fails.push(`the read after a defeat gives ${griped.size} answers to three different tactics`);
 
   console.log(`  ${said.length} terrace lines in Itzik's words, ${pins.length} pinned, ${FANS.length} regulars`);
+}
+
+/* 10. AND THE DRESSING ROOM IS IN HIS WORDS TOO.
+      Fifty eight personalities and ten regulars went out in the second
+      document and twenty six came back rewritten. The same typography rules
+      hold, read out of the traits rather than off the file, and each line
+      must still carry the player's name, because a personality with the name
+      edited out reads as a sentence about nobody. */
+{
+  const him = { id: 'p1', name: 'רוני דדוש', age: 27, position: 'CM',
+    attrs: { pace: 60, shooting: 60, passing: 60, dribbling: 60, defending: 60, physical: 60 } } as unknown as Player;
+  const said = TRAITS.map(t => ({ id: t.id, label: t.label, tip: t.tip ?? '', s: renderLine(t, him) }));
+  checked++;
+  if (said.length !== 58) fails.push(`${said.length} personalities, the document had 58`);
+  const bad: string[] = [];
+  for (const { id, label, tip, s } of said) {
+    if (/\s[,.!?]/.test(s) || /\s[,.!?]/.test(tip)) bad.push(`${id}: a space before punctuation in "${s}${tip}"`);
+    if (/[—–]/.test(s) || /[—–]/.test(tip) || /[—–]/.test(label)) bad.push(`${id}: a long dash`);
+    if (/\$\{/.test(s)) bad.push(`${id}: an unfilled slot in "${s}"`);
+    if (!/[.!?]$/.test(s)) bad.push(`${id}: no full stop at the end of "${s}"`);
+    if (!s.includes(him.name)) bad.push(`${id} never says the player's name: "${s}"`);
+    if (tip && !/[.!?]$/.test(tip)) bad.push(`${id}: the advice does not end on a full stop`);
+  }
+  for (const l of LEGENDS) {
+    if (/\s[,.!?]/.test(l.says) || /[—–]/.test(l.says)) bad.push(`${l.name}: the reputation reads "${l.says}"`);
+    if (!/[.!?]$/.test(l.says)) bad.push(`${l.name}: no full stop at the end`);
+  }
+  checked += 2;
+  if (bad.length) fails.push(...bad.slice(0, 4));
+
+  const pins: Array<[string, string]> = [
+    ['hothead', 'אוהב לריב באמצע המשחק. כשהוא מתעייף, האדום קרוב יותר מתמיד.'],
+    ['karaoke', 'מוביל את הקריוקי בכל נסיעה ארוכה. הקול מזעזע, הביטחון בשמיים.'],
+    ['corner-rush', 'יוצא לכל קרן בטוח שיאגרף. בערך בחצי מהמקרים הוא מאגרף את הכדור וחצי מהמקרים זה בראש של החלוץ.'],
+    ['no-running', 'עם כדור ברגל זה קסם. בלי כדור, עצלן גמור.'],
+    ['late', 'מגיע לאימון על הדקה, כל פעם מחדש. תמיד בגלל הפקקים והוא גר 5 דק\' מהמגרש.'],
+    ['crypto', 'הפסיד על מנייה בטוחה בקיץ. עדיין ממליץ עלייה לכל הסגל.'],
+  ];
+  for (const [id, right] of pins) {
+    checked++;
+    const line = said.find(x => x.id === id);
+    if (!line) fails.push(`the squad lost ${id} altogether`);
+    else if (!line.s.includes(right)) fails.push(`${id} no longer says "${right}"`);
+  }
+  const gone: Array<[string, string]> = [
+    ['hothead', 'כשהוא מתעייף, זה מתחיל'],
+    ['karaoke', 'הקול בינוני, הביטחון מלא'],
+    ['no-running', 'זה עונג'],
+  ];
+  for (const [id, old] of gone) {
+    checked++;
+    const line = said.find(x => x.id === id);
+    if (line && line.s.includes(old)) fails.push(`${id} is back to "${old}", which his document replaced`);
+  }
+  const tips: Array<[string, string]> = [
+
+  ];
+  for (const [id, right] of tips) {
+    checked++;
+    const line = said.find(x => x.id === id);
+    if (!line || line.tip !== right) fails.push(`the advice on ${id} is no longer "${right}"`);
+  }
+  // the regulars, each pinned on the phrase his rewrite turns on
+  const legPins: Array<[string, string]> = [
+    ['קשר גבוה בלי טכניקה וב', 'עדי רץ בלי ידיים'],
+    ['קשר אמצע, איטי מאוד, מ', 'דה לה פנייה'],
+    ['חלוץ לא מהיר, טכני ושמ', 'מספרת שלו'],
+  ];
+  for (const [head, frag] of legPins) {
+    checked++;
+    const l = LEGENDS.find(x => x.says.startsWith(head));
+    if (!l) fails.push(`no regular opens with "${head}" any more`);
+    else if (!l.says.includes(frag)) fails.push(`${l.name} no longer says "${frag}"`);
+  }
+
+  console.log(`  ${said.length} personalities in Itzik's words, ${pins.length} pinned, ${tips.length} pieces of advice, ${legPins.length} regulars`);
 }
 
 console.log(`\n${checked} checks`);
