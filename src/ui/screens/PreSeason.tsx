@@ -70,7 +70,7 @@ export function PreSeasonMarket({
   }
 
   const [card, setCard] = useState<Player | null>(null);
-  const traits = useMemo(() => assignTraits([...sq.starters, ...sq.bench]), [sq]);
+  const traits = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends), [sq, gs.friends]);
 
   // an answered piece of business shows its outcome, same grammar as the inbox
   if (gs.pendingOutcome != null) {

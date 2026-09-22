@@ -34,7 +34,7 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
   const size = G.squadSize(gs);
 
   // personalities: my squad as one group, the market as its own group
-  const squadTraits = useMemo(() => assignTraits([...sq.starters, ...sq.bench]), [sq]);
+  const squadTraits = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends), [sq, gs.friends]);
   const marketTraits = useMemo(() => assignTraits(gs.market.map(f => f.player)), [gs.market]);
   const cardTraits = card
     ? squadTraits.get(card.id) ?? marketTraits.get(card.id) ?? []

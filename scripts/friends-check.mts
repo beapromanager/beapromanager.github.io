@@ -19,10 +19,13 @@ import * as G from '../src/game/state.ts';
 import {
   FRIEND_TRAITS, friendTrait, friendAfterSummer, minutesFactor,
   friendStartLevel, makeFriend, FRIEND_AGE, MINUTES_FLOOR,
+  friendBand,
 } from '../src/game/friends.ts';
 import type { FriendSpec, FriendTraitId } from '../src/game/friends.ts';
 import { overall, createRng } from '../src/engine/matchEngine.ts';
 import { makePlayer } from '../src/data/squadGen.ts';
+import { assignTraits, isFriendTrait, renderLine } from '../src/data/personalities.ts';
+import { potentialBand } from '../src/game/career.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { leagueCeiling } from '../src/data/clubs.ts';
@@ -303,6 +306,65 @@ const friendById = (gs: G.GameState, id: string) => mine(gs).find(p => p.id === 
   if (worst.shooting > 12) fails.push(`a friend's shooting runs ${worst.shooting} past his rating (${worst.where}), and the goal model reads it straight`);
   if (worst.any > 20) fails.push(`a quality bends an attribute ${worst.any} past the rating, which is no longer a tilt`);
   console.log(`  the widest a quality bends him: ${worst.any} on any attribute, ${worst.shooting} on shooting`);
+}
+
+/* 6. AND THE SQUAD KNOWS WHO THEY ARE.
+      A friend is an ordinary player everywhere else, which is exactly why he
+      needs marking: eighteen names in a list and two of them are the reason
+      the save exists. His quality is his personality, the way a ראש העין
+      regular's reputation is his, so the pool never hands him a second
+      character that contradicts the one the manager chose for him. */
+{
+  const gs = career('חיפה', 4242, SPECS('wind', 'engine'));
+  const squad = mine(gs);
+  const map = assignTraits(squad, gs.friends);
+  checked += 2;
+  for (const fr of gs.friends) {
+    const got = map.get(fr.id) ?? [];
+    if (got.length !== 1) fails.push(`${fr.name} has ${got.length} personalities, he should have exactly his own`);
+    else if (!isFriendTrait(got[0])) fails.push(`${fr.name} was handed "${got[0].label}" out of the general pool`);
+    else if (got[0].label !== friendTrait(fr.trait).label)
+      fails.push(`${fr.name} shows "${got[0].label}" and was given "${friendTrait(fr.trait).label}"`);
+  }
+  // his line is his, with his own name in it, not a stranger's
+  checked += 2;
+  for (const fr of gs.friends) {
+    const t = (map.get(fr.id) ?? [])[0];
+    const him = squad.find(p => p.id === fr.id)!;
+    if (!t) continue;
+    const said = renderLine(t, him);
+    if (!said.includes(him.name.split(' ')[0]) && !said.includes(him.name))
+      fails.push(`${fr.name}'s line does not say his name: "${said}"`);
+    if (/\$\{|\{שם\}/.test(said)) fails.push(`${fr.name}'s line kept its blank: "${said}"`);
+  }
+  // nobody else in the dressing room is mistaken for one of them
+  checked++;
+  const strangers = squad.filter(p => !gs.friends.some(x => x.id === p.id));
+  const wrong = strangers.filter(p => (map.get(p.id) ?? []).some(isFriendTrait));
+  if (wrong.length) fails.push(`${wrong.length} players who are not friends carry a friend's mark`);
+
+  // and a man who was sold stops being one
+  checked++;
+  const sold = { ...gs, friends: gs.friends.map((x, i) => (i === 0 ? { ...x, sold: true } : x)) };
+  const after = assignTraits(mine(sold), sold.friends);
+  if ((after.get(gs.friends[0].id) ?? []).some(isFriendTrait))
+    fails.push('a friend who was sold still reads as one of yours');
+
+  // and the scout does not tell him his friend is finished at twenty one.
+  // The card reads a ceiling off the generator, which a friend never uses, so
+  // before this it promised the middle fifties for a man on his way to eighty
+  checked += 2;
+  for (const fr of gs.friends) {
+    const him = squad.find(p => p.id === fr.id)!;
+    const t = friendTrait(fr.trait);
+    const band = friendBand(t, overall(him));
+    const scout = potentialBand(him);
+    if (!band) { fails.push(`no ceiling is shown for ${fr.name} at all`); continue; }
+    if (band.hi < t.ceiling) fails.push(`${fr.name} is shown topping out at ${band.hi}, under his own ${t.ceiling}`);
+    if (scout && scout.hi >= band.lo) fails.push(`the generator would have shown ${fr.name} ${scout.lo}-${scout.hi}, which is not far enough out to be worth overriding`);
+  }
+  const labels = gs.friends.map(fr => (map.get(fr.id) ?? [])[0]?.label).join(' and ');
+  console.log(`  the two of them read as ${labels}, and nobody else in the eighteen does`);
 }
 
 console.log(`\n${checked} checks`);

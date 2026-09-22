@@ -22,11 +22,13 @@
 import type { Player } from '../engine/matchEngine.ts';
 import type { Legend } from './legends.ts';
 import { legendByName } from './legends.ts';
+import type { Friend } from '../game/friends.ts';
+import { friendTrait, friendLine } from '../game/friends.ts';
 import { overall } from '../engine/matchEngine.ts';
 import { BRONZE_FROM } from '../game/cards.ts';
 import { originOfName } from './names.ts';
 
-export type Tone = 'fun' | 'warn' | 'heart' | 'pro';
+export type Tone = 'fun' | 'warn' | 'heart' | 'pro' | 'friend';
 
 /** Picks a stable element per call, advancing so several slots in one line differ. */
 export type Picker = <T>(arr: readonly T[]) => T;
@@ -459,7 +461,30 @@ const COVERAGE = 1;
  * deterministic from the player ids, so it is stable across sessions with no
  * storage. This is the path every squad, bench and market list should use.
  */
-export function assignTraits(players: Player[]): Map<string, Trait[]> {
+/**
+  * One of the two he brought with him, as a personality.
+  *
+  * A friend is not handed a line from the pool for the same reason a ראש העין
+  * regular is not: the line he has is the one the manager chose for him on the
+  * screen where he named him, and a man cannot be both the friend who never
+  * stops running and, by a roll of his id, a man who sleeps on the bus.
+  */
+export function isFriendTrait(t: Trait | null | undefined): boolean {
+  return !!t && t.id.startsWith('friend-');
+}
+
+export function friendAsTrait(f: Friend): Trait {
+  const t = friendTrait(f.trait);
+  return {
+    id: `friend-${f.id}`,
+    group: `friend-${f.id}`,
+    label: t.label,
+    line: (name: string) => friendLine(t, name),
+    tone: 'friend',
+  };
+}
+
+export function assignTraits(players: Player[], friends: Friend[] = []): Map<string, Trait[]> {
   const map = new Map<string, Trait[]>();
   if (!players.length) return map;
 
@@ -484,6 +509,9 @@ export function assignTraits(players: Player[]): Map<string, Trait[]> {
     // whole character exists for, so he keeps his.
     const own = legendByName(p.name);
     if (own) { map.set(p.id, [legendTrait(own)]); continue; }
+    // and the two he brought with him keep the quality he gave them
+    const mate = friends.find(f => f.id === p.id && !f.sold);
+    if (mate) { map.set(p.id, [friendAsTrait(mate)]); continue; }
     if (!chosen.has(p.id)) { map.set(p.id, []); continue; }
 
     const ordered = orderedTraits(p);
@@ -528,6 +556,8 @@ export const TONE_COLOR: Record<Tone, string> = {
   warn: 'var(--loss)',
   heart: 'var(--win)',
   pro: 'var(--sky)',
+  // the club's own colour, because he is not a type of player, he is yours
+  friend: 'var(--club)',
 };
 
 /* --------------------------------------------------------- the regulars */

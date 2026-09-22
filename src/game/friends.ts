@@ -254,6 +254,21 @@ export function friendAfterSummer(
   return Math.min(trait.ceiling, current + gain);
 }
 
+/**
+ * Roughly how high he tops out, in the same hedged shape the scout uses for
+ * everybody else.
+ *
+ * This matters more than it looks. The card reads a player's ceiling off the
+ * generator's hidden potential, which a friend does not have and never uses,
+ * so before this it told a manager his friend would peak in the middle fifties
+ * while the man was on his way to the eighties. A promise the game makes on
+ * one screen and denies on another is worse than no promise.
+ */
+export function friendBand(trait: FriendTrait, current: number): { lo: number; hi: number } | null {
+  if (current >= trait.ceiling - 1) return null;
+  return { lo: Math.max(current + 1, trait.ceiling - 3), hi: trait.ceiling + 1 };
+}
+
 /** Is this man one of the two? */
 export function isFriend(friends: Friend[], p: { id: string }): boolean {
   return friends.some(f => f.id === p.id && !f.sold);

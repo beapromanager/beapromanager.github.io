@@ -4,7 +4,7 @@ import type { Player, Position } from '../../engine/matchEngine.ts';
 import { overall } from '../../engine/matchEngine.ts';
 import { ovrColor } from '../../game/cards.ts';
 import type { Trait } from '../../data/personalities.ts';
-import { headlineTrait, assignTraits, renderLine, TONE_COLOR } from '../../data/personalities.ts';
+import { headlineTrait, assignTraits, renderLine, TONE_COLOR, isFriendTrait } from '../../data/personalities.ts';
 import { surnameOf } from '../../data/names.ts';
 import type { Squad } from '../../data/squadGen.ts';
 import { Crest } from '../components/Crest.tsx';
@@ -46,6 +46,29 @@ export function CaptainMark({ size = 18 }: { size?: number }) {
   );
 }
 
+/**
+ * One of the two he brought with him.
+ *
+ * A friend is an ordinary player in every other respect, which is the problem:
+ * without a mark he is just another name in a list of eighteen, and the whole
+ * reason he is here is that he is not. The badge is the shirt, because the
+ * shirt is what he was given on the screen where he was named.
+ */
+export function FriendMark({ size = 18 }: { size?: number }) {
+  return (
+    <span style={{
+      width: size, height: size, borderRadius: 5, flex: 'none',
+      display: 'inline-grid', placeItems: 'center', verticalAlign: 'middle',
+      background: 'rgba(233,185,73,.16)', border: '1px solid rgba(233,185,73,.45)',
+    }} title={FRIEND_MARK} aria-label={FRIEND_MARK}>
+      <Icon name="shirt" size={size * 0.62} color="var(--gold)" />
+    </span>
+  );
+}
+
+/** what the badge says, and what the card calls the line he came with */
+export const FRIEND_MARK = 'בא איתך';
+
 /** the chip on a man the manager gave his word to this week */
 const PROMISED = 'הבטחת לו';
 
@@ -84,6 +107,7 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mar
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: fit === 'out' ? 'var(--loss)' : fit === 'covers' ? 'var(--gold-hi)' : undefined }}>
           {captain && <><CaptainMark size={16} /> </>}
+          {isFriendTrait(trait) && <><FriendMark size={15} /> </>}
           {p.name}
           {role && fit !== 'natural' && <span className="chip" style={{ marginInlineStart: 6, background: fit === 'out' ? 'rgba(226,72,77,.18)' : 'rgba(233,185,73,.16)', color: fit === 'out' ? 'var(--loss)' : 'var(--gold-hi)' }}>{ROLE_LABEL[role]}</span>}
           {young && <span className="chip" style={{ marginInlineStart: 6, background: 'rgba(51,194,122,.18)', color: 'var(--win)' }}>כישרון</span>}
@@ -199,7 +223,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
 
   // one personality pass over the whole squad, so no two players repeat
-  const traitMap = useMemo(() => assignTraits([...sq.starters, ...sq.bench]), [sq]);
+  const traitMap = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends), [sq, gs.friends]);
   const tr = (p: Player): Trait[] => traitMap.get(p.id) ?? [];
   const captainId = G.currentCaptainId(gs);
   // banned for the round, or the youth on the sheet who never plays
@@ -466,6 +490,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
 
       {card && (
         <PlayerCard p={card} club={c} season={gs.seasonStats[card.id]} career={G.careerOf(gs, card.id)} traits={tr(card)}
+          friend={gs.friends.find(x => x.id === card.id)}
           part={!firstTime && onPart ? {
             options: G.partOptions(gs, card.id), blocked: G.partBlockedReason(gs, card.id),
             onPart: kind => {
@@ -510,7 +535,8 @@ function PlayerSheet({ p, role, traits, captain, mark, onCard, onSwap, onClose }
         <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 900, fontSize: 17, lineHeight: 1.2 }}>
-              {captain && <><CaptainMark size={16} /> </>}{p.name}
+              {captain && <><CaptainMark size={16} /> </>}
+              {isFriendTrait(trait) && <><FriendMark size={16} /> </>}{p.name}
             </div>
             <div className="sub" style={{ fontSize: 13.5, marginTop: 2 }}>
               <span style={{ color: LINE_COLOR[LINE_OF[p.position]], fontWeight: 800 }}>{POS_LABEL[p.position]}</span>
@@ -682,7 +708,9 @@ function DressingRoom({ sq, traitMap, onOpen }: {
               style={{ ...({ '--i': i } as React.CSSProperties), textAlign: 'start', display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '6px 2px' }}>
               <span className="chip" style={{ background: 'rgba(255,255,255,.07)', color: LINE_COLOR[LINE_OF[p.position]], minWidth: 36, justifyContent: 'center' }}>{p.position}</span>
               <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontWeight: 800, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+                <span style={{ display: 'block', fontWeight: 800, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {isFriendTrait(t) && <><FriendMark size={15} /> </>}{p.name}
+                </span>
                 <span style={{ display: 'block', fontSize: 14.5, lineHeight: 1.45, color: t ? 'var(--ink-dim)' : 'var(--ink-faint)' }}>
                   {t
                     ? <><span style={{ color: TONE_COLOR[t.tone], fontWeight: 700 }}>{t.label}</span><span style={{ opacity: .5 }}> · </span>{renderLine(t, { ...p, name: surnameOf(p.name) })}</>

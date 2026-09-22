@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { surnameOf } from '../../data/names.ts';
 import type { Player } from '../../engine/matchEngine.ts';
+import { overall } from '../../engine/matchEngine.ts';
 import type { Club } from '../../data/clubs.ts';
 import type { PlayerSeason, CareerSeason, PartOption, PartKind } from '../../game/state.ts';
 import { careerTotals } from '../../game/state.ts';
 import { LEAGUE_NAMES } from '../../data/clubs.ts';
 import { playerValue } from '../../data/squadGen.ts';
 import { potentialBand } from '../../game/career.ts';
+import type { Friend } from '../../game/friends.ts';
+import { friendBand, friendTrait } from '../../game/friends.ts';
 import type { Trait } from '../../data/personalities.ts';
-import { traitsFor, renderLine, TONE_COLOR } from '../../data/personalities.ts';
+import { traitsFor, renderLine, TONE_COLOR, isFriendTrait } from '../../data/personalities.ts';
 import { Icon } from './Icon.tsx';
 import { Portal } from './Portal.tsx';
 import { UltraCard } from './UltraCard.tsx';
@@ -34,7 +37,7 @@ const GK_ATTRS: [string, string][] = [
  * The player card. A rating alone never made anyone care about a footballer,
  * so this leads with who he is and backs it with the numbers.
  */
-export function PlayerCard({ p, club, season, career, traits, part, onClose }: {
+export function PlayerCard({ p, club, season, career, traits, friend, part, onClose }: {
   p: Player;
   club: Club;
   season?: PlayerSeason;
@@ -42,11 +45,16 @@ export function PlayerCard({ p, club, season, career, traits, part, onClose }: {
   career?: CareerSeason[];
   /** the squad-assigned traits, falls back to standalone if omitted */
   traits?: Trait[];
+  /** one of the two he brought with him, whose ceiling is his own */
+  friend?: Friend;
   /** the ways he can be let go this week, only from his own club's squad screen */
   part?: { options: PartOption[]; blocked: string | null; onPart: (kind: PartKind) => void };
   onClose: () => void;
 }) {
-  const band = potentialBand(p);
+  // a friend's ceiling is written on his quality, not rolled off his id
+  const band = friend && !friend.sold
+    ? friendBand(friendTrait(friend.trait), overall(p))
+    : potentialBand(p);
   const list = traits ?? traitsFor(p);
   const isGk = p.position === 'GK';
 
@@ -97,7 +105,9 @@ export function PlayerCard({ p, club, season, career, traits, part, onClose }: {
           {/* who he is, this is the part that makes him yours */}
           {list.length > 0 && (
             <div className="stack" style={{ gap: 9 }}>
-              <div className="label-cap">מה שאומרים עליו בחדר</div>
+              <div className="label-cap">
+                {list.some(isFriendTrait) ? 'הוא בא איתך' : 'מה שאומרים עליו בחדר'}
+              </div>
               {list.map(t => (
                 <div key={t.id} className="tile" style={{
                   padding: '11px 12px',
