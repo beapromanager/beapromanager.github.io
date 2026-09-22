@@ -18,6 +18,8 @@ import type { PressContext } from '../src/data/press.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 import { TEMPLATES } from '../src/data/dilemmas.ts';
 import { THREADS } from '../src/data/chats.ts';
+import { everyFanLine, FANS } from '../src/data/fans.ts';
+import type { FanContext } from '../src/data/fans.ts';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -284,6 +286,76 @@ const state = readFileSync('src/game/state.ts', 'utf8');
   checked++;
   if (bad.length) fails.push(...bad.slice(0, 4));
   console.log(`  ${files.length} source files, no long dash outside a comment`);
+}
+
+/* 9. THE TERRACE IS IN ITZIK'S WORDS TOO.
+      Sixty one lines came back from his document rewritten, the cast with
+      them. Same rules as the press room and the talks, read out of the data
+      rather than off the file, plus the one rule this pool has of its own:
+      every line ends on a full stop, because it is a man speaking, not a
+      caption. */
+{
+  const bareFan: FanContext = {
+    timing: 'pre', isDerby: true, isHome: true, rival: 'הפועל', city: 'חיפה',
+    coldStriker: 'סבג', coldWeeks: 4, youngster: 'בר', approach: 'balanced',
+    tablePos: 4, totalTeams: 14, streak: 2, fans: 50,
+    result: 'win', scoreLine: '2:1', scorer: 'מור',
+  };
+  const said = everyFanLine().map(l => ({ id: l.id, s: l.text({ ...bareFan, timing: l.pool }, createRng(9)) }));
+  checked++;
+  if (said.length !== 61) fails.push(`${said.length} lines in the terrace's mouth, the document had 61`);
+  const bad: string[] = [];
+  for (const { id, s } of said) {
+    if (/\s[,.!?]/.test(s)) bad.push(`${id}: a space before punctuation in "${s}"`);
+    if (/[—–]/.test(s)) bad.push(`${id}: a long dash in "${s}"`);
+    if (/\$\{/.test(s)) bad.push(`${id}: an unfilled slot in "${s}"`);
+    if (!/[.!?]$/.test(s)) bad.push(`${id}: no full stop at the end of "${s}"`);
+  }
+  for (const f of FANS) {
+    if (/\s[,.!?]/.test(f.bio) || /[—–]/.test(f.bio)) bad.push(`${f.id}: the bio reads "${f.bio}"`);
+  }
+  checked += 2;
+  if (bad.length) fails.push(...bad.slice(0, 4));
+
+  // the lines he made his own, and the wordings his document replaced
+  const pins: Array<[string, string]> = [
+    ['sage-formation', 'וזהו. בלי פוזות! שנים אני אומר את זה ואף אחד לא מקשיב.'],
+    ['super-top', 'לא רוצה לדבר ולהגיד באיזה מקום אנחנו שחס וחלילה לא נעשה עין הרע. רק תמשיך, בשקט, בלי לספר לאף אחד. טפו טפו טפו חמסה!'],
+    ['hope-generic', 'יש לי הרגשה טובה השבוע. הכנתי אפילו ג\'חנונים וסמבוסקים לחבר׳ה. הולכים על שלוש נקודות, אני מאמין בך.'],
+    ['ctx-loss', 'הפסד. שילמתי חניה, קניתי גרעינים. הוצאתי 100 שקל על המשחק המעפן הזה! ובשביל מה?! תעשה משהו עד המחזור הבא.'],
+    ['city-hope', 'מדברת רק על המשחק הזה. תביא לנו נצחון בחייאת רבאק! אנחנו צריכים את זה.'],
+    ['fans-empty-kid', 'הבאתי את הילד והוא שאל למה אין אנשים. לא ידעתי מה לענות לו. בושה.'],
+    ['fans-full-win', 'שמעת אותנו היום? זה לא יציע, זה גדוד. תמסור לחבר׳ה שהם עשו את זה.'],
+  ];
+  for (const [id, right] of pins) {
+    checked++;
+    const line = said.find(x => x.id === id);
+    if (!line) fails.push(`the terrace lost ${id} altogether`);
+    else if (!line.s.includes(right)) fails.push(`${id} no longer says "${right}"`);
+  }
+  const gone: Array<[string, string]> = [
+    ['sage-tactic', 'אתה כמובן תעשה מה שאתה רוצה'],
+    ['ctx-generic', 'הצעיף מוכן'],
+    ['heart-generic', 'זה כל מה שיש לנו בשבוע'],
+  ];
+  for (const [id, old] of gone) {
+    checked++;
+    const line = said.find(x => x.id === id);
+    if (line && line.s.includes(old)) fails.push(`${id} is back to "${old}", which his document replaced`);
+  }
+
+  // the know it all judges the tactic that is actually set, in both his lines
+  const tails = new Set(['attacking', 'defensive', 'balanced'].map(a =>
+    said.find(x => x.id === 'sage-tactic') && everyFanLine().find(l => l.id === 'sage-tactic')!
+      .text({ ...bareFan, approach: a as typeof bareFan.approach }, createRng(9))));
+  checked++;
+  if (tails.size !== 3) fails.push(`the pre match read gives ${tails.size} answers to three different tactics`);
+  const griped = new Set(['attacking', 'defensive', 'balanced'].map(a =>
+    everyFanLine().find(l => l.id === 'sage-loss')!.text({ ...bareFan, result: 'loss', approach: a as typeof bareFan.approach }, createRng(9))));
+  checked++;
+  if (griped.size !== 3) fails.push(`the read after a defeat gives ${griped.size} answers to three different tactics`);
+
+  console.log(`  ${said.length} terrace lines in Itzik's words, ${pins.length} pinned, ${FANS.length} regulars`);
 }
 
 console.log(`\n${checked} checks`);

@@ -2299,6 +2299,7 @@ export function fanContext(gs: GameState, timing: FanTiming): FanContext {
     youngster: kid?.name ?? null,
     approach: gs.tactic.approach,
     tablePos, totalTeams: gs.league.clubs.length,
+    fans: gs.meters.fans,
     streak,
   };
 

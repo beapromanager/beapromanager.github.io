@@ -13,6 +13,9 @@ import * as G from '../src/game/state.ts';
 import { debtState, debtLimit, debtLine } from '../src/game/finance.ts';
 import { fansAfterResult, fansDrift, fansAfterSeason, crowdMultiplier, ownerRope, FANS_MIDDLE, ROPE_SHORT, ROPE_LONG, FANS_WIN, FANS_LOSS, FANS_BIG_WIN, FANS_THRASHING, FANS_DERBY, FANS_CHAMPION, FANS_PROMOTED, FANS_RELEGATED, FANS_STAR_SOLD, FANS_DRIFT } from '../src/game/fans.ts';
 import { isDerby } from '../src/data/clubs.ts';
+import { everyFanLine, FANS_LOUD, FANS_QUIET } from '../src/data/fans.ts';
+import type { FanContext } from '../src/data/fans.ts';
+import { createRng } from '../src/engine/matchEngine.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import type { MatchResult } from '../src/engine/matchEngine.ts';
@@ -241,6 +244,62 @@ const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
     fails.push(`a terrace with no opinion still gets a sentence: "${said(FANS_MIDDLE)}"`);
 
   console.log(`  the rope: ${(ownerRope(0) * 100).toFixed(0)}% empty, 100% in the middle, ${(ownerRope(100) * 100).toFixed(0)}% full; a full ground buys ₪${gap.toLocaleString('en-US')} at tier ${G.club(gs).tier}`);
+}
+
+/* 6. THE TERRACE TALKS ABOUT ITSELF, BUT ONLY AT THE ENDS.
+      Eight lines were written for the meter: four for a ground that is full
+      and four for one that is emptying. A fan who says the stand is packed
+      while the meter reads fifty is worse than no line at all, so the gate is
+      checked from both sides, and then through the real save. */
+{
+  const bare: FanContext = {
+    timing: 'pre', isDerby: false, isHome: true, rival: 'הפועל', city: 'חיפה',
+    coldStriker: null, coldWeeks: 0, youngster: null, approach: 'balanced',
+    tablePos: 4, totalTeams: 14, streak: 0, fans: FANS_MIDDLE,
+  };
+  const meterLines = everyFanLine().filter(l => l.id.startsWith('fans-'));
+  checked++;
+  if (meterLines.length !== 8) fails.push(`${meterLines.length} lines answer to the meter, the document had 8`);
+
+  const loud = meterLines.filter(l => l.id.startsWith('fans-full'));
+  const quiet = meterLines.filter(l => l.id.startsWith('fans-empty'));
+  const ctxAt = (f: number, result: 'win' | 'loss') => ({ ...bare, fans: f, result, timing: 'post' as const, scoreLine: '1:0' });
+
+  checked += 3;
+  for (const f of [FANS_MIDDLE, FANS_LOUD - 1, FANS_QUIET + 1]) {
+    const open = meterLines.filter(l => l.when({ ...ctxAt(f, 'win'), timing: l.pool }));
+    if (open.length) fails.push(`at fans ${f} the terrace can still say "${open[0].id}"`);
+  }
+  checked += 2;
+  if (!loud.every(l => l.when({ ...ctxAt(FANS_LOUD, 'win'), timing: l.pool })))
+    fails.push('a full ground cannot say all four of its lines');
+  if (!quiet.every(l => l.when({ ...ctxAt(FANS_QUIET, 'loss'), timing: l.pool })))
+    fails.push('an emptying one cannot say all four of its lines');
+  checked += 2;
+  if (loud.some(l => l.when({ ...ctxAt(FANS_QUIET, 'loss'), timing: l.pool })))
+    fails.push('an empty ground boasts about being full');
+  if (quiet.some(l => l.when({ ...ctxAt(FANS_LOUD, 'win'), timing: l.pool })))
+    fails.push('a full ground complains that nobody comes');
+
+  // and through the save: the message the hub actually builds carries the meter
+  const gs = career();
+  checked++;
+  if (G.fanContext(withFans(gs, 88), 'pre').fans !== 88) fails.push('the terrace is handed a context that does not know the meter');
+  // over a season of weeks at either end, the right lines turn up and the
+  // wrong ones never do
+  const seen = (f: number) => {
+    const ids = new Set<string>();
+    let s = withFans(gs, f);
+    for (let w = 0; w < 30; w++) ids.add(G.fanNote({ ...s, week: w } as G.GameState, 'pre').id);
+    return ids;
+  };
+  const high = seen(95), mid = seen(FANS_MIDDLE);
+  checked += 3;
+  if (![...high].some(id => id.startsWith('fans-full'))) fails.push('thirty weeks with a packed ground and not one line about it');
+  if ([...high].some(id => id.startsWith('fans-empty'))) fails.push('a packed ground said one of the empty lines');
+  if ([...mid].some(id => id.startsWith('fans-'))) fails.push('an ordinary crowd talked about the meter');
+
+  console.log(`  the meter speaks at ${FANS_QUIET} and below, ${FANS_LOUD} and above: ${quiet.length} lines and ${loud.length}, silent in between`);
 }
 
 console.log(`\n${checked} checks`);

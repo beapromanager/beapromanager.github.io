@@ -37,18 +37,26 @@ export interface Fan {
 export const FANS: Fan[] = [
   { id: 'chico',   name: 'אלי צ׳יקו', bio: 'נהג אוטובוס בדימוס, מבין בכדורגל יותר מכולם', voice: 'sage' },
   { id: 'yair',    name: 'יאיר הפרשן', bio: 'צופה ב-800 משחקים בשנה מהספה', voice: 'sage' },
-  { id: 'buzi',    name: 'בוזי', bio: 'שלושים שנה ביציע, כולם יודעים שהוא מבין', voice: 'sage' },
+  { id: 'buzi',    name: 'בוזי', bio: 'שלושים שנה ביציע, כולם יודעים שהוא חרטטן', voice: 'sage' },
   { id: 'shimon',  name: 'שמעון', bio: 'מנוי מאז 1974, יושב ביציע המזרחי', voice: 'nostalgic' },
-  { id: 'yosef',   name: 'יוסי הזקן', bio: 'ראה את הקבוצה עולה וגם יורדת, פעמיים', voice: 'nostalgic' },
-  { id: 'david',   name: 'דוד הנביא', bio: 'תמיד יודע איך זה ייגמר, לרעה', voice: 'doom' },
+  { id: 'yosef',   name: 'יוסי הזקן', bio: 'ראה את הקבוצה עולה וגם יורדת, כל עונה. מכור למשחק.', voice: 'nostalgic' },
+  { id: 'david',   name: 'דוד הנביא', bio: 'תמיד יודע איך זה ייגמר, לרעה. מנחוס כזה.', voice: 'doom' },
   { id: 'chanan',  name: 'חנן', bio: 'יודע בעל פה את הפרש השערים של כל הליגה', voice: 'numbers' },
   { id: 'rafi',    name: 'רפי', bio: 'בעל המכולת ממול לאצטדיון', voice: 'hope' },
   { id: 'moki',    name: 'מוקי', bio: 'לא פספס משחק בית 30 שנה', voice: 'super' },
-  { id: 'avram',   name: 'אברם', bio: 'לוקח כל תוצאה הביתה ולשבת', voice: 'heart' },
-  { id: 'nissim',  name: 'ניסים', bio: 'צועק מהדקה הראשונה, לא באמת כועס', voice: 'hot' },
+  { id: 'avram',   name: 'אברם', bio: 'לוקח כל תוצאה הביתה, מנצחים הבית שמח, מפסידים לא מדבר עם אישתו עד צאת שבת.', voice: 'heart' },
+  { id: 'nissim',  name: 'ניסים', bio: 'ממלא טופס רק אחרי שיש הרכבים, כל טופס הוא נופל.', voice: 'hot' },
 ];
 
 export type FanTiming = 'pre' | 'post';
+
+/**
+ * Where the terrace is loud enough, or thin enough, for a fan to say so out
+ * loud. Everything between is an ordinary crowd with an ordinary opinion, and
+ * gets the lines it always got.
+ */
+export const FANS_LOUD = 75;
+export const FANS_QUIET = 30;
 
 export interface FanContext {
   timing: FanTiming;
@@ -71,6 +79,8 @@ export interface FanContext {
   streak?: number;        // losses in a row before this match
   tablePos: number;
   totalTeams: number;
+  /** the terrace meter itself, so the stand can talk about how full it is */
+  fans: number;
 }
 
 export interface FanMessage {
@@ -80,7 +90,7 @@ export interface FanMessage {
   id: string;
 }
 
-type Line = {
+export type Line = {
   id: string;
   voice?: Voice;
   when: (c: FanContext) => boolean;
@@ -92,14 +102,25 @@ type Line = {
 const pick = (r: Rng, arr: string[]) => arr[Math.floor(r() * arr.length)];
 
 const FORMATION = ['4-4-2', '4-3-3', 'חמישה מאחורה', 'שלישיית בלמים', '4-2-3-1', 'שני קשרים אחורה'];
-const OTHER_JOB = ['שופצניק', 'נהג משאית', 'הבן של חנן', 'כל ילד ביציע', 'אשתי', 'המוכר בפלאפל'];
+const OTHER_JOB = ['שופצניק', 'כפכף', 'נהג משאית', 'הבן של חנן', 'כל ילד ביציע', 'אשתי', 'המוכר בפלאפל'];
 const OLD_NAME = ['שיקו', 'אליקים', 'בוזגלו הזקן', 'רחמים', 'הפנתר'];
 
 /** How the know-it-all sees the tactic you actually set. */
 function tacticGripe(c: FanContext): string {
   if (c.approach === 'attacking') return 'אתה נפתח יותר מדי, שוכח שיש גם הגנה במגרש';
   if (c.approach === 'defensive') return 'למה להסתגר ככה, קבוצה טובה משחררת ולא מפחדת';
-  return 'הכל אצלך באמצע, בלי אופי, לא כאן ולא שם';
+  return 'הכל אצלך באמצע, בלי טקטיקה, לא כאן ולא שם';
+}
+
+/**
+ * The same judgement, pointed forward. Before the match the know it all is not
+ * complaining about what happened, he is telling you what to do, so the line
+ * has to name the opposite of whatever you set rather than describe it.
+ */
+function tacticAdvice(c: FanContext): string {
+  if (c.approach === 'attacking') return 'תסגור מאחור, אתה נפתח כאילו אין הגנה במגרש';
+  if (c.approach === 'defensive') return 'תשחרר קדימה, קבוצה טובה לא מפחדת';
+  return 'רק בעיטות למעלה, עזוב אותך טיקי-טאקה';
 }
 
 /* ------------------------------------------------------------- pre match */
@@ -108,19 +129,19 @@ const PRE: Line[] = [
   // the know-it-all, tactics. always eligible, so this voice is a constant
   { id: 'sage-tactic', voice: 'sage',
     when: () => true,
-    text: c => `אני לא מאמן, אבל אם היית שואל אותי, ${tacticGripe(c)}. אתה כמובן תעשה מה שאתה רוצה, כמו תמיד.` },
+    text: c => `אני לא מאמן, אבל אם היית שואל אותי ואתה לא שואל, הייתי אומר לך ${tacticAdvice(c)}.` },
   { id: 'sage-formation', voice: 'sage',
     when: () => true,
-    text: (c, r) => `תשמע אותי טוב, מול קבוצה כזאת משחקים ${pick(r, FORMATION)} וזהו. שנים אני אומר את זה ואף אחד לא מקשיב.` },
+    text: (c, r) => `תשמע לי טוב, מול קבוצה כזאת משחקים ${pick(r, FORMATION)} וזהו. בלי פוזות! שנים אני אומר את זה ואף אחד לא מקשיב.` },
   { id: 'sage-listen', voice: 'sage',
     when: () => true,
-    text: (c, r) => `הבעיה שלך זה לא השחקנים, זה מה שאתה עושה איתם. ${pick(r, OTHER_JOB)} היה מבין את זה, למה אתה לא.` },
+    text: (c, r) => `הבעיה שלך זה לא השחקנים, זה מה שאתה עושה איתם באימונים. ${pick(r, OTHER_JOB)} היה מבין את זה, למה אתה לא.` },
   { id: 'sage-experience', voice: 'sage',
     when: () => true,
-    text: () => `בזמן שאני צופה ביציע הזה עוד לא נולדת. תקשיב לאנשים שראו כדורגל, לא רק קראו עליו.` },
+    text: () => `תקשיב לי, אני צופה ביציע הזה עוד לפני שנולדת. תקשיב לאנשים שראו כדורגל, לא רק קראו עליו.` },
   { id: 'sage-derby', voice: 'sage',
     when: c => c.isDerby,
-    text: c => `דרבי מול ${c.rival}. יש דרך אחת לשחק את זה נכון, ואתה כנראה תבחר בשנייה. תוכיח לי שאני טועה.` },
+    text: c => `דרבי מול ${c.rival}. יש דרך אחת לשחק את זה נכון, ואתה כנראה כרגיל תבחר בדרך הקשה. תוכיח לי שאני טועה.` },
   { id: 'sage-fav', voice: 'sage',
     when: c => c.tablePos <= 2,
     text: () => `מקום ראשון ומשחקים ככה. תאר לך איפה היינו אם היו מקשיבים לי מההתחלה.` },
@@ -128,13 +149,13 @@ const PRE: Line[] = [
   // doom
   { id: 'doom-generic', voice: 'doom',
     when: () => true,
-    text: () => `יש לי הרגשה רעה על מחר. אל תגידו שלא אמרתי, אני תמיד יודע מראש.` },
+    text: () => `יש לי הרגשה רעה על מחר. אל תגידו שלא אמרתי, אני תמיד יודע מראש ומזהיר.` },
   { id: 'doom-derby', voice: 'doom',
     when: c => c.isDerby,
-    text: c => `דרבי מול ${c.rival}, ואנחנו נכנסים לזה בדיוק כמו כל שנה. אני כבר מכין את עצמי לרע.` },
+    text: c => `דרבי מול ${c.rival}, ואנחנו נכנסים לזה בדיוק כמו כל שנה. אני כבר מכין את עצמי לגרוע מכל.` },
   { id: 'doom-streak', voice: 'doom',
     when: c => (c.streak ?? 0) >= 2,
-    text: () => `שני הפסדים ומחר יהיה שלישי, סימנתי לך. הלוואי ותוכיח שאני שחור, אבל אני לא.` },
+    text: () => `שני הפסדים ומחר יבוא השלישי, שלא תגיד לא אמרתי לך. הלוואי ותוכיח שאני מנחוס, אבל אני לא.` },
 
   // nostalgic
   { id: 'nost-day', voice: 'nostalgic',
@@ -142,12 +163,12 @@ const PRE: Line[] = [
     text: (c, r) => `בזמני ${pick(r, OLD_NAME)} היה משחק פצוע ולא בוכה. היום ילד מקבל מכה ורוצה חילוף. תזכיר להם מאיפה באנו.` },
   { id: 'nost-home', voice: 'nostalgic',
     when: c => c.isHome,
-    text: () => `פעם היו באים 3000 איש למשחק כזה. גם אם באים פחות היום, על המגרש חייבים לכבד את החולצה.` },
+    text: () => `פעם היו באים 3000 איש למשחק כזה. גם אם באים פחות היום, על המגרש חייבים לכבד את הסמל על החולצה.` },
 
   // hope
   { id: 'hope-generic', voice: 'hope',
     when: () => true,
-    text: () => `יש לי הרגשה טובה השבוע. הכנתי אפילו נקניקיות לחבר׳ה. הולכים על שלוש נקודות, אני מאמין בך.` },
+    text: () => `יש לי הרגשה טובה השבוע. הכנתי אפילו ג'חנונים וסמבוסקים לחבר׳ה. הולכים על שלוש נקודות, אני מאמין בך.` },
   { id: 'hope-top', voice: 'hope',
     when: c => c.tablePos <= 4,
     text: c => `מקום ${c.tablePos}, ואתה יודע מה, זו השנה שלנו. אני מרגיש את זה בעצמות.` },
@@ -158,12 +179,12 @@ const PRE: Line[] = [
     text: () => `לובש את אותה חולצה מהניצחון הקודם בדרבי, לא כיבסתי בכוונה. אתה תעשה את שלך, אני אעשה את שלי.` },
   { id: 'super-top', voice: 'super',
     when: c => c.tablePos <= 2,
-    text: c => `אני לא אומר בקול איפה אנחנו בטבלה, שלא נעשה עין הרע. רק תמשיך, בשקט, בלי לספר לאף אחד.` },
+    text: c => `לא רוצה לדבר ולהגיד באיזה מקום אנחנו שחס וחלילה לא נעשה עין הרע. רק תמשיך, בשקט, בלי לספר לאף אחד. טפו טפו טפו חמסה!` },
 
   // hot head
   { id: 'hot-generic', voice: 'hot',
     when: () => true,
-    text: c => `מחר אני צרוד עד סוף השבוע, כרגיל. תביא לי סיבה לצעוק מרוב שמחה ולא מרוב עצבים.` },
+    text: c => `מחר אני אהיה צרוד עד סוף השבוע, כרגיל. תביא לי סיבה לצעוק מרוב שמחה ולא מרוב עצבים.` },
 
   // numbers
   { id: 'num-table', voice: 'numbers',
@@ -171,23 +192,23 @@ const PRE: Line[] = [
     text: c => `מקום ${c.tablePos} מתוך ${c.totalTeams}. ניצחון מחר וקופצים, תיקו ונשארים תקועים. אני כבר חישבתי הכל, סמוך עליי.` },
   { id: 'num-away', voice: 'numbers',
     when: c => !c.isHome,
-    text: c => `בחוץ מול ${c.rival} מספיק לא להפסיד. נקודה שם שווה שתיים אצלנו, תשחק לפי המספרים.` },
+    text: c => `בחוץ מול ${c.rival} מספיק לא להפסיד. נקודה שם שווה שתיים אצלנו, תשחק על נקודה.` },
 
   // heart
   { id: 'heart-generic', voice: 'heart',
     when: () => true,
-    text: () => `אני לא ישן טוב לפני משחק, אתה יודע את זה. תעשו את זה בשבילנו, זה כל מה שיש לנו בשבוע.` },
+    text: () => `אני לא ישן טוב לפני משחק, אתה יודע את זה. תעשו את זה בשבילנו, זה כל מה שיש לנו בחיים.` },
   { id: 'heart-away', voice: 'heart',
     when: c => !c.isHome,
-    text: c => `נוסעים ל${c.rival}, יוצאים בצהריים בשביל משחק בערב. אל תביישו אותנו שם, באנו מרחוק.` },
+    text: c => `נוסעים ל${c.rival}, יוצאים בצהריים בשביל משחק בערב. אל תביישו אותנו שם, בחייאת באנו מרחוק.` },
 
   // the town itself, this is what makes it your club and not just a club
   { id: 'city-hope', voice: 'hope',
     when: () => true,
-    text: c => `כל ${c.city} מדברת רק על המשחק הזה. תביא לעיר יום כזה, אנחנו צריכים את זה.` },
+    text: c => `כל ${c.city} מדברת רק על המשחק הזה. תביא לנו נצחון בחייאת רבאק! אנחנו צריכים את זה.` },
   { id: 'city-heart', voice: 'heart',
     when: () => true,
-    text: c => `אני נולדתי ב${c.city}, אבא שלי בא לפה לפניי. תעשה שנלך גאים ברחוב אחרי המשחק.` },
+    text: c => `אני נולדתי ב${c.city}, אבא שלי ואפילו סבא שלי נולדו פה. תדאג שנלך גאים ברחוב אחרי המשחק.` },
   { id: 'city-sage', voice: 'sage',
     when: () => true,
     text: c => `אני רואה כדורגל ב${c.city} עוד לפני שהיה לך שיער בפרצוף. תקשיב למי שמכיר את הקבוצה הזאת.` },
@@ -201,16 +222,30 @@ const PRE: Line[] = [
   // context lines that any everyman voice can carry
   { id: 'ctx-cold',
     when: c => c.coldStriker !== null && c.coldWeeks >= 3,
-    text: c => `${c.coldStriker} כבר ${c.coldWeeks} מחזורים לא נגע ברשת. אני לא מאמן, אבל אולי תנוח אותו קצת, מה כבר יש להפסיד.` },
+    text: c => `${c.coldStriker} כבר ${c.coldWeeks} מחזורים לא שם את הכדור ברשת. אני לא מאמן, אבל אולי תן לו לנוח קצת, מה כבר יש להפסיד.` },
   { id: 'ctx-young',
     when: c => c.youngster !== null,
     text: c => `ראיתי את ${c.youngster} בנוער ואמרתי אז שהילד הזה משהו אחר. תן לו דקות, אתה עוד תודה לי.` },
   { id: 'ctx-streak',
     when: c => (c.streak ?? 0) >= 2,
     text: () => `שני הפסדים ברצף, בבית כבר מסתכלים עליי בעין עקומה. תביא ניצחון אחד, קטן, רק שנוכל להרים ראש.` },
+  // the terrace meter, at either end of the scale
+  { id: 'fans-full-pre', voice: 'hope',
+    when: c => (c.fans ?? 50) >= FANS_LOUD,
+    text: () => `היציע מלא כבר שבועות, אנשים באים שעה לפני בשביל מקום טוב. תראה להם שזה שווה את זה.` },
+  { id: 'fans-full-warn', voice: 'sage',
+    when: c => (c.fans ?? 50) >= FANS_LOUD,
+    text: () => `עכשיו כל העיר אוהבת אותך, אז תקשיב לי דווקא עכשיו. בדיוק ככה מתחילים להתפזר.` },
+  { id: 'fans-empty-kid', voice: 'heart',
+    when: c => (c.fans ?? 50) <= FANS_QUIET,
+    text: () => `הבאתי את הילד והוא שאל למה אין אנשים. לא ידעתי מה לענות לו. בושה.` },
+  { id: 'fans-empty-season', voice: 'doom',
+    when: c => (c.fans ?? 50) <= FANS_QUIET,
+    text: () => `חצי מהמנויים שלי כבר לא טורחים לבוא. אני עוד בא, אבל גם אני מתחיל לשאול למה.` },
+
   { id: 'ctx-generic',
     when: () => true,
-    text: () => `מחר משחק. הצעיף מוכן, המכולת סוגרת מוקדם, אנחנו שם. תעשו שיהיה שווה את זה.` },
+    text: () => `מחר משחק. החולצה מוכנה, סוגר את המכולת מוקדם, אנחנו נהיה שם. תעשו שיהיה שווה את זה.` },
 ];
 
 /* ------------------------------------------------------------ post match */
@@ -222,10 +257,10 @@ const POST: Line[] = [
     text: () => `סוף סוף עשית מה שאני אומר כבר חודש. רואה, לא צריך תואר במאמנות, צריך רק להקשיב לי.` },
   { id: 'sage-win-score', voice: 'sage',
     when: c => c.result === 'win' && !!c.scorer,
-    text: c => `${c.scoreLine}. ${c.scorer} הבקיע בדיוק מאיפה שאמרתי שצריך לשחק. אני לא מתפאר, אני רק מדייק.` },
+    text: c => `${c.scoreLine}. ${c.scorer} הבקיע בדיוק מאיפה שאמרתי שצריך לשחק. אני לא רוצה להגיד, אבל אמרתי לך.` },
   { id: 'sage-loss', voice: 'sage',
     when: c => c.result === 'loss',
-    text: c => `אמרתי לך לא לשחק ככה, ${tacticGripe(c)}. עכשיו כולם חכמים אחרי המשחק, אבל אני אמרתי לפני.` },
+    text: c => `אתה מאמן אתה? אמרתי לך לא לשחק ככה, ${tacticGripe(c)}. עכשיו כולם חכמים אחרי המשחק, אבל אני אמרתי לפני.` },
   { id: 'sage-draw', voice: 'sage',
     when: c => c.result === 'draw',
     text: () => `תיקו, וגם אותו היית יכול להפוך לניצחון אם היית משנה בזמן. אני ראיתי את זה מהיציע, איך אתה לא ראית מהקווים.` },
@@ -233,7 +268,7 @@ const POST: Line[] = [
   // doom
   { id: 'doom-loss', voice: 'doom',
     when: c => c.result === 'loss',
-    text: () => `אמרתי שזה ייגמר ככה, לא אמרתי. אני לא נהנה לצדוק, פשוט אני מכיר את הקבוצה הזאת שנים.` },
+    text: () => `אמרתי שזה ייגמר ככה, לא אמרתי. אני לא נהנה בלהיות צודק, פשוט אני מכיר את הקבוצה הזאת שנים. חלשים.` },
   { id: 'doom-draw', voice: 'doom',
     when: c => c.result === 'draw',
     text: () => `תיקו היום, הפסד בשבוע הבא, אני כבר מריח את זה. תוכיח לי שאני טועה, באמת שאשמח.` },
@@ -252,12 +287,12 @@ const POST: Line[] = [
     text: c => `שלוש נקודות, ${c.scoreLine}, ועכשיו אנחנו במקום ${c.tablePos}. עשיתי את החשבון בראש עוד לפני השריקה.` },
   { id: 'num-loss', voice: 'numbers',
     when: c => c.result === 'loss',
-    text: c => `הפסד, וזה הפרש שערים שלא נשכח בסוף העונה. אני סופר כל שער, גם אלה שנספגים בזבל.` },
+    text: c => `הפסד, וזה הפרש שערים שלא נשכח בסוף העונה. אני סופר כל שער, גם אלה שאנחנו סופגים בדקה ה90.` },
 
   // hope
   { id: 'hope-loss', voice: 'hope',
     when: c => c.result === 'loss',
-    text: () => `הפסדנו, בסדר, קמים וממשיכים. עוד לא נגמר כלום, אני עדיין מאמין בחבר׳ה האלה ובך.` },
+    text: () => `הפסדנו, בסדר, קמים וממשיכים. עוד לא נגמר כלום, אני עדיין מאמין בחבר׳ה האלה ובך. משחק הבא תנו הכל!` },
   { id: 'hope-draw', voice: 'hope',
     when: c => c.result === 'draw',
     text: () => `נקודה זו נקודה, לוקחים והולכים הביתה בראש מורם. השבוע הבא שלנו, אתה תראה.` },
@@ -268,7 +303,7 @@ const POST: Line[] = [
     text: () => `רקדתי ביציע כמו ילד. תמסור לחבר׳ה שהם עשו לי את השבוע, שיידעו כמה זה חשוב לנו.` },
   { id: 'heart-loss', voice: 'heart',
     when: c => c.result === 'loss',
-    text: () => `נכנס לי ישר ללב, אני לוקח את זה הביתה עד שבת. תעשו משהו במחזור הבא, בשביל הראש שלי.` },
+    text: () => `נכנס לי ישר ללב, אני לוקח את זה הביתה עד שבת. תעשו משהו במחזור הבא, בשבילי בחייאת.` },
 
   // hot
   { id: 'hot-win', voice: 'hot',
@@ -276,7 +311,7 @@ const POST: Line[] = [
     text: c => `ניצחנו את הדרבי מול ${c.rival}! צרחתי עד שהשכן דפק בקיר. שווה כל דקה, אלוף.` },
   { id: 'hot-loss', voice: 'hot',
     when: c => c.result === 'loss',
-    text: () => `יצאתי צרוד ועצבני, אבל מחר כבר אחשוב על המשחק הבא. ככה זה כשאוהבים, תעשה שיהיה שווה.` },
+    text: () => `יצאתי צרוד ועצבני, אבל מחר כבר אחשוב על המשחק הבא. ככה זה שאוהבים את הקבוצה, תעשה שיהיה שווה את זה.` },
 
   // the town, after the whistle
   { id: 'city-win', voice: 'heart',
@@ -287,25 +322,44 @@ const POST: Line[] = [
     text: c => `${c.scoreLine}. עוד כאלה ו${c.city} חוזרת למפה של הכדורגל. אמרתי לך שזו השנה שלנו.` },
   { id: 'city-loss', voice: 'heart',
     when: c => c.result === 'loss',
-    text: c => `כל ${c.city} הולכת לישון עצובה הלילה. תחזיר לנו את החיוך במחזור הבא, בשביל העיר.` },
+    text: c => `כל ${c.city} הולכת לישון עצובה הלילה. תחזיר לנו את החיוך במחזור הבא, בשביל העיר. אנחנו גמורים.` },
 
   // context
   { id: 'ctx-win-derby',
     when: c => c.result === 'win' && c.isDerby,
-    text: c => `ניצחנו את ${c.rival}. עברתי ליד המכולת שלהם ולא אמרתי מילה, רק חייכתי. זה הספיק.` },
+    text: c => `ניצחנו את ${c.rival}. עברתי ליד היציע שלהם ולא אמרתי מילה, רק חייכתי. זה הספיק. אפסים!` },
   { id: 'ctx-loss-derby',
     when: c => c.result === 'loss' && c.isDerby,
-    text: c => `הפסדנו את הדרבי ל${c.rival}. אני מנתק את הטלפון עד יום רביעי, אל תחפש אותי.` },
+    text: c => `הפסדנו את הדרבי ל${c.rival}. אני מנתק את הטלפון עד יום רביעי, שלא יחפשו אותי. בושות.` },
   { id: 'ctx-loss-cold',
     when: c => c.result === 'loss' && c.coldStriker !== null,
-    text: c => `${c.scoreLine}. ושוב, ${c.coldStriker} לא במצב. אני לא מאמן, אבל יש לי עיניים בראש.` },
+    text: c => `${c.scoreLine}. ושוב, ${c.coldStriker} לא בעניינים. אני לא מאמן, אבל יש לי עיניים בראש. תעשה איתו משהו כבר.` },
   { id: 'ctx-draw',
     when: c => c.result === 'draw',
     text: () => `תיקו. חצי יציע יצא מרוצה וחצי קילל, וזה בערך מסכם הכל. אין על מה לבכות ואין על מה לחגוג.` },
+  // the terrace meter, at either end of the scale
+  { id: 'fans-full-win', voice: 'heart',
+    when: c => c.result === 'win' && (c.fans ?? 50) >= FANS_LOUD,
+    text: () => `שמעת אותנו היום? זה לא יציע, זה גדוד. תמסור לחבר׳ה שהם עשו את זה.` },
+  { id: 'fans-full-roar', voice: 'nostalgic',
+    when: c => c.result === 'win' && (c.fans ?? 50) >= FANS_LOUD,
+    text: () => `לא שמעתי את האצטדיון ככה מאז שעלינו. אל תיתן לזה להיגמר. חיים את החלום! גאה בכם.` },
+  { id: 'fans-empty-loss', voice: 'hot',
+    when: c => c.result === 'loss' && (c.fans ?? 50) <= FANS_QUIET,
+    text: () => `האצטדיון היה ריק וגם מה שהיה בו יצא בדקה 60. תעשה משהו לפני שלא יישאר אף אחד.` },
+  { id: 'fans-empty-habit', voice: 'sage',
+    when: c => c.result === 'loss' && (c.fans ?? 50) <= FANS_QUIET,
+    text: () => `פעם היה פה קהל. היום באים מתוך הרגל, וגם זה נגמר. אני עדיין פה, אבל תעשה חשבון נפש.` },
+
   { id: 'ctx-loss',
     when: c => c.result === 'loss',
-    text: () => `הפסד. שילמתי חניה, קניתי גרעינים, ובשביל מה. תעשה משהו עד המחזור הבא.` },
+    text: () => `הפסד. שילמתי חניה, קניתי גרעינים. הוצאתי 100 שקל על המשחק המעפן הזה! ובשביל מה?! תעשה משהו עד המחזור הבא.` },
 ];
+
+/** Every line in the terrace's mouth, for the checks that read them all. */
+export function everyFanLine(): ReadonlyArray<Line & { pool: FanTiming }> {
+  return [...PRE.map(l => ({ ...l, pool: 'pre' as const })), ...POST.map(l => ({ ...l, pool: 'post' as const }))];
+}
 
 /**
  * Choose a line that fits what actually happened, prefer one not heard lately,
