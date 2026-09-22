@@ -1498,7 +1498,7 @@ function maybeCrisis(gs: GameState): GameState {
 
 /** The books as the owner sees them, and how close he is to acting. */
 export function debt(gs: GameState): DebtState {
-  return debtState(gs.meters.money, club(gs).tier);
+  return debtState(gs.meters.money, club(gs).tier, gs.meters.fans);
 }
 
 /** The promotion gate: what the division above wants, and whether we meet it. */

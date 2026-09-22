@@ -14,6 +14,7 @@
  */
 
 import { TOP_TIER } from './career.ts';
+import { ownerRope, FANS_MIDDLE, ROPE_SHORT, ROPE_LONG } from './fans.ts';
 
 /** How deep into the red the owner will follow you, by division. */
 // The bottom division is where a manager learns, so it is the most forgiving
@@ -31,6 +32,8 @@ export type DebtLevel = 'clear' | 'watched' | 'warned' | 'final' | 'sacked';
 export interface DebtState {
   /** the purse, negative when in the red */
   money: number;
+  /** the terrace, because it is what set the limit */
+  fans: number;
   /** what is owed, 0 when in the black */
   debt: number;
   limit: number;
@@ -41,8 +44,9 @@ export interface DebtState {
   headroom: number;
 }
 
-export function debtState(money: number, tier: number): DebtState {
-  const limit = debtLimit(tier);
+export function debtState(money: number, tier: number, fans: number = FANS_MIDDLE): DebtState {
+  // the club's rope, stretched or shortened by the people in the ground
+  const limit = Math.round(debtLimit(tier) * ownerRope(fans));
   const debt = Math.max(0, -money);
   const ratio = limit > 0 ? debt / limit : 0;
   const level: DebtLevel =
@@ -51,20 +55,31 @@ export function debtState(money: number, tier: number): DebtState {
         : ratio >= 0.75 ? 'final'
           : ratio >= 0.45 ? 'warned'
             : 'watched';
-  return { money, debt, limit, ratio, level, headroom: Math.max(0, limit - debt) };
+  return { money, fans, debt, limit, ratio, level, headroom: Math.max(0, limit - debt) };
 }
 
 const K = (n: number) => `₪${Math.round(n).toLocaleString('en-US')}`;
 
+/**
+ * What the terrace did to his patience, when it did enough to mention. In the
+ * middle it says nothing, because in the middle nothing happened.
+ */
+function ropeLine(fans: number): string {
+  if (fans <= ROPE_SHORT) return ' האצטדיון מתרוקן, והבעלים מרגיש את זה בקופה. הסבלנות שלו קצרה מהרגיל.';
+  if (fans >= ROPE_LONG) return ' היציע מלא בכל מחזור, והכסף הזה נכנס. הבעלים מוכן לספוג קצת יותר.';
+  return '';
+}
+
 /** What the owner says about it, in his own words. */
 export function debtLine(d: DebtState): string {
+  const rope = ropeLine(d.fans);
   switch (d.level) {
     case 'watched':
-      return `המועדון במינוס של ${K(d.debt)}. עוד לא נורא, אבל הבעלים רואה את זה.`;
+      return `המועדון במינוס של ${K(d.debt)}. עוד לא נורא, אבל הבעלים רואה את זה.${rope}`;
     case 'warned':
-      return `מינוס של ${K(d.debt)}. הבעלים מבקש שתמכור ותאזן, יש לך ${K(d.headroom)} עד שהוא מפסיק לכסות.`;
+      return `מינוס של ${K(d.debt)}. הבעלים מבקש שתמכור ותאזן, יש לך ${K(d.headroom)} עד שהוא מפסיק לכסות.${rope}`;
     case 'final':
-      return `אזהרה אחרונה. המינוס ${K(d.debt)}, ועוד ${K(d.headroom)} והחוזה שלך נגמר.`;
+      return `אזהרה אחרונה. המינוס ${K(d.debt)}, ועוד ${K(d.headroom)} והחוזה שלך נגמר.${rope}`;
     case 'sacked':
       return `החוב הגיע ל${K(d.debt)}. הבעלים סוגר את הברז ומסיים את ההתקשרות.`;
     default:

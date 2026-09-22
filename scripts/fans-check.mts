@@ -10,7 +10,8 @@
  * moves by is measured, not read off the constant.
  */
 import * as G from '../src/game/state.ts';
-import { fansAfterResult, fansDrift, fansAfterSeason, crowdMultiplier, FANS_WIN, FANS_LOSS, FANS_BIG_WIN, FANS_THRASHING, FANS_DERBY, FANS_CHAMPION, FANS_PROMOTED, FANS_RELEGATED, FANS_STAR_SOLD, FANS_DRIFT } from '../src/game/fans.ts';
+import { debtState, debtLimit, debtLine } from '../src/game/finance.ts';
+import { fansAfterResult, fansDrift, fansAfterSeason, crowdMultiplier, ownerRope, FANS_MIDDLE, ROPE_SHORT, ROPE_LONG, FANS_WIN, FANS_LOSS, FANS_BIG_WIN, FANS_THRASHING, FANS_DERBY, FANS_CHAMPION, FANS_PROMOTED, FANS_RELEGATED, FANS_STAR_SOLD, FANS_DRIFT } from '../src/game/fans.ts';
 import { isDerby } from '../src/data/clubs.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
@@ -180,6 +181,66 @@ const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
   if (winner - loser < 30) fails.push(`a season of wins and a season of losses end ${winner} and ${loser} on the terrace; the table barely counts`);
   if (loser > 50) fails.push(`a season of losses with a silver tongue still ends above the middle (${loser})`);
   console.log(`  a season: win them all ${winner}, lose them all ${loser}, both with the boldest press answers`);
+}
+
+/* 5. WHAT IT ALSO DOES: THE OWNER'S ROPE.
+      The limit the owner will carry is one season's participation money, bent
+      by the terrace the same way the gate is: 0.8 at an empty ground, 1.0 in
+      the middle, 1.2 at a full one. Everything here is read through the real
+      save, because the point is not the formula, it is that the same debt
+      ends one career and not another. */
+{
+  checked += 3;
+  if (ownerRope(FANS_MIDDLE) !== 1) fails.push(`a terrace with no opinion moves the rope to ${ownerRope(FANS_MIDDLE)}`);
+  if (Math.abs(ownerRope(0) - 0.8) > 1e-9) fails.push(`an empty ground leaves the rope at ${ownerRope(0)}`);
+  if (Math.abs(ownerRope(100) - 1.2) > 1e-9) fails.push(`a full one stretches it to ${ownerRope(100)}`);
+  // and it only ever goes one way, so there is no pocket of the scale where
+  // being better liked costs you
+  checked++;
+  for (let f = 1; f <= 100; f++) if (ownerRope(f) <= ownerRope(f - 1)) fails.push(`the rope does not grow from ${f - 1} to ${f}`);
+
+  // the ladder is untouched: the warnings still land at the same fractions of
+  // whatever the limit turned out to be
+  checked++;
+  for (const tier of [1, 3, 5]) for (const f of [0, 30, 50, 80, 100]) {
+    const lim = debtState(0, tier, f).limit;
+    const at = (r: number) => debtState(-lim * r, tier, f).level;
+    if (at(0.2) !== 'watched' || at(0.5) !== 'warned' || at(0.8) !== 'final' || at(1.0) !== 'sacked')
+      fails.push(`tier ${tier} at fans ${f}: the ladder of warnings moved`);
+  }
+
+  // an old call, with no terrace passed, is the club on its own
+  checked++;
+  for (const tier of [1, 2, 3, 4, 5])
+    if (debtState(-100, tier).limit !== debtLimit(tier)) fails.push(`tier ${tier}: the bare limit is no longer the club's own`);
+
+  // through the save: one purse, two terraces, two different men
+  const gs = career();
+  const purse = -Math.round(debtLimit(G.club(gs).tier) * 0.9);
+  const hostile = G.debt(withFans({ ...gs, meters: { ...gs.meters, money: purse } }, 10));
+  const loving = G.debt(withFans({ ...gs, meters: { ...gs.meters, money: purse } }, 95));
+  checked += 2;
+  if (hostile.level !== 'sacked') fails.push(`nine tenths of the rope with an empty ground is only ${hostile.level}`);
+  if (loving.level === 'sacked') fails.push('nine tenths of the rope with a full ground still ends the career');
+  const gap = loving.headroom - hostile.headroom;
+  checked++;
+  if (gap <= 0) fails.push(`a full ground buys ${gap} of headroom`);
+
+  // the scripted collapse is still past the line at the most loving terrace
+  // there is, or the story beat would land on a manager who is fine
+  checked++;
+  const hole = -Math.round(debtLimit(3) * 1.5);
+  if (debtState(hole, 3, 100).level !== 'sacked') fails.push('the crisis no longer lands past the line when the terrace adores him');
+
+  // and the owner says which it is, but only when it is worth saying
+  checked += 3;
+  const said = (f: number) => debtLine(debtState(-debtLimit(3) * 0.5, 3, f));
+  if (!said(ROPE_SHORT).includes('קצרה מהרגיל')) fails.push('an empty ground goes unmentioned');
+  if (!said(ROPE_LONG).includes('לספוג קצת יותר')) fails.push('a full ground goes unmentioned');
+  if (said(FANS_MIDDLE) !== debtLine({ ...debtState(-debtLimit(3) * 0.5, 3, FANS_MIDDLE), fans: FANS_MIDDLE }) || /הסבלנות|לספוג/.test(said(FANS_MIDDLE)))
+    fails.push(`a terrace with no opinion still gets a sentence: "${said(FANS_MIDDLE)}"`);
+
+  console.log(`  the rope: ${(ownerRope(0) * 100).toFixed(0)}% empty, 100% in the middle, ${(ownerRope(100) * 100).toFixed(0)}% full; a full ground buys ₪${gap.toLocaleString('en-US')} at tier ${G.club(gs).tier}`);
 }
 
 console.log(`\n${checked} checks`);

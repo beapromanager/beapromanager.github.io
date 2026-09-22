@@ -65,3 +65,26 @@ export function fansAfterSeason(result: 'champion' | 'promoted' | 'relegated' | 
 export function crowdMultiplier(fans: number): number {
   return 0.75 + Math.max(0, Math.min(100, fans)) / 200;
 }
+
+/**
+ * And what it does to the man upstairs.
+ *
+ * The owner's rope is one season's participation money, and it is the same
+ * length whether the ground is full or empty. It should not be: a stand that
+ * turns up is money in his pocket and a reason to wait, and an empty one is
+ * neither. So the terrace stretches the rope, by the same shape as the gate,
+ * so that one number read one way runs the whole thing.
+ *
+ * Measured over sixty careers before it was written, a step at 25 and 75
+ * would have been a rope shortened one round in a hundred and lengthened one
+ * in three, which is not a bargain, it is a tightening with a bow on it. A
+ * line through the middle is symmetrical by construction: at fifty, where a
+ * crowd with no opinion sits, nothing moves at all.
+ */
+export function ownerRope(fans: number): number {
+  return 0.8 + Math.max(0, Math.min(100, fans)) / 250;
+}
+
+/** Where the rope is short enough, or long enough, for him to say so. */
+export const ROPE_SHORT = 30;
+export const ROPE_LONG = 80;
