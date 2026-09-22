@@ -52,6 +52,8 @@ export function AdPlayer({ ad, gems, left, backRef, onComplete, onClose, onRetry
   onClose: () => void;
   onRetry: () => void;
 }) {
+  // a neighbourhood service has no website to enter, only a chat to open
+  const wa = ad.channel === 'whatsapp';
   const vid = useRef<HTMLVideoElement>(null);
   const pill = useRef<HTMLSpanElement>(null);
   const flyer = useRef<HTMLDivElement>(null);
@@ -270,7 +272,11 @@ export function AdPlayer({ ad, gems, left, backRef, onComplete, onClose, onRetry
 
         {view === 'confirm' && confirm === 'site' && (
           <div className="ad-panel">
-            <div className="ad-line">לעבור לאתר עכשיו? הפרסומת תתבטל ולא תקבל את היהלום. בסיום הפרסומת יש כפתור לאתר.</div>
+            <div className="ad-line">
+              {wa
+                ? 'לעבור לוואטסאפ עכשיו? הפרסומת תתבטל ולא תקבל את היהלום. בסיום הפרסומת יש כפתור לוואטסאפ.'
+                : 'לעבור לאתר עכשיו? הפרסומת תתבטל ולא תקבל את היהלום. בסיום הפרסומת יש כפתור לאתר.'}
+            </div>
             <div className="row" style={{ gap: 8 }}>
               <button className="btn" style={{ flex: 1 }} onClick={stay}>להמשיך לצפות</button>
               <a className="btn ghost" style={{ flex: 1 }} href={ad.link} target="_blank" rel="noopener noreferrer sponsored" onClick={leave}>לעבור עכשיו</a>
@@ -307,7 +313,7 @@ export function AdPlayer({ ad, gems, left, backRef, onComplete, onClose, onRetry
           <div className="ad-panel ad-done">
             <div className="ad-line">קיבלת יהלום אחד. {after}</div>
             <a className="btn" href={ad.link} target="_blank" rel="noopener noreferrer sponsored">
-              כניסה לאתר {ad.brand}
+              {wa ? `וואטסאפ עם ${ad.brand}` : `כניסה לאתר ${ad.brand}`}
             </a>
             <button className="btn ghost" onClick={onClose}>מעולה</button>
           </div>

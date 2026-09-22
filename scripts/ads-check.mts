@@ -21,14 +21,16 @@
  *   7. the catalogue is honest about the files: every clip and poster exists,
  *      the length in the list is the length in the file (read off the mp4's
  *      own header), clips run ten to sixteen seconds and weigh under the
- *      budget, and every ad has an https door with the address printed bare
+ *      budget, and every ad has an https door with the address printed bare,
+ *      or, for a service reached on WhatsApp, a wa.me link that dials exactly
+ *      the number printed under the clip
  */
 import * as G from '../src/game/state.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
 import { ADS_PER_SEASON, GEMS_PER_AD } from '../src/game/packs.ts';
-import { ADS } from '../src/data/ads.ts';
+import { ADS, adDigits } from '../src/data/ads.ts';
 import * as A from '../src/game/adWatch.ts';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 
@@ -275,7 +277,19 @@ function settle(gs: G.GameState, s: A.AdSession): G.GameState {
     const bytes = statSync(clip).size;
     if (bytes > MAX_BYTES) fails.push(`${ad.id}: ${(bytes / 1e6).toFixed(2)}MB is over the ${MAX_BYTES / 1e6}MB budget`);
     if (!/^https:\/\//.test(ad.link)) fails.push(`${ad.id}: the door is not https (${ad.link})`);
-    if (/^[a-z]+:\/\//.test(ad.site) || !ad.link.includes(ad.site)) fails.push(`${ad.id}: the printed address ${ad.site} is not the bare host of ${ad.link}`);
+    if (/^[a-z]+:\/\//.test(ad.site)) fails.push(`${ad.id}: the printed address ${ad.site} carries a scheme`);
+    if (ad.channel === 'whatsapp') {
+      // a phone is printed the way it is read, 058-559-9198, and the link dials
+      // it the way the world dials it, 972585599198. Same number, and the check
+      // has to know that or a local service can never be advertised honestly
+      const printed = ad.site.replace(/\D/g, '').replace(/^0/, '');
+      const dialled = adDigits(ad).replace(/^972/, '');
+      if (!/^https:\/\/wa\.me\//.test(ad.link)) fails.push(`${ad.id}: a WhatsApp door that is not a wa.me link (${ad.link})`);
+      if (printed !== dialled) fails.push(`${ad.id}: the printed number ${ad.site} is not the one the link dials (${adDigits(ad)})`);
+      if (!/^972/.test(adDigits(ad))) fails.push(`${ad.id}: the number is not dialled with a country code (${adDigits(ad)})`);
+    } else if (!ad.link.includes(ad.site)) {
+      fails.push(`${ad.id}: the printed address ${ad.site} is not the bare host of ${ad.link}`);
+    }
   }
   console.log(`  ${ADS.length} ads, every clip on disk at its listed length, under budget, with an https door`);
 }

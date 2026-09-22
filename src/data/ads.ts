@@ -28,8 +28,17 @@ export type Ad = {
   brand: string;
   /** where a tap takes him, the whole point of the ad for the advertiser */
   link: string;
-  /** the address as printed, without the scheme */
+  /** the address as printed, without the scheme, or the phone as it is read */
   site: string;
+  /**
+   * Which door it is.
+   *
+   * A shop has a website and the button says so. A local service is reached on
+   * WhatsApp and nowhere else, and sending a man to a website that does not
+   * exist would waste the only tap the advertiser gets. So the door has a kind,
+   * and the three lines of copy around it follow from it.
+   */
+  channel?: 'site' | 'whatsapp';
 };
 
 export const ADS: readonly Ad[] = [
@@ -37,7 +46,17 @@ export const ADS: readonly Ad[] = [
     brand: 'ULTRAS KIT', link: 'https://ultraskit.com/', site: 'ultraskit.com' },
   { id: 'novablux', src: '/ads/novablux.mp4', poster: '/ads/novablux.webp', seconds: 12.3,
     brand: 'NovaBluX', link: 'https://novablux.shop/', site: 'novablux.shop' },
+  // a favour rather than a placement: a neighbourhood laundry, carried for
+  // nothing, reached the way a neighbourhood business is actually reached
+  { id: 'blacksheep', src: '/ads/blacksheep.mp4', poster: '/ads/blacksheep.webp', seconds: 14,
+    brand: 'הכבשה השחורה', link: 'https://wa.me/972585599198', site: '058-559-9198',
+    channel: 'whatsapp' },
 ];
+
+/** The phone number a WhatsApp door dials, digits only, for the checks. */
+export function adDigits(ad: Ad): string {
+  return ad.link.replace(/\D/g, '');
+}
 
 export function adById(id: string): Ad {
   return ADS.find(a => a.id === id) ?? ADS[0];
