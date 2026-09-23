@@ -148,7 +148,9 @@ function WindowNotice({ gs, weeks, onDismiss, onTransfers }: {
           </div>
           <div style={{ padding: '14px 16px 16px' }}>
             <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55 }}>
-              {weeks === 1 ? 'שבוע אחד' : `${weeks} שבועות`} לחזק, למכור, או לשבת בשקט.
+              {/* Hebrew counts two of a thing in one word. "2 שבועות" is the
+                  sort of thing a translation says, not a person. */}
+              {weeks === 1 ? 'שבוע אחד' : weeks === 2 ? 'שבועיים' : `${weeks} שבועות`} לחזק, למכור, או לשבת בשקט.
               בקופה {money < 0 ? `מינוס ${fmt(money)}` : fmt(money)}.
               {money < 0 ? ' במינוס אפשר למכור גם כשהחלון סגור, אבל לקנות רק עכשיו.' : ' מי שלא חותם עכשיו מחכה לקיץ.'}
             </p>

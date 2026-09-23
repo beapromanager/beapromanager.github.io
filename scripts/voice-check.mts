@@ -21,6 +21,7 @@ import { THREADS } from '../src/data/chats.ts';
 import { everyFanLine, FANS } from '../src/data/fans.ts';
 import { TRAITS, renderLine } from '../src/data/personalities.ts';
 import { LEGENDS } from '../src/data/legends.ts';
+import { WINTER_WEEKS } from '../src/game/transfers.ts';
 import type { Player } from '../src/engine/matchEngine.ts';
 import type { FanContext } from '../src/data/fans.ts';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -125,12 +126,14 @@ const state = readFileSync('src/game/state.ts', 'utf8');
   if (/בעי <span/.test(squad)) fails.push('the squad row is back to printing shooting, which the player card already carries');
 }
 
-/* 5. ONE IS NOT A PLURAL.
+/* 5. ONE IS NOT A PLURAL, AND TWO IS ONE WORD.
       "נשארו 1 מחזורי קיץ", "נשארו 1 העונה", "ותק 1 שנים", "עוד 1 עדכונים":
       every count that can reach one has a singular sentence, and the summer
-      board no longer calls the second of three rounds the last one. Pinned by
-      the same rule as section 1: the right sentence has to be there, and the
-      old shape must not come back. */
+      board no longer calls the second of three rounds the last one. Hebrew
+      also has a dual: two weeks is שבועיים, never "2 שבועות", which is the
+      sort of thing a translation says and a person does not. Pinned by the
+      same rule as section 1: the right sentence has to be there, and the old
+      shape must not come back. */
 {
   const files = {
     preseason: readFileSync('src/ui/screens/PreSeason.tsx', 'utf8'),
@@ -139,6 +142,7 @@ const state = readFileSync('src/game/state.ts', 'utf8');
     feed: readFileSync('src/ui/components/Feed.tsx', 'utf8'),
     captain: readFileSync('src/ui/screens/Captain.tsx', 'utf8'),
     invite: readFileSync('src/game/invite.ts', 'utf8'),
+    notice: readFileSync('src/ui/screens/Notice.tsx', 'utf8'),
   };
   const pins: Array<{ file: keyof typeof files; right: string; wrong?: RegExp; why: string }> = [
     { file: 'preseason', right: 'נשאר מחזור קיץ אחד לפני שהליגה מתחילה', why: 'one summer round is singular' },
@@ -150,13 +154,20 @@ const state = readFileSync('src/game/state.ts', 'utf8');
     { file: 'captain', right: 'ותק שנה', wrong: /ותק <span className="num">\{Math\.max\(0, p\.age - 18\)\}<\/span> שנים/, why: 'one year of service is singular, and zero is a first year' },
     { file: 'captain', right: 'שנה ראשונה', why: 'an eighteen year old has no years of service to count' },
     { file: 'invite', right: 'החבר שיחק מחזור אחד', why: 'one round played is singular' },
+    { file: 'notice', right: `weeks === 2 ? 'שבועיים'`, wrong: /weeks === 1 \? 'שבוע אחד' : `\$\{weeks\} שבועות`/,
+      why: 'the winter window runs exactly two rounds, so this line is the one the manager always reads' },
   ];
   for (const p of pins) {
     checked += p.wrong ? 2 : 1;
     if (!files[p.file].includes(p.right)) fails.push(`${p.file} no longer says "${p.right}" — ${p.why}`);
     if (p.wrong && p.wrong.test(files[p.file])) fails.push(`${p.file} is back to the plural-only wording — ${p.why}`);
   }
-  console.log(`  ${pins.length} counts that reach one have a singular sentence`);
+  // the dual is not a hypothetical: the winter window is open for exactly two
+  // rounds, so "שבועיים" is the only thing that line ever says
+  checked++;
+  const winterLen = WINTER_WEEKS[1] - WINTER_WEEKS[0] + 1;
+  if (winterLen !== 2) fails.push(`the winter window is ${winterLen} rounds long, so the pinned dual wording no longer fits`);
+  console.log(`  ${pins.length} counts that reach one have a singular sentence, and two rounds of winter read as שבועיים`);
 }
 
 /* 6. THE PRESS ROOM IS IN ITZIK'S WORDS.
