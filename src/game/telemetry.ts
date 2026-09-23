@@ -50,7 +50,6 @@ export const STEP_ORDER: Record<Step, number> =
 
 const AID_KEY = 'beapro.aid';
 const QUEUE_KEY = 'beapro.tq';
-const FAR_KEY = 'beapro.far';
 /** beyond this the oldest go, see the note at the top */
 export const QUEUE_CAP = 60;
 
@@ -92,24 +91,32 @@ export function deviceId(): string {
 /** This sitting. New every time the game is opened, never stored. */
 const sessionId = newId();
 
-/** The furthest step this device has ever reached. */
-export function furthest(): Step | null {
-  const v = read(FAR_KEY) as Step | null;
-  return v && v in STEP_ORDER ? v : null;
-}
+/**
+ * What this sitting has already reported. In memory, and only in memory.
+ *
+ * It exists to keep one sitting from posting the same step forty times as the
+ * screens change, and for nothing else. It used to be written down and kept
+ * forever, which quietly made the device the authority on what the server
+ * knows: a phone that had once reported a step could never report it again,
+ * so when the table was emptied after a bad build, that phone's whole funnel
+ * was silenced for good and only "open" ever arrived again. The server is the
+ * one that must not double count, and it already does not, because a step is
+ * a primary key there. A client that remembers is a client that can disagree.
+ */
+const sentThisSitting = new Set<Step>();
 
 /**
- * Whether a step is worth sending.
+ * Every step up to and including this one.
  *
- * A player who opens the game eleven times sends "open" eleven times, and that
- * is the point, it is how returning is counted. But the steps along the road
- * are sent once each: the funnel asks how many people reached a step, not how
- * many times a man walked past it, and a career restarted twice would
- * otherwise read as two people getting further than they did.
+ * Reaching round three MEANS having played round one, so a device that reports
+ * where it is reports how it got there, and the server keeps whichever it has
+ * not seen. That is what makes the numbers self healing: any phone that opens
+ * the game again repairs its own history, whatever was lost or wrongly written
+ * before. It also keeps the funnel honest by construction, since a bar can
+ * never be smaller than one below it.
  */
-export function shouldSend(step: Step, far: Step | null): boolean {
-  if (step === 'open') return true;
-  return far === null || STEP_ORDER[step] > STEP_ORDER[far];
+export function stepsUpTo(step: Step): Step[] {
+  return STEPS.slice(0, STEP_ORDER[step] + 1) as unknown as Step[];
 }
 
 export function readQueue(): Event[] {
@@ -141,12 +148,16 @@ export function enqueued(queue: Event[], e: Event, cap = QUEUE_CAP): Event[] {
  */
 export function track(step: Step): void {
   if (!TELEMETRY_URL) return;
-  const far = furthest();
-  if (!shouldSend(step, far)) return;
-  if (step !== 'open' && (far === null || STEP_ORDER[step] > STEP_ORDER[far])) write(FAR_KEY, step);
+  const fresh = stepsUpTo(step).filter(s => !sentThisSitting.has(s));
+  if (!fresh.length) return;
 
-  const e: Event = { a: deviceId(), s: sessionId, k: step, t: Date.now() };
-  const queue = enqueued(readQueue(), e);
+  const a = deviceId();
+  const t = Date.now();
+  let queue = readQueue();
+  for (const s of fresh) {
+    sentThisSitting.add(s);
+    queue = enqueued(queue, { a, s: sessionId, k: s, t });
+  }
   write(QUEUE_KEY, JSON.stringify(queue));
   void flush();
 }

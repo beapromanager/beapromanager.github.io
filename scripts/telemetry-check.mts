@@ -35,11 +35,19 @@ let checked = 0;
   const orders = T.STEPS.map(s => T.STEP_ORDER[s]);
   if (orders.some((n, i) => n !== i)) fails.push('the step order does not match the step list');
 
-  // a step already passed is never sent again: the funnel counts people who
-  // reached a step, not times a man walked past it
-  if (T.shouldSend('club', 'squad')) fails.push('walking back through a step would report it again');
-  if (!T.shouldSend('open', 'season_2')) fails.push('opening the game stopped being counted once a career got going');
-  console.log(`  ${T.STEPS.length} steps, in order, each counted once per device`);
+  // Reaching a step means having reached every step before it, so reporting
+  // where you are reports how you got there. That is what lets a phone repair
+  // its own history: the server keeps whatever it has not already got, and a
+  // bar can never come out smaller than the one below it.
+  const upToThree = T.stepsUpTo('round_3');
+  if (upToThree[0] !== 'open' || upToThree[upToThree.length - 1] !== 'round_3') {
+    fails.push('reporting a step does not report the road to it');
+  }
+  if (upToThree.length !== T.STEP_ORDER['round_3'] + 1) {
+    fails.push(`reaching round three reports ${upToThree.length} steps, not ${T.STEP_ORDER['round_3'] + 1}`);
+  }
+  if (T.stepsUpTo('open').join() !== 'open') fails.push('merely opening the game reports more than that');
+  console.log(`  ${T.STEPS.length} steps, in order, and reaching one reports the road to it`);
 }
 
 /* 2. THE ROAD IS WALKED, BY A REAL CAREER.
@@ -145,7 +153,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
 
   // the only thing that is posted is the queue of events, and an event is
   // built from these four and nothing else
-  if (!/const e: Event = \{ a: deviceId\(\), s: sessionId, k: step, t: Date\.now\(\) \};/.test(tele)) {
+  if (!/enqueued\(queue, \{ a, s: sessionId, k: s, t \}\)/.test(tele) || !/const a = deviceId\(\);/.test(tele)) {
     fails.push('the event is no longer built from exactly the device, the sitting, the step and the time');
   }
   // The real boundary is the import list. Every name a player types lives on
@@ -229,6 +237,31 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
     fails.push('a visit to the dashboard is counted as somebody playing the game');
   }
   console.log('  a wrong key is just the game, and looking at the numbers is not playing');
+}
+
+/* 3d. THE DEVICE IS NOT THE AUTHORITY ON WHAT THE SERVER KNOWS.
+      Dedupe used to be written to localStorage and kept for good, which made
+      each phone the final word on what it had already reported. When the table
+      was emptied after a bad build, every phone that had touched it went on
+      believing it had already said everything, and Itzik's own funnel came
+      back with one bar in it. The server is the only thing that must not
+      double count, and it cannot, because a step is a primary key there.
+      Nothing about what was sent may outlive the sitting. */
+{
+  const tele = readFileSync('src/game/telemetry.ts', 'utf8');
+  checked += 3;
+  if (/FAR_KEY|beapro\.far/.test(tele)) {
+    fails.push('the device writes down what it has reported, so a wrong note silences it forever');
+  }
+  if (!/const sentThisSitting = new Set<Step>\(\);/.test(tele)) {
+    fails.push('nothing stops one sitting posting the same step over and over');
+  }
+  // the worker is what makes that safe, so the primary key has to still be there
+  const schema = readFileSync('worker/schema.sql', 'utf8');
+  if (!/PRIMARY KEY \(aid, step\)/.test(schema)) {
+    fails.push('the server no longer dedupes, so re-reporting would inflate the funnel');
+  }
+  console.log('  nothing about what was sent outlives the sitting; the server is what cannot double count');
 }
 
 /* 4. AND WITH NOWHERE TO SEND IT, IT SENDS NOTHING.
