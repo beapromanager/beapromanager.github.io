@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-import { TELEMETRY_URL } from '../../data/telemetry.ts';
 import { biggestDrop } from '../../game/telemetry.ts';
 import { Icon } from '../components/Icon.tsx';
 
@@ -8,44 +6,19 @@ import { Icon } from '../components/Icon.tsx';
  *
  * Reached at ?admin=KEY, and the key is checked by the worker rather than
  * here: anything this page holds is public the moment it is served, so a check
- * in the browser would be a lock with the key taped beside it. A wrong key
- * gets a refusal from the other end and nothing to look at.
+ * in the browser would be a lock with the key taped beside it.
+ *
+ * It is handed its numbers already fetched, and only exists once the worker
+ * has accepted the key. It used to mount first and then say "wrong password",
+ * which told anyone who tried ?admin=anything that there was a password worth
+ * guessing, and took the game away from them while it did.
  *
  * The funnel is the reason this exists. Every bar is how many people reached
  * that step, and the number that matters is the DROP: the step where the bar
  * falls off a cliff is where the game is losing people, and it is the only
  * honest answer to "what should I fix next".
  */
-export function AdminScreen({ adminKey }: { adminKey: string }) {
-  const [data, setData] = useState<Stats | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!TELEMETRY_URL) { setErr('אין עדיין שרת נתונים. ראה worker/README.md'); return; }
-    const base = TELEMETRY_URL.replace(/\/+$/, '');
-    fetch(`${base}/stats?key=${encodeURIComponent(adminKey)}&days=30`)
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(setData)
-      .catch(e => setErr(e.message === '401' ? 'סיסמה שגויה' : 'השרת לא עונה'));
-  }, [adminKey]);
-
-  if (err) {
-    return (
-      <div className="screen pad stack" style={{ gap: 12, paddingTop: 30 }}>
-        <div className="h2">הנתונים</div>
-        <div className="tile" style={{ padding: 14, color: 'var(--loss)', fontWeight: 700 }}>{err}</div>
-      </div>
-    );
-  }
-  if (!data) {
-    return (
-      <div className="screen pad stack" style={{ gap: 12, paddingTop: 30 }}>
-        <div className="h2">הנתונים</div>
-        <div className="sub">טוען...</div>
-      </div>
-    );
-  }
-
+export function AdminScreen({ stats: data }: { stats: Stats }) {
   const top = data.funnel[0]?.n || 1;
   // the one number that says what to fix: the biggest fall between two steps
   const worst = biggestDrop(data.funnel);

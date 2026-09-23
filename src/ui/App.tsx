@@ -44,6 +44,8 @@ import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
 import { track, stepFor, flush, flushOnLeaving } from '../game/telemetry.ts';
 import { AdminScreen } from './screens/Admin.tsx';
+import type { Stats as AdminStats } from './screens/Admin.tsx';
+import { TELEMETRY_URL } from '../data/telemetry.ts';
 import { armBack, setBackHandler, leaveGame } from './back.ts';
 import { ExitSheet } from './components/ExitSheet.tsx';
 import { ReportSheet } from './components/ReportSheet.tsx';
@@ -84,10 +86,24 @@ export function App() {
     try { return refFromUrl(location.search); } catch { return null; }
   });
   // ?admin=KEY is the only way to the numbers, and the key is judged by the
-  // worker, not here: a check in the browser is a lock with the key beside it
+  // worker, not here: a check in the browser is a lock with the key beside it.
+  // Nothing about the dashboard shows until the worker has said yes, because a
+  // screen that answers "wrong password" tells a stranger there is a password
+  // to get right. A wrong key is the game, exactly as an absent one is.
   const [adminKey] = useState<string | null>(() => {
     try { return new URLSearchParams(location.search).get('admin'); } catch { return null; }
   });
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+  useEffect(() => {
+    if (!adminKey || !TELEMETRY_URL) return;
+    let alive = true;
+    const base = TELEMETRY_URL.replace(/\/+$/, '');
+    fetch(`${base}/stats?key=${encodeURIComponent(adminKey)}&days=30`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (alive && d) setAdminStats(d); })
+      .catch(() => { /* no worker, no dashboard, and the game carries on */ });
+    return () => { alive = false; };
+  }, [adminKey]);
 
   // one handler for the share button that sits in the meters bar on every
   // screen. The functional update keeps it from closing over a stale state
@@ -104,7 +120,9 @@ export function App() {
   // an invite link is read once on load; then the address bar is tidied so a
   // refresh does not look like a second invite
   useEffect(() => {
-    if (adminKey) return;   // the key has to survive a reload of the dashboard
+    // a key stays in the address, right or wrong: the dashboard has to survive
+    // a reload, and leaving a wrong one there tells nobody anything either
+    if (adminKey) return;
     try {
       if (location.search) history.replaceState(null, '', location.pathname);
     } catch { /* private mode, the link still worked */ }
@@ -164,17 +182,21 @@ export function App() {
   // remember to report and none of this can drift out of date. Nothing he
   // typed is anywhere near it, see game/telemetry.ts.
   useEffect(() => {
+    // A visit carrying an admin key is Itzik looking at the numbers, and he
+    // will do that several times a day. Counting it would put him in his own
+    // funnel and make the daily sittings mostly his.
+    if (adminKey) return;
     track('open');
     void flush();
     // and again on the way out, because for most people on a phone there is
     // no later: the tab is switched away from and never comes back
     return flushOnLeaving();
-  }, []);
+  }, [adminKey]);
   useEffect(() => {
-    if (!booted) return;
+    if (!booted || adminKey) return;
     const step = stepFor(gs);
     if (step) track(step);
-  }, [booted, gs.phase, gs.season, gs.week]);
+  }, [booted, adminKey, gs.phase, gs.season, gs.week]);
 
   function startNew() {
     track('career_new');
@@ -191,8 +213,8 @@ export function App() {
     setBooted(true);
   }
 
-  if (adminKey) {
-    return <div className="frame"><AdminScreen adminKey={adminKey} /></div>;
+  if (adminStats) {
+    return <div className="frame"><AdminScreen stats={adminStats} /></div>;
   }
 
   if (!introDone) {

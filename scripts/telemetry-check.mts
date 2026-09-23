@@ -163,11 +163,18 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   if (!/export function stepFor\(g: \{ phase: string; season: number; week: number \}\)/.test(tele)) {
     fails.push('stepFor takes something wider than a phase, a season and a week');
   }
-  // and only one place in the whole game posts anything
-  const posts = ['src/game/telemetry.ts', 'src/ui/screens/Admin.tsx'];
-  const all = (readFileSync('src/ui/App.tsx', 'utf8') + readFileSync('src/game/state.ts', 'utf8'));
-  if (/fetch\(/.test(all)) fails.push('something outside telemetry.ts posts to the network');
-  console.log(`  the wire carries four values, built in one place, out of ${posts.length} files that can reach it`);
+  // Only one place in the game SENDS, and the career state is not near it.
+  // state.ts holds every name a player typed and must never reach the network
+  // at all; the App may only ask the worker for the numbers, which is a read
+  // that carries nothing but the dashboard key.
+  const state = readFileSync('src/game/state.ts', 'utf8');
+  if (/fetch\(/.test(state)) fails.push('state.ts, where every typed name lives, can reach the network');
+  const app = readFileSync('src/ui/App.tsx', 'utf8');
+  const appFetches = [...app.matchAll(/fetch\(([^\n]*)/g)].map(m => m[1]);
+  const posting = appFetches.filter(f => !/\/stats\?key=/.test(f));
+  if (posting.length) fails.push(`the App fetches something other than the numbers: ${posting.join(' | ')}`);
+  if (/method: 'POST'/.test(app)) fails.push('the App posts to the network, which only telemetry.ts may do');
+  console.log(`  only telemetry.ts sends; state.ts cannot reach the network and the App only reads the numbers`);
 }
 
 /* 3b. THE WORKER AGREES WITH THE GAME ABOUT WHAT THE ROAD IS.
@@ -190,6 +197,38 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const unlabelled = T.STEPS.filter(s => !new RegExp(`\\b${s}: '`).test(admin));
   if (unlabelled.length) fails.push(`the dashboard has no words for: ${unlabelled.join(', ')}`);
   console.log(`  the worker and the game agree on all ${theirs.length} steps, and each has a name on the dashboard`);
+}
+
+/* 3c. A WRONG KEY IS THE GAME, NOT A LOCKED DOOR.
+      The worker refuses a bad key, which was never in doubt. The fault was
+      what the PAGE did with the refusal: it mounted a screen headed "הנתונים"
+      that said "wrong password", so anyone who tried ?admin=anything learned
+      there was a password worth guessing, and lost the game while they did.
+      A wrong key has to be indistinguishable from no key at all.
+
+      And a visit carrying a key is Itzik checking his numbers, several times a
+      day. Counting it would put him in his own funnel. */
+{
+  const app = readFileSync('src/ui/App.tsx', 'utf8');
+  const admin = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
+  checked += 4;
+
+  // the dashboard is reached through the ANSWER, never through the key alone
+  if (/if \(adminKey\) \{\s*\n\s*return <div className="frame"><AdminScreen/.test(app)) {
+    fails.push('any ?admin= value mounts the dashboard, so a stranger learns there is one');
+  }
+  if (!/if \(adminStats\) \{/.test(app)) {
+    fails.push('the dashboard is not gated on the worker having accepted the key');
+  }
+  // and it cannot draw a refusal, because it never sees one
+  if (/סיסמה שגויה/.test(admin)) {
+    fails.push('the dashboard still has a wrong-password screen, which advertises the door');
+  }
+  // his own visits are not players
+  if (!/if \(adminKey\) return;\s*\n\s*track\('open'\)/.test(app)) {
+    fails.push('a visit to the dashboard is counted as somebody playing the game');
+  }
+  console.log('  a wrong key is just the game, and looking at the numbers is not playing');
 }
 
 /* 4. AND WITH NOWHERE TO SEND IT, IT SENDS NOTHING.
