@@ -961,24 +961,44 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
 .lineup-fit{width:34px; height:3px; border-radius:2px; background:rgba(0,0,0,.45); overflow:hidden; display:block;}
 .lineup-fit i{display:block; height:100%; border-radius:2px;}
 
-/* the bench, under the pitch */
-.bench-pick{
-  display:flex; align-items:center; gap:9px; width:100%; text-align:start;
-  padding:9px 11px; border-radius:var(--r-sm);
-  background:var(--surface); border:1px solid var(--line);
+/* the bench, riding the bottom of the screen in the squad room */
+.bench-bar{
+  position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); z-index:40;
+  display:flex; align-items:stretch; gap:7px;
+  padding:7px 8px; border-radius:var(--r-md);
+  background:linear-gradient(180deg, rgba(21,29,25,.97), rgba(11,16,13,.97));
+  border:1px solid var(--line);
+  box-shadow:0 -8px 26px rgba(0,0,0,.5), var(--e2);
 }
-.bench-pick[data-on="1"]{border-color:var(--gold); background:rgba(233,185,73,.12);}
-.bench-pick[data-blocked="1"]{opacity:.45;}
-.bench-pick[data-drag="1"]{opacity:.35;}
-.bench-pick[data-over="ok"]{border-color:var(--win); background:rgba(51,194,122,.14); box-shadow:0 0 0 2px rgba(51,194,122,.35);}
-.bench-pick[data-over="no"]{border-color:var(--loss); background:rgba(226,72,77,.10);}
-/* the handle a bench man is carried by; the row itself still scrolls the page */
-.bench-grip{
-  flex:none; width:40px; height:40px; margin-inline-end:-6px; border-radius:10px;
-  display:grid; place-items:center; color:var(--ink-faint);
-  touch-action:none; cursor:grab; background:rgba(255,255,255,.04);
+.bench-bar-cap{
+  flex:none; align-self:center; width:20px;
+  font-size:10px; font-weight:800; color:var(--ink-faint);
+  text-align:center; line-height:1.25;
 }
-.bench-grip:active{color:var(--gold);}
+.bench-bar-row{
+  display:flex; gap:7px; flex:1; min-width:0;
+  overflow-x:auto; scrollbar-width:none; padding:1px;
+}
+.bench-bar-row::-webkit-scrollbar{display:none;}
+.bench-tile{
+  flex:none; width:66px; min-height:66px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  border-radius:var(--r-sm); background:var(--surface); border:1px solid var(--line);
+  touch-action:pan-x; cursor:grab; text-align:center;
+}
+.bench-tile-pos{font-size:9.5px; font-weight:800; letter-spacing:.02em;}
+.bench-tile-ovr{font-size:16.5px; font-weight:900; line-height:1.05;}
+.bench-tile-name{
+  font-size:10.5px; font-weight:700; color:var(--ink-dim); max-width:60px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.bench-tile-mark{font-size:8.5px; font-weight:800; color:var(--ink-faint);}
+.bench-tile-mark[data-red="1"]{color:var(--loss);}
+.bench-tile[data-on="1"]{border-color:var(--gold); background:rgba(233,185,73,.12);}
+.bench-tile[data-blocked="1"]{opacity:.45;}
+.bench-tile[data-drag="1"]{opacity:.35;}
+.bench-tile[data-over="ok"]{border-color:var(--win); background:rgba(51,194,122,.14); box-shadow:0 0 0 2px rgba(51,194,122,.35);}
+.bench-tile[data-over="no"]{border-color:var(--loss); background:rgba(226,72,77,.10);}
 
 /* a man's numbers, low, the pitch still in view above */
 .psheet{

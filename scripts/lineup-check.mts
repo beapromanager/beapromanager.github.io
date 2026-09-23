@@ -241,6 +241,24 @@ if (roleFit('GK', 'ST') !== 'out') fails.push('a keeper up front reads as fine')
   console.log('  the chalkboard hangs between the tunnel and the pitch, with the real eleven on it');
 }
 
+/* THE BENCH RIDES THE BOTTOM OF THE SCREEN.
+   In the pitch view the bench is a sticky strip at the thumb, every tile a
+   drop target, so moving a man between pitch and bench is never a journey
+   through an auto-scroll. A source guard on the three things that make it
+   work: the strip exists, its tiles are drop targets that lift on a press,
+   and the CSS actually pins it. */
+{
+  const squad = readFileSync('src/ui/screens/Squad.tsx', 'utf8');
+  const css = readFileSync('src/ui/tokens.css', 'utf8');
+  checked += 3;
+  if (!/className="bench-bar"/.test(squad)) fails.push('the squad room lost its bottom bench strip');
+  if (!/bench-tile" data-drop-id=\{p\.id\}[^]{0,700}onPointerDown=\{e => drag\.start\(p\.id, e\)\}/.test(squad)) {
+    fails.push('the bench tiles are no longer draggable drop targets');
+  }
+  if (!/\.bench-bar\{\s*[^}]*position:sticky/.test(css)) fails.push('the bench strip is not pinned to the screen, so the drag is a journey again');
+  console.log('  the bench rides the bottom of the pitch view, every tile a drop target');
+}
+
 console.log(`${checked} checks across ${FORMATIONS.length} formations`);
 console.log(`seating improved the fit in ${improved} of ${improved + sameOrWorse} squads, made it worse in 0`);
 console.log(`4-4-2 reads: ${formation('4-4-2').slots.map(s => s.role).join(' ')}`);

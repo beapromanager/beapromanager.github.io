@@ -426,33 +426,42 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
         ))
       )}
 
-      <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--ink-dim)', marginTop: 4 }}>ספסל החילופים</div>
+      {view === 'list' && <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--ink-dim)', marginTop: 4 }}>ספסל החילופים</div>}
       {view === 'pitch' ? (
-        <div className="stack" style={{ gap: 7 }}>
-          {sq.bench.map(p => {
-            const blocked = !!pickedPlayer && isStarter(pickedPlayer.id) && !!G.swapBlockedReason(pickedPlayer, p, gs);
-            const over = drag.overId === p.id;
-            return (
-              <div key={p.id} className="bench-pick" data-drop-id={p.id}
-                data-on={picked === p.id || sheet === p.id ? '1' : '0'}
-                data-blocked={blocked ? '1' : '0'}
-                data-over={over ? (drag.overOk ? 'ok' : 'no') : '0'}
-                data-drag={drag.fromId === p.id ? '1' : '0'}
-                role="button" tabIndex={0} aria-pressed={picked === p.id}
-                onClick={() => tap(p)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(p); } }}>
-                <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: LINE_COLOR[LINE_OF[p.position]], minWidth: 36, justifyContent: 'center' }}>{p.position}</span>
-                <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {p.id === captainId && <span className="lineup-cap">C</span>}{p.name}
-                  {markOf(p) && <span className="chip" style={{ marginInlineStart: 6, background: markOf(p) === 'מורחק' ? 'rgba(226,72,77,.18)' : 'rgba(255,255,255,.08)', color: markOf(p) === 'מורחק' ? 'var(--loss)' : 'var(--ink-faint)' }}>{markOf(p)}</span>}
-                </span>
-                <span className="num" style={{ fontWeight: 900, fontSize: 17, color: ovrColor(overall(p)) }}>{overall(p)}</span>
-                {/* the handle: the row body scrolls the page like any row, the grip lifts the man */}
-                <span className="bench-grip" onPointerDown={e => { e.stopPropagation(); drag.start(p.id, e); }} onClick={e => e.stopPropagation()} aria-label={`גרור את ${p.name}`}>
-                  <Icon name="sub" size={15} />
-                </span>
-              </div>
-            );
-          })}
+        /* The bench rides the bottom of the screen. It used to sit in the flow
+           under a pitch two screens tall, so moving a man meant carrying him
+           through an auto-scroll; now the strip is always at the thumb, and a
+           drag in either direction is never longer than the screen. The whole
+           tile lifts the man: a sideways swipe pans the strip natively
+           (touch-action) and cancels the drag, so the two gestures do not
+           fight. A tap still opens his numbers. */
+        <div className="bench-bar" role="list" aria-label="ספסל החילופים">
+          <span className="bench-bar-cap">ספסל</span>
+          <div className="bench-bar-row">
+            {sq.bench.map(p => {
+              const blocked = !!pickedPlayer && isStarter(pickedPlayer.id) && !!G.swapBlockedReason(pickedPlayer, p, gs);
+              const over = drag.overId === p.id;
+              const mk = markOf(p);
+              return (
+                <div key={p.id} className="bench-tile" data-drop-id={p.id} role="listitem"
+                  data-on={picked === p.id || sheet === p.id ? '1' : '0'}
+                  data-blocked={blocked ? '1' : '0'}
+                  data-over={over ? (drag.overOk ? 'ok' : 'no') : '0'}
+                  data-drag={drag.fromId === p.id ? '1' : '0'}
+                  tabIndex={0} aria-label={`${p.name}, ${p.position}, דירוג ${overall(p)}`}
+                  onPointerDown={e => drag.start(p.id, e)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(p); } }}>
+                  <span className="bench-tile-pos" style={{ color: LINE_COLOR[LINE_OF[p.position]] }}>{p.position}</span>
+                  <span className="bench-tile-ovr num" style={{ color: ovrColor(overall(p)) }}>{overall(p)}</span>
+                  <span className="bench-tile-name">
+                    {p.id === captainId && <span className="lineup-cap">C</span>}
+                    {surnameOf(p.name)}
+                  </span>
+                  {mk && <span className="bench-tile-mark" data-red={mk === 'מורחק' ? '1' : '0'}>{mk}</span>}
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="tile" style={{ padding: '4px 10px 8px' }}>
