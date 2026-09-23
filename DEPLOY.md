@@ -3,6 +3,9 @@
 **אתר חי (MVP לבדיקה):** https://beapromanager.github.io/
 **Repo:** https://github.com/beapromanager/beapromanager.github.io (ציבורי, חשבון המשחק). הריפו הישן github.com/itzik200592-byte/BE-A-PRO נשאר כארכיון.
 
+## נתונים (כמה משחקים ואיפה עוצרים)
+המדריך המלא: [CRM.md](CRM.md). כרגע כבוי, והמשחק רץ בדיוק כמו קודם עד שמפעילים.
+
 ## איך זה עובד
 - GitHub Pages, נבנה אוטומטית ב-GitHub Actions מהקובץ `.github/workflows/deploy.yml`.
 - זה אתר משתמש של Pages (ריפו בשם `beapromanager.github.io`), אז Vite `base` הוא `/` (ב-`vite.config.ts`).

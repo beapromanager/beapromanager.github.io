@@ -22,6 +22,16 @@
  * the secret, which lives in the worker and never in the game.
  */
 
+/**
+ * The slice of D1 this worker uses, declared here rather than pulled from a
+ * types package. Wrangler strips the types on the way up, so the deploy does
+ * not depend on an install succeeding, and what the worker expects of the
+ * database is readable in the same file that uses it.
+ */
+interface D1Result<T = Record<string, unknown>> { results: T[] }
+interface D1Stmt { bind(...v: unknown[]): D1Stmt; all<T = Record<string, unknown>>(): Promise<D1Result<T>> }
+interface D1Database { prepare(sql: string): D1Stmt; batch(s: D1Stmt[]): Promise<unknown> }
+
 export interface Env {
   DB: D1Database;
   /** the secret behind ?admin=, set with: wrangler secret put ADMIN_KEY */
