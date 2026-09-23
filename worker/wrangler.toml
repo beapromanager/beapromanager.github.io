@@ -1,0 +1,14 @@
+name = "beapro-count"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# The database is made once, and the id below comes from making it:
+#   npx wrangler d1 create beapro-count
+# Paste the id it prints here, then create the tables:
+#   npx wrangler d1 execute beapro-count --remote --file=schema.sql
+# And the dashboard's key, which lives here and never in the game:
+#   npx wrangler secret put ADMIN_KEY
+[[d1_databases]]
+binding = "DB"
+database_name = "beapro-count"
+database_id = "PASTE_THE_ID_WRANGLER_PRINTS"

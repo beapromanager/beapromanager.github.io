@@ -42,6 +42,8 @@ import { setInviteHandler, setInstallHandler, setReportHandler } from './compone
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
+import { track, stepFor, flush } from '../game/telemetry.ts';
+import { AdminScreen } from './screens/Admin.tsx';
 import { armBack, setBackHandler, leaveGame } from './back.ts';
 import { ExitSheet } from './components/ExitSheet.tsx';
 import { ReportSheet } from './components/ReportSheet.tsx';
@@ -81,6 +83,11 @@ export function App() {
   const [ref] = useState<string | null>(() => {
     try { return refFromUrl(location.search); } catch { return null; }
   });
+  // ?admin=KEY is the only way to the numbers, and the key is judged by the
+  // worker, not here: a check in the browser is a lock with the key beside it
+  const [adminKey] = useState<string | null>(() => {
+    try { return new URLSearchParams(location.search).get('admin'); } catch { return null; }
+  });
 
   // one handler for the share button that sits in the meters bar on every
   // screen. The functional update keeps it from closing over a stale state
@@ -97,10 +104,11 @@ export function App() {
   // an invite link is read once on load; then the address bar is tidied so a
   // refresh does not look like a second invite
   useEffect(() => {
+    if (adminKey) return;   // the key has to survive a reload of the dashboard
     try {
       if (location.search) history.replaceState(null, '', location.pathname);
     } catch { /* private mode, the link still worked */ }
-  }, [ref]);
+  }, [ref, adminKey]);
 
   // persist the career whenever it changes, so closing the tab is not a loss
   useEffect(() => { if (booted) saveCareer(gs); }, [gs, booted]);
@@ -151,7 +159,19 @@ export function App() {
     : `${gs.phase}|${gs.press?.q.text ?? ''}|${gs.preWeek}`;
   useLayoutEffect(scrollToTop, [screenKey]);
 
+  // The counting, all of it. How many opened the game, and how far each one
+  // got before he stopped: the step is read off the state, so no screen has to
+  // remember to report and none of this can drift out of date. Nothing he
+  // typed is anywhere near it, see game/telemetry.ts.
+  useEffect(() => { track('open'); void flush(); }, []);
+  useEffect(() => {
+    if (!booted) return;
+    const step = stepFor(gs);
+    if (step) track(step);
+  }, [booted, gs.phase, gs.season, gs.week]);
+
   function startNew() {
+    track('career_new');
     clearCareer();
     setSaved(null);
     const fresh = G.newGame(Math.floor(Math.random() * 100000) + 1);
@@ -163,6 +183,10 @@ export function App() {
     const loaded = loadCareer();
     if (loaded) setGs(loaded);
     setBooted(true);
+  }
+
+  if (adminKey) {
+    return <div className="frame"><AdminScreen adminKey={adminKey} /></div>;
   }
 
   if (!introDone) {

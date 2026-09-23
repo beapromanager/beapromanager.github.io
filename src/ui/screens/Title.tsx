@@ -116,6 +116,8 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
 
         <p style={{ textAlign: 'center', fontSize: 10.5, color: 'var(--ink-faint)', margin: 0 }}>
           גרסת פיתוח · כל השמות והמועדונים בדיוניים
+          <br />
+          סופרים שימוש אנונימי כדי לדעת מה לשפר. השמות שאתה מקליד נשארים במכשיר שלך.
         </p>
       </div>
     </div>
