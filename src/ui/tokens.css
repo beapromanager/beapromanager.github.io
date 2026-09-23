@@ -953,6 +953,11 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
   margin-inline-end:3px; vertical-align:middle;
 }
 
+/* the in-match board: a slightly shorter pitch, and fitness under every name */
+.lineup-pitch.compact{aspect-ratio:100/126;}
+.lineup-fit{width:34px; height:3px; border-radius:2px; background:rgba(0,0,0,.45); overflow:hidden; display:block;}
+.lineup-fit i{display:block; height:100%; border-radius:2px;}
+
 /* the bench, under the pitch */
 .bench-pick{
   display:flex; align-items:center; gap:9px; width:100%; text-align:start;

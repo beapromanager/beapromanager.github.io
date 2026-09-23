@@ -164,6 +164,23 @@ console.log(`  ${subsMade} substitutions into another man's shirt, ${strangeRole
   console.log('  after the final whistle the bench is closed, and a tap there changes nothing');
 }
 
+/* 6. THE BENCH SHEET IS A BOARD, NOT A LIST.
+      The manager points at a shirt on a pitch, in the shape being played right
+      now, and the board must carry the two things the decision runs on: the
+      role each man is wearing and his fitness. A source guard, like shape-check
+      section 6: it catches the board being deleted or unhooked, not a broken
+      layout. */
+{
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  checked += 4;
+  if (!/function SubBoard/.test(src)) fails.push('the substitution sheet has no board');
+  if (!/<SubBoard /.test(src)) fails.push('the board exists but the sheet never shows it');
+  if (!/formation\(side\.tactic\.formation\)/.test(src)) fails.push('the board is not seated in the shape being played right now');
+  if (!/lineup-fit/.test(src)) fails.push('the board says nothing about fitness, which is what a substitution is decided on');
+  console.log('  the bench sheet points at a board in the current shape, with fitness on every shirt');
+}
+
 console.log('');
 if (fails.length) {
   console.log(`FAIL (${fails.length} of ${checked})`);

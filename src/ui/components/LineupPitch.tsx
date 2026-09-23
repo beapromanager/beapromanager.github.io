@@ -6,6 +6,24 @@ import { ROLE_LABEL, roleFit, effectiveOverall } from '../../data/formations.ts'
 import type { Kit } from '../../data/kits.ts';
 import { ovrColor } from '../../game/cards.ts';
 
+/** The turf and its chalk lines, shared with the in-match board. */
+export function PitchTurf() {
+  return (
+    <svg viewBox="0 0 100 140" preserveAspectRatio="none" className="lineup-turf" aria-hidden="true">
+      <g fill="none" stroke="rgba(255,255,255,.20)" strokeWidth="0.5">
+        <rect x="2" y="2" width="96" height="136" />
+        <line x1="2" y1="70" x2="98" y2="70" />
+        <circle cx="50" cy="70" r="13" />
+        {/* our box at the bottom, theirs at the top */}
+        <rect x="24" y="118" width="52" height="20" />
+        <rect x="38" y="130" width="24" height="8" />
+        <rect x="24" y="2" width="52" height="20" />
+        <rect x="38" y="2" width="24" height="8" />
+      </g>
+    </svg>
+  );
+}
+
 /**
  * The starting eleven, on a pitch.
  *
@@ -37,18 +55,7 @@ export function LineupPitch({ formation, players, kit, captainId, selectedId, dr
 
   return (
     <div className="lineup-pitch">
-      <svg viewBox="0 0 100 140" preserveAspectRatio="none" className="lineup-turf" aria-hidden="true">
-        <g fill="none" stroke="rgba(255,255,255,.20)" strokeWidth="0.5">
-          <rect x="2" y="2" width="96" height="136" />
-          <line x1="2" y1="70" x2="98" y2="70" />
-          <circle cx="50" cy="70" r="13" />
-          {/* our box at the bottom, theirs at the top */}
-          <rect x="24" y="118" width="52" height="20" />
-          <rect x="38" y="130" width="24" height="8" />
-          <rect x="24" y="2" width="52" height="20" />
-          <rect x="38" y="2" width="24" height="8" />
-        </g>
-      </svg>
+      <PitchTurf />
 
       {players.map((p, i) => {
         const slot = formation.slots[i];
@@ -92,7 +99,7 @@ export function LineupPitch({ formation, players, kit, captainId, selectedId, dr
  * can easily hold two of them, and two identical labels on one pitch is worse
  * than a longer one, so a clash falls back to an initial and the family name.
  */
-function shortNames(players: Player[]): Map<string, string> {
+export function shortNames(players: Player[]): Map<string, string> {
   const count = new Map<string, number>();
   for (const p of players) {
     const last = family(p.name);

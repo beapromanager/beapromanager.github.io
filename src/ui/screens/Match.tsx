@@ -3,6 +3,7 @@ import { asset } from '../asset.ts';
 import * as G from '../../game/state.ts';
 import * as L from '../../game/liveMatch.ts';
 import type { LiveState, Corner } from '../../game/liveMatch.ts';
+import { formation } from '../../data/formations.ts';
 import type { FormationId } from '../../data/formations.ts';
 import type { MatchResult, Player } from '../../engine/matchEngine.ts';
 import { overall } from '../../engine/matchEngine.ts';
@@ -14,6 +15,7 @@ import { ScorePair } from '../components/bits.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { Portal } from '../components/Portal.tsx';
 import { LivePitch } from '../components/LivePitch.tsx';
+import { PitchTurf, shortNames } from '../components/LineupPitch.tsx';
 import type { PitchPlay } from '../components/LivePitch.tsx';
 import { eventToPlay } from '../../game/pitchSim.ts';
 import { ovrColor } from './Squad.tsx';
@@ -395,55 +397,56 @@ function fitColor(f: number): string {
   return f >= 75 ? 'var(--win)' : f >= 60 ? 'var(--gold)' : f >= 50 ? '#e8863f' : 'var(--loss)';
 }
 
-/** One player line with a live fitness bar. Bench players read dimmer. */
-function FitRow({ p, bench, onTap, selected, role }: {
-  p: Player; bench?: boolean; onTap?: () => void; selected?: boolean;
-  /** the shirt he is wearing in the shape being played right now */
-  role?: string;
+/**
+ * The manager's board: the eleven as shirts in the shape being played right
+ * now, so a substitution is pointed at rather than hunted for in a list. The
+ * rating sits in the shirt, the fitness bar under the name, and a tap on a
+ * shirt opens who can come on for that man.
+ */
+function SubBoard({ st, kit, picked, onPick }: {
+  st: LiveState; kit: KitStrip; picked: string | null; onPick: (p: Player) => void;
 }) {
-  const f = Math.round(p.fitness);
-  const o = overall(p);
-  // Where he IS, not only what he is. Once the shape can change at half time,
-  // picking substitutes off a man's natural position means picking off the
-  // formation you just abandoned. The natural position follows in brackets when
-  // the two disagree, because that is the bit that says he is out of position.
-  const here = role ?? p.position;
-  const moved = role !== undefined && role !== p.position;
-  const inner = (
-    <>
-      <span className="chip" style={{
-        background: moved ? 'rgba(233,185,73,.14)' : 'rgba(255,255,255,.05)',
-        color: moved ? 'var(--gold-hi)' : 'var(--ink-faint)',
-        minWidth: 34, justifyContent: 'center',
-      }}>{here}</span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {p.name}
-          {moved && <span style={{ color: 'var(--ink-faint)', fontWeight: 600 }}> · {p.position} מטבעו</span>}
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-          <span style={{ width: 44, height: 3, borderRadius: 2, background: 'rgba(255,255,255,.09)', overflow: 'hidden', display: 'block' }}>
-            <span style={{ display: 'block', width: `${f}%`, height: '100%', background: fitColor(f), transition: 'width var(--t-slow) var(--ease)' }} />
-          </span>
-          <span className="num" style={{ fontSize: 10.5, color: fitColor(f), fontWeight: 800 }}>{f}%</span>
-        </span>
-      </span>
-      <span className="score-face" style={{ fontSize: 21, color: ovrColor(o), width: 28, textAlign: 'center' }}>{o}</span>
-    </>
-  );
-
-  const style: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'start',
-    padding: '8px 6px', borderTop: '1px solid var(--line)', borderRadius: 8,
-    opacity: bench ? .72 : 1,
-    background: selected ? 'rgba(233,185,73,.14)' : 'transparent',
-    transition: 'background var(--t-fast)',
-  };
-
-  if (!onTap) return <div style={style}>{inner}</div>;
+  const side = L.mySide(st);
+  // the shirts are seated in the shape being played RIGHT NOW, so a manager who
+  // went to three at the back at half time is pointing at the formation he is
+  // actually playing
+  const form = formation(side.tactic.formation);
+  const roles = L.slotRoles(st);
+  const label = shortNames(side.onPitch);
   return (
-    <button style={{ ...style, minHeight: 46 }} onClick={onTap}
-      aria-label={`${p.name}, כושר ${f}, להחלפה`}>{inner}</button>
+    <div className="lineup-pitch compact" role="group" aria-label="ההרכב על הלוח">
+      <PitchTurf />
+      {side.onPitch.map((p, i) => {
+        const slot = form.slots[i];
+        if (!slot) return null;
+        return (
+          <BoardMan key={p.id} p={p} role={roles.get(p.id)} kit={kit}
+            top={slot.line === 'GK' ? 88 : 80 - slot.d * 68} left={slot.y * 100}
+            label={label.get(p.id) ?? p.name} on={picked === p.id} onTap={() => onPick(p)} />
+        );
+      })}
+    </div>
+  );
+}
+
+/** One shirt on the board, tappable, with the man's fitness under his name. */
+function BoardMan({ p, role, kit, top, left, label, on, onTap }: {
+  p: Player; role?: string; kit: KitStrip; top: number; left: number; label: string;
+  on: boolean; onTap: () => void;
+}) {
+  const o = overall(p);
+  const f = Math.round(p.fitness);
+  return (
+    <button className="lineup-man" data-on={on ? '1' : '0'}
+      style={{ top: `${top}%`, left: `${left}%`, touchAction: 'manipulation', cursor: 'pointer' }}
+      onClick={onTap} aria-label={`${p.name}, כושר ${f}, להחלפה`} aria-pressed={on}>
+      <span className="lineup-shirt" style={{ background: kit.shirt, borderColor: kit.trim }}>
+        <span className="lineup-ovr num" style={{ color: ovrColor(o) }}>{o}</span>
+      </span>
+      {role && <span className="lineup-role">{role}</span>}
+      <span className="lineup-name">{label}</span>
+      <span className="lineup-fit"><i style={{ width: `${f}%`, background: fitColor(f) }} /></span>
+    </button>
   );
 }
 
@@ -539,11 +542,6 @@ function HalfTime({ st, onTalk, onShape, onRevert, onSub }: {
 }
 
 /**
- * The compact lineup, one thin row of eleven fitness bars that sits under the
- * live feed. It stays out of the way of the action, and a tap opens the bench
- * for a substitution. Tired players make it glow so you notice without hunting.
- */
-/**
  * The bench, surfaced. Instead of a thin diagram to hunt through, it brings the
  * decision to you: the players who are tiring float up as cards with their name
  * and fitness, each with a one tap swap for the best replacement (name and
@@ -637,10 +635,11 @@ function SubSheet({ st, onSub, onClose, focusId, benchKit }: {
   const [picked, setPicked] = useState<string | null>(focusId ?? null);
   const side = st.iAmHome ? st.home : st.away;
   const canSub = L.canSub(st) && (st.phase === 'play' || st.phase === 'halftime');
-  // who is wearing which shirt in the shape being played RIGHT NOW, so a manager
-  // who went to three at the back at half time picks his substitutes off the
-  // formation he is actually playing
-  const roles = L.slotRoles(st);
+  const pickedPlayer = picked ? side.onPitch.find(p => p.id === picked) ?? null : null;
+  // the offers open under the board, which can be below the fold on a phone,
+  // so a tap on a shirt brings them up to the finger
+  const optRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => { if (picked) optRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [picked]);
 
 
   return (
@@ -687,20 +686,19 @@ function SubSheet({ st, onSub, onClose, focusId, benchKit }: {
           </div>
 
           <p className="hint" style={{ margin: '2px 0 8px' }}>
-            {canSub ? 'לחץ על שחקן במגרש כדי לראות מי מהספסל נכנס במקומו.' : 'נגמרו החילופים, אבל אפשר עדיין לעקוב אחרי הכושר.'}
+            {canSub ? 'לחץ על שחקן בלוח כדי לראות מי מהספסל נכנס במקומו.' : 'נגמרו החילופים, אבל אפשר עדיין לעקוב אחרי הכושר.'}
           </p>
 
-          {side.onPitch.map(p => (
-            <div key={p.id}>
-              <FitRow p={p} selected={picked === p.id} role={roles.get(p.id)}
-                onTap={canSub ? () => setPicked(picked === p.id ? null : p.id) : undefined} />
-              {picked === p.id && (
-                <SubOptions st={st} off={p}
-                  onSub={(off, on) => { onSub(off, on); setPicked(null); }}
-                  onClose={() => setPicked(null)} />
-              )}
+          <SubBoard st={st} kit={benchKit} picked={picked}
+            onPick={p => { if (canSub) setPicked(picked === p.id ? null : p.id); }} />
+
+          {pickedPlayer && (
+            <div ref={optRef}>
+            <SubOptions st={st} off={pickedPlayer}
+              onSub={(off, on) => { onSub(off, on); setPicked(null); }}
+              onClose={() => setPicked(null)} />
             </div>
-          ))}
+          )}
 
           <button className="btn" style={{ marginTop: 14 }} onClick={onClose}>חזרה למשחק</button>
         </div>
