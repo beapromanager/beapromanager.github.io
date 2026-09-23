@@ -38,13 +38,21 @@ export function PitchTurf() {
  * The shirts are drop targets: while a man is in the air, the shirt under the
  * finger lights green when he can land there and red when he cannot.
  */
-export function LineupPitch({ formation, players, kit, captainId, selectedId, dragId, overId, overOk, onPointerDown }: {
+export function LineupPitch({ formation, players, kit, captainId, selectedId, bannedIds, dragId, overId, overOk, onPointerDown }: {
   formation: Formation;
   /** eleven, index for index with formation.slots */
   players: Player[];
   kit: Kit;
   captainId?: string | null;
   selectedId?: string | null;
+  /**
+   * Who cannot play this round, serving a red. He is on the sheet and the
+   * round will not start until he is off it, so he is the one thing here that
+   * has to be seen without reading: red name, red shirt, and the word instead
+   * of his role. A man out of position is merely expensive; this one is a
+   * closed door.
+   */
+  bannedIds?: Set<string>;
   /** the man in the air, the shirt under the finger, and whether he can land there */
   dragId?: string | null;
   overId?: string | null;
@@ -72,18 +80,22 @@ export function LineupPitch({ formation, players, kit, captainId, selectedId, dr
         const shown = effectiveOverall(p, slot.role, ovr);
         const on = selectedId === p.id;
         const over = overId === p.id ? (overOk ? 'ok' : 'no') : '0';
+        const banned = bannedIds?.has(p.id) ?? false;
         return (
           <button key={p.id} className="lineup-man" data-fit={fit} data-on={on ? '1' : '0'}
             data-drop-id={p.id} data-over={over} data-drag={dragId === p.id ? '1' : '0'}
+            data-banned={banned ? '1' : '0'}
             style={{ top: `${top}%`, left: `${left}%` }}
             onPointerDown={e => onPointerDown?.(p, e)}
-            aria-label={`${p.name}, ${ROLE_LABEL[slot.role]}, דירוג ${shown}${fit === 'out' ? ', לא בתפקידו' : ''}`}
+            aria-label={`${p.name}, ${ROLE_LABEL[slot.role]}, דירוג ${shown}${banned ? ', מורחק, חייב לצאת מההרכב' : fit === 'out' ? ', לא בתפקידו' : ''}`}
             aria-pressed={on}>
             <span className="lineup-shirt" style={{ background: kit.shirt, borderColor: kit.trim }}>
               <span className="lineup-ovr num" style={{ color: ovrColor(shown) }}>{shown}</span>
             </span>
-            <span className="lineup-role" data-fit={fit}>{slot.role}</span>
-            <span className="lineup-name" data-fit={fit}>
+            {banned
+              ? <span className="lineup-role banned">מורחק</span>
+              : <span className="lineup-role" data-fit={fit}>{slot.role}</span>}
+            <span className="lineup-name" data-fit={banned ? undefined : fit}>
               {captainId === p.id && <span className="lineup-cap">C</span>}
               {label.get(p.id)}
             </span>

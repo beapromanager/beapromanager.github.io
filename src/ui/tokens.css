@@ -925,6 +925,15 @@ input{font-family:inherit;}
 .lineup-role[data-fit="covers"]{background:rgba(233,185,73,.24); color:var(--gold-hi);}
 .lineup-role[data-fit="out"]{background:rgba(226,72,77,.32); color:#ffb9bb;}
 .lineup-man[data-fit="out"] .lineup-shirt{border-style:dashed;}
+/* Serving a red. Not a shade of warning, the thing itself: the name in bold
+   red under a red-ringed shirt, and the word where his role goes. He is why
+   the round will not start, so he wins every other mark on the sheet. */
+.lineup-role.banned{background:var(--loss); color:#fff; font-weight:900;}
+.lineup-man[data-banned="1"] .lineup-shirt{
+  border-color:var(--loss); border-style:solid;
+  box-shadow:0 0 0 2px rgba(226,72,77,.55), 0 2px 8px rgba(0,0,0,.5);
+}
+.lineup-man[data-banned="1"] .lineup-name{color:var(--loss); font-weight:900;}
 /* a man in a shirt that is not his: the name says so before the number does */
 .lineup-name[data-fit="out"]{color:#ff8a8e;}
 .lineup-name[data-fit="covers"]{color:var(--gold-hi);}
@@ -993,7 +1002,7 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .bench-tile-mark{font-size:8.5px; font-weight:800; color:var(--ink-faint);}
-.bench-tile-mark[data-red="1"]{color:var(--loss);}
+.bench-tile-mark[data-red="1"]{color:var(--loss); font-weight:900;}
 .bench-tile[data-on="1"]{border-color:var(--gold); background:rgba(233,185,73,.12);}
 .bench-tile[data-blocked="1"]{opacity:.45;}
 .bench-tile[data-drag="1"]{opacity:.35;}

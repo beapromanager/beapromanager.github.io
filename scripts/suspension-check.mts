@@ -22,6 +22,7 @@ import type { MatchResult, MatchEvent } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
+import { readFileSync } from 'node:fs';
 
 const store = new Map<string, string>();
 (globalThis as unknown as { localStorage: unknown }).localStorage = {
@@ -176,6 +177,29 @@ const ids = (xs: { id: string }[]) => new Set(xs.map(x => x.id));
   if (gs.phase !== 'season-end') fails.push(`the last round did not end the season (phase ${gs.phase})`);
   if (!G.isSuspended(gs, victim.id)) fails.push('a red in the last round was forgotten over the summer');
   console.log('  a red in the last round is carried into the summer');
+}
+
+/* AND THE MAN IS UNMISSABLE ON THE TEAM SHEET.
+   The round will not start until he is off the eleven, and the screen the
+   manager is sent to is the pitch view, where until now he was drawn exactly
+   like everybody else: the only word about him was the banner above. He is
+   now bold and red on the sheet itself. A source guard, because the colour of
+   a name is not something the engine can be asked about. */
+{
+  const pitch = readFileSync('src/ui/components/LineupPitch.tsx', 'utf8');
+  const squad = readFileSync('src/ui/screens/Squad.tsx', 'utf8');
+  const css = readFileSync('src/ui/tokens.css', 'utf8');
+  checked += 5;
+  if (!/bannedIds\?: Set<string>/.test(pitch)) fails.push('the team sheet cannot be told who is serving a red');
+  if (!/data-banned=\{banned \? '1' : '0'\}/.test(pitch)) fails.push('the sheet knows who is banned and does not mark him');
+  if (!/lineup-role banned">מורחק</.test(pitch)) fails.push('a banned man is not named as banned where his role goes');
+  if (!/bannedIds=\{bannedIds\}/.test(squad) || !/G\.isSuspended\(gs, p\.id\)/.test(squad)) {
+    fails.push('the squad room never works out who is banned, or never hands it to the sheet');
+  }
+  if (!/\.lineup-man\[data-banned="1"\] \.lineup-name\{[^}]*color:var\(--loss\)[^}]*font-weight:900/.test(css)) {
+    fails.push('a banned man\'s name is not bold red, which is the whole point');
+  }
+  console.log('  a man serving a red is bold red on the team sheet, not just in the banner');
 }
 
 console.log('');

@@ -235,6 +235,11 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   const markOf = (p: Player): string | null =>
     G.isSuspended(gs, p.id) ? 'מורחק' : gs.emergencyYouth === p.id ? 'רשום בלבד' : gs.sitOut[p.id] ?? (promised?.id === p.id ? PROMISED : null);
 
+  // serving a red, and therefore the reason the round will not start
+  const bannedIds = useMemo(
+    () => new Set([...sq.starters, ...sq.bench].filter(p => G.isSuspended(gs, p.id)).map(p => p.id)),
+    [sq, gs]);
+
   const all = useMemo(() => [...sq.starters, ...sq.bench], [sq]);
   const byId = (id: string | null) => (id ? all.find(p => p.id === id) ?? null : null);
   const pickedPlayer = byId(picked);
@@ -403,7 +408,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
             ))}
           </div>
           <LineupPitch formation={form} players={onPitch} kit={homeKit(c)}
-            captainId={captainId} selectedId={picked ?? sheet}
+            captainId={captainId} selectedId={picked ?? sheet} bannedIds={bannedIds}
             dragId={drag.fromId} overId={drag.overId} overOk={drag.overOk}
             onPointerDown={(p, e) => drag.start(p.id, e)} />
           {outOfPosition.length > 0 && (
@@ -457,7 +462,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
                     {p.id === captainId && <span className="lineup-cap">C</span>}
                     {surnameOf(p.name)}
                   </span>
-                  {mk && <span className="bench-tile-mark" data-red={mk === 'מורחק' ? '1' : '0'}>{mk}</span>}
+                  {mk && <span className="bench-tile-mark" data-red={bannedIds.has(p.id) ? '1' : '0'}>{mk}</span>}
                 </div>
               );
             })}
