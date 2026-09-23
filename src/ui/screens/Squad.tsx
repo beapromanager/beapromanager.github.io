@@ -271,7 +271,11 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
       // pitch itself is resized, so this cannot chase its own tail
       const top = el.getBoundingClientRect().top + window.scrollY;
       const bench = benchBar.current?.offsetHeight ?? BENCH_ALLOW;
-      const room = Math.round(window.innerHeight - top - bench - PITCH_GAP);
+      // On the first visit the way FORWARD sits under the pitch, and it is the
+      // only one: the pitch cannot take every pixel down to the bench or the
+      // button ends up behind it, which is exactly what happened.
+      const below = firstTime ? BUTTON_ROOM : 0;
+      const room = Math.round(window.innerHeight - top - bench - PITCH_GAP - below);
       const h = Math.max(MIN_PITCH, room);
       setPitchH(h);
       // on a screen too short even for the floor, the leftover has to be
@@ -286,6 +290,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
     window.addEventListener('resize', fit);
     return () => { window.clearTimeout(again); window.removeEventListener('resize', fit); };
   }, [view, firstTime, sq.starters.length, sq.bench.length, gs.tactic?.formation]);
+
 
   const all = useMemo(() => [...sq.starters, ...sq.bench], [sq]);
   const byId = (id: string | null) => (id ? all.find(p => p.id === id) ?? null : null);
@@ -379,7 +384,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
         the way out sits where the thumb looks for it, not below eighteen names.
         On the first visit there is no hub yet, so neither belongs. */}
     {!firstTime && <Meters {...gs.meters} gems={gs.gems} />}
-    <div className="screen pad stack pad-b" style={{ gap: view === 'pitch' ? 9 : 12, paddingBottom: view === 'pitch' ? 8 : undefined }}>
+    <div className="screen pad stack pad-b" style={{ gap: view === 'pitch' ? 9 : 12, paddingBottom: view === 'pitch' ? (firstTime ? BENCH_ALLOW + 22 : 8) : undefined }}>
       {!firstTime && <TopBack onBack={onDone} />}
       {firstTime && <Stepper current={6} />}
       {firstTime && <CoachGuide text="אלה השחקנים שלך. שלושה שכדאי להכיר למעלה, כל השאר בלחיצה על השם." />}
@@ -752,6 +757,8 @@ const MIN_PITCH = 300;
 const BENCH_ALLOW = 92;
 /** Air between the bottom of the pitch and the top of the bench. */
 const PITCH_GAP = 10;
+/** What the way forward needs under the pitch, on the screen that has one. */
+const BUTTON_ROOM = 66;
 
 const POS_LABEL: Record<string, string> = {
   GK: 'שוער', CB: 'בלם', LB: 'מגן שמאלי', RB: 'מגן ימני',

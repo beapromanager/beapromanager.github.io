@@ -134,6 +134,29 @@ const read = (f: string) => readFileSync(f, 'utf8');
   console.log('  the team sheet is measured into the screen, with a floor and a way past the bench');
 }
 
+/* THE WAY FORWARD IS NOT BEHIND THE BENCH.
+   On the first visit the squad screen's button is the ONLY way on to the
+   market, and it sits under the pitch. Measuring the pitch into every pixel
+   down to the pinned bench put that button behind it, and Itzik sent a picture
+   of it half off the bottom of his phone. So the room the pitch is allowed
+   stops short of the button on the screen that has one, and the page keeps the
+   padding to match. Measured in a browser afterwards at 393x852 and 360x740:
+   the button ends 22 pixels clear of the bench, with no man hidden behind it. */
+{
+  const squad = read('src/ui/screens/Squad.tsx');
+  checked += 3;
+  if (!/const below = firstTime \? BUTTON_ROOM : 0;/.test(squad)) {
+    fails.push('the pitch takes the room the first visit needs for its only way forward');
+  }
+  if (!/window\.innerHeight - top - bench - PITCH_GAP - below/.test(squad)) {
+    fails.push('the measured pitch does not subtract the room under it');
+  }
+  if (!/paddingBottom: view === 'pitch' \? \(firstTime \? BENCH_ALLOW \+ 22 : 8\)/.test(squad)) {
+    fails.push('the page leaves no room under the first visit, so the button lands behind the bench');
+  }
+  console.log('  the first visit keeps its only way forward clear of the bench');
+}
+
 /* AND HE STAYS UNDER THE FINGER.
    .screen animates in with a transform, which makes position:fixed mean
    "relative to the top of the screen" rather than to the viewport, and put the
