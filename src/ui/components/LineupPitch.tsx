@@ -73,7 +73,10 @@ export function LineupPitch({ formation, players, kit, captainId, selectedId, ba
         // keeper is pulled out of that scale: the engine keeps him level with
         // the centre backs because it stretches the block around play, but on a
         // still team sheet he has to be behind them or he lands on their heads.
-        const top = slot.line === 'GK' ? 92 : 82 - slot.d * 70;
+        // the keeper sits a little higher than the goal line: once the pitch is
+        // measured to fit a phone it is short, and at 92 his name fell off the
+        // bottom edge of it
+        const top = slot.line === 'GK' ? 89 : 82 - slot.d * 70;
         const left = slot.y * 100;
         const fit = roleFit(p.position, slot.role);
         const ovr = overall(p);

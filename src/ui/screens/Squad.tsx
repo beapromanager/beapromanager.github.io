@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
 import type { Player, Position } from '../../engine/matchEngine.ts';
 import { overall } from '../../engine/matchEngine.ts';
@@ -224,6 +224,11 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   // the fixed bench bar, measured rather than guessed: the drag has to know
   // which strip of the screen is a drop target and not a scroll trigger
   const benchBar = useRef<HTMLDivElement | null>(null);
+  const pitchBox = useRef<HTMLDivElement | null>(null);
+  const [pitchH, setPitchH] = useState<number | null>(null);
+  // what the pitch could not give back on a short screen, and therefore has to
+  // be scrollable: a keeper behind the bench is worse than a short scroll
+  const [spill, setSpill] = useState(0);
 
   // one personality pass over the whole squad, so no two players repeat
   const traitMap = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends), [sq, gs.friends]);
@@ -242,6 +247,45 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   const bannedIds = useMemo(
     () => new Set([...sq.starters, ...sq.bench].filter(p => G.isSuspended(gs, p.id)).map(p => p.id)),
     [sq, gs]);
+
+  /**
+   * The pitch takes exactly the room that is left.
+   *
+   * A team sheet you have to scroll is a team sheet you cannot drag on: the
+   * man in the air and the bench he is going to must be on the screen at the
+   * same time, and at 100/140 the pitch alone was taller than the phone. So
+   * it is measured rather than shaped: whatever is between the top of the
+   * pitch and the bench pinned to the bottom is what the pitch gets. It is
+   * squarer than a real pitch and that is the right trade, because the thing
+   * being read here is the shape of the team, not the shape of the ground.
+   *
+   * Below MIN_PITCH the men start landing on each other, so on a short screen
+   * it stops shrinking and a little scrolling comes back.
+   */
+  useLayoutEffect(() => {
+    if (view !== 'pitch') { setPitchH(null); setSpill(0); return; }
+    const fit = () => {
+      const el = pitchBox.current;
+      if (!el) return;
+      // where the pitch starts in the document, which does not move when the
+      // pitch itself is resized, so this cannot chase its own tail
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      const bench = benchBar.current?.offsetHeight ?? BENCH_ALLOW;
+      const room = Math.round(window.innerHeight - top - bench - PITCH_GAP);
+      const h = Math.max(MIN_PITCH, room);
+      setPitchH(h);
+      // on a screen too short even for the floor, the leftover has to be
+      // scrollable past the bench, so the room under the pitch is exactly the
+      // bench footprint: a keeper you cannot reach is worse than a short scroll
+      setSpill(room < MIN_PITCH ? bench + PITCH_GAP : 0);
+    };
+    fit();
+    // the bench is portaled and mounts after this pass, so its real height
+    // only exists a beat later
+    const again = window.setTimeout(fit, 0);
+    window.addEventListener('resize', fit);
+    return () => { window.clearTimeout(again); window.removeEventListener('resize', fit); };
+  }, [view, firstTime, sq.starters.length, sq.bench.length, gs.tactic?.formation]);
 
   const all = useMemo(() => [...sq.starters, ...sq.bench], [sq]);
   const byId = (id: string | null) => (id ? all.find(p => p.id === id) ?? null : null);
@@ -335,7 +379,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
         the way out sits where the thumb looks for it, not below eighteen names.
         On the first visit there is no hub yet, so neither belongs. */}
     {!firstTime && <Meters {...gs.meters} gems={gs.gems} />}
-    <div className="screen pad stack pad-b" style={{ gap: 12, paddingBottom: view === 'pitch' ? 122 : undefined }}>
+    <div className="screen pad stack pad-b" style={{ gap: view === 'pitch' ? 9 : 12, paddingBottom: view === 'pitch' ? 8 : undefined }}>
       {!firstTime && <TopBack onBack={onDone} />}
       {firstTime && <Stepper current={6} />}
       {firstTime && <CoachGuide text="אלה השחקנים שלך. שלושה שכדאי להכיר למעלה, כל השאר בלחיצה על השם." />}
@@ -370,15 +414,23 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
         );
       })()}
 
-      <div className="tile" style={{ padding: '10px 12px', background: pickedPlayer ? 'rgba(232,182,76,.12)' : 'var(--surface)', borderColor: pickedPlayer ? 'var(--gold)' : 'var(--line)' }}>
+{/* One line, not two blocks. It used to be a tall tile above the pitch and a
+    hint below it, and between them they cost the pitch eighty pixels on a
+    screen that could not spare eight. They say related things anyway, so they
+    are one line now, and it says the most urgent true thing: what just
+    happened, then who is armed, then who is out of position, then how to
+    move a man at all. */}
+      <div className="tile squad-say" style={{ background: pickedPlayer ? 'rgba(232,182,76,.12)' : 'var(--surface)', borderColor: pickedPlayer ? 'var(--gold)' : 'var(--line)' }}>
         <div className="row" style={{ gap: 10 }}>
-          {/* a fresh message wins: a refused swap has to say why, and the
-              standing prompt was hiding the reason */}
-          <div style={{ flex: 1, fontSize: 14.5, fontWeight: 700 }} aria-live="polite">
+          <div className="squad-say-line" aria-live="polite">
             {flash
               ?? (pickedPlayer
                 ? `${pickedPlayer.name} נבחר. לחץ על מי שמחליף אותו.`
-                : 'גרור שחקן על שחקן אחר כדי להחליף. לחיצה פותחת את הנתונים שלו.')}
+                : view === 'pitch' && outOfPosition.length === 1
+                  ? `${outOfPosition[0].name} משחק ${ROLE_LABEL[outOfPosition[0].role]} והוא ${POS_LABEL[outOfPosition[0].pos]}. היכולת שלו שם נפגעת.`
+                  : view === 'pitch' && outOfPosition.length > 1
+                    ? `${outOfPosition.length} שחקנים לא בתפקיד הטבעי שלהם. השם באדום מראה מי.`
+                    : 'גרור שחקן על שחקן אחר כדי להחליף. לחיצה פותחת את הנתונים שלו.')}
           </div>
           {pickedPlayer && (
             <button className="btn ghost btn-sm" style={{ width: 'auto', padding: '7px 13px' }}
@@ -413,17 +465,12 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
               </button>
             ))}
           </div>
-          <LineupPitch formation={form} players={onPitch} kit={homeKit(c)}
-            captainId={captainId} selectedId={picked ?? sheet} bannedIds={bannedIds}
-            dragId={drag.fromId} overId={drag.overId} overOk={drag.overOk}
-            onPointerDown={(p, e) => drag.start(p.id, e)} />
-          {outOfPosition.length > 0 && (
-            <p className="hint" style={{ margin: 0 }}>
-              {outOfPosition.length === 1
-                ? `${outOfPosition[0].name} משחק ${ROLE_LABEL[outOfPosition[0].role]} והוא ${POS_LABEL[outOfPosition[0].pos]}. היכולת שלו שם נפגעת.`
-                : `${outOfPosition.length} שחקנים לא בתפקיד הטבעי שלהם. השם באדום מראה מי, והמספר על החולצה הוא מה שהמשחק ישתמש בו.`}
-            </p>
-          )}
+          <div className="squad-pitch-box" ref={pitchBox} style={pitchH ? { height: pitchH, marginBottom: spill } : undefined}>
+            <LineupPitch formation={form} players={onPitch} kit={homeKit(c)}
+              captainId={captainId} selectedId={picked ?? sheet} bannedIds={bannedIds}
+              dragId={drag.fromId} overId={drag.overId} overOk={drag.overOk}
+              onPointerDown={(p, e) => drag.start(p.id, e)} />
+          </div>
         </>
       ) : (
         (['gk', 'def', 'mid', 'atk'] as const).map(line => (
@@ -490,7 +537,9 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
       )}
 
       <div className="spacer" />
-      <button className="btn" onClick={onDone}>{firstTime ? 'ממשיכים לשוק ההעברות' : 'חזרה'}</button>
+      {(firstTime || view === 'list') && (
+        <button className="btn" onClick={onDone}>{firstTime ? 'ממשיכים לשוק ההעברות' : 'חזרה'}</button>
+      )}
 
       {/* The ghost under the finger, and it has to be UNDER the finger: it is
           fixed to the viewport, and .screen animates in with a transform, which
@@ -696,6 +745,13 @@ function useDrag({ canDrop, onDrop, onRefuse, onTap, bottomInset }: {
 
   return { fromId, overId, overOk, pos, start };
 }
+
+/** How short the pitch may get before the men start landing on each other. */
+const MIN_PITCH = 300;
+/** What the pinned bench costs, until it is mounted and can be measured. */
+const BENCH_ALLOW = 92;
+/** Air between the bottom of the pitch and the top of the bench. */
+const PITCH_GAP = 10;
 
 const POS_LABEL: Record<string, string> = {
   GK: 'שוער', CB: 'בלם', LB: 'מגן שמאלי', RB: 'מגן ימני',

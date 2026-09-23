@@ -105,6 +105,35 @@ const read = (f: string) => readFileSync(f, 'utf8');
   console.log('  carrying a man never moves the bench he is being carried to');
 }
 
+/* THE TEAM SHEET FITS THE SCREEN IT IS ON.
+   At 100/140 the pitch alone was taller than a phone, so the eleven and the
+   bench could not be on screen together and every drag began with a scroll.
+   The pitch is measured into whatever is left between what is above it and
+   the bench pinned below it. Measured in a real browser at three sizes: 440
+   by 920 and 393 by 852 fit with nothing to scroll at all, 360 by 780 hits
+   the floor and keeps 73 pixels of scroll rather than hide the keeper. What
+   a check can hold is that the measuring is still there and still honest. */
+{
+  const squad = read('src/ui/screens/Squad.tsx');
+  const css = read('src/ui/tokens.css');
+  checked += 5;
+  if (!/setPitchH\(/.test(squad) || !/useLayoutEffect/.test(squad)) {
+    fails.push('the pitch is no longer measured to fit, so the team sheet is taller than the phone again');
+  }
+  if (!/window\.innerHeight - top - bench - PITCH_GAP/.test(squad)) {
+    fails.push('the pitch is measured against something other than the room between the chrome and the bench');
+  }
+  if (!/const MIN_PITCH = \d+/.test(squad)) fails.push('the pitch can shrink without a floor, so the men can land on each other');
+  // the floor is only safe if what cannot be squeezed out becomes scrollable
+  if (!/setSpill\(room < MIN_PITCH \? bench \+ PITCH_GAP : 0\)/.test(squad)) {
+    fails.push('on a screen below the floor the bottom of the pitch hides behind the bench with no way to reach it');
+  }
+  if (!/\.squad-pitch-box \.lineup-pitch\{height:100%/.test(css)) {
+    fails.push('the pitch ignores the height it was measured into, because aspect-ratio wins');
+  }
+  console.log('  the team sheet is measured into the screen, with a floor and a way past the bench');
+}
+
 /* AND HE STAYS UNDER THE FINGER.
    .screen animates in with a transform, which makes position:fixed mean
    "relative to the top of the screen" rather than to the viewport, and put the

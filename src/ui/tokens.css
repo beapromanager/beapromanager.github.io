@@ -600,9 +600,9 @@ input{font-family:inherit;}
 /* ---- formation picker: three shapes, drawn from the live pitch's own slots */
 .form-row{display:grid; grid-template-columns:repeat(2,1fr); gap:8px;}   /* four shapes, two by two, so none sits alone on a row */
 .form-pick{
-  display:flex; flex-direction:column; align-items:center; gap:3px;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
   background:var(--surface); border:1px solid var(--line); border-radius:var(--plate-sm);
-  padding:9px 5px 8px; color:var(--ink-dim); cursor:pointer;
+  padding:7px 5px 6px; color:var(--ink-dim); cursor:pointer;
   transition:border-color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
 }
 .form-pick:active{transform:scale(.97)}
@@ -610,10 +610,11 @@ input{font-family:inherit;}
   border-color:var(--gold); background:linear-gradient(180deg,rgba(233,185,73,.13),var(--surface));
   box-shadow:0 0 0 1px rgba(233,185,73,.25);
 }
-.form-map{width:100%; height:auto; display:block; max-width:70px;}
+/* the little pitch was ninety pixels tall on a screen fighting for forty */
+.form-map{width:auto; height:42px; display:block;}
 .form-num{font-family:var(--font-display); font-size:16px; letter-spacing:.04em; color:var(--ink);}
 .form-pick[data-on="1"] .form-num{color:var(--gold-hi)}
-.form-name{font-size:11.5px; font-weight:700;}
+.form-name{font-size:11px; font-weight:700;}
 
 /* ================================================================ the hub
    The home screen. Everything here exists to answer three questions in order:
@@ -969,6 +970,14 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
 .lineup-redcard{width:11px; height:15px; border-radius:2.5px; background:var(--loss); transform:rotate(8deg); box-shadow:0 1px 3px rgba(0,0,0,.55);}
 .lineup-fit{width:34px; height:3px; border-radius:2px; background:rgba(0,0,0,.45); overflow:hidden; display:block;}
 .lineup-fit i{display:block; height:100%; border-radius:2px;}
+
+/* the pitch fills the room it was measured into, so aspect-ratio gives way */
+.squad-pitch-box{display:flex; min-height:0;}
+.squad-pitch-box .lineup-pitch{height:100%; flex:1;}
+
+/* one line above the pitch: what just happened, or what to do next */
+.squad-say{padding:7px 12px;}
+.squad-say-line{flex:1; font-size:13.5px; font-weight:700; line-height:1.35;}
 
 /* the bench, riding the bottom of the screen in the squad room */
 .bench-bar{
