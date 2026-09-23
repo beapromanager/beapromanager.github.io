@@ -7,22 +7,25 @@ import { Kit } from '../components/Kit.tsx';
 import { homeKit } from '../../data/kits.ts';
 import { Icon } from '../components/Icon.tsx';
 import { Stepper } from '../components/Stepper.tsx';
-import { CoachGuide } from '../components/CoachGuide.tsx';
 
 /**
  * The two you bring with you.
  *
  * Everything else in the opening is a choice between things the game offers.
  * This is the one screen where the manager puts something of his own into the
- * save, and it has to feel like it: a name he types, a quality he argues about
- * with himself, a shirt number. So the whole screen is built around one image,
- * his club's shirt with his friend's surname printed on the back, which fills
- * in as he decides and is the thing he will screenshot.
+ * save, and it has to look like it.
  *
- * Three decisions a man, then one question about the pair of them. Nothing is
- * asked twice and nothing is asked before it can be answered: the qualities
- * read with his name already in them, because a line about somebody with no
- * name is a line about nobody.
+ * Two shirts hang here from the first second, one being filled in and one
+ * still empty, because that answers what the screen is without a sentence:
+ * two places in the dressing room, two and no more. They are the anchor. The
+ * name lands on the back as he types it, the quality and the shirt number
+ * follow, and when the first man is done his shirt settles and the second one
+ * lights up. Nothing else on the screen is allowed to compete with that, which
+ * is why the presenter who used to open this step is gone: he was four lines
+ * of a man talking before anybody knew what he was being asked.
+ *
+ * Not everybody wants to do this. The way out is on the first step, quietly,
+ * and taking it is final: a career either started with them or it did not.
  */
 
 const STAGES = ['name', 'trait', 'position'] as const;
@@ -52,6 +55,7 @@ interface Draft {
 
 const EMPTY: Draft = { first: '', last: '', trait: null, position: null };
 const fullName = (d: Draft) => `${d.first.trim()} ${d.last.trim()}`.trim();
+const done = (d: Draft) => !!(d.first.trim() && d.last.trim() && d.trait && d.position);
 /** the two of them wear the shirts nobody wanted */
 const SHIRT_NUMBER = [17, 24];
 
@@ -64,6 +68,7 @@ export function FriendsScreen({ gs, onDone }: { gs: G.GameState; onDone: (specs:
 
   const c = G.club(gs);
   const kit = useMemo(() => homeKit(c), [c]);
+  const mgr = gs.profile.nickname || gs.profile.name || 'מאמן';
   const d = drafts[who];
   const set = (patch: Partial<Draft>) =>
     setDrafts(list => list.map((x, i) => (i === who ? { ...x, ...patch } : x)));
@@ -93,19 +98,63 @@ export function FriendsScreen({ gs, onDone }: { gs: G.GameState; onDone: (specs:
     })));
   }
 
+  /** the two shirts, the anchor of the whole screen */
+  const Lockers = ({ size, active }: { size: number; active: number | null }) => (
+    <div className="row" style={{ justifyContent: 'center', gap: size < 90 ? 14 : 22, position: 'relative' }}>
+      {[0, 1].map(i => {
+        const x = drafts[i];
+        const lit = active === i;
+        const filled = !!x.last.trim();
+        return (
+          <div key={i} className="stack" style={{ alignItems: 'center', gap: 6, flex: 'none' }}>
+            <div style={{ position: 'relative', display: 'grid', placeItems: 'center' }}>
+              {lit && (
+                <div aria-hidden="true" style={{
+                  position: 'absolute', width: size * 1.5, height: size * 1.5, borderRadius: '50%',
+                  background: 'radial-gradient(closest-side, rgba(233,185,73,.22), transparent 72%)',
+                }} />
+              )}
+              <div style={{
+                opacity: lit ? 1 : filled ? 0.72 : 0.3,
+                filter: lit ? 'none' : 'saturate(.55)',
+                transform: lit ? 'none' : 'scale(.92)',
+                transition: 'opacity var(--t-mid) var(--ease), transform var(--t-mid) var(--ease), filter var(--t-mid)',
+              }}>
+                <Kit kit={kit} size={size}
+                  back={{ name: x.last.trim(), number: SHIRT_NUMBER[i] }}
+                  label={x.last.trim() ? `חולצת ${c.short} עם השם ${x.last.trim()}` : `חולצה פנויה ב${c.short}`} />
+              </div>
+            </div>
+            <div style={{
+              fontSize: size < 90 ? 12.5 : 14, fontWeight: 800, textAlign: 'center',
+              color: lit ? 'var(--gold-hi)' : filled ? 'var(--ink-dim)' : 'var(--ink-faint)',
+              maxWidth: size + 26, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {fullName(x) || `חבר ${i + 1}`}
+            </div>
+            {size >= 90 && (
+              <div className="hint" style={{ margin: 0, fontSize: 12 }}>
+                {x.position ? POS_NAME[x.position] : lit ? '' : 'עדיין ריקה'}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   /* ------------------------------------------------- the question at the end */
   if (asking) {
     return (
-      <div className="screen pad stack pad-b" style={{ gap: 16 }}>
+      <div className="screen pad stack pad-b" style={{ gap: 16, minHeight: '100%', flex: 1 }}>
         <Stepper current={5} />
-        <CoachGuide who="coach" text="שניהם חתמו. רק תגיד לי דבר אחד לפני שאני סוגר את התיק." />
         <div>
           <span className="eyebrow">אחרון</span>
           <h1 className="h1" style={{ marginTop: 10 }}>מי מהשניים לא מפסיק לכתוב?</h1>
           <p className="sub">אחד מהם ישלח לך הודעות כל העונה. השני יגיד לך הכל פנים מול פנים.</p>
         </div>
 
-        <div className="row" style={{ gap: 12, alignItems: 'stretch' }}>
+        <div className="row" style={{ gap: 12, alignItems: 'stretch', marginTop: 4 }}>
           {drafts.map((x, i) => (
             <button key={i} className="tile select" data-on={texter === i ? '1' : '0'}
               onClick={() => setTexter(i)}
@@ -116,7 +165,7 @@ export function FriendsScreen({ gs, onDone }: { gs: G.GameState; onDone: (specs:
                 boxShadow: texter === i ? 'var(--glow-gold)' : undefined,
                 animation: `riseIn .3s var(--ease-out) ${i * 0.06}s both`,
               }}>
-              <Kit kit={kit} size={72} back={{ name: x.last.trim(), number: SHIRT_NUMBER[i] }} />
+              <Kit kit={kit} size={78} back={{ name: x.last.trim(), number: SHIRT_NUMBER[i] }} />
               <div style={{ fontWeight: 900, fontSize: 15.5, textAlign: 'center' }}>{fullName(x)}</div>
               <div className="hint" style={{ margin: 0, fontSize: 13 }}>{POS_NAME[x.position!]}</div>
               {texter === i && (
@@ -143,47 +192,34 @@ export function FriendsScreen({ gs, onDone }: { gs: G.GameState; onDone: (specs:
   }
 
   /* --------------------------------------------------------- the three steps */
+  const first = who === 0 && stage === 'name';
   return (
-    <div className="screen pad stack pad-b" style={{ gap: 14 }}>
+    <div className="screen pad stack pad-b" style={{ gap: 13, minHeight: '100%', flex: 1 }}>
       <Stepper current={5} />
-      {who === 0 && stage === 'name' && (
-        <CoachGuide who="coach" text={`שמעתי שאתה מביא שניים מהבית. ${c.short} תמיד לקחה מקומיים, רק אל תצפה שהם יהיו מוכנים מהיום הראשון.`} />
-      )}
+      {stage === 'name' && <div className="spacer" />}
 
-      <div>
+      <div style={{ marginTop: 2 }}>
         <span className="eyebrow">{who === 0 ? 'החבר הראשון' : 'החבר השני'}</span>
-        <h1 className="h1" style={{ marginTop: 9 }}>
-          {stage === 'name' ? 'מי בא איתך?'
+        <h1 className="h1" style={{ marginTop: 10, fontSize: first ? 'clamp(25px,6.6vw,32px)' : undefined }}>
+          {stage === 'name'
+            ? (who === 0 ? `${mgr}, קח איתך 2 חברים מהשכונה לסגל` : 'ועכשיו השני')
             : stage === 'trait' ? `מה כולם אומרים על ${d.first.trim()}?`
               : `איפה ${d.first.trim()} משחק?`}
         </h1>
-        <p className="sub">
-          {stage === 'name' ? `בן ${FRIEND_AGE}, מהשכונה, והכי גרוע בסגל ביום שהוא נכנס. מה שיקרה לו אחר כך תלוי רק בך.`
+        <p className="sub" style={{ marginTop: 7 }}>
+          {stage === 'name' ? 'איתך עד הסוף.'
             : stage === 'trait' ? 'דבר אחד שהוא עושה טוב יותר מכולם, ומה זה עולה לך.'
               : 'החולצה שהוא לובש בפעם הראשונה, וכנראה גם בפעם המאה.'}
         </p>
       </div>
 
-      {/* the shirt, which is the whole point of the screen */}
-      <div style={{
-        display: 'flex', justifyContent: 'center',
-        padding: stage === 'trait' ? '0' : '4px 0 2px',
-        position: 'relative',
-      }}>
-        <div style={{
-          position: 'absolute', inset: '-10% 20% 10%', borderRadius: '50%',
-          background: 'radial-gradient(closest-side, rgba(233,185,73,.16), transparent 70%)',
-          pointerEvents: 'none',
-        }} />
-        <div key={`${who}-${d.last.trim()}`} style={{ animation: 'riseIn var(--t-slow) var(--ease-out) both' }}>
-          <Kit kit={kit} size={stage === 'trait' ? 84 : 126}
-            back={{ name: d.last.trim() || '', number: SHIRT_NUMBER[who] }}
-            label={d.last.trim() ? `חולצת ${c.short} עם השם ${d.last.trim()}` : `חולצת ${c.short}`} />
-        </div>
+      {/* two shirts on the wall, one being filled in and one still waiting */}
+      <div style={{ padding: stage === 'trait' ? '2px 0' : '6px 0 2px' }}>
+        <Lockers size={stage === 'trait' ? 62 : stage === 'name' ? 132 : 112} active={who} />
       </div>
 
       {stage === 'name' && (
-        <div className="tile-hero stack" style={{ gap: 14, padding: 16 }}>
+        <div className="tile-hero stack" style={{ gap: 13, padding: 15 }}>
           <div className="row" style={{ gap: 10, alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
               <label className="lbl" htmlFor="f-first">שם פרטי</label>
@@ -200,31 +236,33 @@ export function FriendsScreen({ gs, onDone }: { gs: G.GameState; onDone: (specs:
                 placeholder="כהן" maxLength={14} autoComplete="off" />
             </div>
           </div>
-          <p className="hint" style={{ margin: 0 }}>שם המשפחה הוא מה שמודפס על הגב, ומה שהפרשן יצעק.</p>
+          <p className="hint" style={{ margin: 0 }}>
+            בן {FRIEND_AGE}, ובעוד כמה עונות הוא יכול להיות הכי טוב שיש לך.
+          </p>
         </div>
       )}
 
       {stage === 'trait' && (
-        <div className="stack" style={{ gap: 9 }}>
+        <div className="stack" style={{ gap: 8 }}>
           {FRIEND_TRAITS.map((t, i) => {
             const on = d.trait === t.id;
             return (
               <button key={t.id} className="tile select" data-on={on ? '1' : '0'}
                 onClick={() => set({ trait: t.id })}
                 style={{
-                  padding: 13, textAlign: 'start', background: 'transparent',
+                  padding: '11px 13px', textAlign: 'start', background: 'transparent',
                   borderColor: on ? 'var(--gold)' : undefined,
                   boxShadow: on ? 'var(--glow-gold)' : undefined,
                   animation: `riseIn .26s var(--ease-out) ${i * 0.04}s both`,
                 }}>
-                <div className="row" style={{ gap: 8, marginBottom: 5 }}>
+                <div className="row" style={{ gap: 8, marginBottom: 4 }}>
                   <span className="chip" style={{
                     background: on ? 'rgba(233,185,73,.2)' : 'var(--surface-3)',
                     color: on ? 'var(--gold)' : 'var(--ink)',
                   }}>{t.label}</span>
                   {on && <Icon name="target" size={15} color="var(--gold)" />}
                 </div>
-                <div style={{ fontSize: 14.5, lineHeight: 1.55, color: on ? 'var(--ink)' : 'var(--ink-dim)' }}>
+                <div style={{ fontSize: 14, lineHeight: 1.5, color: on ? 'var(--ink)' : 'var(--ink-dim)' }}>
                   {friendLine(t, d.first.trim())}
                 </div>
               </button>
@@ -234,9 +272,9 @@ export function FriendsScreen({ gs, onDone }: { gs: G.GameState; onDone: (specs:
       )}
 
       {stage === 'position' && (
-        <div className="stack" style={{ gap: 11 }}>
+        <div className="stack" style={{ gap: 10 }}>
           {LINES.map((line, li) => (
-            <div key={line.label} className="stack" style={{ gap: 7, animation: `riseIn .26s var(--ease-out) ${li * 0.04}s both` }}>
+            <div key={line.label} className="stack" style={{ gap: 6, animation: `riseIn .26s var(--ease-out) ${li * 0.04}s both` }}>
               <span className="label-cap" style={{ color: line.tone }}>{line.label}</span>
               <div className="row" style={{ gap: 7, flexWrap: 'wrap' }}>
                 {line.picks.map(p => {
@@ -263,25 +301,6 @@ export function FriendsScreen({ gs, onDone }: { gs: G.GameState; onDone: (specs:
 
       <div className="spacer" />
 
-      {/* what he is, so far, in one line */}
-      {(d.trait || d.position) && (
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          {d.trait && (
-            <span className="pill" style={{ background: 'var(--surface-2)', color: 'var(--ink-dim)', border: '1px solid var(--line)' }}>
-              {FRIEND_TRAITS.find(t => t.id === d.trait)!.label}
-            </span>
-          )}
-          {d.position && (
-            <span className="pill" style={{ background: 'var(--surface-2)', color: 'var(--ink-dim)', border: '1px solid var(--line)' }}>
-              {POS_NAME[d.position]}
-            </span>
-          )}
-          <span className="pill num" style={{ background: 'var(--surface-2)', color: 'var(--ink-dim)', border: '1px solid var(--line)' }}>
-            {FRIEND_AGE}
-          </span>
-        </div>
-      )}
-
       <div className="row" style={{ gap: 10 }}>
         {(who > 0 || stage !== 'name') && (
           <button className="btn dark btn-sm" onClick={back} style={{ flex: 'none', width: 'auto', padding: '11px 15px' }}>
@@ -291,12 +310,24 @@ export function FriendsScreen({ gs, onDone }: { gs: G.GameState; onDone: (specs:
         <button className="btn" style={{ flex: 1 }}
           disabled={stage === 'name' ? !nameReady : stage === 'trait' ? !d.trait : !ready}
           onClick={next}>
-          {stage === 'name' ? (nameReady ? 'ממשיכים' : 'שם פרטי ושם משפחה')
+          {stage === 'name' ? (nameReady ? 'ממשיכים' : 'תכתוב שם ושם משפחה')
             : stage === 'trait' ? (d.trait ? 'ממשיכים' : 'תבחר אחת')
               : ready ? (who === 0 ? 'ועכשיו השני' : 'שניהם חתמו') : 'תבחר עמדה'}
           <Icon name="chevron" size={17} />
         </button>
       </div>
+
+      {/* the way out, only at the very start, and taking it is final */}
+      {first && (
+        <button onClick={() => onDone([])}
+          style={{
+            background: 'transparent', border: 'none', color: 'var(--ink-faint)',
+            fontSize: 14.5, fontWeight: 700, padding: '6px 0', textDecoration: 'underline',
+            textUnderlineOffset: 4, minHeight: 44,
+          }}>
+          אני מתחיל בלי חברים
+        </button>
+      )}
     </div>
   );
 }
