@@ -35,14 +35,31 @@
 פתוח ובתיקייה הנכונה, אין מה לפתוח ואין מה לחפש. אפשר גם ללחוץ על כפתור ה-Run
 שמופיע מעל כל קופסת פקודה בצ'אט.
 
-**התקנת הכלים כבר בוצעה** (wrangler 3.114). אם אי פעם צריך לחזור עליה:
+**פקודה אחת בכל פעם.** הטרמינל שלך הוא Windows PowerShell, ובגרסה הזאת הסימן
+`&&` לא קיים: פקודה שמחברת שתיים איתו תיפול עם ההודעה
+`The token '&&' is not a valid statement separator`. לכן כל קופסה כאן מכילה
+פקודה אחת בלבד.
+
+**התקנת הכלים כבר בוצעה** (wrangler 3.114). אם אי פעם צריך לחזור עליה, קודם:
 
 ```bash
-cd worker && npm install
+cd worker
+```
+
+ואז:
+
+```bash
+npm install
 ```
 
 מה שנשאר בשלב הזה הוא ההתחברות בלבד. את זה אתה מריץ בעצמך, כי זו כניסה לחשבון
-שלך. הפקודה תפתח דפדפן, ושם תלחץ "Allow":
+שלך. קודם להיכנס לתיקייה:
+
+```bash
+cd worker
+```
+
+ואז ההתחברות עצמה. היא תפתח דפדפן, ושם תלחץ "Allow":
 
 ```bash
 npx wrangler login
@@ -52,44 +69,18 @@ npx wrangler login
 
 ---
 
-## שלב 3: ליצור את מסד הנתונים
+## שלבים 3 עד 5: בוצעו כבר
 
-```bash
-npx wrangler d1 create beapro-count
-```
+מסד הנתונים נוצר, הטבלאות נבנו והמזהה כבר יושב ב-`worker/wrangler.toml`. את
+אלה עשיתי דרך החיבור ל-Cloudflare שנתת, אז אין מה לעשות בהם.
 
-**מה אתה אמור לראות:** כמה שורות, וביניהן משהו בסגנון:
+* מסד הנתונים: `beapro-count`, במערב אירופה
+* המזהה: `695c34b0-42ad-4fda-b7c4-ab5b39a98922`
+* הטבלאות: `steps` ו-`sessions`, עם ארבעה אינדקסים
 
-```
-database_id = "a1b2c3d4-5678-90ab-cdef-1234567890ab"
-```
-
-**העתק את המספר הארוך הזה.** צריך אותו בשלב הבא.
-
----
-
-## שלב 4: להדביק את המספר
-
-פתח את הקובץ `worker/wrangler.toml`, ובשורה האחרונה החלף את
-`PASTE_THE_ID_WRANGLER_PRINTS` במספר שהעתקת. זה אמור להיראות כך:
-
-```
-database_id = "a1b2c3d4-5678-90ab-cdef-1234567890ab"
-```
-
-שמור את הקובץ.
-
----
-
-## שלב 5: ליצור את הטבלאות
-
-```bash
-npx wrangler d1 execute beapro-count --remote --file=schema.sql
-```
-
-**מה אתה אמור לראות:** שורה שאומרת שבוצעו 6 פקודות, או טבלה עם שש שורות.
-
-אם זה שואל אותך אם אתה בטוח, תענה כן.
+אם אי פעם צריך לבנות הכל מחדש מאפס, הפקודות הן `npx wrangler d1 create beapro-count`,
+להדביק את המזהה שהיא מדפיסה ב-`wrangler.toml`, ואז
+`npx wrangler d1 execute beapro-count --remote --file=schema.sql`.
 
 ---
 
@@ -131,7 +122,15 @@ export const TELEMETRY_URL: string = 'https://beapro-count.השם-שלך.workers
 ואז מהתיקייה הראשית:
 
 ```bash
-git add src/data/telemetry.ts && git commit -m "Point the counting at the worker" && git push game main
+git add src/data/telemetry.ts
+```
+
+```bash
+git commit -m "Point the counting at the worker"
+```
+
+```bash
+git push game main
 ```
 
 ---
@@ -155,6 +154,9 @@ https://beapromanager.github.io/?admin=הסיסמה-שבחרת
 
 ## אם משהו לא עובד
 
+**`The token '&&' is not a valid statement separator`** חיברת שתי פקודות עם
+`&&`, וה-PowerShell של חלונות לא מכיר את זה. תריץ אותן אחת אחרי השנייה.
+
 **`wrangler: command not found`** לא רצת `npm install` בתיקיית `worker`. חזור
 לשלב 2.
 
@@ -168,10 +170,10 @@ https://beapromanager.github.io/?admin=הסיסמה-שבחרת
 **הדשבורד אומר "השרת לא עונה"** או שהכתובת בקובץ `src/data/telemetry.ts` לא
 נכונה, או שהשרת לא הועלה. תריץ `npx wrangler deploy` שוב.
 
-**רוצה לראות מה מגיע לשרת בזמן אמת:**
+**רוצה לראות מה מגיע לשרת בזמן אמת:** קודם `cd worker`, ואז:
 
 ```bash
-cd worker && npx wrangler tail
+npx wrangler tail
 ```
 
 ---

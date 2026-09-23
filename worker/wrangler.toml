@@ -11,4 +11,4 @@ compatibility_date = "2026-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "beapro-count"
-database_id = "PASTE_THE_ID_WRANGLER_PRINTS"
+database_id = "695c34b0-42ad-4fda-b7c4-ab5b39a98922"
