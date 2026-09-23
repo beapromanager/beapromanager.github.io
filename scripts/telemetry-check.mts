@@ -170,6 +170,28 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   console.log(`  the wire carries four values, built in one place, out of ${posts.length} files that can reach it`);
 }
 
+/* 3b. THE WORKER AGREES WITH THE GAME ABOUT WHAT THE ROAD IS.
+      The step list lives twice, once in the game and once in the worker, since
+      a worker cannot import from the game's source. The worker's copy decides
+      the order of the funnel on the dashboard, and it has already gone stale
+      once: the game's order was corrected and the worker's was not, so the
+      chart drew people picking who they are before they had named themselves.
+      A copy nobody compares is a copy that drifts. */
+{
+  const wsrc = readFileSync('worker/src/index.ts', 'utf8');
+  const block = /const STEPS = \[([^\]]+)\] as const;/.exec(wsrc)?.[1] ?? '';
+  const theirs = [...block.matchAll(/'([a-z0-9_]+)'/g)].map(m => m[1]);
+  checked += 2;
+  if (theirs.join(',') !== T.STEPS.join(',')) {
+    fails.push(`the worker's steps are [${theirs.join(', ')}] and the game's are [${T.STEPS.join(', ')}]`);
+  }
+  // and the dashboard has a Hebrew name for every one of them
+  const admin = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
+  const unlabelled = T.STEPS.filter(s => !new RegExp(`\\b${s}: '`).test(admin));
+  if (unlabelled.length) fails.push(`the dashboard has no words for: ${unlabelled.join(', ')}`);
+  console.log(`  the worker and the game agree on all ${theirs.length} steps, and each has a name on the dashboard`);
+}
+
 /* 4. AND WITH NOWHERE TO SEND IT, IT SENDS NOTHING.
       The state the game ships in until the worker is up. */
 {

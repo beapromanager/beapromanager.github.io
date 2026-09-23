@@ -38,9 +38,18 @@ export interface Env {
   ADMIN_KEY: string;
 }
 
-/** the steps the game can report, in order; anything else is dropped */
+/**
+ * The steps the game can report, in order; anything else is dropped.
+ *
+ * This list is the funnel's order on the dashboard, and it must match STEPS in
+ * src/game/telemetry.ts exactly. It is copied rather than imported because a
+ * worker cannot reach into the game's source, and the copy has already gone
+ * stale once: the game's order was corrected and this was not, so the chart
+ * showed people picking who they are before naming themselves.
+ * telemetry-check compares the two lists now.
+ */
 const STEPS = [
-  'open', 'career_new', 'archetype', 'manager', 'club', 'signing', 'friends',
+  'open', 'career_new', 'manager', 'club', 'archetype', 'signing', 'friends',
   'squad', 'market', 'season', 'round_1', 'round_3', 'round_7', 'season_end', 'season_2',
 ] as const;
 type Step = typeof STEPS[number];
