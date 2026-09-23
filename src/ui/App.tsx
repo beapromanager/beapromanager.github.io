@@ -16,6 +16,7 @@ import { Hub } from './screens/Hub.tsx';
 import { DilemmaChat } from './screens/Dilemma.tsx';
 import { TacticScreen } from './screens/Tactic.tsx';
 import { VsScreen } from './screens/Vs.tsx';
+import { TeamsheetScreen } from './screens/Teamsheet.tsx';
 import { MatchBroadcast } from './screens/Match.tsx';
 import { ResultScreen } from './screens/Result.tsx';
 import { PressScreen } from './screens/Press.tsx';
@@ -306,7 +307,10 @@ export function App() {
           onGo={() => setGs({ ...gs, phase: 'vs' })} />
       )}
       {gs.phase === 'vs' && (
-        <VsScreen gs={gs} onGo={() => setGs({ ...gs, phase: 'match' })} />
+        <VsScreen gs={gs} onGo={() => setGs({ ...gs, phase: 'teamsheet' })} />
+      )}
+      {gs.phase === 'teamsheet' && (
+        <TeamsheetScreen gs={gs} onGo={() => setGs({ ...gs, phase: 'match' })} />
       )}
       {gs.phase === 'match' && (
         <MatchBroadcast gs={gs} onDone={result => setGs(G.commitRound(gs, result))} />

@@ -1411,3 +1411,69 @@ a.btn{text-decoration:none;}
   .gem-pill{min-width:44px; padding:8px 8px 9px;}
   .meters-share,.meters-install,.meters-report{width:32px; height:30px;}
 }
+/* ------------------------------------------------ the dressing room board */
+/* The team sheet in chalk. The room is darker than the rest of the game, one
+   lamp over the board, so the board is the only thing in the world just now. */
+.chalk-room{
+  background:radial-gradient(120% 90% at 50% 0%, #17130d 0%, #0d0b07 55%, #080705 100%);
+}
+.chalk-frame{
+  padding:10px; border-radius:10px;
+  background:linear-gradient(160deg,#5a4128,#3e2c1a 55%,#2f2113);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 14px 34px rgba(0,0,0,.55);
+  animation:pop .4s var(--ease-out);
+}
+.chalk-board{
+  position:relative; border-radius:6px; padding:16px 14px 12px;
+  background:
+    radial-gradient(130% 100% at 30% 0%, rgba(255,255,255,.05), transparent 55%),
+    linear-gradient(170deg,#20302a,#182620 60%,#141f1a);
+  box-shadow:inset 0 0 26px rgba(0,0,0,.45);
+}
+/* chalk dust at the bottom rail */
+.chalk-board::after{
+  content:''; position:absolute; left:8%; right:12%; bottom:4px; height:5px;
+  background:linear-gradient(90deg,transparent,rgba(236,232,220,.10) 30%,rgba(236,232,220,.04) 60%,transparent);
+  border-radius:3px; pointer-events:none;
+}
+.chalk-title{
+  font-family:var(--font-display); font-weight:700; font-size:21px;
+  color:#ece8dc; text-align:center; letter-spacing:.01em;
+  transform:rotate(-.7deg);
+  text-shadow:0 0 7px rgba(236,232,220,.22);
+}
+.chalk-shape{
+  position:absolute; top:14px; inset-inline-start:14px;
+  font-family:var(--font-display); font-weight:700; font-size:14.5px;
+  color:rgba(236,232,220,.62); transform:rotate(-2deg);
+}
+.chalk-pitch{position:relative; width:100%; aspect-ratio:100/118; margin-top:8px;}
+.chalk-lines{position:absolute; inset:0; width:100%; height:100%;}
+.chalk-man{
+  position:absolute; display:flex; flex-direction:column; align-items:center; gap:3px;
+  width:64px; animation:chalkIn .3s var(--ease-out) both;
+}
+.chalk-ring{
+  width:15px; height:15px; border-radius:50%;
+  border:1.8px dashed rgba(236,232,220,.66);
+  transform:rotate(14deg);
+}
+.chalk-name{
+  display:flex; align-items:baseline; justify-content:center; gap:3px;
+  font-family:var(--font-display); font-weight:600; font-size:12.5px; line-height:1.1;
+  color:#ece8dc; max-width:64px;
+  overflow:hidden; white-space:nowrap;
+  text-shadow:0 0 6px rgba(236,232,220,.18);
+}
+.chalk-cap{color:var(--gold-hi); font-weight:800; margin-inline-end:3px;}
+.chalk-bench{
+  margin-top:10px; padding-top:9px;
+  border-top:1.6px dashed rgba(236,232,220,.24);
+  font-family:var(--font-display); font-weight:500; font-size:12.5px; line-height:1.6;
+  color:rgba(236,232,220,.78); transform:rotate(-.4deg);
+}
+.chalk-bench-cap{font-weight:700; color:#ece8dc;}
+@keyframes chalkIn{
+  from{opacity:0; transform:translate(-50%,-50%) scale(.7);}
+  to{opacity:1;}
+}

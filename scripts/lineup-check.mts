@@ -13,6 +13,7 @@ const gkSlotOf = (f: { slots: { line: string }[] }) => f.slots.findIndex(s => s.
 import { makeSquad } from '../src/data/squadGen.ts';
 import { createRng, teamRatings, overall } from '../src/engine/matchEngine.ts';
 import { FIT_MULT, effectiveOverall } from '../src/data/formations.ts';
+import { readFileSync } from 'node:fs';
 import * as G from '../src/game/state.ts';
 import * as L from '../src/game/liveMatch.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
@@ -222,6 +223,22 @@ if (roleFit('GK', 'ST') !== 'out') fails.push('a keeper up front reads as fine')
   checked++;
   if (Math.abs(a.att - b.att) > 1e-9 || Math.abs(a.def - b.def) > 1e-9) fails.push('an unseated side is not rated as its fit seating');
   console.log('  the manager\'s sheet: any shirt but the goal, priced in the engine, kept through subs and sales');
+}
+
+/* THE SHEET IS HANDED OVER BEFORE THE WHISTLE.
+   The chalkboard in the dressing room is the last thing between the tunnel and
+   the pitch, and it must carry the real eleven in the real shape. A source
+   guard: the tunnel routes to it, it routes to the match, and it draws
+   lineup(gs) seated in the formation being played, name by name. */
+{
+  const app = readFileSync('src/ui/App.tsx', 'utf8');
+  const sheet = readFileSync('src/ui/screens/Teamsheet.tsx', 'utf8');
+  checked += 4;
+  if (!/phase === 'vs'[^]{0,200}phase: 'teamsheet'/.test(app)) fails.push('the tunnel no longer leads to the dressing room board');
+  if (!/phase === 'teamsheet'[^]{0,200}phase: 'match'/.test(app)) fails.push('the dressing room board does not lead to the match');
+  if (!/G\.lineup\(gs\)/.test(sheet)) fails.push('the chalkboard does not draw the real eleven');
+  if (!/formation\(gs\.tactic\?\.formation\)/.test(sheet)) fails.push('the chalkboard is not drawn in the shape being played');
+  console.log('  the chalkboard hangs between the tunnel and the pitch, with the real eleven on it');
 }
 
 console.log(`${checked} checks across ${FORMATIONS.length} formations`);
