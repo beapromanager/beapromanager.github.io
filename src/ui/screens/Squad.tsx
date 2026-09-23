@@ -19,7 +19,7 @@ import { PlayerCard } from '../components/PlayerCard.tsx';
 import { Portal } from '../components/Portal.tsx';
 import { ShapeMap } from '../components/ShapeMap.tsx';
 import { LineupPitch } from '../components/LineupPitch.tsx';
-import { scrollToTop } from '../scroll.ts';
+import { scrollToTop, edgeScrollSpeed } from '../scroll.ts';
 import { formation, roleFit, ROLE_LABEL, FORMATIONS, effectiveOverall } from '../../data/formations.ts';
 import type { FormationId, SlotRole } from '../../data/formations.ts';
 
@@ -221,6 +221,9 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   const [sheet, setSheet] = useState<string | null>(null);     // whose numbers are open
   const [card, setCard] = useState<Player | null>(null);       // the open player card
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
+  // the fixed bench bar, measured rather than guessed: the drag has to know
+  // which strip of the screen is a drop target and not a scroll trigger
+  const benchBar = useRef<HTMLDivElement | null>(null);
 
   // one personality pass over the whole squad, so no two players repeat
   const traitMap = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends), [sq, gs.friends]);
@@ -307,6 +310,9 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
 
   /* ----------------------------------------------------------- the drag */
   const drag = useDrag({
+    // the bench is nailed to the bottom of the screen, so the bottom of the
+    // screen is a destination, not an edge to run from
+    bottomInset: () => (view === 'pitch' ? benchBar.current?.offsetHeight ?? 0 : 0),
     canDrop: (fromId, toId) => {
       const a = byId(fromId), b = byId(toId);
       if (!a || !b || a.id === b.id) return false;
@@ -329,7 +335,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
         the way out sits where the thumb looks for it, not below eighteen names.
         On the first visit there is no hub yet, so neither belongs. */}
     {!firstTime && <Meters {...gs.meters} gems={gs.gems} />}
-    <div className="screen pad stack pad-b" style={{ gap: 12 }}>
+    <div className="screen pad stack pad-b" style={{ gap: 12, paddingBottom: view === 'pitch' ? 122 : undefined }}>
       {!firstTime && <TopBack onBack={onDone} />}
       {firstTime && <Stepper current={6} />}
       {firstTime && <CoachGuide text="אלה השחקנים שלך. שלושה שכדאי להכיר למעלה, כל השאר בלחיצה על השם." />}
@@ -440,7 +446,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
            tile lifts the man: a sideways swipe pans the strip natively
            (touch-action) and cancels the drag, so the two gestures do not
            fight. A tap still opens his numbers. */
-        <div className="bench-bar" role="list" aria-label="ספסל החילופים">
+        <Portal><div className="bench-bar" ref={benchBar} role="list" aria-label="ספסל החילופים">
           <span className="bench-bar-cap">ספסל</span>
           <div className="bench-bar-row">
             {sq.bench.map(p => {
@@ -467,7 +473,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
               );
             })}
           </div>
-        </div>
+        </div></Portal>
       ) : (
         <div className="tile" style={{ padding: '4px 10px 8px' }}>
           {sq.bench.map(p => {
@@ -486,14 +492,18 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
       <div className="spacer" />
       <button className="btn" onClick={onDone}>{firstTime ? 'ממשיכים לשוק ההעברות' : 'חזרה'}</button>
 
-      {/* the ghost under the finger */}
+      {/* The ghost under the finger, and it has to be UNDER the finger: it is
+          fixed to the viewport, and .screen animates in with a transform, which
+          quietly makes "fixed" mean "relative to the top of the screen". That
+          put the man a hundred pixels off the thumb that was carrying him.
+          Portal is how the rest of the game escapes this, see Portal.tsx. */}
       {dragging && drag.pos && (
-        <div className="drag-ghost" style={{ left: drag.pos.x, top: drag.pos.y }} aria-hidden="true">
+        <Portal><div className="drag-ghost" style={{ left: drag.pos.x, top: drag.pos.y }} aria-hidden="true">
           <span className="lineup-shirt" style={{ background: homeKit(c).shirt, borderColor: homeKit(c).trim }}>
             <span className="lineup-ovr num" style={{ color: ovrColor(overall(dragging)) }}>{overall(dragging)}</span>
           </span>
           <span className="drag-ghost-name">{surnameOf(dragging.name)}</span>
-        </div>
+        </div></Portal>
       )}
 
       {sheetPlayer && !card && (
@@ -606,18 +616,20 @@ function PlayerSheet({ p, role, traits, captain, mark, onCard, onSwap, onClose }
  * The page scrolls itself when the finger nears an edge, so a man can be
  * carried from the top of the pitch to the bench below it.
  */
-function useDrag({ canDrop, onDrop, onRefuse, onTap }: {
+function useDrag({ canDrop, onDrop, onRefuse, onTap, bottomInset }: {
   canDrop: (fromId: string, toId: string) => boolean;
   onDrop: (fromId: string, toId: string) => void;
   onRefuse: (fromId: string, toId: string) => void;
   onTap: (id: string) => void;
+  /** how much of the bottom of the screen is a fixed drop target, not an edge */
+  bottomInset?: () => number;
 }) {
   const [fromId, setFromId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [overOk, setOverOk] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const live = useRef<{ id: string; x0: number; y0: number; moved: boolean; over: string | null; ok: boolean; scroll: number | null; scrollSpeed: number } | null>(null);
-  const cbs = useRef({ canDrop, onDrop, onRefuse, onTap }); cbs.current = { canDrop, onDrop, onRefuse, onTap };
+  const cbs = useRef({ canDrop, onDrop, onRefuse, onTap, bottomInset }); cbs.current = { canDrop, onDrop, onRefuse, onTap, bottomInset };
 
   const targetAt = (x: number, y: number): string | null => {
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
@@ -639,9 +651,9 @@ function useDrag({ canDrop, onDrop, onRefuse, onTap }: {
       const over = t && t !== d.id ? t : null;
       const ok = over ? cbs.current.canDrop(d.id, over) : false;
       if (over !== d.over || ok !== d.ok) { d.over = over; d.ok = ok; setOverId(over); setOverOk(ok); }
-      // the edges scroll the page, so a shirt can reach the bench below it
-      const edge = 72, vh = window.innerHeight;
-      const speed = e.clientY < edge ? -Math.ceil((edge - e.clientY) / 6) : e.clientY > vh - edge ? Math.ceil((e.clientY - (vh - edge)) / 6) : 0;
+      // the edges scroll the page so a man can reach a shirt that is off
+      // screen, and the strip the bench occupies scrolls nothing, see scroll.ts
+      const speed = edgeScrollSpeed(e.clientY, window.innerHeight, cbs.current.bottomInset?.() ?? 0);
       d.scrollSpeed = speed;
       if (speed && d.scroll === null) {
         const tick = () => { const dd = live.current; if (!dd || dd.scroll === null) return; window.scrollBy(0, dd.scrollSpeed); dd.scroll = requestAnimationFrame(tick); };

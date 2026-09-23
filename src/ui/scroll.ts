@@ -27,3 +27,24 @@ export function scrollToTop(): void {
   for (const el of targets) if (el) (el as HTMLElement).scrollTop = 0;
   try { window.scrollTo(0, 0); } catch { /* jsdom and friends */ }
 }
+
+/** How near an edge the finger has to be before the page starts moving. */
+export const EDGE_BAND = 72;
+
+/**
+ * How fast the page should scroll while a man is being carried, in pixels a
+ * frame, negative for up.
+ *
+ * The bench is pinned to the bottom of the screen, so the bottom of the screen
+ * is a destination and not an edge: `bottomInset` is how much of it the bench
+ * occupies, and the finger inside that strip must move nothing at all. A target
+ * that slides away as you reach for it is what made this feel broken. The band
+ * immediately above the bench still scrolls, because the far end of the pitch
+ * can be below the fold and has to be reachable.
+ */
+export function edgeScrollSpeed(y: number, viewportHeight: number, bottomInset = 0): number {
+  if (y < EDGE_BAND) return -Math.ceil((EDGE_BAND - y) / 6);
+  const floor = viewportHeight - bottomInset;
+  if (y > floor - EDGE_BAND && y < floor) return Math.ceil((y - (floor - EDGE_BAND)) / 6);
+  return 0;
+}

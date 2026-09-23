@@ -972,7 +972,13 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
 
 /* the bench, riding the bottom of the screen in the squad room */
 .bench-bar{
-  position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); z-index:40;
+  /* Nailed to the viewport, not to the flow. As a sticky element it came
+     unstuck at the bottom of the page and drifted up above the last button,
+     so the one thing a drag aims at moved depending on how far you had
+     scrolled. It is the width of the frame, because the frame is the game. */
+  position:fixed; z-index:40;
+  inset-inline:0; margin:0 auto; max-width:440px;
+  bottom:calc(8px + env(safe-area-inset-bottom));
   display:flex; align-items:stretch; gap:7px;
   padding:7px 8px; border-radius:var(--r-md);
   background:linear-gradient(180deg, rgba(21,29,25,.97), rgba(11,16,13,.97));

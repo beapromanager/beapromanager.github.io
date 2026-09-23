@@ -13,6 +13,7 @@
  * adds a fourth tab without a reset is worth more than a passing note.
  */
 import { readFileSync } from 'node:fs';
+import { edgeScrollSpeed } from '../src/ui/scroll.ts';
 
 const fails: string[] = [];
 let checked = 0;
@@ -81,6 +82,49 @@ const read = (f: string) => readFileSync(f, 'utf8');
       fails.push(`${f} resets the scroll by hand instead of using the helper`);
     }
   }
+}
+
+/* CARRYING A MAN DOES NOT MOVE THE THING HE IS BEING CARRIED TO.
+   The bench is pinned to the bottom of the squad room, which makes the bottom
+   of the screen a destination rather than an edge to run from. The finger
+   inside the bench scrolls nothing; the band just above it still does, because
+   the far end of the pitch can be below the fold. Measured, not described:
+   requestAnimationFrame does not run in a headless pane, so the handler itself
+   cannot be driven, but the rule it asks can. */
+{
+  const VH = 920, BENCH = 84;
+  const at = (y: number) => edgeScrollSpeed(y, VH, BENCH);
+  checked += 6;
+  if (at(VH - 10) !== 0) fails.push(`a finger on the bench scrolls the page at ${at(VH - 10)}, so the bench runs away from it`);
+  if (at(VH - BENCH + 1) !== 0) fails.push('a finger just inside the top of the bench still scrolls the page');
+  if (!(at(VH - BENCH - 10) > 0)) fails.push('the band just above the bench will not scroll down, so the far end of the pitch is unreachable');
+  if (!(at(10) < 0)) fails.push('the top edge will not scroll up');
+  if (at(VH / 2) !== 0) fails.push('the middle of the screen scrolls on its own');
+  // and with no bench in the way, the bottom edge behaves as it always did
+  if (!(edgeScrollSpeed(VH - 10, VH, 0) > 0)) fails.push('without a pinned bench the bottom edge stopped scrolling at all');
+  console.log('  carrying a man never moves the bench he is being carried to');
+}
+
+/* AND HE STAYS UNDER THE FINGER.
+   .screen animates in with a transform, which makes position:fixed mean
+   "relative to the top of the screen" rather than to the viewport, and put the
+   dragged man a hundred pixels off the thumb carrying him. Portal is how the
+   rest of the game escapes it. Both the ghost and the pinned bench are fixed,
+   so both have to be portaled, and the bench has to actually be pinned. */
+{
+  const squad = read('src/ui/screens/Squad.tsx');
+  const css = read('src/ui/tokens.css');
+  checked += 3;
+  if (!/<Portal><div className="drag-ghost"/.test(squad)) {
+    fails.push('the dragged man is drawn inside the transformed screen, so he lands off the finger');
+  }
+  if (!/<Portal><div className="bench-bar"/.test(squad)) {
+    fails.push('the pinned bench is drawn inside the transformed screen, so it pins to the wrong thing');
+  }
+  if (!/\.bench-bar\{[^}]*position:fixed/.test(css)) {
+    fails.push('the bench is not pinned to the screen, so it drifts as the page scrolls');
+  }
+  console.log('  the dragged man and the bench are both pinned to the viewport, not to the screen');
 }
 
 console.log(`${checked} checks`);

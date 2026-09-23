@@ -255,7 +255,10 @@ if (roleFit('GK', 'ST') !== 'out') fails.push('a keeper up front reads as fine')
   if (!/bench-tile" data-drop-id=\{p\.id\}[^]{0,700}onPointerDown=\{e => drag\.start\(p\.id, e\)\}/.test(squad)) {
     fails.push('the bench tiles are no longer draggable drop targets');
   }
-  if (!/\.bench-bar\{\s*[^}]*position:sticky/.test(css)) fails.push('the bench strip is not pinned to the screen, so the drag is a journey again');
+  // sticky was the first attempt and it came unstuck at the bottom of the
+  // page, drifting up above the last button, so the target of a drag moved
+  // depending on how far you had scrolled. Only fixed holds it still.
+  if (!/\.bench-bar\{[^}]*position:fixed/.test(css)) fails.push('the bench strip is not nailed to the screen, so the drag is a journey again');
   console.log('  the bench rides the bottom of the pitch view, every tile a drop target');
 }
 
