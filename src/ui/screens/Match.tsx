@@ -153,6 +153,7 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
   const [paused, setPaused] = useState(false);
   const [subOpen, setSubOpen] = useState(false);   // the substitution sheet
   const [subFocus, setSubFocus] = useState<string | null>(null);   // a player tapped for a quick swap
+  const [redStop, setRedStop] = useState<{ name: string; minute: number } | null>(null);   // the red that stopped the match
   const [penOutcome, setPenOutcome] = useState<{ corner: Corner; scored: boolean } | null>(null);
   const [defPenOutcome, setDefPenOutcome] = useState<{ saved: boolean; keeper: string; aim: Corner } | null>(null);
   const [fkOutcome, setFkOutcome] = useState<{ corner: Corner; outcome: L.FreeKickOutcome } | null>(null);
@@ -245,6 +246,22 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
     const t = window.setTimeout(() => setFlash(null), 1600);
     return () => window.clearTimeout(t);
   }, [flash]);
+
+  // A red card for YOUR side is not a caption, it is the moment the match
+  // changes. The instant one lands in the visible feed the clock stops (the
+  // open sheet stops it) and the board opens with the dismissed man on it,
+  // so the reorganising starts now and not three minutes of play later.
+  const myReds = seen.filter(e => e.type === 'red' && e.teamId === myId);
+  const redsHandled = useRef(0);
+  useEffect(() => {
+    if (myReds.length > redsHandled.current) {
+      redsHandled.current = myReds.length;
+      const ev = myReds[myReds.length - 1];
+      setSubFocus(null);
+      setRedStop({ name: ev.playerName ?? '', minute: ev.minute });
+      setSubOpen(true);
+    }
+  }, [myReds.length]);
 
   const pending = st.pending;
   // the same two strips the pitch paints its dots with
@@ -361,9 +378,9 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
 
       {/* the bench, opened on demand so it never buries the action */}
       {subOpen && (
-        <SubSheet st={st} focusId={subFocus} benchKit={st.iAmHome ? hdrKits.home : hdrKits.away}
+        <SubSheet st={st} focusId={subFocus} benchKit={st.iAmHome ? hdrKits.home : hdrKits.away} red={redStop}
           onSub={(off, on) => { L.makeSub(st, off, on); force(); }}
-          onClose={() => { setSubOpen(false); setSubFocus(null); }} />
+          onClose={() => { setSubOpen(false); setSubFocus(null); setRedStop(null); }} />
       )}
     </div>
   );
@@ -412,17 +429,34 @@ function SubBoard({ st, kit, picked, onPick }: {
   // actually playing
   const form = formation(side.tactic.formation);
   const roles = L.slotRoles(st);
-  const label = shortNames(side.onPitch);
+  const label = shortNames([...side.onPitch, ...side.sentOff.map(x => x.player)]);
   return (
     <div className="lineup-pitch compact" role="group" aria-label="ההרכב על הלוח">
       <PitchTurf />
       {side.onPitch.map((p, i) => {
-        const slot = form.slots[i];
+        const slot = form.slots[L.seatOf(side, i)];
         if (!slot) return null;
         return (
           <BoardMan key={p.id} p={p} role={roles.get(p.id)} kit={kit}
             top={slot.line === 'GK' ? 88 : 80 - slot.d * 68} left={slot.y * 100}
             label={label.get(p.id) ?? p.name} on={picked === p.id} onTap={() => onPick(p)} />
+        );
+      })}
+      {/* still one of the eleven, just no longer allowed to play: he stands in
+          the slot he was thrown out of, with the card that did it */}
+      {side.sentOff.map(x => {
+        const slot = form.slots[x.slot];
+        if (!slot) return null;
+        return (
+          <div key={x.player.id} className="lineup-man off"
+            style={{ top: `${slot.line === 'GK' ? 88 : 80 - slot.d * 68}%`, left: `${slot.y * 100}%` }}
+            aria-label={`${x.player.name} הורחק בדקה ${x.minute}`}>
+            <span className="lineup-shirt" style={{ background: kit.shirt, borderColor: kit.trim }}>
+              <span className="lineup-redcard" aria-hidden="true" />
+            </span>
+            <span className="lineup-role" style={{ background: 'rgba(226,72,77,.32)', color: '#ffb9bb' }}>מורחק</span>
+            <span className="lineup-name">{label.get(x.player.id) ?? x.player.name}</span>
+          </div>
         );
       })}
     </div>
@@ -626,11 +660,13 @@ function BenchBar({ st, onOpen, onQuickSub }: {
  * live fitness and the two tap substitution flow, so the action screen behind
  * it stays clean.
  */
-function SubSheet({ st, onSub, onClose, focusId, benchKit }: {
+function SubSheet({ st, onSub, onClose, focusId, benchKit, red }: {
   st: LiveState; onSub: (offId: string, onId: string) => void; onClose: () => void;
   focusId?: string | null;
   /** the strip my side is wearing today, so the bench matches the pitch */
   benchKit: KitStrip;
+  /** the sending off that opened this sheet, when one did */
+  red?: { name: string; minute: number } | null;
 }) {
   const [picked, setPicked] = useState<string | null>(focusId ?? null);
   const side = st.iAmHome ? st.home : st.away;
@@ -661,11 +697,19 @@ function SubSheet({ st, onSub, onClose, focusId, benchKit }: {
           </div>
 
           <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-            <div className="h2" style={{ fontSize: 19 }}>המאמן מסתובב לספסל</div>
+            <div className="h2" style={{ fontSize: 19, color: red ? 'var(--loss)' : undefined }}>
+              {red ? `אדום! ${red.name} מורחק` : 'המאמן מסתובב לספסל'}
+            </div>
             <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--ink-dim)' }}>
               חילופים <span className="num">{st.subsUsed}/{L.MAX_SUBS}</span>
             </span>
           </div>
+
+          {red && (
+            <div className="tile" style={{ padding: '9px 12px', marginBottom: 8, borderColor: 'rgba(226,72,77,.4)', background: 'rgba(226,72,77,.08)', fontSize: 13.5, fontWeight: 700 }}>
+              נשארתם בעשרה. אי אפשר להכניס שחקן במקום מורחק, אבל אפשר לסדר את הקבוצה מחדש.
+            </div>
+          )}
 
           {/* the bench itself, players sitting on it, before anything else */}
           <div className="bench-strip" role="list" aria-label="הספסל">

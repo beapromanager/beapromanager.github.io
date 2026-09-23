@@ -181,6 +181,66 @@ console.log(`  ${subsMade} substitutions into another man's shirt, ${strangeRole
   console.log('  the bench sheet points at a board in the current shape, with fitness on every shirt');
 }
 
+/* 7. A SENDING OFF VACATES ONE SLOT AND MOVES NOBODY ELSE.
+      The dismissed man is recorded with the slot he was thrown out of, the
+      survivors keep the shirts they had, and the screen stops the match for
+      it. Real reds are hunted across seeds, the engine is deterministic, so
+      the same seeds carry a red forever. */
+{
+  let redsSeen = 0;
+  const redGs = career(9001, 'חיפה');
+  for (let seed = 1; seed <= 160 && redsSeen < 3; seed++) {
+    const st = L.createLive({ ...G.liveMatchInput(redGs), seed: 9000 + seed });
+    const rolesBefore = L.slotRoles(st);
+    toFullTime(st);
+    const side = L.mySide(st);
+    if (!side.sentOff.length) continue;
+    redsSeen++;
+    checked += 5;
+
+    const redEvents = st.events.filter(e => e.type === 'red' && e.teamId === side.id);
+    if (redEvents.length !== side.sentOff.length) {
+      fails.push(`seed ${seed}: ${redEvents.length} red events but ${side.sentOff.length} sentOff records`);
+    }
+    const x = side.sentOff[0];
+    if (!redEvents.some(e => e.playerId === x.player.id && e.minute === x.minute)) {
+      fails.push(`seed ${seed}: the sentOff record does not match the red event`);
+    }
+    if (side.onPitch.length !== 11 - side.sentOff.length) {
+      fails.push(`seed ${seed}: ${side.onPitch.length} men on the pitch with ${side.sentOff.length} sent off`);
+    }
+    // the survivors' slots: all distinct, none of them a vacated slot
+    const vacated = new Set(side.sentOff.map(v => v.slot));
+    const seats = side.onPitch.map((_, k) => L.seatOf(side, k));
+    if (new Set(seats).size !== seats.length || seats.some(s => vacated.has(s)) || seats.some(s => s < 0 || s > 10)) {
+      fails.push(`seed ${seed}: the survivors' seats collide with the vacated slot (${seats.join(',')} vs ${[...vacated].join(',')})`);
+    }
+    // and unless the shape moved at half time, every survivor still wears the
+    // shirt he wore at kickoff: the red did not slide anyone over
+    if (!st.shape) {
+      const after = L.slotRoles(st);
+      const moved = side.onPitch.filter(p => rolesBefore.get(p.id) !== undefined && rolesBefore.get(p.id) !== after.get(p.id));
+      if (moved.length) fails.push(`seed ${seed}: a red card moved ${moved.length} other men into different shirts`);
+    }
+  }
+  if (redsSeen < 3) fails.push(`only ${redsSeen} player-side reds found in 160 seeds, the hunt needs widening`);
+  console.log(`  ${redsSeen} sendings off found: each vacates its own slot, the record matches the event, nobody else moves`);
+}
+
+/* 8. AND THE SCREEN STOPS THE MATCH FOR IT. A source guard: the red must open
+      the sheet with the dismissed man named, and the board must show him. */
+{
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  checked += 3;
+  if (!/setRedStop\(\{ name: ev\.playerName[^]{0,80}setSubOpen\(true\)/.test(src)) {
+    fails.push('a red card for the player side does not stop the match and open the bench sheet');
+  }
+  if (!/אדום! \$\{red\.name\} מורחק/.test(src)) fails.push('the sheet opened by a red does not say who was sent off');
+  if (!/side\.sentOff\.map/.test(src)) fails.push('the board does not show the dismissed man');
+  console.log('  a red of ours stops the match, names the man, and leaves him on the board');
+}
+
 console.log('');
 if (fails.length) {
   console.log(`FAIL (${fails.length} of ${checked})`);

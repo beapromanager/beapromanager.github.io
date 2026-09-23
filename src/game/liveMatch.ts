@@ -47,6 +47,14 @@ export interface Side {
   onPitch: Player[];   // 11, fitness decays as the match wears on
   bench: Player[];
   tactic: SimpleTactic;
+  /**
+   * The men this side has had sent off, with the slot each one vacated and
+   * the minute it happened. onPitch compacts when a man goes (the engine
+   * iterates it everywhere), so without this record the sheet could neither
+   * show the dismissed man in the eleven nor stop everyone seated after him
+   * from appearing to change shirts.
+   */
+  sentOff: { player: Player; slot: number; minute: number }[];
   isPlayer: boolean;
   /** what the manager is worth to this side, only set for the player's team */
   coach?: { chemistry: number; att: number; def: number; cards: number };
@@ -233,14 +241,14 @@ export function createLive(input: {
     isHome: input.iAmHome, isPlayer: true,
     // slot order from here on: a caller that hands over a plain list gets it seated by fit
     onPitch: input.seated ? pStarters : fillFormation(pStarters, formation(input.playerTactic.formation ?? DEFAULT_FORMATION)),
-    bench: pBench, tactic: input.playerTactic,
+    bench: pBench, tactic: input.playerTactic, sentOff: [],
     coach: input.coach,
   };
   const oppSideObj: Side = {
     id: input.iAmHome ? input.awayId : input.homeId,
     name: input.iAmHome ? input.awayName : input.homeName,
     isHome: !input.iAmHome, isPlayer: false,
-    onPitch: oStarters, bench: oBench,
+    onPitch: oStarters, bench: oBench, sentOff: [],
     tactic: { approach: 'balanced', press: 'mid', formation: formationForClub(input.iAmHome ? input.awayId : input.homeId) },
   };
 
@@ -534,12 +542,32 @@ const RED_SHARE = 0.018;
  * and a simulation that walks a team off the pitch one by one is not drama, it
  * is a bug with a whistle. Returns whether the sending off actually happened.
  */
-function sendOff(s: Side, p: Player): boolean {
+function sendOff(s: Side, p: Player, minute: number): boolean {
   if (s.onPitch.length <= 9) return false;
   const i = s.onPitch.findIndex(x => x.id === p.id);
   if (i < 0) return false;
+  // his SLOT in the current shape, not his index among survivors: earlier
+  // dismissals sit before him in sentOff and each one pushes the true slot
+  // one past the compacted index
+  s.sentOff.push({ player: s.onPitch[i], slot: seatOf(s, i), minute });
   s.onPitch.splice(i, 1);
   return true;
+}
+
+/**
+ * The formation slot that onPitch[k] actually occupies. With nobody sent off
+ * it is k itself. After a dismissal the array compacts but the ELEVEN's slots
+ * do not: the man's shirt hangs where he left it, and everyone else keeps the
+ * shirt he had. So the k-th survivor sits in the k-th slot that is not vacated.
+ */
+export function seatOf(s: Side, k: number): number {
+  const vacated = new Set(s.sentOff.map(x => x.slot));
+  let slot = 0;
+  for (let n = 0; ; slot++) {
+    if (vacated.has(slot)) continue;
+    if (n === k) return slot;
+    n++;
+  }
 }
 
 function maybeDiscipline(st: LiveState) {
@@ -554,7 +582,7 @@ function maybeDiscipline(st: LiveState) {
       for (let i = 0; i < outs.length; i++) { r -= weights[i]; if (r <= 0) { p = outs[i]; break; } }
       // a hard coach keeps his players on the right side of the line
       const cardBias = (s.tactic.press === 'high' ? 1.3 : 1) * (s.coach?.cards ?? 1);
-      if (rand(st) < RED_SHARE * cardBias && sendOff(s, p)) {
+      if (rand(st) < RED_SHARE * cardBias && sendOff(s, p, st.minute)) {
         st.events.push({ minute: st.minute, type: 'red', teamId: s.id, playerId: p.id, playerName: p.name, text: `אדום! ${p.name} מורחק`, big: true });
       } else {
         st.events.push({ minute: st.minute, type: 'yellow', teamId: s.id, playerName: p.name, text: `צהוב ל${p.name}` });
@@ -785,7 +813,7 @@ export function resolveDefTackle(st: LiveState, optionId: string): DefTackleOutc
       // mistimed: a foul, and sometimes the last man walks. A tactical foul on a
       // clear run is a straight red far more often than a routine booking is,
       // so this stays well above the general share below
-      const red = rand(st) < 0.13 && sendOff(playerSide(st), cb);
+      const red = rand(st) < 0.13 && sendOff(playerSide(st), cb, st.minute);
       st.events.push({ minute: st.minute, type: red ? 'red' : 'yellow', teamId: playerSide(st).id, playerName: cb.name,
         text: red ? `אדום! ${cb.name} עוצר אותו בעבירה טקטית ומורחק` : `צהוב, ${cb.name} מפיל אותו ועוצר את ההתקפה`, big: red });
       outcome = red ? 'slide-red' : 'slide-yellow';
@@ -1006,11 +1034,13 @@ export function changeFormation(st: LiveState, id: FormationId): boolean {
     const byId = new Map(side.onPitch.map(p => [p.id, p]));
     const same = seats.length === side.onPitch.length && seats.every(x => byId.has(x));
     side.onPitch = same ? seats.map(x => byId.get(x)!) : fillFormation(side.onPitch, formation(id));
+    if (!same) vacateTail(side, formation(id).slots.length);
     st.shape = undefined; st.shapeFrom = undefined; st.shapeSeats = undefined;
     dropShapeEvents(st);
     return true;
   }
   side.onPitch = fillFormation(side.onPitch, formation(id));
+  vacateTail(side, formation(id).slots.length);
   st.shapeFrom = from;
   st.shapeSeats = seats;
   st.shape = { to: formation(id).label, atHalf: [st.score[0], st.score[1]] };
@@ -1037,6 +1067,15 @@ export function formationBefore(st: LiveState): FormationId {
   return st.shapeFrom ?? (playerSide(st).tactic.formation ?? DEFAULT_FORMATION);
 }
 
+/**
+ * After a full re-seat the survivors fill the new shape's first slots, so the
+ * holes a sending off left are no longer where they were: they are the slots
+ * fillFormation could not fill, at the tail. The record follows them there.
+ */
+function vacateTail(side: Side, slotCount: number) {
+  side.sentOff.forEach((x, j) => { x.slot = slotCount - side.sentOff.length + j; });
+}
+
 function dropShapeEvents(st: LiveState) {
   st.events = st.events.filter(e => !(e.type === 'tactic' && e.minute === 45 && e.text.startsWith('שינוי מערך בהפסקה')));
 }
@@ -1055,9 +1094,12 @@ export function slotRoles(st: LiveState): Map<string, string> {
   const f = formation(side.tactic.formation);
   const out = new Map<string, string>();
   // the player's eleven ARE in slot order; re-seating them by fit would undo
-  // a man he deliberately put in a shirt that is not his
+  // a man he deliberately put in a shirt that is not his. A sent-off man's
+  // slot is skipped, so a red card does not appear to move everyone seated
+  // after him into different shirts.
   side.onPitch.forEach((p, i) => {
-    if (f.slots[i]) out.set(p.id, f.slots[i].role);
+    const s = f.slots[seatOf(side, i)];
+    if (s) out.set(p.id, s.role);
   });
   return out;
 }

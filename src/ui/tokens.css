@@ -955,6 +955,9 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
 
 /* the in-match board: a slightly shorter pitch, and fitness under every name */
 .lineup-pitch.compact{aspect-ratio:100/126;}
+/* a man sent off: still on the board, visibly out of the game */
+.lineup-man.off{opacity:.6; filter:saturate(.45);}
+.lineup-redcard{width:11px; height:15px; border-radius:2.5px; background:var(--loss); transform:rotate(8deg); box-shadow:0 1px 3px rgba(0,0,0,.55);}
 .lineup-fit{width:34px; height:3px; border-radius:2px; background:rgba(0,0,0,.45); overflow:hidden; display:block;}
 .lineup-fit i{display:block; height:100%; border-radius:2px;}
 
