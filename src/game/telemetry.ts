@@ -28,9 +28,9 @@ import { TELEMETRY_URL } from '../data/telemetry.ts';
 export const STEPS = [
   'open',            // the title screen drew
   'career_new',      // tapped a new career
-  'archetype',       // picked who he is
   'manager',         // named himself
   'club',            // picked a town and colours
+  'archetype',       // picked who he is
   'signing',         // signed the contract
   'friends',         // named his two, or skipped
   'squad',           // met the squad
@@ -153,21 +153,32 @@ export function track(step: Step): void {
 
 let sending = false;
 
-/** Post whatever is queued, and forget it only once it has landed. */
+/**
+ * Post whatever is queued, and forget it only once it has landed.
+ *
+ * It keeps going until the queue is empty rather than sending one batch. A
+ * single batch left the queue exactly one behind: anything added while a post
+ * was in the air waited for the NEXT call to flush, which for most people is
+ * the next time they open the game. The ones who never open it again are
+ * precisely the ones this whole file exists to count, so a lag of one session
+ * was a hole exactly where it hurts.
+ */
 export async function flush(): Promise<void> {
   if (!TELEMETRY_URL || sending) return;
-  const queue = readQueue();
-  if (!queue.length) return;
   sending = true;
   try {
-    const res = await fetch(TELEMETRY_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ e: queue }),
-      // the counting must never keep a tab alive or block a navigation
-      keepalive: true,
-    });
-    if (res.ok) {
+    // at most a few rounds: each one either empties the queue or fails
+    for (let round = 0; round < 5; round++) {
+      const queue = readQueue();
+      if (!queue.length) return;
+      const res = await fetch(TELEMETRY_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ e: queue }),
+        // the counting must never keep a tab alive or block a navigation
+        keepalive: true,
+      });
+      if (!res.ok) return;   // the worker is unhappy; it waits in the queue
       // only what was sent is dropped: anything added meanwhile stays
       const now = readQueue();
       write(QUEUE_KEY, JSON.stringify(now.slice(queue.length)));
@@ -177,6 +188,21 @@ export async function flush(): Promise<void> {
   } finally {
     sending = false;
   }
+}
+
+/**
+ * Send what is left when the page is going away.
+ *
+ * A phone locked, an app switched, a tab closed: on mobile that is usually the
+ * END of the visit and there is no later. visibilitychange is the only event
+ * that reliably fires there, and the post is keepalive so it outlives the page.
+ */
+export function flushOnLeaving(): () => void {
+  if (!TELEMETRY_URL || typeof document === 'undefined') return () => {};
+  const go = () => { if (document.visibilityState === 'hidden') void flush(); };
+  document.addEventListener('visibilitychange', go);
+  window.addEventListener('pagehide', () => { void flush(); });
+  return () => document.removeEventListener('visibilitychange', go);
 }
 
 /**
@@ -193,19 +219,29 @@ export async function flush(): Promise<void> {
 export function stepFor(g: { phase: string; season: number; week: number }): Step | null {
   if (g.season >= 2) return 'season_2';
   if (g.phase === 'season-end') return 'season_end';
-  // the week is rounds PLAYED, so one means the first match is behind him
-  if (g.week >= 7) return 'round_7';
-  if (g.week >= 3) return 'round_3';
-  if (g.week >= 1) return 'round_1';
+  // The week is the round he is ON, and it starts at one, so rounds PLAYED is
+  // one less. Reading it as rounds played made every brand new career report
+  // its first match before a ball was kicked, which would have put the whole
+  // funnel at a hundred percent exactly where it is meant to fall off.
+  if (g.week - 1 >= 7) return 'round_7';
+  if (g.week - 1 >= 3) return 'round_3';
+  if (g.week - 1 >= 1) return 'round_1';
+  // The order below is the order the game walks, which is not the order the
+  // screens are named in: a manager names himself, THEN picks a town, THEN
+  // picks who he is, and only then signs. It was written the other way round
+  // from the names alone and the funnel reported people moving backwards.
   switch (g.phase) {
-    case 'onboard-archetype': return null;      // he has done nothing yet
-    case 'onboard-manager': return 'archetype';
+    case 'onboard-manager': return null;        // the first screen; nothing done yet
     case 'onboard-club': return 'manager';
-    case 'signing': return 'club';
+    case 'onboard-archetype': return 'club';
+    case 'signing': return 'archetype';
     case 'friends': return 'signing';
     case 'squad': return 'friends';
-    case 'preseason': return 'squad';
-    case 'preseason-market': return 'market';
+    case 'preseason':
+    case 'preseason-market': return 'squad';
+    // the summer ends in the shirt and the sponsor, which is the market behind him
+    case 'kit':
+    case 'sponsor': return 'market';
     default: return 'season';                   // the hub, and everything the league holds
   }
 }

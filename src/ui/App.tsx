@@ -42,7 +42,7 @@ import { setInviteHandler, setInstallHandler, setReportHandler } from './compone
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving } from '../game/telemetry.ts';
 import { AdminScreen } from './screens/Admin.tsx';
 import { armBack, setBackHandler, leaveGame } from './back.ts';
 import { ExitSheet } from './components/ExitSheet.tsx';
@@ -163,7 +163,13 @@ export function App() {
   // got before he stopped: the step is read off the state, so no screen has to
   // remember to report and none of this can drift out of date. Nothing he
   // typed is anywhere near it, see game/telemetry.ts.
-  useEffect(() => { track('open'); void flush(); }, []);
+  useEffect(() => {
+    track('open');
+    void flush();
+    // and again on the way out, because for most people on a phone there is
+    // no later: the tab is switched away from and never comes back
+    return flushOnLeaving();
+  }, []);
   useEffect(() => {
     if (!booted) return;
     const step = stepFor(gs);

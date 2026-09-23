@@ -1,6 +1,8 @@
 name = "beapro-count"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
+# served from the account subdomain, which is the address the game posts to
+workers_dev = true
 
 # The database is made once, and the id below comes from making it:
 #   npx wrangler d1 create beapro-count

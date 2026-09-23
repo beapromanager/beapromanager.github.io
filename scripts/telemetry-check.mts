@@ -18,6 +18,11 @@
 import { readFileSync } from 'node:fs';
 import * as T from '../src/game/telemetry.ts';
 import { TELEMETRY_URL } from '../src/data/telemetry.ts';
+import * as G from '../src/game/state.ts';
+import { simulateMatch } from '../src/engine/matchEngine.ts';
+import type { MatchResult } from '../src/engine/matchEngine.ts';
+import { DEFAULT_FORMATION } from '../src/data/formations.ts';
+import { MANAGERS } from '../src/data/managers.ts';
 
 
 const fails: string[] = [];
@@ -37,45 +42,98 @@ let checked = 0;
   console.log(`  ${T.STEPS.length} steps, in order, each counted once per device`);
 }
 
-/* 2. THE ROAD IS WALKED.
-      Every step must be reachable from a real state on the way through a
-      career, in order. A step nothing can reach is a bar that is always zero
-      and a drop-off that is always a lie. */
-{
-  const road: { phase: string; season: number; week: number }[] = [
-    { phase: 'onboard-archetype', season: 1, week: 0 },
-    { phase: 'onboard-manager', season: 1, week: 0 },
-    { phase: 'onboard-club', season: 1, week: 0 },
-    { phase: 'signing', season: 1, week: 0 },
-    { phase: 'friends', season: 1, week: 0 },
-    { phase: 'squad', season: 1, week: 0 },
-    { phase: 'preseason', season: 1, week: 0 },
-    { phase: 'preseason-market', season: 1, week: 0 },
-    { phase: 'hub', season: 1, week: 0 },
-    { phase: 'hub', season: 1, week: 1 },
-    { phase: 'hub', season: 1, week: 3 },
-    { phase: 'hub', season: 1, week: 7 },
-    { phase: 'season-end', season: 1, week: 14 },
-    { phase: 'hub', season: 2, week: 0 },
-  ];
-  const seen = road.map(T.stepFor).filter((s): s is T.Step => s !== null);
-  checked += 3;
+/* 2. THE ROAD IS WALKED, BY A REAL CAREER.
+      Every step must be reached by a state the GAME produces, in order, and a
+      step nothing reaches is a bar that is always zero and a drop-off that is
+      always a lie.
 
-  // every step except the two the state cannot describe
-  const byState = new Set(seen);
-  const missing = T.STEPS.filter(s => s !== 'open' && s !== 'career_new' && !byState.has(s));
-  if (missing.length) fails.push(`no state on the road reaches: ${missing.join(', ')}`);
+      This used to walk a road of hand-written states, and it passed while
+      stepFor was badly wrong: the week is the round a manager is ON and starts
+      at one, so reading it as rounds played reported the first match before a
+      ball was kicked. The made-up road agreed with the made-up mapping,
+      because the same hand wrote both. Now every state comes out of the game
+      itself, so only the game can say what a step means. */
+{
+  const seen: { step: T.Step | null; where: string }[] = [];
+  const note = (gs: { phase: string; season: number; week: number }, where: string) =>
+    seen.push({ step: T.stepFor(gs), where });
+
+  let gs = G.newGame(20260923);
+  note(gs, 'a career that has done nothing');
+  const blank = T.stepFor(gs);
+  checked++;
+  if (blank !== null) fails.push(`a brand new career already reports "${blank}" before anything was done`);
+
+  // in the order the GAME walks, which is not the order the screens are named
+  gs = G.setProfile(gs, { name: 'בודק', face: 0 }); note(gs, 'named');
+  gs = G.pickCity(gs, 'חיפה'); note(gs, 'club picked');
+  gs = G.setArchetype(gs, MANAGERS[0].id); note(gs, 'archetype picked');
+  gs = G.afterSigning(gs, {}); note(gs, 'signed');
+  gs = G.addFriends(gs, []); note(gs, 'friends done');
+  gs = G.enterPreseason(gs); note(gs, 'the summer market');
+  gs = G.enterSeason({ ...gs, crisisDone: true }); note(gs, 'the shirt and the sponsor');
+  gs = G.closeKitReveal(gs); gs = G.takeSponsor(gs, 'base'); gs = G.dismissNotice(gs);
+  note(gs, 'out into the league');
+
+  // and the first whistle has not blown yet
+  checked++;
+  if (T.stepFor(gs) !== 'season') {
+    fails.push(`a manager who has not played a match reports "${T.stepFor(gs)}", not "season"`);
+  }
+
+  const played: Record<number, T.Step | null> = {};
+  for (let n = 1; n <= 8; n++) {
+    gs = playRound(gs, n);
+    played[n] = T.stepFor(gs);
+    note(gs, `${n} rounds played`);
+  }
+  checked += 3;
+  if (played[1] !== 'round_1') fails.push(`after one round the step is "${played[1]}", not round_1`);
+  if (played[3] !== 'round_3') fails.push(`after three rounds the step is "${played[3]}", not round_3`);
+  if (played[7] !== 'round_7') fails.push(`after seven rounds the step is "${played[7]}", not round_7`);
+
+  const reached = new Set(seen.map(s => s.step).filter((s): s is T.Step => s !== null));
+  checked += 2;
+  // season_end and season_2 are the far end of a whole season, checked by the
+  // phase and the season count the game itself uses for them
+  const far = ['season_end', 'season_2'] as const;
+  if (T.stepFor({ phase: 'season-end', season: 1, week: 14 }) !== 'season_end') fails.push('finishing a season reports something else');
+  if (T.stepFor({ phase: 'hub', season: 2, week: 1 }) !== 'season_2') fails.push('a second season reports something else');
+  const missing = T.STEPS.filter(s => s !== 'open' && s !== 'career_new' && !far.includes(s as never) && !reached.has(s));
+  if (missing.length) fails.push(`a real career never reaches: ${missing.join(', ')}`);
 
   // and it never goes backwards
-  const back = seen.map(s => T.STEP_ORDER[s]).filter((n, i, a) => i > 0 && n < a[i - 1]);
-  if (back.length) fails.push('walking a career forwards reported a step that goes backwards');
+  const order = seen.map(s => (s.step ? T.STEP_ORDER[s.step] : -1));
+  for (let i = 1; i < order.length; i++) {
+    if (order[i] < order[i - 1]) {
+      fails.push(`the step went backwards at "${seen[i].where}": ${seen[i - 1].step} then ${seen[i].step}`);
+      break;
+    }
+  }
 
   // the two the state cannot describe are reported from the App instead
   const app = readFileSync('src/ui/App.tsx', 'utf8');
+  checked++;
   if (!/track\('open'\)/.test(app) || !/track\('career_new'\)/.test(app)) {
     fails.push('opening the game, or starting a career, is not counted anywhere');
   }
-  console.log(`  a career walks all ${byState.size} steps the state can describe, in order`);
+  console.log(`  a real career walks ${reached.size} steps in order, and plays its first match before saying so`);
+}
+
+/** One round, played for real, so the week moves the way the game moves it. */
+function playRound(gs: G.GameState, seed: number): G.GameState {
+  const inp = G.liveMatchInput(gs);
+  const res: MatchResult = simulateMatch(
+    { id: inp.homeId, name: inp.homeName, players: inp.iAmHome ? inp.playerStarters : inp.oppStarters,
+      tactic: { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' }, chemistry: 0.7, isHome: true },
+    { id: inp.awayId, name: inp.awayName, players: inp.iAmHome ? inp.oppStarters : inp.playerStarters,
+      tactic: { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' }, chemistry: 0.7, isHome: false },
+    inp.seed + seed);
+  let next = G.continueFromResult(G.commitRound(gs, res));
+  while (next.phase === 'press') next = G.answerPress(next, 0);
+  if ((next as { phase: string }).phase === 'chat') next = G.closeChat(next);
+  if (next.phase === 'dilemma') next = G.chooseDilemma(next, 0);
+  return next;
 }
 
 /* 3. NOTHING PERSONAL CAN REACH THE WIRE.

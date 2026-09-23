@@ -138,9 +138,9 @@ export type Stats = {
 const LABEL: Record<string, string> = {
   open: 'פתחו את המשחק',
   career_new: 'התחילו קריירה',
-  archetype: 'בחרו מי הם',
   manager: 'נתנו שם',
   club: 'בחרו עיר וצבעים',
+  archetype: 'בחרו מי הם',
   signing: 'חתמו בחוזה',
   friends: 'שלב החברים',
   squad: 'ראו את הסגל',

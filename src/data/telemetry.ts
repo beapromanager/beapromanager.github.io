@@ -14,4 +14,4 @@
  * The worker that answers it is in worker/, and DEPLOY.md says how to put it
  * up. Nothing personal is ever sent to it; see the top of game/telemetry.ts.
  */
-export const TELEMETRY_URL: string = '';
+export const TELEMETRY_URL: string = 'https://beapro-count.beapromanager.workers.dev';
