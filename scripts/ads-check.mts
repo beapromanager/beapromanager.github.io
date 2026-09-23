@@ -30,7 +30,8 @@ import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
 import { ADS_PER_SEASON, GEMS_PER_AD } from '../src/game/packs.ts';
-import { ADS, adDigits } from '../src/data/ads.ts';
+import { ADS, adDigits, ADS_LIVE } from '../src/data/ads.ts';
+import { adFreeGems } from '../src/game/packs.ts';
 import * as A from '../src/game/adWatch.ts';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 
@@ -292,6 +293,34 @@ function settle(gs: G.GameState, s: A.AdSession): G.GameState {
     }
   }
   console.log(`  ${ADS.length} ads, every clip on disk at its listed length, under budget, with an https door`);
+}
+
+/* THE SWITCH, AND WHAT IT OWES.
+   The game goes out before the advertisers do, so the clips are off and the
+   button is a promise. Two things have to hold while it is off: nothing can
+   be watched, and the gems the watching would have paid are handed over
+   anyway, because turning the clips off quietly makes the game meaner than
+   the one that was balanced. Everything above this measures the machinery
+   itself and does not care about the switch, which is the point of having
+   one. */
+{
+  const gs = G.newGame(4242);
+  checked += 4;
+  if (ADS_LIVE) {
+    if (G.adsOffered(gs) !== ADS_PER_SEASON) fails.push('the clips are live and the screen offers none');
+    if (adFreeGems() !== 0) fails.push('the clips are live and the game is still handing out their gems');
+    console.log(`  the clips are live: ${ADS_PER_SEASON} sittings a season, nothing given away`);
+  } else {
+    if (G.adsOffered(gs) !== 0) fails.push('the clips are off and the screen still offers a sitting');
+    if (G.adsLeft(gs) !== ADS_PER_SEASON) fails.push('the switch rewrote the season arithmetic instead of just hiding the button');
+    if (adFreeGems() !== ADS_PER_SEASON * GEMS_PER_AD) {
+      fails.push(`the clips are off and a season is short ${ADS_PER_SEASON * GEMS_PER_AD - adFreeGems()} gems`);
+    }
+    // and the promise is on the button rather than a dead control
+    const packs = readFileSync('src/ui/screens/Packs.tsx', 'utf8');
+    if (!packs.includes('פרסומות יעלו בקרוב')) fails.push('the clips are off and the button does not say they are coming');
+    console.log(`  the clips are off: nothing on offer, ${adFreeGems()} gems a season handed over instead`);
+  }
 }
 
 console.log(`\n${checked} checks`);

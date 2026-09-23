@@ -272,7 +272,7 @@ export function App() {
       )}
       {gs.phase === 'packs' && (
         <PacksScreen gs={gs}
-          onWatchAd={() => { if (G.adsLeft(gs) > 0) setAd({ ad: pickAd({ ...gs, sponsorAd: G.sponsorAdId(gs) }), key: Date.now() }); }}
+          onWatchAd={() => { if (G.adsOffered(gs) > 0) setAd({ ad: pickAd({ ...gs, sponsorAd: G.sponsorAdId(gs) }), key: Date.now() }); }}
           onBuy={id => setGs(g => G.buyPack(g, id))}
           onSign={() => setGs(g => G.signPull(g))}
           onSell={() => setGs(g => G.sellPull(g))}

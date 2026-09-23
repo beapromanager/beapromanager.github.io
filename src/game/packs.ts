@@ -18,6 +18,7 @@
  *   star,  young and already good
  *   pro,   good right now, at the level of the division above
  */
+import { ADS_LIVE } from '../data/ads.ts';
 import type { Player, Position, Rng } from '../engine/matchEngine.ts';
 import { overall } from '../engine/matchEngine.ts';
 import { makePlayer, NEUTRAL_TRAITS } from '../data/squadGen.ts';
@@ -30,6 +31,18 @@ import { rarityForOvr, type Rarity } from './cards.ts';
 
 export const GEMS_AT_START = 3;
 export const GEMS_PER_AD = 1;
+
+/**
+ * What a season's worth of ads is worth, handed over while there are no ads.
+ *
+ * Turning the clips off quietly makes the game meaner: three gems a season is
+ * a pack every other season, and nobody measured the loop without them. So
+ * while ADS_LIVE is false the allowance arrives with the season instead of
+ * being watched for, and the economy is exactly the one that was balanced.
+ */
+export function adFreeGems(): number {
+  return ADS_LIVE ? 0 : ADS_PER_SEASON * GEMS_PER_AD;
+}
 export const GEMS_ON_PROMOTION = 5;
 /** how many ads can be watched for gems in a single season */
 export const ADS_PER_SEASON = 3;

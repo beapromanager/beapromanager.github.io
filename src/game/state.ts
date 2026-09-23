@@ -36,6 +36,7 @@ import type { DebtState } from './finance.ts';
 export { debtLine };
 export type { DebtState };
 import { DEFAULT_FORMATION, formationForClub, formation, fillFormation } from '../data/formations.ts';
+import { ADS_LIVE } from '../data/ads.ts';
 import type { FormationId } from '../data/formations.ts';
 import { TEMPLATES, eligible, rollDilemma } from '../data/dilemmas.ts';
 import type { RolledDilemma, DilemmaEffect, Ctx as DilemmaCtx, Act, Who } from '../data/dilemmas.ts';
@@ -78,7 +79,7 @@ import {
 } from './coach.ts';
 import type { PackPull, PackId } from './packs.ts';
 import {
-  openPack, packById, GEMS_AT_START, GEMS_PER_AD, GEMS_ON_PROMOTION,
+  openPack, packById, GEMS_AT_START, GEMS_PER_AD, GEMS_ON_PROMOTION, adFreeGems,
   ADS_PER_SEASON, PACK_CONTRACT_YEARS,
 } from './packs.ts';
 
@@ -512,7 +513,7 @@ export function newGame(seed = 12345): GameState {
     contracts: {},
     preWeek: 0,
     preResolved: [],
-    gems: GEMS_AT_START,
+    gems: GEMS_AT_START + adFreeGems(),
     adsWatched: 0,
     reports: NO_REPORTS,
     invite: emptyInvite(),
@@ -2203,6 +2204,18 @@ export function adsLeft(gs: GameState): number {
 }
 
 /**
+ * How many sittings are actually on offer right now.
+ *
+ * Not the same question as how many are left in the season: while the clips
+ * are not running there are none to be had, and the button says so. The
+ * arithmetic above stays honest either way, which is what the ad checks
+ * measure, and this is what the screens ask.
+ */
+export function adsOffered(gs: GameState): number {
+  return ADS_LIVE ? adsLeft(gs) : 0;
+}
+
+/**
  * The ad reward. Deliberately capped per season: a gem that can be farmed is
  * not a premium currency, and an uncapped ad loop is the thing that makes a
  * game feel like a slot machine.
@@ -3867,7 +3880,7 @@ export function startNextSeason(gs: GameState): GameState {
     nemesis: back.met ? null : gs.nemesis,
     // climbing a division is the milestone the premium currency is pinned to,
     // and the ad allowance refills with the new season
-    gems: gs.gems + (r.result === 'champion' || r.result === 'promoted' ? GEMS_ON_PROMOTION : 0),
+    gems: gs.gems + (r.result === 'champion' || r.result === 'promoted' ? GEMS_ON_PROMOTION : 0) + adFreeGems(),
     adsWatched: 0,
     pull: null,
     // his CV, which is what his standing is read off. A division won counts as

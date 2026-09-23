@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { overall } from '../../engine/matchEngine.ts';
 import { PACKS, ADS_PER_SEASON, GEMS_PER_AD, GEMS_ON_PROMOTION } from '../../game/packs.ts';
+import { ADS_LIVE } from '../../data/ads.ts';
 import type { PackId, PackPull } from '../../game/packs.ts';
 import { RARITY_LABEL, RARITY_OVR_COLOR } from '../../game/cards.ts';
 import { UltraCard } from '../components/UltraCard.tsx';
@@ -23,7 +24,7 @@ export function PacksScreen({ gs, onWatchAd, onBuy, onSign, onSell, onBack }: {
   onSell: () => void;
   onBack: () => void;
 }) {
-  const left = G.adsLeft(gs);
+  const left = G.adsOffered(gs);
   const [msg, setMsg] = useState<string | null>(null);
 
   return (
@@ -45,7 +46,9 @@ export function PacksScreen({ gs, onWatchAd, onBuy, onSign, onSell, onBack }: {
           <div className="label-cap" style={{ marginBottom: 9 }}>איך משיגים יהלומים</div>
           <div className="stack" style={{ gap: 8 }}>
             <SourceLine icon="trophy" text="עלייה לליגה גבוהה יותר" value={`+${GEMS_ON_PROMOTION}`} />
-            <SourceLine icon="crowd" text={`צפייה בפרסומת, ${ADS_PER_SEASON} בעונה`} value={`+${GEMS_PER_AD}`} />
+            {ADS_LIVE
+              ? <SourceLine icon="crowd" text={`צפייה בפרסומת, ${ADS_PER_SEASON} בעונה`} value={`+${GEMS_PER_AD}`} />
+              : <SourceLine icon="crowd" text="פרסומות יעלו בקרוב, היהלומים שלהן אצלך בינתיים" value={`+${ADS_PER_SEASON * GEMS_PER_AD}`} />}
           </div>
 
           <button
@@ -54,7 +57,10 @@ export function PacksScreen({ gs, onWatchAd, onBuy, onSign, onSell, onBack }: {
             disabled={left === 0}
             onClick={() => { setMsg(null); onWatchAd(); }}
           >
-            {left === 0 ? 'ניצלת את כל הצפיות העונה' : left === 1 ? 'צפה בפרסומת · נשארה אחת העונה' : `צפה בפרסומת · נשארו ${left} העונה`}
+            {!ADS_LIVE ? 'פרסומות יעלו בקרוב'
+              : left === 0 ? 'ניצלת את כל הצפיות העונה'
+              : left === 1 ? 'צפה בפרסומת · נשארה אחת העונה'
+              : `צפה בפרסומת · נשארו ${left} העונה`}
           </button>
         </div>
 
