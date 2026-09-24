@@ -262,9 +262,13 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
    * Below MIN_PITCH the men start landing on each other, so on a short screen
    * it stops shrinking and a little scrolling comes back.
    */
-  useLayoutEffect(() => {
+  /**
+   * Work out the room the pitch has. Called after EVERY render and again on a
+   * few timers, see below.
+   */
+  const fit = () => {
     if (view !== 'pitch') { setPitchH(null); setSpill(0); return; }
-    const fit = () => {
+    {
       const el = pitchBox.current;
       if (!el) return;
       // where the pitch starts in the document, which does not move when the
@@ -277,18 +281,70 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
       const below = firstTime ? BUTTON_ROOM : 0;
       const room = Math.round(window.innerHeight - top - bench - PITCH_GAP - below);
       const h = Math.max(MIN_PITCH, room);
-      setPitchH(h);
+      setPitchH(p => (p === h ? p : h));
       // on a screen too short even for the floor, the leftover has to be
       // scrollable past the bench, so the room under the pitch is exactly the
       // bench footprint: a keeper you cannot reach is worse than a short scroll
-      setSpill(room < MIN_PITCH ? bench + PITCH_GAP : 0);
-    };
+      const need = room < MIN_PITCH ? bench + PITCH_GAP : 0;
+      setSpill(s => (s === need ? s : need));
+    }
+  };
+
+  /**
+   * After every render, because measuring once is measuring at the one moment
+   * the page happened to be in.
+   *
+   * The pitch is given a height and then things ABOVE it settle and push it
+   * down: a line that wraps to two on a narrower phone, a notice that arrives,
+   * a crest that finishes loading. The pitch keeps the height it was given and
+   * the bench ends up over the defence, which is the picture Itzik sent.
+   *
+   * No dependency list on purpose. Anything that re-renders this screen can
+   * have moved the pitch, and re-fitting is a measurement and a comparison; it
+   * sets state only when the answer actually changed, so the render it causes
+   * settles on the next pass instead of ringing.
+   */
+  useLayoutEffect(fit);
+
+  useLayoutEffect(() => {
+    if (view !== 'pitch') return;
     fit();
-    // the bench is portaled and mounts after this pass, so its real height
-    // only exists a beat later
-    const again = window.setTimeout(fit, 0);
+    // And on a few timers after that, for everything that settles without a
+    // render to announce it: the bench is portaled and mounts a beat late, web
+    // fonts land and change how text wraps, pictures decode. Three cheap looks
+    // over the first second cost nothing and cover all of it.
+    const timers = [0, 120, 400, 1000].map(ms => window.setTimeout(fit, ms));
     window.addEventListener('resize', fit);
-    return () => { window.clearTimeout(again); window.removeEventListener('resize', fit); };
+
+    // And then keep watching, because measuring once is measuring at the one
+    // moment the page happens to be in. Anything above the pitch that settles
+    // later moves it down without changing its height, and the bench then
+    // covers the defence: a line of text that wraps to two on a narrower
+    // phone, a crest or a shirt that finishes loading, a notice that arrives.
+    // Itzik sent a picture of exactly that. An observer costs nothing and
+    // cannot be out of date, and it cannot loop either: re-fitting only ever
+    // changes what is BELOW the measurement, and an unchanged height is a
+    // state React does not re-render for.
+    // Everything ABOVE the pitch, one by one, because what moves the pitch is
+    // not its own size or its column's: a spacer between the pitch and the
+    // button swallows the difference, so the column's height never changes and
+    // an observer on it never fires. The body is worse, pinned to the window.
+    // What actually happens is that a line wraps to two on a narrow phone, or
+    // a crest finishes loading, and the pitch is pushed DOWN while keeping the
+    // height it was given, until the bench covers the defence. Itzik sent a
+    // picture of exactly that. These are the elements whose height decides
+    // where the pitch starts, so these are the ones worth watching.
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
+    for (let el = pitchBox.current?.previousElementSibling; el; el = el.previousElementSibling) {
+      ro?.observe(el);
+    }
+    if (benchBar.current) ro?.observe(benchBar.current);
+    return () => {
+      timers.forEach(window.clearTimeout);
+      window.removeEventListener('resize', fit);
+      ro?.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, firstTime, sq.starters.length, sq.bench.length, gs.tactic?.formation]);
 
 

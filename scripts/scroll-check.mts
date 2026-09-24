@@ -125,7 +125,7 @@ const read = (f: string) => readFileSync(f, 'utf8');
   }
   if (!/const MIN_PITCH = \d+/.test(squad)) fails.push('the pitch can shrink without a floor, so the men can land on each other');
   // the floor is only safe if what cannot be squeezed out becomes scrollable
-  if (!/setSpill\(room < MIN_PITCH \? bench \+ PITCH_GAP : 0\)/.test(squad)) {
+  if (!squad.includes('const need = room < MIN_PITCH ? bench + PITCH_GAP : 0;')) {
     fails.push('on a screen below the floor the bottom of the pitch hides behind the bench with no way to reach it');
   }
   if (!/\.squad-pitch-box \.lineup-pitch\{height:100%/.test(css)) {
@@ -155,6 +155,33 @@ const read = (f: string) => readFileSync(f, 'utf8');
     fails.push('the page leaves no room under the first visit, so the button lands behind the bench');
   }
   console.log('  the first visit keeps its only way forward clear of the bench');
+}
+
+/* AND IT KEEPS MEASURING, BECAUSE THE PAGE DOES NOT HOLD STILL.
+   Measuring once is measuring at the one moment the page happened to be in.
+   Anything above the pitch that settles afterwards pushes it DOWN while it
+   keeps the height it was given, and the bench then covers the defence, which
+   is the picture Itzik sent from his own squad. Three nets, because they catch
+   different things: after every render for anything the game itself changed,
+   on timers over the first second for pictures and fonts that land without a
+   render to announce them, and an observer for the rest. Verified in a browser
+   for the first two; the observer could not be, because ResizeObserver does
+   not fire at all in a headless pane. */
+{
+  const squad = read('src/ui/screens/Squad.tsx');
+  checked += 4;
+  if (!/useLayoutEffect\(fit\);/.test(squad)) {
+    fails.push('the pitch is not re-measured after a render, so anything that moves it leaves the bench over the defence');
+  }
+  if (!/\[0, 120, 400, 1000\]\.map\(ms => window\.setTimeout\(fit, ms\)\)/.test(squad)) {
+    fails.push('nothing re-measures after a picture lands, which does not cause a render');
+  }
+  if (!/new ResizeObserver\(fit\)/.test(squad)) fails.push('nothing watches the elements above the pitch for good');
+  // and the measuring must not be able to ring back and forth for ever
+  if (!/setPitchH\(p => \(p === h \? p : h\)\)/.test(squad)) {
+    fails.push('re-measuring writes the height even when it has not changed, which is a render loop');
+  }
+  console.log('  the pitch re-measures after every render, on timers, and on an observer');
 }
 
 /* AND HE STAYS UNDER THE FINGER.
