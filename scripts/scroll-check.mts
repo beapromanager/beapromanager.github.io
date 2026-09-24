@@ -105,83 +105,50 @@ const read = (f: string) => readFileSync(f, 'utf8');
   console.log('  carrying a man never moves the bench he is being carried to');
 }
 
-/* THE TEAM SHEET FITS THE SCREEN IT IS ON.
-   At 100/140 the pitch alone was taller than a phone, so the eleven and the
-   bench could not be on screen together and every drag began with a scroll.
-   The pitch is measured into whatever is left between what is above it and
-   the bench pinned below it. Measured in a real browser at three sizes: 440
-   by 920 and 393 by 852 fit with nothing to scroll at all, 360 by 780 hits
-   the floor and keeps 73 pixels of scroll rather than hide the keeper. What
-   a check can hold is that the measuring is still there and still honest. */
+/* THE TEAM SHEET IS LAID OUT, NOT MEASURED.
+   The pitch used to be measured into whatever was left above a pinned bench,
+   and the measurement produced three faults in a row: the bench over the
+   defence, the only way forward behind the bench, and finally a flicker, which
+   is where a measurement that feeds the layout it is measuring always ends.
+
+   The browser does it now. In the pitch view the screen is a column exactly as
+   tall as the window: everything down to the team sheet scrolls inside it, the
+   bench is the bottom row in the flow, and the pitch takes what is left, with
+   a floor so the men never land on each other. Nothing to recompute, nothing
+   to go stale, and the bench cannot cover anything because it is not on top of
+   anything.
+
+   Measured in a browser afterwards. 393x852: the pitch is 330 tall, every one
+   of the eleven fully visible above the bench, nothing scrolls at all. 360x740:
+   the pitch sits on its floor at 240, still nothing hidden. Dragging a man to
+   the bench and back still works with the ghost on the finger. */
 {
   const squad = read('src/ui/screens/Squad.tsx');
   const css = read('src/ui/tokens.css');
-  checked += 5;
-  if (!/setPitchH\(/.test(squad) || !/useLayoutEffect/.test(squad)) {
-    fails.push('the pitch is no longer measured to fit, so the team sheet is taller than the phone again');
-  }
-  if (!/window\.innerHeight - top - bench - PITCH_GAP/.test(squad)) {
-    fails.push('the pitch is measured against something other than the room between the chrome and the bench');
-  }
-  if (!/const MIN_PITCH = \d+/.test(squad)) fails.push('the pitch can shrink without a floor, so the men can land on each other');
-  // the floor is only safe if what cannot be squeezed out becomes scrollable
-  if (!squad.includes('const need = room < MIN_PITCH ? bench + PITCH_GAP : 0;')) {
-    fails.push('on a screen below the floor the bottom of the pitch hides behind the bench with no way to reach it');
-  }
-  if (!/\.squad-pitch-box \.lineup-pitch\{height:100%/.test(css)) {
-    fails.push('the pitch ignores the height it was measured into, because aspect-ratio wins');
-  }
-  console.log('  the team sheet is measured into the screen, with a floor and a way past the bench');
-}
+  checked += 6;
 
-/* THE WAY FORWARD IS NOT BEHIND THE BENCH.
-   On the first visit the squad screen's button is the ONLY way on to the
-   market, and it sits under the pitch. Measuring the pitch into every pixel
-   down to the pinned bench put that button behind it, and Itzik sent a picture
-   of it half off the bottom of his phone. So the room the pitch is allowed
-   stops short of the button on the screen that has one, and the page keeps the
-   padding to match. Measured in a browser afterwards at 393x852 and 360x740:
-   the button ends 22 pixels clear of the bench, with no man hidden behind it. */
-{
-  const squad = read('src/ui/screens/Squad.tsx');
-  checked += 3;
-  if (!/const below = firstTime \? BUTTON_ROOM : 0;/.test(squad)) {
-    fails.push('the pitch takes the room the first visit needs for its only way forward');
+  // nothing measures the pitch any more, and that is the point
+  if (/setPitchH|const \[spill|BENCH_ALLOW|MIN_PITCH =/.test(squad)) {
+    fails.push('the pitch is being measured again, which is what the flicker was');
   }
-  if (!/window\.innerHeight - top - bench - PITCH_GAP - below/.test(squad)) {
-    fails.push('the measured pitch does not subtract the room under it');
+  if (!/className=\{view === 'pitch' \? 'squad-scroll' : 'contents'\}/.test(squad)) {
+    fails.push('the part above the bench is no longer its own scrolling area');
   }
-  if (!/paddingBottom: view === 'pitch' \? \(firstTime \? BENCH_ALLOW \+ 22 : 8\)/.test(squad)) {
-    fails.push('the page leaves no room under the first visit, so the button lands behind the bench');
+  // the column is the window, so the bench lands on the bottom by construction
+  if (!/\.frame:has\(\.squad-fit\)\{height:100dvh/.test(css)) {
+    fails.push('the squad room is no longer a column the height of the window, so the bench floats');
   }
-  console.log('  the first visit keeps its only way forward clear of the bench');
-}
-
-/* AND IT KEEPS MEASURING, BECAUSE THE PAGE DOES NOT HOLD STILL.
-   Measuring once is measuring at the one moment the page happened to be in.
-   Anything above the pitch that settles afterwards pushes it DOWN while it
-   keeps the height it was given, and the bench then covers the defence, which
-   is the picture Itzik sent from his own squad. Three nets, because they catch
-   different things: after every render for anything the game itself changed,
-   on timers over the first second for pictures and fonts that land without a
-   render to announce them, and an observer for the rest. Verified in a browser
-   for the first two; the observer could not be, because ResizeObserver does
-   not fire at all in a headless pane. */
-{
-  const squad = read('src/ui/screens/Squad.tsx');
-  checked += 4;
-  if (!/useLayoutEffect\(fit\);/.test(squad)) {
-    fails.push('the pitch is not re-measured after a render, so anything that moves it leaves the bench over the defence');
+  if (!/\.squad-fit\{[^}]*display:flex[^}]*flex-direction:column/.test(css)) {
+    fails.push('the squad room is not a column, so the bench is not its last row');
   }
-  if (!/\[0, 120, 400, 1000\]\.map\(ms => window\.setTimeout\(fit, ms\)\)/.test(squad)) {
-    fails.push('nothing re-measures after a picture lands, which does not cause a render');
+  if (!/\.squad-pitch-box\{display:flex; flex:1 1 auto; min-height:240px;\}/.test(css)) {
+    fails.push('the pitch does not take the room left over, or has no floor under it');
   }
-  if (!/new ResizeObserver\(fit\)/.test(squad)) fails.push('nothing watches the elements above the pitch for good');
-  // and the measuring must not be able to ring back and forth for ever
-  if (!/setPitchH\(p => \(p === h \? p : h\)\)/.test(squad)) {
-    fails.push('re-measuring writes the height even when it has not changed, which is a render loop');
+  // and the bench is in the flow: pinning it is what put it over the defence
+  if (/\.bench-bar\{[^}]*position:fixed/.test(css)) {
+    fails.push('the bench is pinned over the page again instead of being the bottom row');
   }
-  console.log('  the pitch re-measures after every render, on timers, and on an observer');
+  console.log('  the team sheet is laid out by the browser, with the bench as the bottom row');
 }
 
 /* AND HE STAYS UNDER THE FINGER.
@@ -197,11 +164,14 @@ const read = (f: string) => readFileSync(f, 'utf8');
   if (!/<Portal><div className="drag-ghost"/.test(squad)) {
     fails.push('the dragged man is drawn inside the transformed screen, so he lands off the finger');
   }
-  if (!/<Portal><div className="bench-bar"/.test(squad)) {
-    fails.push('the pinned bench is drawn inside the transformed screen, so it pins to the wrong thing');
+  // The bench used to be pinned over the page, which needed a portal to
+  // escape the screen's transform. It is the bottom row of the column now, so
+  // it needs neither, and the dragged man is the only thing left that is fixed.
+  if (/<Portal><div className="bench-bar"/.test(squad)) {
+    fails.push('the bench is portaled again, which it only needed while it was pinned over the page');
   }
-  if (!/\.bench-bar\{[^}]*position:fixed/.test(css)) {
-    fails.push('the bench is not pinned to the screen, so it drifts as the page scrolls');
+  if (/\.bench-bar\{[^}]*position:fixed/.test(css)) {
+    fails.push('the bench is pinned over the page again, which is what put it over the defence');
   }
   console.log('  the dragged man and the bench are both pinned to the viewport, not to the screen');
 }

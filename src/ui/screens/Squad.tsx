@@ -224,11 +224,6 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   // the fixed bench bar, measured rather than guessed: the drag has to know
   // which strip of the screen is a drop target and not a scroll trigger
   const benchBar = useRef<HTMLDivElement | null>(null);
-  const pitchBox = useRef<HTMLDivElement | null>(null);
-  const [pitchH, setPitchH] = useState<number | null>(null);
-  // what the pitch could not give back on a short screen, and therefore has to
-  // be scrollable: a keeper behind the bench is worse than a short scroll
-  const [spill, setSpill] = useState(0);
 
   // one personality pass over the whole squad, so no two players repeat
   const traitMap = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends), [sq, gs.friends]);
@@ -248,104 +243,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
     () => new Set([...sq.starters, ...sq.bench].filter(p => G.isSuspended(gs, p.id)).map(p => p.id)),
     [sq, gs]);
 
-  /**
-   * The pitch takes exactly the room that is left.
-   *
-   * A team sheet you have to scroll is a team sheet you cannot drag on: the
-   * man in the air and the bench he is going to must be on the screen at the
-   * same time, and at 100/140 the pitch alone was taller than the phone. So
-   * it is measured rather than shaped: whatever is between the top of the
-   * pitch and the bench pinned to the bottom is what the pitch gets. It is
-   * squarer than a real pitch and that is the right trade, because the thing
-   * being read here is the shape of the team, not the shape of the ground.
-   *
-   * Below MIN_PITCH the men start landing on each other, so on a short screen
-   * it stops shrinking and a little scrolling comes back.
-   */
-  /**
-   * Work out the room the pitch has. Called after EVERY render and again on a
-   * few timers, see below.
-   */
-  const fit = () => {
-    if (view !== 'pitch') { setPitchH(null); setSpill(0); return; }
-    {
-      const el = pitchBox.current;
-      if (!el) return;
-      // where the pitch starts in the document, which does not move when the
-      // pitch itself is resized, so this cannot chase its own tail
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      const bench = benchBar.current?.offsetHeight ?? BENCH_ALLOW;
-      // On the first visit the way FORWARD sits under the pitch, and it is the
-      // only one: the pitch cannot take every pixel down to the bench or the
-      // button ends up behind it, which is exactly what happened.
-      const below = firstTime ? BUTTON_ROOM : 0;
-      const room = Math.round(window.innerHeight - top - bench - PITCH_GAP - below);
-      const h = Math.max(MIN_PITCH, room);
-      setPitchH(p => (p === h ? p : h));
-      // on a screen too short even for the floor, the leftover has to be
-      // scrollable past the bench, so the room under the pitch is exactly the
-      // bench footprint: a keeper you cannot reach is worse than a short scroll
-      const need = room < MIN_PITCH ? bench + PITCH_GAP : 0;
-      setSpill(s => (s === need ? s : need));
-    }
-  };
 
-  /**
-   * After every render, because measuring once is measuring at the one moment
-   * the page happened to be in.
-   *
-   * The pitch is given a height and then things ABOVE it settle and push it
-   * down: a line that wraps to two on a narrower phone, a notice that arrives,
-   * a crest that finishes loading. The pitch keeps the height it was given and
-   * the bench ends up over the defence, which is the picture Itzik sent.
-   *
-   * No dependency list on purpose. Anything that re-renders this screen can
-   * have moved the pitch, and re-fitting is a measurement and a comparison; it
-   * sets state only when the answer actually changed, so the render it causes
-   * settles on the next pass instead of ringing.
-   */
-  useLayoutEffect(fit);
-
-  useLayoutEffect(() => {
-    if (view !== 'pitch') return;
-    fit();
-    // And on a few timers after that, for everything that settles without a
-    // render to announce it: the bench is portaled and mounts a beat late, web
-    // fonts land and change how text wraps, pictures decode. Three cheap looks
-    // over the first second cost nothing and cover all of it.
-    const timers = [0, 120, 400, 1000].map(ms => window.setTimeout(fit, ms));
-    window.addEventListener('resize', fit);
-
-    // And then keep watching, because measuring once is measuring at the one
-    // moment the page happens to be in. Anything above the pitch that settles
-    // later moves it down without changing its height, and the bench then
-    // covers the defence: a line of text that wraps to two on a narrower
-    // phone, a crest or a shirt that finishes loading, a notice that arrives.
-    // Itzik sent a picture of exactly that. An observer costs nothing and
-    // cannot be out of date, and it cannot loop either: re-fitting only ever
-    // changes what is BELOW the measurement, and an unchanged height is a
-    // state React does not re-render for.
-    // Everything ABOVE the pitch, one by one, because what moves the pitch is
-    // not its own size or its column's: a spacer between the pitch and the
-    // button swallows the difference, so the column's height never changes and
-    // an observer on it never fires. The body is worse, pinned to the window.
-    // What actually happens is that a line wraps to two on a narrow phone, or
-    // a crest finishes loading, and the pitch is pushed DOWN while keeping the
-    // height it was given, until the bench covers the defence. Itzik sent a
-    // picture of exactly that. These are the elements whose height decides
-    // where the pitch starts, so these are the ones worth watching.
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
-    for (let el = pitchBox.current?.previousElementSibling; el; el = el.previousElementSibling) {
-      ro?.observe(el);
-    }
-    if (benchBar.current) ro?.observe(benchBar.current);
-    return () => {
-      timers.forEach(window.clearTimeout);
-      window.removeEventListener('resize', fit);
-      ro?.disconnect();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, firstTime, sq.starters.length, sq.bench.length, gs.tactic?.formation]);
 
 
   const all = useMemo(() => [...sq.starters, ...sq.bench], [sq]);
@@ -440,7 +338,15 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
         the way out sits where the thumb looks for it, not below eighteen names.
         On the first visit there is no hub yet, so neither belongs. */}
     {!firstTime && <Meters {...gs.meters} gems={gs.gems} />}
-    <div className="screen pad stack pad-b" style={{ gap: view === 'pitch' ? 9 : 12, paddingBottom: view === 'pitch' ? (firstTime ? BENCH_ALLOW + 22 : 8) : undefined }}>
+    <div className={`screen pad stack pad-b${view === 'pitch' ? ' squad-fit' : ''}`} style={{ gap: view === 'pitch' ? 7 : 12 }}>
+      {/* In the pitch view this is a column exactly as tall as the window:
+          everything down to the team sheet scrolls inside, and the bench is the
+          last row of it, in the flow. That is the whole of the layout now. It
+          replaces measuring the pitch into the room left over, which produced
+          the bench over the defence, the way forward behind the bench, and a
+          flicker, because a measurement that feeds the layout it measures can
+          always disagree with it. The browser cannot. */}
+      <div className={view === 'pitch' ? 'squad-scroll' : 'contents'}>
       {!firstTime && <TopBack onBack={onDone} />}
       {firstTime && <Stepper current={6} />}
       {firstTime && <CoachGuide text="אלה השחקנים שלך. שלושה שכדאי להכיר למעלה, כל השאר בלחיצה על השם." />}
@@ -526,7 +432,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
               </button>
             ))}
           </div>
-          <div className="squad-pitch-box" ref={pitchBox} style={pitchH ? { height: pitchH, marginBottom: spill } : undefined}>
+          <div className="squad-pitch-box">
             <LineupPitch formation={form} players={onPitch} kit={homeKit(c)}
               captainId={captainId} selectedId={picked ?? sheet} bannedIds={bannedIds}
               dragId={drag.fromId} overId={drag.overId} overOk={drag.overOk}
@@ -546,6 +452,8 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
       )}
 
       {view === 'list' && <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--ink-dim)', marginTop: 4 }}>ספסל החילופים</div>}
+      {view === 'pitch' && <div className="spacer" />}
+      </div>
       {view === 'pitch' ? (
         /* The bench rides the bottom of the screen. It used to sit in the flow
            under a pitch two screens tall, so moving a man meant carrying him
@@ -554,7 +462,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
            tile lifts the man: a sideways swipe pans the strip natively
            (touch-action) and cancels the drag, so the two gestures do not
            fight. A tap still opens his numbers. */
-        <Portal><div className="bench-bar" ref={benchBar} role="list" aria-label="ספסל החילופים">
+        <div className="bench-bar" ref={benchBar} role="list" aria-label="ספסל החילופים">
           <span className="bench-bar-cap">ספסל</span>
           <div className="bench-bar-row">
             {sq.bench.map(p => {
@@ -581,7 +489,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
               );
             })}
           </div>
-        </div></Portal>
+        </div>
       ) : (
         <div className="tile" style={{ padding: '4px 10px 8px' }}>
           {sq.bench.map(p => {
@@ -597,7 +505,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
         </div>
       )}
 
-      <div className="spacer" />
+      {view === 'list' && <div className="spacer" />}
       {(firstTime || view === 'list') && (
         <button className="btn" onClick={onDone}>{firstTime ? 'ממשיכים לשוק ההעברות' : 'חזרה'}</button>
       )}
@@ -807,14 +715,15 @@ function useDrag({ canDrop, onDrop, onRefuse, onTap, bottomInset }: {
   return { fromId, overId, overOk, pos, start };
 }
 
-/** How short the pitch may get before the men start landing on each other. */
-const MIN_PITCH = 300;
-/** What the pinned bench costs, until it is mounted and can be measured. */
-const BENCH_ALLOW = 92;
-/** Air between the bottom of the pitch and the top of the bench. */
-const PITCH_GAP = 10;
-/** What the way forward needs under the pitch, on the screen that has one. */
-const BUTTON_ROOM = 66;
+/**
+ * The room the pinned bench needs under everything else.
+ *
+ * The bench is fixed to the bottom of the window, so it is out of the flow and
+ * the page has to be told to stop above it. This one number is the whole of
+ * what used to be a measurement, three pieces of state, four timers and an
+ * observer, and unlike them it cannot disagree with the layout it describes.
+ */
+const BENCH_ROOM = 0;
 
 const POS_LABEL: Record<string, string> = {
   GK: 'שוער', CB: 'בלם', LB: 'מגן שמאלי', RB: 'מגן ימני',

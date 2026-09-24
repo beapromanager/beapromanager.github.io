@@ -258,7 +258,9 @@ if (roleFit('GK', 'ST') !== 'out') fails.push('a keeper up front reads as fine')
   // sticky was the first attempt and it came unstuck at the bottom of the
   // page, drifting up above the last button, so the target of a drag moved
   // depending on how far you had scrolled. Only fixed holds it still.
-  if (!/\.bench-bar\{[^}]*position:fixed/.test(css)) fails.push('the bench strip is not nailed to the screen, so the drag is a journey again');
+  // it is the bottom row of a column the height of the window now, which puts
+  // it in the same place for the same reason, without being on top of anything
+  if (!/\.squad-fit \.bench-bar\{flex:none/.test(css)) fails.push('the bench is not the bottom row, so the drag is a journey again');
   console.log('  the bench rides the bottom of the pitch view, every tile a drop target');
 }
 
