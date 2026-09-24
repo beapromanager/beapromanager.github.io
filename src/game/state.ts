@@ -2145,8 +2145,8 @@ export function partWays(gs: GameState, playerId: string, kind: PartKind): GameS
     followUps: brokeWord
       ? [...next.followUps, {
           season: gs.season, week: gs.week + 1,
-          title: 'מכרת את מי שהבטחת לו',
-          body: `אמרת ל${p.name} שאותו לא תמכור לעולם. מכרת. בשכונה יודעים.`,
+          title: `${kind === 'transfer' ? 'מכרת' : 'שיחררת'} את מי שהבטחת לו`,
+          body: `אמרת ל${p.name} שאותו לא תמכור לעולם. ${kind === 'transfer' ? 'מכרת' : 'שיחררת אותו'}. בשכונה יודעים.`,
         }]
       : next.followUps,
     preResolved: [...next.preResolved, `renew-${playerId}`],

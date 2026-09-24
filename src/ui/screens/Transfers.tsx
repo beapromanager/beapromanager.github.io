@@ -176,7 +176,7 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
                 from his own card, where the screen says what it is. */}
             {sq.bench.some(p => isFriend(gs.friends, p)) && (
               <p className="hint" style={{ color: 'var(--gold-hi)' }}>
-                מי שבא איתך לא נמכר מכאן. אם באמת צריך להיפרד, זה מהכרטיס שלו.
+                מי שבא איתך לא נמכר מכאן. אם באמת צריך להיפרד, זה מהכרטיס שלו במסך הסגל.
               </p>
             )}
             {sq.bench.filter(p => !isFriend(gs.friends, p)).map(p => {

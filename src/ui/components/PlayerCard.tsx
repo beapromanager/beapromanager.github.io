@@ -312,7 +312,7 @@ function PartBlock({ name, part, friend, gaveWord }: {
               <div className="sub" style={{ fontSize: 13.5, marginTop: 3 }}>
                 {gaveWord
                   ? 'אם הוא הולך, כל הסגל יידע שהמילה שלך לא שווה כלום.'
-                  : 'הוא לא ימצא מועדון אחר שלקח אותו בגלל מי שהוא.'}
+                  : 'מועדון אחר יסתכל רק על הדירוג שלו, לא על מי שהוא.'}
               </div>
             </div>
           )}

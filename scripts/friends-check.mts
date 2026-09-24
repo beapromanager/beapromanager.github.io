@@ -542,6 +542,26 @@ const friendById = (gs: G.GameState, id: string) => mine(gs).find(p => p.id === 
   if (kept.meters.morale !== gs.meters.morale || kept.followUps.length !== gs.followUps.length) {
     fails.push('letting a friend go costs the word penalty even when no word was given');
   }
+  // and the card that comes back a week later says what the screen said. With
+  // the window shut and the cash in the red the only way out is a release, and
+  // there the screen tells him the man is freed for a quarter of his value, so
+  // the card cannot come back calling it a sale.
+  const soldCard = broke.followUps.find(f => f.title.includes('הבטחת'));
+  const shut = { ...promised, week: 1, meters: { ...promised.meters, money: -50_000 } };
+  checked += 3;
+  if (!soldCard || !soldCard.body.includes('מכרת')) {
+    fails.push('the card about a man who was sold no longer says he was sold');
+  }
+  if (!G.partOptions(shut, friend.id).some(o => o.kind === 'friends')) {
+    fails.push('no release is on offer with the window shut and the cash in the red, so nothing here is measured');
+  } else {
+    const freed = G.partWays(shut, friend.id, 'friends');
+    const card = freed.followUps.find(f => f.title.includes('הבטחת'));
+    if (!card) fails.push('breaking the word by releasing him never comes back at him');
+    else if (card.title.includes('מכרת') || card.body.includes('מכרת')) {
+      fails.push(`the card says sold about a man who was released: ${card.title} / ${card.body}`);
+    }
+  }
   console.log(`  a friend cannot be sold from the market; letting one go marks him gone, and breaking the word costs ${gs.meters.morale - broke.meters.morale} morale`);
 }
 
