@@ -119,3 +119,24 @@ export function fileReport(gs: GameState, text: string): { gs: GameState; gem: b
   const reports: ReportLog = { season: gs.season, count: reportsThisSeason(gs) + 1 };
   return { gs: { ...gs, gems: gs.gems + GEMS_PER_REPORT, reports }, gem };
 }
+
+/**
+ * Whether an error came out of this game's own code.
+ *
+ * The window catches everything thrown on the page, not only what the game
+ * threw: a browser extension, an injected script, a blocked tracker. Those used
+ * to raise "משהו נשבר" over a game that was working perfectly, and now that
+ * crashes are counted they would also fill the numbers with faults nobody can
+ * fix. A React error boundary does not need this, because React only ever
+ * hands it what the game itself threw.
+ *
+ * The test is whether our own address appears in the blame. An extension's
+ * frames name its own scheme; a script from another origin gives "Script
+ * error." with nothing at all; something typed into a console gives
+ * "<anonymous>". None of those name us, and none of them are ours to fix.
+ */
+export function isOurCrash(stack: string | undefined, filename: string | undefined, origin: string): boolean {
+  const where = `${filename ?? ''}\n${stack ?? ''}`;
+  if (/\b[a-z-]*extension:\/\//i.test(where)) return false;
+  return !!origin && where.includes(origin);
+}

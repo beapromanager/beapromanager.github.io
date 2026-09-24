@@ -23,6 +23,7 @@ import { simulateMatch } from '../src/engine/matchEngine.ts';
 import type { MatchResult } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { MANAGERS } from '../src/data/managers.ts';
+import { isOurCrash } from '../src/game/report.ts';
 
 
 const fails: string[] = [];
@@ -303,6 +304,43 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
     fails.push('the worker takes the crash fields on trust instead of checking them against a list');
   }
   console.log(`  a crash reports where and what kind, out of ${T.ERROR_NAMES.length} known kinds, and never a message`);
+}
+
+/* 3e2. AND ONLY OUR OWN CRASHES COUNT.
+      The window hears everything thrown on the page, not only what the game
+      threw. An extension, an injected script, a blocked tracker: each one used
+      to put "משהו נשבר" over a game that was working perfectly, and now that
+      crashes are counted, each one would also fill the numbers with faults
+      nobody can fix. Caught in the act during testing, when a line typed into
+      a console raised the crash screen.
+
+      The test is whether our own address is in the blame. These are the shapes
+      a real browser hands over. */
+{
+  const O = 'https://beapromanager.github.io';
+  const cases: [string, string | undefined, string | undefined, boolean][] = [
+    ['our own bundle', 'TypeError: x\n    at s (' + O + '/assets/index-a1.js:5:1)', undefined, true],
+    ['our own, named by filename', undefined, O + '/assets/index-a1.js', true],
+    ['a chrome extension', 'TypeError\n    at chrome-extension://abcd/content.js:1:1', 'chrome-extension://abcd/content.js', false],
+    ['a firefox extension', 'Error\n    at moz-extension://ef/inject.js:2:2', undefined, false],
+    ['a safari extension', 'Error\n    at safari-web-extension://zz/x.js:1:1', undefined, false],
+    ['a script from another origin, which gives nothing at all', undefined, undefined, false],
+    ['something typed into a console', 'TypeError\n    at <anonymous>:1:1', undefined, false],
+    ['a third party script', 'Error\n    at https://ads.example.com/t.js:9:9', 'https://ads.example.com/t.js', false],
+    ['an extension that also touched our frames', 'Error\n    at chrome-extension://a/c.js:1:1\n    at ' + O + '/assets/i.js:2:2', undefined, false],
+  ];
+  for (const [what, stack, file, want] of cases) {
+    checked++;
+    const got = isOurCrash(stack, file, O);
+    if (got !== want) fails.push(`${what}: ${want ? 'should count as ours' : 'should be ignored'}, and is not`);
+  }
+  // and the window listeners have to actually ask
+  const crashed = readFileSync('src/ui/components/Crashed.tsx', 'utf8');
+  checked++;
+  if (!crashed.includes('isOurCrash(e.error.stack, e.filename, location.origin)')) {
+    fails.push('the crash net still catches anything the page throws, including other people\'s code');
+  }
+  console.log(`  ${cases.length} kinds of error sorted into ours and not ours, and the net asks`);
 }
 
 /* 3f. THE LINK HAS A FACE.

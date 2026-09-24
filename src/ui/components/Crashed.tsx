@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from './Icon.tsx';
 import { ReportSheet } from './ReportSheet.tsx';
-import { describeError } from '../../game/report.ts';
+import { describeError, isOurCrash } from '../../game/report.ts';
 import { loadCareer, saveCareer } from '../../game/save.ts';
 import { trackCrash, stepFor } from '../../game/telemetry.ts';
 import type { GameState } from '../../game/state.ts';
@@ -39,8 +39,19 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
 function WindowNet({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<unknown | null>(null);
   useEffect(() => {
-    const onError = (e: ErrorEvent) => { if (e.error instanceof Error) setError(e.error); };
-    const onReject = (e: PromiseRejectionEvent) => { if (e.reason instanceof Error) setError(e.reason); };
+    // Only what the GAME threw. The window hears everything on the page, and
+    // an extension or a script from somewhere else breaking used to put
+    // "משהו נשבר" over a game that was working. Now that crashes are counted
+    // it would also fill the numbers with faults that are not ours to fix.
+    const mine = (e: unknown) => isOurCrash((e as Error)?.stack, undefined, location.origin);
+    const onError = (e: ErrorEvent) => {
+      if (!(e.error instanceof Error)) return;
+      if (!isOurCrash(e.error.stack, e.filename, location.origin)) return;
+      setError(e.error);
+    };
+    const onReject = (e: PromiseRejectionEvent) => {
+      if (e.reason instanceof Error && mine(e.reason)) setError(e.reason);
+    };
     window.addEventListener('error', onError);
     window.addEventListener('unhandledrejection', onReject);
     return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onReject); };
