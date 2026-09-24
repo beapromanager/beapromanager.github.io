@@ -2001,7 +2001,9 @@ const LINE: Record<string, 'GK' | 'DEF' | 'MID' | 'FWD'> = {
  * if he scores against you the reporter will know exactly who he is. The
  * buyer is the club that needs him most on his line, ties broken by the seed.
  */
-export function moveToLeagueClub(gs: GameState, p: Player): { gs: GameState; clubId: string } {
+export function moveToLeagueClub(
+  gs: GameState, p: Player, preferId?: string | null,
+): { gs: GameState; clubId: string } {
   const rng = createRng(gs.seasonSeed * 53 + gs.week * 7 + hashId(p.id));
   const line = LINE[p.position] ?? 'MID';
   const others = gs.league.clubs.filter(c => c.id !== gs.clubId && gs.league.squads[c.id]);
@@ -2011,7 +2013,10 @@ export function moveToLeagueClub(gs: GameState, p: Player): { gs: GameState; clu
     return s.length ? Math.min(...s.map(overall)) : 0;
   };
   const ranked = [...others].sort((a, b) => weakest(a.id) - weakest(b.id) || rng() - 0.5);
-  const buyer = ranked[0] ?? others[0];
+  // a named club takes him whatever his line needs, which is how a man goes
+  // somewhere for a reason rather than wherever the table has a gap
+  const asked = preferId ? others.find(c => c.id === preferId) : undefined;
+  const buyer = asked ?? ranked[0] ?? others[0];
   if (!buyer) return { gs, clubId: gs.clubId };
 
   const sq = gs.league.squads[buyer.id];
@@ -2116,6 +2121,24 @@ export function partOptions(gs: GameState, playerId: string): PartOption[] {
   return out;
 }
 
+/**
+ * The club the derby is against, when it is in the division.
+ *
+ * Every region league is built with one, and the club's own rivalId is the
+ * same club the builder calls the derby, so the second road here is a
+ * formality that has never been walked. It is kept because a card that
+ * promises a derby must not be written by a function that can return anyone.
+ */
+function derbyRivalId(gs: GameState): string | null {
+  const here = (id: string | null | undefined): id is string =>
+    !!id && id !== gs.clubId && !!gs.league.squads[id] && gs.league.clubs.some(c => c.id === id);
+  const mine = club(gs).rivalId;
+  if (here(mine)) return mine;
+  const other = gs.league.clubs.find(c =>
+    c.id !== gs.clubId && !!gs.league.squads[c.id] && isDerby(gs.clubId, c.id));
+  return other?.id ?? null;
+}
+
 /** Let him go the chosen way. A kind that is not on offer this week does nothing. */
 export function partWays(gs: GameState, playerId: string, kind: PartKind): GameState {
   const opt = partOptions(gs, playerId).find(o => o.kind === kind);
@@ -2126,13 +2149,25 @@ export function partWays(gs: GameState, playerId: string, kind: PartKind): GameS
   const wasFriend = isFriend(gs.friends, { id: playerId });
   const brokeWord = wasFriend && !!gs.mate.neverSell;
   const gone = removePlayer(gs, playerId);
-  // a transfer is to somewhere: he joins a club in this league and plays there
-  const moved = kind === 'transfer' ? moveToLeagueClub(gone, p) : { gs: gone, clubId: null };
+  // a transfer is to somewhere: he joins a club in this league and plays there.
+  // One of the two does not drift off to whoever happens to need a midfielder.
+  // He signs for the derby, because the shirt he ends up in has to be a shirt
+  // this manager will have to look at again.
+  const toRival = wasFriend ? derbyRivalId(gs) : null;
+  const moved = kind === 'transfer' ? moveToLeagueClub(gone, p, toRival) : { gs: gone, clubId: null };
   const next = moved.gs;
   const buyer = moved.clubId ? gs.league.clubs.find(c => c.id === moved.clubId)?.short : null;
   return {
     ...next,
     friends: wasFriend ? markFriendGone(next.friends, playerId) : next.friends,
+    // and he hears where the man went the way everyone else hears it
+    notices: wasFriend && buyer && moved.clubId === toRival
+      ? [...next.notices, {
+          kind: 'story' as const,
+          title: `${surnameOf(p.name)} חתם ביריבה`,
+          body: `${p.name} חתם ב${buyer}. בדרבי הקרוב הוא יעמוד מולך, והיציע שלהם כבר יודע מאיפה הוא הגיע.`,
+        }]
+      : next.notices,
     meters: {
       ...next.meters,
       money: cash(next.meters.money + opt.fee),

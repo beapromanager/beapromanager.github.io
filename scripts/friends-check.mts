@@ -31,7 +31,7 @@ import { MATE_THREADS, MATE_GAP, mateThread, everyMateLine } from '../src/data/m
 import { emptyMate, pickMateTrigger, texterOf } from '../src/game/mate.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
-import { leagueCeiling } from '../src/data/clubs.ts';
+import { leagueCeiling, isDerby } from '../src/data/clubs.ts';
 
 const fails: string[] = [];
 let checked = 0;
@@ -528,6 +528,30 @@ const friendById = (gs: G.GameState, id: string) => mine(gs).find(p => p.id === 
     fails.push('nothing records that a friend left, so the phone call about being the last one can never fire');
   }
 
+  // he does not drift off to whoever needs a midfielder. He signs for the
+  // derby, and the news comes back as a card that names the club he is in.
+  type Story = { kind: 'story'; title: string; body: string };
+  const isStory = (n: { kind: string }): n is Story => n.kind === 'story';
+  const exit = gone.exits[gone.exits.length - 1];
+  const short = (id: string | undefined) => gs.league.clubs.find(c => c.id === id)?.short ?? '?';
+  checked += 4;
+  if (!exit || exit.id !== friend.id) {
+    fails.push('nothing recorded which club the friend went to');
+  } else if (!isDerby(gs.clubId, exit.clubId)) {
+    fails.push(`the friend signed for ${short(exit.clubId)}, which is not the derby`);
+  }
+  const story = gone.notices.filter(isStory).find(n => n.title.includes('חתם ביריבה'));
+  if (!story) fails.push('no card says the friend signed for the rival');
+  else if (!story.body.includes(short(exit?.clubId))) {
+    fails.push(`the card does not name the club he is actually in (${short(exit?.clubId)}): ${story.body}`);
+  }
+  // and an ordinary man leaving is still an ordinary man leaving
+  if (ordinary) {
+    const sold = G.partWays(gs, ordinary.id, 'transfer');
+    if (sold.notices.filter(isStory).some(n => n.title.includes('חתם ביריבה'))) {
+      fails.push('an ordinary sale announces itself as a friend signing for the rival');
+    }
+  }
   // and the word, when it was given, costs something to break
   const promised = { ...gs, mate: { ...gs.mate, neverSell: true } };
   const broke = G.partWays(promised, friend.id, 'transfer');
