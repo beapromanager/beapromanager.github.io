@@ -9,6 +9,7 @@ import { PlayerCard } from '../components/PlayerCard.tsx';
 import { Portal } from '../components/Portal.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { scrollToTop } from '../scroll.ts';
+import { isFriend } from '../../game/friends.ts';
 import { PlayerRow, ovrColor, LINE_OF, LINE_LABEL } from './Squad.tsx';
 import { MAX_SQUAD, MIN_SQUAD, sellPrice, contractTerms } from '../../game/transfers.ts';
 import type { FreeAgent } from '../../game/transfers.ts';
@@ -168,7 +169,17 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
         {tab === 'mine' && (
           <div className="stack" style={{ gap: 10 }}>
             <p className="hint">אפשר למכור רק שחקני ספסל. אם אתה רוצה להיפטר משחקן מההרכב, קודם תוציא אותו במסך הסגל.</p>
-            {sq.bench.map(p => {
+            {/* The two he brought with him are not stock. One of them sitting
+                on the bench used to appear here with a price and a Sell
+                button, one tap from gone, which is not what a man who came
+                with you from the neighbourhood is. He can still be let go,
+                from his own card, where the screen says what it is. */}
+            {sq.bench.some(p => isFriend(gs.friends, p)) && (
+              <p className="hint" style={{ color: 'var(--gold-hi)' }}>
+                מי שבא איתך לא נמכר מכאן. אם באמת צריך להיפרד, זה מהכרטיס שלו.
+              </p>
+            )}
+            {sq.bench.filter(p => !isFriend(gs.friends, p)).map(p => {
               const blocked = G.sellBlockedReason(gs);
               return (
                 <div key={p.id} className="tile" style={{ padding: '4px 10px 12px' }}>

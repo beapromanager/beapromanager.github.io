@@ -26,6 +26,7 @@ import { overall, createRng } from '../src/engine/matchEngine.ts';
 import { makePlayer } from '../src/data/squadGen.ts';
 import { assignTraits, isFriendTrait, renderLine } from '../src/data/personalities.ts';
 import { potentialBand } from '../src/game/career.ts';
+import { isFriend } from '../src/game/friends.ts';
 import { MATE_THREADS, MATE_GAP, mateThread, everyMateLine } from '../src/data/mateChats.ts';
 import { emptyMate, pickMateTrigger, texterOf } from '../src/game/mate.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
@@ -485,6 +486,63 @@ const friendById = (gs: G.GameState, id: string) => mine(gs).find(p => p.id === 
   if (said.length < 100) fails.push(`only ${said.length} lines on his phone`);
 
   console.log(`  ${MATE_THREADS.length} threads, ${MATE_THREADS.flatMap(x => x.answers).length} answers, ${said.length} lines, one every ${MATE_GAP} rounds at most`);
+}
+
+/* 8. THEY ARE NOT STOCK, AND LETTING ONE GO IS A REAL EVENT.
+      A friend is an ordinary player in every squad function, which is what
+      makes him work, and was also the hole: one of them sitting on the bench
+      turned up in the transfer market with a price and a Sell button, one tap
+      from gone. Worse, nothing anywhere marked a friend as having left, so a
+      man who was sold stayed a friend: he kept the badge, friendsFollow would
+      have carried him to the next club after a sacking, and mate_alone, the
+      call where the word "I will never sell you" is given, could never fire at
+      all, because it asks whether one of them has been sold. The whole promise
+      was unreachable code. */
+{
+  const base = () => ({ ...career('חיפה', 31, SPECS('bull', 'boot')), week: 8 });
+  const gs = base();
+  const friend = gs.friends[0];
+  checked += 3;
+
+  // the window is what makes a transfer possible at all, so the test is honest
+  if (!G.transferWindow(gs).open) fails.push('the window is shut in week 8, so this section measures nothing');
+
+  // the market cannot take him, wherever a screen might ask from
+  const afterSell = G.sellPlayer(gs, friend.id);
+  if (!mine(afterSell).some(p => p.id === friend.id)) {
+    fails.push('a friend can be sold from the market with one tap');
+  }
+  // and an ordinary man still sells, so the guard is not a wall around everyone
+  const ordinary = G.mySquad(gs).bench.find(p => !gs.friends.some(f => f.id === p.id));
+  if (ordinary) {
+    const sold = G.sellPlayer(gs, ordinary.id);
+    if (mine(sold).some(p => p.id === ordinary.id)) fails.push('nobody can be sold any more, which is not the point');
+  }
+
+  // letting him go from his own card marks him gone, which is the keystone
+  const gone = G.partWays(gs, friend.id, 'transfer');
+  checked += 3;
+  if (mine(gone).some(p => p.id === friend.id)) fails.push('letting a friend go left him in the squad');
+  if (isFriend(gone.friends, friend)) fails.push('a friend who was let go is still counted as one of the two here');
+  if (!gone.friends.some(f => f.sold)) {
+    fails.push('nothing records that a friend left, so the phone call about being the last one can never fire');
+  }
+
+  // and the word, when it was given, costs something to break
+  const promised = { ...gs, mate: { ...gs.mate, neverSell: true } };
+  const broke = G.partWays(promised, friend.id, 'transfer');
+  const kept = G.partWays(gs, friend.id, 'transfer');
+  checked += 3;
+  if (!(broke.meters.morale < gs.meters.morale)) {
+    fails.push('selling the man you swore never to sell costs the dressing room nothing');
+  }
+  if (!broke.followUps.some(f => f.title.includes('הבטחת'))) {
+    fails.push('breaking the word never comes back at him, so it is not a consequence');
+  }
+  if (kept.meters.morale !== gs.meters.morale || kept.followUps.length !== gs.followUps.length) {
+    fails.push('letting a friend go costs the word penalty even when no word was given');
+  }
+  console.log(`  a friend cannot be sold from the market; letting one go marks him gone, and breaking the word costs ${gs.meters.morale - broke.meters.morale} morale`);
 }
 
 console.log(`\n${checked} checks`);

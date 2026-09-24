@@ -13,7 +13,7 @@ import { buildRegionLeague, buildSiblingLeague, siblingClub } from '../data/citi
 import { kitColor, type KitColorId } from '../data/palette.ts';
 import { isLegend, isLegendClub, withLegend } from '../data/legends.ts';
 import type { Friend, FriendSpec } from './friends.ts';
-import { makeFriend, friendTrait, friendAfterSummer, shiftTo, isFriend } from './friends.ts';
+import { makeFriend, friendTrait, friendAfterSummer, shiftTo, isFriend, markFriendGone } from './friends.ts';
 import type { MateMemory } from './mate.ts';
 import { emptyMate, texterOf, pickMateTrigger, afterRound as mateAfterRound } from './mate.ts';
 import type { MateAnswer, MateTrigger } from '../data/mateChats.ts';
@@ -189,6 +189,16 @@ export interface MatchMods {
 
 /** What breaking a promise to a player costs the dressing room. */
 export const BROKEN_PROMISE_MORALE = -8;
+
+/**
+ * And what selling the man you swore you never would costs.
+ *
+ * Worse than a broken place in the eleven, because that promise was for one
+ * match and this one had no expiry date: he asked after you had already sold
+ * his friend, and you said never. There is no undoing it either, which is why
+ * it is also the only one that goes in the chronicle by name.
+ */
+export const BROKEN_WORD_MORALE = -16;
 
 /** A word that comes back to the hub in a few weeks. */
 export interface FollowUp {
@@ -1952,9 +1962,19 @@ export function sellBlockedReason(gs: GameState): string | null {
   return null;
 }
 
-/** Only bench players can be sold, starters must be swapped out first. */
+/**
+  * Only bench players can be sold, starters must be swapped out first.
+  *
+  * And never one of the two he brought with him. They are ordinary players in
+  * every other respect, which was the problem: one of them sitting on the
+  * bench appeared in the market with a price and a Sell button, one tap from
+  * gone. A friend can still be let go, but from his own card, deliberately,
+  * and the screen asks first. The refusal lives here rather than only in the
+  * market, so no screen can sell one by accident later.
+  */
 export function sellPlayer(gs: GameState, playerId: string): GameState {
   if (sellBlockedReason(gs)) return gs;
+  if (isFriend(gs.friends, { id: playerId })) return gs;
   const sq = mySquad(gs);
   const p = sq.bench.find(x => x.id === playerId);
   if (!p) return gs;
@@ -2102,6 +2122,9 @@ export function partWays(gs: GameState, playerId: string, kind: PartKind): GameS
   if (!opt) return gs;
   const sq = mySquad(gs);
   const p = [...sq.starters, ...sq.bench].find(x => x.id === playerId)!;
+  // one of the two he brought with him, and whether he had given his word
+  const wasFriend = isFriend(gs.friends, { id: playerId });
+  const brokeWord = wasFriend && !!gs.mate.neverSell;
   const gone = removePlayer(gs, playerId);
   // a transfer is to somewhere: he joins a club in this league and plays there
   const moved = kind === 'transfer' ? moveToLeagueClub(gone, p) : { gs: gone, clubId: null };
@@ -2109,7 +2132,23 @@ export function partWays(gs: GameState, playerId: string, kind: PartKind): GameS
   const buyer = moved.clubId ? gs.league.clubs.find(c => c.id === moved.clubId)?.short : null;
   return {
     ...next,
-    meters: { ...next.meters, money: cash(next.meters.money + opt.fee) },
+    friends: wasFriend ? markFriendGone(next.friends, playerId) : next.friends,
+    meters: {
+      ...next.meters,
+      money: cash(next.meters.money + opt.fee),
+      // A word given to a friend and then broken is not the same as a squad
+      // decision. The room watched him give it, and the room watches it break.
+      morale: brokeWord ? moraleShift(next.meters.morale, BROKEN_WORD_MORALE) : next.meters.morale,
+    },
+    // and it comes back at him next week, the way a word does. A line in a
+    // list he would have to go and open is not a consequence.
+    followUps: brokeWord
+      ? [...next.followUps, {
+          season: gs.season, week: gs.week + 1,
+          title: 'מכרת את מי שהבטחת לו',
+          body: `אמרת ל${p.name} שאותו לא תמכור לעולם. מכרת. בשכונה יודעים.`,
+        }]
+      : next.followUps,
     preResolved: [...next.preResolved, `renew-${playerId}`],
     pendingOutcome: kind === 'transfer'
       ? `${p.name} עבר ל${buyer ?? 'קבוצה אחרת'}. ${formatShekels(opt.fee)} נכנסו לקופה.`
@@ -4071,6 +4110,9 @@ function settleSummerExits(gs: GameState): GameState {
     const fee = sellPrice(p, club(out).tier);
     out = {
       ...moved.gs,
+      // he has left, friend or not, and a friend who has left is not one of
+      // the two who are still here
+      friends: markFriendGone(moved.gs.friends, id),
       meters: { ...moved.gs.meters, money: cash(moved.gs.meters.money + fee) },
       notices: [...moved.gs.notices, { kind: 'story', title: `${p.name} עבר ל${buyer}`, body: `כמו שסיכמתם בחורף: עד סוף העונה, ואז הוא הולך. הלך. ${formatShekels(fee)} נכנסו לקופה, ובפעם הבאה שתפגשו הוא בצד השני.` }],
     };

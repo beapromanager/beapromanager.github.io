@@ -304,3 +304,18 @@ export function makeFriend(spec: FriendSpec, tier: number, id: string, rng: Rng)
   p.seed = playerSeed(p.name, p.position, p.age, p.attrs);
   return p;
 }
+
+/**
+ * Mark a friend as gone from this club.
+ *
+ * Nothing did this, and it was load bearing in a way that was invisible: a
+ * friend who was let go stayed a friend in every other sense. He kept the
+ * badge that says he came with you, friendsFollow would have carried a man who
+ * left to your next club, and mate_alone, the phone call where you give your
+ * word that the other one is never sold, could never fire at all, because it
+ * asks whether one of them has been sold and the answer was always no. The
+ * whole promise was unreachable code.
+ */
+export function markFriendGone(friends: Friend[], playerId: string): Friend[] {
+  return friends.map(f => (f.id === playerId ? { ...f, sold: true } : f));
+}

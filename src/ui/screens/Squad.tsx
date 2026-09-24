@@ -626,7 +626,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
 
       {card && (
         <PlayerCard p={card} club={c} season={gs.seasonStats[card.id]} career={G.careerOf(gs, card.id)} traits={tr(card)}
-          friend={gs.friends.find(x => x.id === card.id)}
+          friend={gs.friends.find(x => x.id === card.id)} gaveWord={gs.mate.neverSell}
           part={!firstTime && onPart ? {
             options: G.partOptions(gs, card.id), blocked: G.partBlockedReason(gs, card.id),
             onPart: kind => {

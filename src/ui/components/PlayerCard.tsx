@@ -37,7 +37,7 @@ const GK_ATTRS: [string, string][] = [
  * The player card. A rating alone never made anyone care about a footballer,
  * so this leads with who he is and backs it with the numbers.
  */
-export function PlayerCard({ p, club, season, career, traits, friend, part, onClose }: {
+export function PlayerCard({ p, club, season, career, traits, friend, gaveWord, part, onClose }: {
   p: Player;
   club: Club;
   season?: PlayerSeason;
@@ -47,6 +47,8 @@ export function PlayerCard({ p, club, season, career, traits, friend, part, onCl
   traits?: Trait[];
   /** one of the two he brought with him, whose ceiling is his own */
   friend?: Friend;
+  /** he swore on the phone that this one is never sold, see mate.neverSell */
+  gaveWord?: boolean;
   /** the ways he can be let go this week, only from his own club's squad screen */
   part?: { options: PartOption[]; blocked: string | null; onPart: (kind: PartKind) => void };
   onClose: () => void;
@@ -161,7 +163,7 @@ export function PlayerCard({ p, club, season, career, traits, friend, part, onCl
             {rows.map(([label, v]) => <AttrBar key={label} label={label} value={v} />)}
           </div>
 
-          {part && <PartBlock name={p.name} part={part} />}
+          {part && <PartBlock name={p.name} part={part} friend={friend && !friend.sold ? friend : undefined} gaveWord={gaveWord} />}
         </div>
       </div>
     </div>
@@ -265,8 +267,21 @@ function SeasonStat({ label, value, gold }: { label: string; value: number; gold
  * does it, so a thumb sliding down the card never sells a man by accident.
  * When nothing applies this week (window shut, books fine) it says why the
  * door is closed rather than hiding it.
+ *
+ * One of the two he brought with him is asked about differently. Not with a
+ * third tap, which would only be an annoyance: with the truth on the
+ * confirmation, that this is the man who came with him, and, when he swore on
+ * the phone that this one is never sold, that he is about to break his word
+ * in front of the whole dressing room. The price of that is real, see
+ * BROKEN_WORD_MORALE, and it is not the sort of thing to find out afterwards.
  */
-function PartBlock({ name, part }: { name: string; part: NonNullable<Parameters<typeof PlayerCard>[0]['part']> }) {
+function PartBlock({ name, part, friend, gaveWord }: {
+  name: string;
+  part: NonNullable<Parameters<typeof PlayerCard>[0]['part']>;
+  friend?: Friend;
+  /** he promised this one is never sold */
+  gaveWord?: boolean;
+}) {
   const [armed, setArmed] = useState<PartKind | null>(null);
   const { options, blocked, onPart } = part;
   return (
@@ -283,6 +298,24 @@ function PartBlock({ name, part }: { name: string; part: NonNullable<Parameters<
             <span style={{ color: 'var(--win)' }}>+{formatMoney(o.fee)}</span>
             <span style={{ color: 'var(--ink-faint)' }}>שכר {formatMoney(o.wage)} לשבוע</span>
           </div>
+          {armed === o.kind && friend && (
+            <div className="tile" style={{
+              padding: '10px 12px',
+              borderColor: gaveWord ? 'rgba(226,72,77,.5)' : 'rgba(233,185,73,.45)',
+              background: gaveWord ? 'rgba(226,72,77,.10)' : 'rgba(233,185,73,.10)',
+            }}>
+              <div style={{ fontWeight: 800, fontSize: 14.5 }}>
+                {gaveWord
+                  ? `נתת לו מילה שאותו לא תמכור לעולם.`
+                  : `${surnameOf(name)} בא איתך מהשכונה.`}
+              </div>
+              <div className="sub" style={{ fontSize: 13.5, marginTop: 3 }}>
+                {gaveWord
+                  ? 'אם הוא הולך, כל הסגל יידע שהמילה שלך לא שווה כלום.'
+                  : 'הוא לא ימצא מועדון אחר שלקח אותו בגלל מי שהוא.'}
+              </div>
+            </div>
+          )}
           {armed === o.kind ? (
             <div className="row" style={{ gap: 8 }}>
               <button className="btn btn-sm" style={{ flex: 1, background: 'linear-gradient(180deg,#e2484d,#b8323a)', color: '#fff' }} onClick={() => onPart(o.kind)}>
