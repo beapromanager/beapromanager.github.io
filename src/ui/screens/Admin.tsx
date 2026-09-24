@@ -67,6 +67,29 @@ export function AdminScreen({ stats: data }: { stats: Stats }) {
         ))}
       </div>
 
+{/* The funnel says where people stop; this says whether the screen went
+    black there. A bar that falls at the squad screen means one thing if
+    nobody crashed on it and something else entirely if everybody did. */}
+      {!!data.crashes?.length && (
+        <>
+          <div className="label-cap">קריסות</div>
+          <div className="tile" style={{ padding: '11px 12px', borderColor: 'rgba(226,72,77,.35)' }}>
+            {data.crashes.map(c => (
+              <div key={c.step + c.err} className="row" style={{ justifyContent: 'space-between', padding: '5px 0', borderTop: '1px solid var(--line)' }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>
+                  {LABEL[c.step] ?? 'לפני שהתחיל'}
+                  <span style={{ color: 'var(--ink-faint)', fontWeight: 600 }} className="num"> · {c.err}</span>
+                </span>
+                <span className="num" style={{ fontSize: 13, fontWeight: 800, color: 'var(--loss)' }}>
+                  {c.n}
+                  <span style={{ color: 'var(--ink-faint)', fontWeight: 700 }}> · {c.people} מכשירים</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="label-cap">לפי יום</div>
       <div className="tile" style={{ padding: '11px 12px' }}>
         {data.daily.length === 0
@@ -105,6 +128,8 @@ export type Stats = {
   sittings: number;
   returned: number;
   daily: { day: string; people: number; sittings: number }[];
+  /** where the game broke, and on how many separate phones */
+  crashes?: { step: string; err: string; n: number; people: number }[];
 };
 
 /** the steps in words, so the chart reads without the code beside it */

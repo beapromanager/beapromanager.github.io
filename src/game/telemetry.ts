@@ -58,11 +58,58 @@ export type Event = {
   a: string;
   /** this sitting */
   s: string;
-  /** the step reached */
-  k: Step;
+  /** the step reached, or 'crash' */
+  k: Step | 'crash';
   /** when, ms since epoch, from the device clock */
   t: number;
+  /** a crash only: the step he had got to when it broke */
+  w?: Step | 'none';
+  /** a crash only: the KIND of error, from the list below and nothing else */
+  n?: ErrorName;
 };
+
+/**
+ * The error kinds worth telling apart, and the only thing about an error that
+ * is ever sent.
+ *
+ * Not the message. A message is free text written by whatever threw, and free
+ * text is the one shape that could carry a name a player typed. The class name
+ * is a closed list that cannot: it says a TypeError happened on the squad
+ * screen, which is what points at a line of code, and nothing about the man it
+ * happened to. The rest of the story is in the report he can send by hand.
+ */
+export const ERROR_NAMES = [
+  'Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'other',
+] as const;
+export type ErrorName = typeof ERROR_NAMES[number];
+
+export function errorName(e: unknown): ErrorName {
+  const n = e instanceof Error ? e.name : '';
+  return (ERROR_NAMES as readonly string[]).includes(n) ? n as ErrorName : 'other';
+}
+
+/**
+ * A crash reported at most a few times a sitting.
+ *
+ * The funnel says WHERE people stop. It cannot say whether they stopped
+ * because they were bored or because the screen went black, and those want
+ * opposite fixes. Crashes are not deduped the way steps are, because three
+ * crashes matter more than one, but a handler that fires in a loop must not
+ * be able to post all night, so a sitting reports at most this many.
+ */
+export const CRASH_CAP = 3;
+let crashesThisSitting = 0;
+
+export function trackCrash(e: unknown, at: Step | null): void {
+  if (!TELEMETRY_URL || crashesThisSitting >= CRASH_CAP) return;
+  crashesThisSitting++;
+  const queue = enqueued(readQueue(), {
+    a: deviceId(), s: sessionId, k: 'crash', t: Date.now(),
+    w: at ?? 'none', n: errorName(e),
+  });
+  write(QUEUE_KEY, JSON.stringify(queue));
+  void flush();
+}
 
 /** A random id with no meaning anywhere but in a count of distinct ids. */
 function newId(): string {
@@ -130,7 +177,8 @@ export function readQueue(): Event[] {
 function isEvent(e: unknown): e is Event {
   const x = e as Event;
   return !!x && typeof x.a === 'string' && typeof x.s === 'string'
-    && typeof x.t === 'number' && typeof x.k === 'string' && x.k in STEP_ORDER;
+    && typeof x.t === 'number' && typeof x.k === 'string'
+    && (x.k === 'crash' || x.k in STEP_ORDER);
 }
 
 /** The queue with one more on the end, oldest dropped past the cap. */

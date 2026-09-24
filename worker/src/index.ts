@@ -55,6 +55,9 @@ const STEPS = [
 type Step = typeof STEPS[number];
 const KNOWN = new Set<string>(STEPS);
 
+/** the error kinds the game may report; anything else is dropped */
+const ERROR_NAMES = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'other']);
+
 /** the most a single post may carry, so one caller cannot fill the table */
 const MAX_BATCH = 120;
 /** ids are made by the game and are short; anything longer is not one of ours */
@@ -80,19 +83,27 @@ function today(ts: number): string {
   return new Date(ts).toISOString().slice(0, 10);
 }
 
-type Incoming = { a?: unknown; s?: unknown; k?: unknown; t?: unknown };
+type Incoming = { a?: unknown; s?: unknown; k?: unknown; t?: unknown; w?: unknown; n?: unknown };
 
-/** An event, or nothing. The only shape that reaches the database. */
-function clean(e: Incoming, now: number): { aid: string; sid: string; step: Step; ts: number } | null {
+/**
+ * An event, or nothing. The only shape that reaches the database.
+ *
+ * A crash carries two extra values and both are closed lists: the step it
+ * happened on, and the class of error. Neither can be free text, which is
+ * what keeps a name a player typed from ever having a way in here.
+ */
+function clean(e: Incoming, now: number): { aid: string; sid: string; step: Step | 'crash'; ts: number; where: string; err: string } | null {
   const aid = typeof e.a === 'string' ? e.a.slice(0, MAX_ID) : '';
   const sid = typeof e.s === 'string' ? e.s.slice(0, MAX_ID) : '';
   const step = typeof e.k === 'string' ? e.k : '';
-  if (!aid || !sid || !KNOWN.has(step)) return null;
+  if (!aid || !sid || !(KNOWN.has(step) || step === 'crash')) return null;
+  const where = typeof e.w === 'string' && (KNOWN.has(e.w) || e.w === 'none') ? e.w : 'none';
+  const err = typeof e.n === 'string' && ERROR_NAMES.has(e.n) ? e.n : 'other';
   // a device clock can be anything at all, so it is only trusted to be a
   // number and never to be right: far future or far past lands on arrival
   const raw = typeof e.t === 'number' && Number.isFinite(e.t) ? e.t : now;
   const ts = Math.abs(raw - now) > 1000 * 60 * 60 * 24 * 30 ? now : Math.round(raw);
-  return { aid, sid, step: step as Step, ts };
+  return { aid, sid, step: step as Step | 'crash', ts, where, err };
 }
 
 export default {
@@ -112,9 +123,13 @@ export default {
 
       const stmts = [
         // a step counts once per device, whatever the network did
-        ...rows.map(r => env.DB
+        ...rows.filter(r => r.step !== 'crash').map(r => env.DB
           .prepare('INSERT OR IGNORE INTO steps (aid, step, ts, day) VALUES (?, ?, ?, ?)')
           .bind(r.aid, r.step, r.ts, today(r.ts))),
+        // a crash is not deduped: three crashes matter more than one
+        ...rows.filter(r => r.step === 'crash').map(r => env.DB
+          .prepare('INSERT INTO crashes (aid, sid, ts, day, where_step, err) VALUES (?, ?, ?, ?, ?, ?)')
+          .bind(r.aid, r.sid, r.ts, today(r.ts), r.where, r.err)),
         // a sitting counts once, and only an open starts one
         ...rows.filter(r => r.step === 'open').map(r => env.DB
           .prepare('INSERT OR IGNORE INTO sessions (sid, aid, ts, day) VALUES (?, ?, ?, ?)')
@@ -134,7 +149,7 @@ export default {
       const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days') ?? 30)));
       const since = today(Date.now() - days * 86400000);
 
-      const [funnel, totals, daily, returning] = await Promise.all([
+      const [funnel, totals, daily, returning, crashes] = await Promise.all([
         env.DB.prepare('SELECT step, COUNT(*) AS n FROM steps GROUP BY step').all(),
         env.DB.prepare(
           'SELECT (SELECT COUNT(DISTINCT aid) FROM sessions) AS people,' +
@@ -149,6 +164,12 @@ export default {
         env.DB.prepare(
           'SELECT COUNT(*) AS n FROM (SELECT aid FROM sessions GROUP BY aid HAVING COUNT(DISTINCT day) > 1)'
         ).all(),
+        // where it broke, and on how many different phones, which is the
+        // difference between one unlucky device and a real fault
+        env.DB.prepare(
+          'SELECT where_step AS step, err, COUNT(*) AS n, COUNT(DISTINCT aid) AS people' +
+          ' FROM crashes GROUP BY where_step, err ORDER BY n DESC LIMIT 12'
+        ).all(),
       ]);
 
       const counts: Record<string, number> = {};
@@ -162,6 +183,7 @@ export default {
         sittings: (totals.results[0] as { sittings: number })?.sittings ?? 0,
         returned: (returning.results[0] as { n: number })?.n ?? 0,
         daily: daily.results,
+        crashes: crashes.results,
       }, 200, origin);
     }
 

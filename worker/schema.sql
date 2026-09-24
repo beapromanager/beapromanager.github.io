@@ -29,3 +29,20 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS sessions_day ON sessions (day);
 CREATE INDEX IF NOT EXISTS sessions_aid ON sessions (aid);
+
+-- One row per crash. Not deduped, because three crashes on one phone matter
+-- more than one, and the point is to tell a real fault from an unlucky device.
+--
+-- `where_step` is the funnel step the player had reached and `err` is the
+-- class of error; both come from closed lists that the worker checks, so no
+-- free text ever lands here. The error's MESSAGE is never sent, because a
+-- message is the one shape that could carry a name somebody typed.
+CREATE TABLE IF NOT EXISTS crashes (
+  aid        TEXT NOT NULL,
+  sid        TEXT NOT NULL,
+  ts         INTEGER NOT NULL,
+  day        TEXT NOT NULL,
+  where_step TEXT NOT NULL,
+  err        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS crashes_day ON crashes (day);

@@ -3,6 +3,7 @@ import { Icon } from './Icon.tsx';
 import { ReportSheet } from './ReportSheet.tsx';
 import { describeError } from '../../game/report.ts';
 import { loadCareer, saveCareer } from '../../game/save.ts';
+import { trackCrash, stepFor } from '../../game/telemetry.ts';
 import type { GameState } from '../../game/state.ts';
 
 /**
@@ -53,6 +54,17 @@ export function Crashed({ error }: { error: unknown }) {
   // the last good save, for the report's context line and for the thank you
   const [gs, setGs] = useState<GameState | null>(() => { try { return loadCareer(); } catch { return null; } });
   const crash = describeError(error);
+
+  // The funnel says where people stop. It cannot say whether they stopped
+  // because they were bored or because the screen went black, and those two
+  // want opposite fixes. So a crash is counted, with the step it happened on
+  // and the KIND of error, and nothing else: see telemetry.ts on why the
+  // message is not sent. Reporting by hand stays, for the story.
+  useEffect(() => {
+    trackCrash(error, gs ? stepFor(gs) : null);
+    // once per crash screen, whatever re-renders after it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <div className="screen pad stack" style={{ minHeight: '100dvh', justifyContent: 'center', alignItems: 'center' }}>
       <div className="exit-sheet" role="alert">

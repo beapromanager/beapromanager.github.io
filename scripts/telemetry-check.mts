@@ -264,6 +264,69 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   console.log('  nothing about what was sent outlives the sitting; the server is what cannot double count');
 }
 
+/* 3e. A CRASH IS COUNTED, WITHOUT A WORD OF FREE TEXT.
+      The funnel says where people stop and cannot say why. A bar that falls at
+      the squad screen means one thing if nobody crashed there and something
+      else entirely if everybody did, and those want opposite fixes.
+
+      The error's MESSAGE is never sent, and that is the whole of the privacy
+      argument: a message is free text written by whatever threw, and free text
+      is the one shape that could carry a name a player typed. The class of
+      error is a closed list and cannot. */
+{
+  const tele = readFileSync('src/game/telemetry.ts', 'utf8');
+  const worker = readFileSync('worker/src/index.ts', 'utf8');
+  checked += 6;
+
+  // a real error reports its kind, an odd one lands on 'other', and neither
+  // can smuggle anything through
+  if (T.errorName(new TypeError('x')) !== 'TypeError') fails.push('a TypeError is not reported as one');
+  if (T.errorName(new Error('איציק')) !== 'Error') fails.push('a plain Error is not reported as one');
+  class Weird extends Error { name = 'איציק כהן'; }
+  if (T.errorName(new Weird()) !== 'other') fails.push('an error can name itself anything and have it sent');
+  if (T.errorName('a string') !== 'other') fails.push('a thrown string is not handled');
+
+  // The message never leaves. Written with plain string matching rather than a
+  // pattern: the first try was a regex whose backslash was eaten on the way
+  // into this file, so ".message" meant "any character then message" and it
+  // matched the word in its own explaining comment. A guard that fires on its
+  // own prose teaches you to ignore it.
+  if (tele.includes('describeError') || tele.includes('.message')) {
+    fails.push('telemetry.ts can see an error message, which is free text a name could ride in');
+  }
+  const crashed = readFileSync('src/ui/components/Crashed.tsx', 'utf8');
+  if (!crashed.includes('trackCrash(error, gs ? stepFor(gs) : null)')) {
+    fails.push('a crash is not counted, so a black screen and boredom look identical in the funnel');
+  }
+  // and the worker refuses anything outside the two closed lists
+  if (!worker.includes('ERROR_NAMES.has(e.n)') || !worker.includes("KNOWN.has(e.w) || e.w === 'none'")) {
+    fails.push('the worker takes the crash fields on trust instead of checking them against a list');
+  }
+  console.log(`  a crash reports where and what kind, out of ${T.ERROR_NAMES.length} known kinds, and never a message`);
+}
+
+/* 3f. THE LINK HAS A FACE.
+      This game travels by one person sending it to another on WhatsApp, and a
+      link with no card is a bare address nobody taps. The addresses have to be
+      absolute, since an unfurler fetches the page from outside and cannot
+      resolve a relative one, and the picture has to be under the size
+      WhatsApp will render. */
+{
+  const html = readFileSync('index.html', 'utf8');
+  const { statSync } = await import('node:fs');
+  checked += 4;
+  for (const tag of ['og:title', 'og:description', 'og:image', 'og:url']) {
+    if (!html.includes(`property="${tag}"`)) fails.push(`the link preview has no ${tag}`);
+  }
+  const img = /property="og:image" content="([^"]+)"/.exec(html)?.[1] ?? '';
+  if (!img.startsWith('https://')) fails.push(`the preview picture is "${img}", which nothing outside the site can fetch`);
+  const file = 'public/' + img.split('/').pop();
+  const size = statSync(file).size;
+  if (size > 300 * 1024) fails.push(`the preview picture is ${Math.round(size / 1024)}KB, over what WhatsApp renders`);
+  if (!/og:image:width" content="1200"/.test(html)) fails.push('the preview picture does not declare its size');
+  console.log(`  the link carries a card: ${Math.round(size / 1024)}KB, absolute, with a title and words`);
+}
+
 /* 4. AND WITH NOWHERE TO SEND IT, IT SENDS NOTHING.
       The state the game ships in until the worker is up. */
 {
