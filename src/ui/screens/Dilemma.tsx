@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import * as G from '../../game/state.ts';
 import { Meters } from '../components/bits.tsx';
 import { Icon } from '../components/Icon.tsx';
@@ -20,13 +21,37 @@ export const SPEAKER_META: Record<Speaker, { icon: IconName; color: string }> = 
   squad: { icon: 'crowd', color: 'var(--win)' },
 };
 
+/**
+ * How long his answer is left on the screen before the game walks on.
+ *
+ * It is one line in a bubble, and the reason to have chosen at all. Long
+ * enough to read it, short enough that nobody is waiting: the button is
+ * still there for a thumb that is faster than the beat.
+ */
+const REPLY_BEAT = 2200;
+
 export function DilemmaChat({ gs, onChoose, onContinue }: {
   gs: G.GameState; onChoose: (i: number) => void; onContinue: () => void;
 }) {
   const d = gs.dilemma;
-  if (!d) return null;
   const answered = gs.pendingOutcome != null;
-  const sp = SPEAKER_META[d.speaker];
+  const sp = d ? SPEAKER_META[d.speaker] : null;
+  /**
+   * The reply reads itself and the game moves on.
+   *
+   * This screen used to end in a tap that did nothing but agree to
+   * continue, and it sits in the middle of the longest corridor in the
+   * game: a first match was six taps and five screens away from a ball
+   * moving, and the second largest fall in the funnel is the people who
+   * reached the hub and never played a round.
+   */
+  useEffect(() => {
+    if (!answered) return;
+    const t = window.setTimeout(onContinue, REPLY_BEAT);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answered]);
+  if (!d || !sp) return null;
 
   return (
     <>

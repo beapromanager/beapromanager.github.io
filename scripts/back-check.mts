@@ -83,7 +83,7 @@ const back = readFileSync('src/ui/back.ts', 'utf8');
       out of one of those loses the answer the manager was asked for, which is
       worse than the bug this whole file is about. */
 {
-  const PROTECTED = ['match', 'press', 'dilemma', 'tactic', 'vs', 'result',
+  const PROTECTED = ['match', 'press', 'dilemma', 'tactic', 'result',
     'season-end', 'sacked', 'rescue', 'kit', 'sponsor', 'ultimatum', 'chat',
     'signing', 'preseason', 'preseason-market'];
   const hStart = app.indexOf('setBackHandler(() => {');

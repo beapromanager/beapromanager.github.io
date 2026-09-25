@@ -113,12 +113,16 @@ if (JSON.stringify(twice[0]) !== JSON.stringify(twice[1]))
   fails.push('matchKits is not deterministic, so the header could drift from the pitch');
 
 /* 7. the shirt is still on the screens it is meant to be on. A shallow guard:
-      it catches an accidental deletion, not a broken layout. */
+      it catches an accidental deletion, not a broken layout.
+
+      The tunnel used to be on this list. The card it named showed the two
+      shirts on the way to the match and nothing else that was not already on
+      the screen before it, so it was taken out of the road to the first ball;
+      the shirts are still worn in the match header and on the bench. */
 const SHOWN: [string, string][] = [
   ['src/ui/screens/Hub.tsx', 'the hub identity row'],
   ['src/ui/screens/Squad.tsx', 'the squad header'],
   ['src/ui/screens/Match.tsx', 'the match header and the bench'],
-  ['src/ui/screens/Vs.tsx', 'the tunnel'],
   ['src/ui/screens/Onboard.tsx', 'the colour picker'],
 ];
 for (const [file, where] of SHOWN) {

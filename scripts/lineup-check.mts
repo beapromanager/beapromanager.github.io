@@ -234,7 +234,11 @@ if (roleFit('GK', 'ST') !== 'out') fails.push('a keeper up front reads as fine')
   const app = readFileSync('src/ui/App.tsx', 'utf8');
   const sheet = readFileSync('src/ui/screens/Teamsheet.tsx', 'utf8');
   checked += 4;
-  if (!/phase === 'vs'[^]{0,200}phase: 'teamsheet'/.test(app)) fails.push('the tunnel no longer leads to the dressing room board');
+  if (!/phase === 'tactic'[^]{0,260}phase: 'teamsheet'/.test(app)) fails.push('the tunnel no longer leads to the dressing room board');
+  if (/<VsScreen/.test(app)) fails.push('the crest card is back in the tunnel');
+  if (!/patched\.phase === 'vs'/.test(readFileSync('src/game/save.ts', 'utf8'))) {
+    fails.push('a save left standing on the old crest card would open on nothing');
+  }
   if (!/phase === 'teamsheet'[^]{0,200}phase: 'match'/.test(app)) fails.push('the dressing room board does not lead to the match');
   if (!/G\.lineup\(gs\)/.test(sheet)) fails.push('the chalkboard does not draw the real eleven');
   if (!/formation\(gs\.tactic\?\.formation\)/.test(sheet)) fails.push('the chalkboard is not drawn in the shape being played');

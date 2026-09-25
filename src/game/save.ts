@@ -212,6 +212,9 @@ export function loadCareer(): GameState | null {
     patched.league = { ...patched.league, squads: { ...patched.league.squads, [patched.clubId]: { ...sq, starters, bench } } };
   }
   if (patched.phase === 'match') return { ...patched, phase: 'hub' };
+  // the crest card between the tactics and the dressing room is gone; a save
+  // that was left standing on it opens on the board that followed it
+  if (patched.phase === 'vs') return { ...patched, phase: 'teamsheet' };
   return patched;
 }
 
