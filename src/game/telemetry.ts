@@ -89,6 +89,43 @@ export function errorName(e: unknown): ErrorName {
 }
 
 /**
+ * Whether this page is being served by a machine rather than by the internet.
+ *
+ * The dev server and a local preview are the same code as the live site, with
+ * the same address in the same constant, and they were counted the same way.
+ * Every career walked to test a screen arrived as a person who had walked a
+ * career; every error thrown on a laptop arrived as a crash on somebody's
+ * phone, and twice over, because React runs an effect twice in development.
+ * The numbers this file exists to produce are read to decide what to build
+ * next, and a number that counts its own author is worse than no number.
+ *
+ * A phone reading the dev server over the wifi is still the dev server, so the
+ * private ranges count as the machine too. Nothing the game is actually served
+ * from can look like this: it lives on a domain.
+ *
+ * Read on every call and never cached, so it can be put to the question.
+ */
+export function servedLocally(): boolean {
+  const h = (globalThis as { location?: { hostname?: string } }).location?.hostname;
+  if (!h) return false;                       // node, where the checks run
+  if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]') return true;
+  if (h.endsWith('.local') || h.endsWith('.localhost')) return true;
+  return /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(h);
+}
+
+/**
+ * Where to post, which a machine that is not the internet does not have.
+ *
+ * Shipping with no endpoint at all was always a supported state: with nothing
+ * to send to, the game counts nothing and behaves exactly as it did before any
+ * of this existed. A laptop is now simply another place with no endpoint, so
+ * one road covers both and there is no second way to be switched off.
+ */
+function endpoint(): string {
+  return servedLocally() ? '' : TELEMETRY_URL;
+}
+
+/**
  * A crash reported at most a few times a sitting.
  *
  * The funnel says WHERE people stop. It cannot say whether they stopped
@@ -101,7 +138,7 @@ export const CRASH_CAP = 3;
 let crashesThisSitting = 0;
 
 export function trackCrash(e: unknown, at: Step | null): void {
-  if (!TELEMETRY_URL || crashesThisSitting >= CRASH_CAP) return;
+  if (!endpoint() || crashesThisSitting >= CRASH_CAP) return;
   crashesThisSitting++;
   const queue = enqueued(readQueue(), {
     a: deviceId(), s: sessionId, k: 'crash', t: Date.now(),
@@ -195,7 +232,7 @@ export function enqueued(queue: Event[], e: Event, cap = QUEUE_CAP): Event[] {
  * whether anything was sent.
  */
 export function track(step: Step): void {
-  if (!TELEMETRY_URL) return;
+  if (!endpoint()) return;
   const fresh = stepsUpTo(step).filter(s => !sentThisSitting.has(s));
   if (!fresh.length) return;
 
@@ -223,14 +260,14 @@ let sending = false;
  * was a hole exactly where it hurts.
  */
 export async function flush(): Promise<void> {
-  if (!TELEMETRY_URL || sending) return;
+  if (!endpoint() || sending) return;
   sending = true;
   try {
     // at most a few rounds: each one either empties the queue or fails
     for (let round = 0; round < 5; round++) {
       const queue = readQueue();
       if (!queue.length) return;
-      const res = await fetch(TELEMETRY_URL, {
+      const res = await fetch(endpoint(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ e: queue }),
@@ -257,7 +294,7 @@ export async function flush(): Promise<void> {
  * that reliably fires there, and the post is keepalive so it outlives the page.
  */
 export function flushOnLeaving(): () => void {
-  if (!TELEMETRY_URL || typeof document === 'undefined') return () => {};
+  if (!endpoint() || typeof document === 'undefined') return () => {};
   const go = () => { if (document.visibilityState === 'hidden') void flush(); };
   document.addEventListener('visibilitychange', go);
   window.addEventListener('pagehide', () => { void flush(); });

@@ -370,13 +370,77 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
 {
   checked += 2;
   const tele = readFileSync('src/game/telemetry.ts', 'utf8');
-  if (!/export function track\(step: Step\): void \{\s*\n\s*if \(!TELEMETRY_URL\) return;/.test(tele)) {
+  if (!/export function track\(step: Step\): void \{\s*\n\s*if \(!endpoint\(\)\) return;/.test(tele)) {
     fails.push('with no endpoint the game still tries to count');
   }
-  if (!/export async function flush\(\)[^]{0,120}if \(!TELEMETRY_URL[^]{0,30}\) return;/.test(tele)) {
+  if (!/export async function flush\(\)[^]{0,120}if \(!endpoint\(\)[^]{0,30}\) return;/.test(tele)) {
     fails.push('with no endpoint the queue is still posted');
   }
   console.log(`  the endpoint is ${TELEMETRY_URL ? 'set, so the game counts' : 'empty, so the game counts nothing at all'}`);
+}
+
+/* 5. AND A MACHINE THAT IS NOT THE INTERNET IS NOT A PLAYER.
+      The dev server and a local preview run the same code against the same
+      address, so an hour spent walking a career to test a screen arrived as a
+      person who had walked a career, and an error thrown on a laptop arrived
+      as a crash on somebody else, twice over, because React runs an effect
+      twice in development. This measures that both roads are shut: nothing is
+      queued and nothing is posted. */
+{
+  checked += 12;
+  const globals = globalThis as {
+    location?: unknown; localStorage?: unknown; fetch?: unknown;
+  };
+  const hadLocation = 'location' in globals;
+  const realLocation = globals.location;
+  const realStorage = globals.localStorage;
+  const realFetch = globals.fetch;
+  const asHost = (hostname: string | null) => {
+    if (hostname === null) delete globals.location;
+    else globals.location = { hostname };
+  };
+
+  asHost(null);
+  if (T.servedLocally()) fails.push('node, which is not a page at all, is read as a local page');
+  for (const h of ['localhost', '127.0.0.1', '192.168.1.153', '10.0.0.7', 'itzik-mac.local']) {
+    asHost(h);
+    if (!T.servedLocally()) fails.push(`a page served from ${h} would be counted as a player`);
+  }
+  for (const h of ['beapromanager.github.io', 'beapro.co.il']) {
+    asHost(h);
+    if (T.servedLocally()) fails.push(`${h} is read as a machine, so real players would stop being counted`);
+  }
+
+  // and it is the queue and the wire that stop, not merely a flag
+  const store = new Map<string, string>();
+  globals.localStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => { store.set(k, v); },
+    removeItem: (k: string) => { store.delete(k); },
+  };
+  const posted: string[] = [];
+  globals.fetch = async (url: unknown) => { posted.push(String(url)); return { ok: false }; };
+
+  asHost('beapromanager.github.io');
+  T.trackCrash(new Error('a crash on a real phone'), null);
+  const queuedFromAPhone = T.readQueue().length;
+  const postsFromAPhone = posted.length;
+  // let that post settle, or the second one is refused by the in flight latch
+  // rather than by the guard, and the assertion below could never fail
+  await new Promise(r => setTimeout(r, 0));
+
+  store.clear();
+  asHost('localhost');
+  T.trackCrash(new Error('the same crash, on the machine it was written on'), null);
+  if (queuedFromAPhone === 0) fails.push('a real crash no longer queues, which is the opposite of the point');
+  if (postsFromAPhone === 0) fails.push('a real crash no longer reaches the wire');
+  if (T.readQueue().length !== 0) fails.push('a crash on the dev server still queues itself into the real numbers');
+  if (posted.length !== postsFromAPhone) fails.push('the dev server still posts to the live worker');
+
+  globals.fetch = realFetch;
+  if (realStorage === undefined) delete globals.localStorage; else globals.localStorage = realStorage;
+  if (!hadLocation) delete globals.location; else globals.location = realLocation;
+  console.log('  localhost, a lan address and a .local name queue nothing and post nothing');
 }
 
 /* 5. THE QUEUE SURVIVES A BAD NETWORK WITHOUT GROWING FOREVER. */
