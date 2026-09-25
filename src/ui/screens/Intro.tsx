@@ -19,6 +19,17 @@ const SCENES = [
 const HOLD = [850, 800, 850, 1100];   // ms each era is on screen
 const N = SCENES.length;
 
+/**
+ * How long the first frame is given to arrive before the film is dropped.
+ *
+ * A cold open is worth a moment of black, not an unknown number of them. On
+ * a line good enough to be worth a film the frame lands inside this; on one
+ * that is not, the stranger gets the title screen, which is the part with a
+ * button on it, instead of watching nothing happen and leaving. That leaving
+ * is measured: it is the largest fall in the whole funnel.
+ */
+const FIRST_FRAME_BUDGET = 1200;
+
 const reduceMotion = typeof window !== 'undefined'
   && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -32,14 +43,32 @@ export function IntroCinematic({ onDone }: { onDone: () => void }) {
 
   const finish = () => { if (!done.current) { done.current = true; onDone(); } };
 
-  // decode the first frame before starting, warm the rest so no cut ever flashes a blank
+  /**
+   * The first frame, and only then the other three.
+   *
+   * All four used to be asked for in the same breath, which is four
+   * photographs racing each other down one phone line: the single frame that
+   * has to be there before anything at all can happen shared the line with
+   * three nobody needs for another second. The first is fetched alone now,
+   * and the rest follow the moment it lands, with the whole first era to
+   * arrive in.
+   *
+   * And the film is not waited for past its budget, see above.
+   */
   useEffect(() => {
     let alive = true;
+    let budget = 0;
     const first = new Image();
-    const go = () => { if (alive) setReady(true); };
+    const go = () => {
+      if (!alive) return;
+      window.clearTimeout(budget);
+      setReady(true);
+      SCENES.slice(1).forEach(s => { const im = new Image(); im.src = s.src; });
+    };
     first.onload = go; first.onerror = go; first.src = SCENES[0].src;
-    SCENES.slice(1).forEach(s => { const im = new Image(); im.src = s.src; });
-    return () => { alive = false; };
+    budget = window.setTimeout(() => { if (alive) finish(); }, FIRST_FRAME_BUDGET);
+    return () => { alive = false; window.clearTimeout(budget); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // the cut sheet: hold each era, then a flash that hides the hard cut to the next
