@@ -36,30 +36,48 @@ export const FLARE_BEAT = 2200;
 const FLARE_OUT = 420;
 
 /**
- * The photograph for each night, where there is one.
+ * The photograph for each night.
  *
- * Opening day is shot; the derby and the two nights the season comes down to
- * are still to be made, and until they are those three run on light alone
- * rather than borrowing a picture that says the wrong thing.
+ * Two pictures for four nights, and the split is the point of view. Opening day
+ * is shot from the touchline through the fence, which is where the manager
+ * stands: the crowd is in front of him and he is about to be judged by it. The
+ * three nights that decide something are shot from inside the terrace, among
+ * the raised arms, because on those nights the question is not what he thinks
+ * of them, it is what they are about to do to him.
+ *
+ * Both are framed so the smoke closes over everything past the nearest rank.
+ * Neither can be counted, so neither lies in a division: the opening match of a
+ * career draws thirty one into a ground holding fifty, and the same frames have
+ * to still be true in ליגת העל at sixteen thousand.
  */
 const PHOTO: Partial<Record<FlareReason, string>> = {
   opener: asset('/flares/opener.webp'),
+  derby: asset('/flares/crowd.webp'),
+  promotion: asset('/flares/crowd.webp'),
+  relegation: asset('/flares/crowd.webp'),
 };
 
 /**
  * Where the type sits, as a share of the screen's height.
  *
- * Measured off the photograph rather than chosen: the band under the raised
- * arms, where the fence is, runs at a luminance of 21 to 28 out of 255, while
- * the flares above it reach 138. White type at the middle of the screen would
- * have sat half on the brightest part of the frame. Down here it sits on very
- * nearly black and needs nothing done to the picture to be legible.
+ * Measured off each photograph in forty bands rather than chosen by eye, and
+ * they wanted different answers, which is the whole reason this is a map.
+ *
+ * On the touchline frame the flares and the raised arms run at 104 to 138 of
+ * 255 and the band under them, where the fence is, runs at 21 to 28. On the
+ * terrace frame the smoke reaches 166, the brightest thing in the game, and
+ * from just past half way down the silhouetted backs are crushed to a flat
+ * ZERO. Either way the middle of the screen, where the type used to sit, is
+ * the brightest part of the picture.
+ *
+ * Neither number needs the photograph darkened to carry white type.
  */
 const SAY_AT: Record<FlareReason, string> = {
   opener: '58%',
-  derby: '50%',
-  promotion: '50%',
-  relegation: '50%',
+  // low enough to come off the arms, high enough not to hang at the bottom
+  derby: '62%',
+  promotion: '62%',
+  relegation: '62%',
 };
 
 /**

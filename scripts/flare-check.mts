@@ -333,7 +333,10 @@ function atTier(gs: G.GameState, tier: number): G.GameState {
   const photos = files.filter(f => /\.(webp|jpg|jpeg|png|avif)$/i.test(f));
   if (!photos.length) fails.push(`there are no pictures in ${DIR} at all`);
   // the opening night's picture is referenced by name in the component
+  // both pictures by name: the touchline frame for opening day, the terrace
+  // frame for the three nights that decide something
   if (!photos.includes('opener.webp')) fails.push('the opening night has no picture in public/flares');
+  if (!photos.includes('crowd.webp')) fails.push('the big nights have no picture in public/flares');
 
   for (const f of photos) {
     checked++;
