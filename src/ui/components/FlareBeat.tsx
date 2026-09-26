@@ -81,14 +81,20 @@ const SAY_AT: Record<FlareReason, string> = {
 };
 
 /**
- * PLACEHOLDER WORDS. Itzik writes these; these are drafts to react to and not
- * approved copy. No long dashes anywhere, here or in what replaces them.
+ * What the terrace says. Itzik's words, three of the four of them written by
+ * him and put in exactly as he typed them, including the space he put before
+ * the exclamation mark.
+ *
+ * The big line names the night and the small one is what the crowd makes of it.
+ * Nothing here advises: the scout gave the advice two screens ago and the
+ * terrace already gave its opinion in its own words, and a third voice saying
+ * either of those again is what made the old corridor feel padded.
  */
 const SAID: Record<FlareReason, { title: string; line: string }> = {
   opener:     { title: 'העונה נפתחת',   line: 'היציע חיכה לזה כל הקיץ.' },
-  derby:      { title: 'דרבי',          line: 'הערב העיר מחולקת לשניים.' },
-  promotion:  { title: 'משחק עלייה',    line: 'תשעים דקות בין הליגה הזאת לליגה הבאה.' },
-  relegation: { title: 'משחק הישרדות',  line: 'תשעים דקות שיחליטו אם נשארים בליגה.' },
+  derby:      { title: 'דרבי מעל הכל',  line: 'כל העיר יודעת !' },
+  promotion:  { title: 'משחק עלייה',    line: '90 דקות של מלחמה על המגרש בשביל עלייה' },
+  relegation: { title: 'משחק הישרדות',  line: '90 דקות של הישרדות בליגה' },
 };
 
 /**
