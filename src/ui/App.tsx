@@ -358,7 +358,10 @@ export function App() {
           onGo={() => setGs({ ...gs, phase: 'teamsheet' })} />
       )}
       {gs.phase === 'teamsheet' && (
-        <TeamsheetScreen gs={gs} onGo={() => setGs({ ...gs, phase: 'match' })} />
+        <TeamsheetScreen gs={gs}
+          onGo={() => setGs({ ...gs, phase: 'match' })}
+          onSwap={(a, b) => setGs(g => G.swapPlayers(g, a, b))}
+          onMove={(a, b) => setGs(g => G.movePlayers(g, a, b))} />
       )}
       {gs.phase === 'match' && (
         <MatchBroadcast gs={gs} onDone={result => setGs(G.commitRound(gs, result))} />

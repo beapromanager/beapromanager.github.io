@@ -242,6 +242,20 @@ if (roleFit('GK', 'ST') !== 'out') fails.push('a keeper up front reads as fine')
   if (!/phase === 'teamsheet'[^]{0,200}phase: 'match'/.test(app)) fails.push('the dressing room board does not lead to the match');
   if (!/G\.lineup\(gs\)/.test(sheet)) fails.push('the chalkboard does not draw the real eleven');
   if (!/formation\(gs\.tactic\?\.formation\)/.test(sheet)) fails.push('the chalkboard is not drawn in the shape being played');
+  // and it is where the sheet is last changed. A manager who sees his side and
+  // wants one change should not have to walk back out of the tunnel for it, but
+  // the board must not invent its own rules either: every swap goes through the
+  // one the squad room uses, and a refusal says why.
+  checked += 3;
+  if (!sheet.includes('G.swapBlockedReason(')) {
+    fails.push('the chalkboard changes the eleven without asking whether it is allowed');
+  }
+  if (!sheet.includes('onSwap(') || !sheet.includes('onMove(')) {
+    fails.push('the chalkboard cannot change the sheet it is showing');
+  }
+  if (!app.includes('G.swapPlayers(g, a, b)') || !app.includes('G.movePlayers(g, a, b)')) {
+    fails.push('the chalkboard is not wired to the same engine the squad room uses');
+  }
   console.log('  the chalkboard hangs between the tunnel and the pitch, with the real eleven on it');
 }
 

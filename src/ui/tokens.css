@@ -1549,7 +1549,17 @@ a.btn{text-decoration:none;}
 .chalk-man{
   position:absolute; display:flex; flex-direction:column; align-items:center; gap:3px;
   width:64px; animation:chalkIn .3s var(--ease-out) both;
+  /* the drawn man is small; the thing a thumb has to hit is not */
+  padding:7px 2px; border-radius:12px;
+  transition:background var(--t-fast) var(--ease);
 }
+.chalk-man:active{background:rgba(236,232,220,.07);}
+.chalk-man[data-picked="1"]{
+  outline:1.8px dashed rgba(236,232,220,.88); outline-offset:1px;
+  background:rgba(236,232,220,.09);
+}
+.chalk-man[data-picked="1"] .chalk-name{color:#fff; text-shadow:0 0 10px rgba(236,232,220,.5);}
+.chalk-man[data-picked="1"] .chalk-ring{border-color:#fff;}
 .chalk-ring{
   width:15px; height:15px; border-radius:50%;
   border:1.8px dashed rgba(236,232,220,.66);
@@ -1570,6 +1580,19 @@ a.btn{text-decoration:none;}
   color:rgba(236,232,220,.78); transform:rotate(-.4deg);
 }
 .chalk-bench-cap{font-weight:700; color:#ece8dc;}
+.chalk-sub{
+  font-family:var(--font-display); font-weight:500; font-size:12.5px;
+  color:rgba(236,232,220,.82);
+  padding:6px 8px; margin:0 1px; border-radius:9px;
+  border-bottom:1.4px dashed rgba(236,232,220,.3);
+  transition:background var(--t-fast) var(--ease), color var(--t-fast);
+}
+.chalk-sub:active{background:rgba(236,232,220,.08);}
+.chalk-sub[data-picked="1"]{
+  color:#fff; background:rgba(236,232,220,.1);
+  outline:1.8px dashed rgba(236,232,220,.88); outline-offset:1px;
+  border-bottom-color:transparent;
+}
 @keyframes chalkIn{
   from{opacity:0; transform:translate(-50%,-50%) scale(.7);}
   to{opacity:1;}
