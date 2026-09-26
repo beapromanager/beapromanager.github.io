@@ -128,6 +128,24 @@ input{font-family:inherit;}
 
 /* screen entrance, every screen shares the same rhythm */
 .screen{animation:screenIn var(--t-mid) var(--ease-out) both;}
+
+/* The entry screen arrives as one move rather than as a list of elements
+   that each happen to appear: one curve, one beat apart, top to bottom. */
+@keyframes titleRise{from{opacity:0; transform:translateY(13px);} to{opacity:1; transform:none;}}
+.title-rise{animation:titleRise var(--t-slow) var(--ease-out) both; animation-delay:calc(var(--i,0) * 70ms);}
+@media (prefers-reduced-motion: reduce){ .title-rise{animation:none;} }
+
+/* what you do in this game, as one broadcast strip and not three cards */
+.title-does{
+  display:flex; align-items:stretch; width:100%;
+  border:1px solid var(--line); border-radius:var(--plate-sm);
+  background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+}
+.title-does>div{
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:10px 4px;
+}
+.title-does>div+div{border-inline-start:1px solid var(--line);}
 @keyframes screenIn{from{opacity:0; transform:translateY(10px) scale(.995);} to{opacity:1; transform:none;}}
 
 /* ------------------------------------------------------- cold open (intro) */
@@ -1116,8 +1134,8 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
 .title-install{
   display:flex; align-items:center; gap:11px; width:100%;
   padding:12px 14px; border-radius:var(--plate-sm);
-  background:rgba(233,185,73,.07);
-  border:1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+  background:rgba(255,255,255,.028);
+  border:1px solid var(--line-2);
   color:var(--ink);
 }
 .title-install:active{transform:scale(.99);}
