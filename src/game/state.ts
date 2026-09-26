@@ -8,8 +8,10 @@ import type { MatchResult, TeamInput, Approach, Press, Player, Position, Rng } f
 import { simulateMatch, overall, createRng } from '../engine/matchEngine.ts';
 import type { LeagueState, Fixture, Standing } from './league.ts';
 import { initLeague, applyResult, sortedTable, buildFixtures, emptyTable } from './league.ts';
-import { LEAGUE_C, isDerby, LEAGUE_NAMES, setDerbies, derbiesFromClubs, leagueCeiling } from '../data/clubs.ts';
-import { buildRegionLeague, buildSiblingLeague, siblingClub } from '../data/cities.ts';
+import { LEAGUE_C, isDerby, LEAGUE_NAMES, setDerbies, leagueCeiling } from '../data/clubs.ts';
+import { buildRegionLeague, buildSiblingLeague, siblingClub, localRival, furthestFrom, isRealTown, LOCAL_KM } from '../data/cities.ts';
+import type { LocalKind, LocalRival } from '../data/cities.ts';
+export type { LocalKind, LocalRival };
 import { kitColor, type KitColorId } from '../data/palette.ts';
 import { isLegend, isLegendClub, withLegend } from '../data/legends.ts';
 import type { Friend, FriendSpec } from './friends.ts';
@@ -623,10 +625,9 @@ export function setArchetype(gs: GameState, id: ManagerId): GameState {
  */
 export function pickCity(gs: GameState, cityName: string, kit?: KitColorId, pattern?: KitPattern): GameState {
   const region = buildRegionLeague(cityName, 1);
-  setDerbies(derbiesFromClubs(region.clubs));
   // the manager's chosen colours and pattern become the club's, so the crest,
   // the shirts and the dots on the pitch all follow from one choice
-  const clubs = (kit || pattern)
+  const themed = (kit || pattern)
     ? region.clubs.map(c => (c.id === region.myId
         ? {
             ...c,
@@ -635,7 +636,12 @@ export function pickCity(gs: GameState, cityName: string, kit?: KitColorId, patt
           }
         : c))
     : region.clubs;
-  const league = initLeague(clubs, gs.seasonSeed, gs.profile.name);
+  // somebody to hate, from the very first season. Before initLeague, because
+  // the fixture list is drawn there and the twin has to be in the division
+  // before it is, not after
+  const local = withLocalRival(themed, {}, region.myId, 1);
+  registerLocalRivalry(local.clubs, region.myId);
+  const league = initLeague(local.clubs, gs.seasonSeed, gs.profile.name);
   // the chosen city rides on the club itself (club.city), no extra state needed
   return pickClub({ ...gs, league }, region.myId);
 }
@@ -732,7 +738,25 @@ export function takeRescue(gs: GameState): GameState {
       };
     }
   }
-  setDerbies(derbiesFromClubs(clubs));
+  // The club across town is now MINE, so the town no longer supplies the fight:
+  // sacked anywhere but the bottom division the old club is a division above,
+  // and there may be nobody near. Same rule as everywhere else, and it runs
+  // before the fixture list is redrawn below.
+  {
+    const local = withLocalRival(clubs, league.squads, region.myId, offer.tier);
+    if (local.clubs !== clubs) {
+      clubs = local.clubs;
+      league = {
+        ...league,
+        clubs,
+        squads: local.squads,
+        ovr: Object.fromEntries(Object.entries(local.squads).map(([id, sq]) => [id, squadAvgOvr(sq)])),
+        fixtures: buildFixtures(clubs.map(x => x.id)),
+        table: emptyTable(clubs),
+      };
+    }
+  }
+  registerLocalRivalry(clubs, region.myId);
   const c = clubs.find(x => x.id === region.myId)!;
   const squad = league.squads[region.myId];
   const rng = createRng(seed + 777);
@@ -2121,6 +2145,84 @@ export function partOptions(gs: GameState, playerId: string): PartOption[] {
   return out;
 }
 
+/* ------------------------------------------------------- the local rivalry */
+
+/**
+ * Every season has somebody to hate, and this is what guarantees it.
+ *
+ * Measured over 236 seasons of played out careers: 69% of divisions already
+ * hold a town inside ten kilometres, and 31% hold nothing at all. Ramat Gan has
+ * Givatayim nine hundred metres away; Beersheba's nearest neighbour in its own
+ * division is sixteen kilometres off and Eilat's is a hundred and seventeen.
+ *
+ * So where the map gives nobody, the town gives somebody: the other club in the
+ * same city, the one that was always in the shadow, which the game already
+ * knows how to build because a sacked manager is handed exactly that club. It
+ * takes the place AND the squad of the town furthest away, the least local club
+ * in the division, so the size of the league and the fixture list are untouched.
+ * That is the same move returnOfTheNemesis makes, for the same reason.
+ *
+ * It must run BEFORE the fixtures are drawn, which is why every caller does it
+ * while the division is still just a list of clubs.
+ */
+function withLocalRival(
+  clubs: Club[], squads: Record<string, Squad>, myId: string, tier: number,
+): { clubs: Club[]; squads: Record<string, Squad>; rival: LocalRival | null } {
+  let next = clubs;
+  let nextSquads = squads;
+  let found = localRival(next, myId);
+
+  if (!found) {
+    const me = next.find(c => c.id === myId);
+    const out = furthestFrom(next, myId);
+    // a town that is not on the map has no second club to make, and the dev
+    // league of invented villages is exactly that case
+    if (me && out && isRealTown(me.city)) {
+      // The short name has to say which of the two this is. siblingClub hands
+      // back the town as the short name, the same one my club already carries,
+      // and the table, the fixture list and the match header all read shorts:
+      // measured on אילת and on טבריה, the division printed the same word
+      // twice. The prefix is what tells הפועל from מכבי on any real table, so
+      // the second club goes by its full name.
+      const made = siblingClub(me.city, tier, myId);
+      const twin = { ...made, short: made.name };
+      next = next.map(c => (c.id === out.id ? twin : c));
+      nextSquads = { ...squads };
+      if (nextSquads[out.id]) { nextSquads[twin.id] = nextSquads[out.id]; delete nextSquads[out.id]; }
+      found = localRival(next, myId);
+    }
+  }
+
+  // written on both clubs, because that is what the derby registry reads
+  if (found) {
+    const them = found.id;
+    next = next.map(c =>
+      c.id === myId ? { ...c, rivalId: them }
+        : c.id === them ? { ...c, rivalId: myId }
+          : c);
+  }
+  return { clubs: next, squads: nextSquads, rival: found };
+}
+
+/**
+ * Hand the registry my one rivalry and nothing else.
+ *
+ * It used to be handed every club's rivalId, and isDerby is symmetric, so any
+ * club whose nearest town was mine made that fixture a derby too: measured, one
+ * season in five had two to four different "derbies" in it, and one had eight
+ * of its fourteen rounds. Nobody ever asks whether two OTHER clubs are rivals,
+ * only whether tonight is, so one pair is all the registry needs to hold.
+ */
+function registerLocalRivalry(clubs: Club[], myId: string): void {
+  const found = localRival(clubs, myId);
+  setDerbies(found ? [[myId, found.id]] : []);
+}
+
+/** My local rival in the division right now, and which kind it is. */
+export function myLocalRival(gs: GameState): LocalRival | null {
+  return localRival(gs.league.clubs, gs.clubId);
+}
+
 /**
  * The club the derby is against, when it is in the division.
  *
@@ -2699,31 +2801,34 @@ const SCOUT_LINES: Record<'favourite' | 'underdog' | 'even' | 'derby', string[]>
  * about, so the other three are defined here:
  *
  *  - the opener, which is simply the first round;
- *  - the derby, and only the FIRST meeting of it in a season. A club in the
- *    division can name us as its rival while we name someone else, so "a derby"
- *    is as many as four different opponents and eight of the fourteen rounds.
- *    Taking the first meeting only keeps the flare an occasion;
+ *  - the local fight, and only the FIRST meeting of it in a season, so it stays
+ *    an occasion rather than becoming a fixture. It comes in two kinds and they
+ *    are not the same night: a DERBY is the same town, two clubs and one city,
+ *    and a REGION is the town next door, up to ten kilometres. What the game
+ *    used to call a derby was almost always the second one;
  *  - promotion and relegation, in the last two rounds, and only while the
  *    question is still open: not already won, not already lost.
  *
- * Measured over 238 seasons of played out careers: this lights 2.4 matches of a
- * fourteen round season, and leaves no season without one, since the opener
- * always counts.
+ * Measured over careers played out: 69% of seasons are a region and 31% a
+ * derby, and every season is one or the other, because where the map offers
+ * nobody the town's second club is put in the division. See withLocalRival.
  */
-export type FlareReason = 'promotion' | 'relegation' | 'derby' | 'opener';
+export type FlareReason = 'promotion' | 'relegation' | 'derby' | 'region' | 'opener';
 
 /**
- * The round of our first derby this season, or null when no rival is in the
- * division, which is a third of seasons.
+ * The round we first meet the club we are local to, or null when there is none.
  *
  * Read off the fixture list rather than remembered, so it needs nothing on the
  * save and an old career gets it for free.
  */
-export function firstDerbyRound(gs: GameState): number | null {
+export function firstLocalRound(gs: GameState): number | null {
+  const found = myLocalRival(gs);
+  if (!found) return null;
   let first: number | null = null;
   for (const f of gs.league.fixtures) {
     if (f.homeId !== gs.clubId && f.awayId !== gs.clubId) continue;
-    if (!isDerby(f.homeId, f.awayId)) continue;
+    const opp = f.homeId === gs.clubId ? f.awayId : f.homeId;
+    if (opp !== found.id) continue;
     if (first === null || f.round < first) first = f.round;
   }
   return first;
@@ -2783,7 +2888,8 @@ export function flareReason(gs: GameState): FlareReason | null {
     if (s.promotion) return 'promotion';
     if (s.relegation) return 'relegation';
   }
-  if (gs.week === firstDerbyRound(gs)) return 'derby';
+  const local = myLocalRival(gs);
+  if (local && gs.week === firstLocalRound(gs)) return local.kind;
   if (gs.week === 1) return 'opener';
   return null;
 }
@@ -3950,21 +4056,23 @@ export function startNextSeason(gs: GameState): GameState {
   // division the manager had not reached.
   const myNewTier = next.clubs.find(c => c.id === gs.clubId)?.tier ?? myClub.tier;
   const back = returnOfTheNemesis(gs, next.clubs, next.squads, myNewTier);
+  // AFTER the man who sacked you is put back, because his is already a rivalry
+  // and localRival will find it rather than making a second one beside it
+  const local = withLocalRival(back.clubs, back.squads, gs.clubId, myNewTier);
 
   const league: LeagueState = {
-    clubs: back.clubs,
-    squads: back.squads,
+    clubs: local.clubs,
+    squads: local.squads,
     ovr: Object.fromEntries(
-      Object.entries(back.squads).map(([id, sq]) => [
+      Object.entries(local.squads).map(([id, sq]) => [
         id, Math.round(sq.starters.reduce((s, p) => s + overall(p), 0) / sq.starters.length),
       ]),
     ),
-    fixtures: buildFixtures(back.clubs.map(c => c.id)),
-    table: emptyTable(back.clubs),
-    rounds: (back.clubs.length - 1) * 2,
+    fixtures: buildFixtures(local.clubs.map(c => c.id)),
+    table: emptyTable(local.clubs),
+    rounds: (local.clubs.length - 1) * 2,
   };
-  // keep the derby registry in step with whoever is in the division now
-  setDerbies(derbiesFromClubs(league.clubs));
+  registerLocalRivalry(league.clubs, gs.clubId);
 
   const r = next.report;
   const mine = next.squads[gs.clubId];

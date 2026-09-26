@@ -92,9 +92,9 @@ function atTier(gs: G.GameState, tier: number): G.GameState {
   let dark = 0, looked = 0;
   for (let seed = 1; seed <= 12; seed++) {
     const gs = career(seed);
-    const derby = G.firstDerbyRound(gs);
+    const local = G.firstLocalRound(gs);
     for (let w = 2; w <= gs.league.rounds - 2; w++) {
-      if (w === derby) continue;
+      if (w === local) continue;
       looked++;
       if (G.flareReason({ ...gs, week: w }) === null) dark++;
     }
@@ -113,37 +113,129 @@ function atTier(gs: G.GameState, tier: number): G.GameState {
   if (G.flareReason({ ...gs, preWeek: 1 }) !== null) fails.push('the pre season lights flares');
 }
 
-/* 4. THE DERBY, ONCE. A club in the division can point its rivalId at us while
-      we point ours somewhere else, so "a derby" is up to four opponents and up
-      to eight of the fourteen rounds. Only the first meeting is an occasion. */
+/* 4. THE LOCAL FIGHT: ALWAYS ONE, ONLY ONE, AND ONCE.
+      Every division has somebody, because where the map offers nobody the town's
+      second club is put in. Exactly one club, because the registry used to be
+      handed every club's rivalId and isDerby is symmetric, which made a fifth of
+      seasons hold two to four different "derbies". And only the first meeting,
+      so it stays an occasion and not a fixture. */
 {
-  let seasons = 0, lit = 0, wrongRound = 0, twice = 0;
+  let seasons = 0, none = 0, wrongRound = 0, twice = 0, wrongKind = 0, tooFar = 0;
+  const kinds = new Map<string, number>();
   for (let seed = 1; seed <= 16; seed++) {
     const gs = career(seed);
-    const first = G.firstDerbyRound(gs);
-    const derbyRounds = gs.league.fixtures
-      .filter(f => (f.homeId === gs.clubId || f.awayId === gs.clubId) && isDerby(f.homeId, f.awayId))
-      .map(f => f.round).sort((a, b) => a - b);
-    if (!derbyRounds.length) continue;
     seasons++;
-    checked++;
-    if (first !== derbyRounds[0]) {
-      fails.push(`firstDerbyRound said ${first} and the fixture list says ${derbyRounds[0]}`);
+    checked += 2;
+
+    const found = G.myLocalRival(gs);
+    if (!found) { none++; continue; }
+    kinds.set(found.kind, (kinds.get(found.kind) ?? 0) + 1);
+
+    // the kind has to match what it claims: a derby is one town, a region is two
+    const me = G.club(gs);
+    const them = gs.league.clubs.find(c => c.id === found.id)!;
+    if (found.kind === 'derby' && them.city !== me.city) {
+      fails.push(`a derby was declared against ${them.short}, which is not in ${me.city}`);
+      wrongKind++;
     }
-    // the first meeting is lit, and none of the later ones is
-    const onFirst = G.flareReason({ ...gs, week: derbyRounds[0] });
-    if (onFirst === 'derby' || onFirst === 'promotion' || onFirst === 'relegation') lit++;
-    else if (derbyRounds[0] !== 1) wrongRound++;
-    for (const r of derbyRounds.slice(1)) {
-      if (r >= gs.league.rounds - 1) continue;         // a late one can be lit for the table instead
-      if (G.flareReason({ ...gs, week: r }) === 'derby') twice++;
+    if (found.kind === 'region' && them.city === me.city) {
+      fails.push(`a region match was declared against ${them.short}, which IS ${me.city}, so it is a derby`);
+      wrongKind++;
+    }
+
+    // exactly one club in the division counts as local
+    const locals = gs.league.clubs.filter(c => c.id !== gs.clubId && isDerby(gs.clubId, c.id));
+    checked++;
+    if (locals.length !== 1) {
+      fails.push(`${locals.length} clubs count as the local fight in one division, and it has to be one`);
+    }
+
+    const rounds = gs.league.fixtures
+      .filter(f => (f.homeId === gs.clubId || f.awayId === gs.clubId)
+        && (f.homeId === found.id || f.awayId === found.id))
+      .map(f => f.round).sort((a, b) => a - b);
+    checked++;
+    if (rounds.length !== 2) fails.push(`we meet the local rival ${rounds.length} times, and a double round robin is two`);
+    if (G.firstLocalRound(gs) !== rounds[0]) {
+      fails.push(`firstLocalRound said ${G.firstLocalRound(gs)} and the fixture list says ${rounds[0]}`);
+    }
+
+    const onFirst = G.flareReason({ ...gs, week: rounds[0] });
+    if (onFirst !== found.kind && rounds[0] !== 1) wrongRound++;
+    for (const r of rounds.slice(1)) {
+      if (r >= gs.league.rounds - 1) continue;        // a late one can be lit for the table instead
+      const again = G.flareReason({ ...gs, week: r });
+      if (again === 'derby' || again === 'region') twice++;
     }
   }
+  checked += 4;
+  if (none) fails.push(`${none} of ${seasons} divisions had nobody local in them, and the town's second club should have been put in`);
+  if (wrongRound) fails.push(`${wrongRound} first meetings were not lit`);
+  if (twice) fails.push(`${twice} second meetings were lit as well, which makes it a fixture`);
+  if (!kinds.get('region')) fails.push('no season produced a region match, so that half of the rule is untested');
+  void tooFar; void wrongKind;
+  console.log(`  the local fight: ${[...kinds].map(([k, n]) => `${k} ${n}`).join(', ')} over ${seasons} divisions`);
+}
+
+/* 4a. NO TWO CLUBS IN A DIVISION ANSWER TO THE SAME NAME.
+       The town's second club comes back from siblingClub carrying the town as
+       its short name, which is the one my club already has, and the table, the
+       fixture list and the match header all print shorts. Measured before this
+       guard existed: אילת's division listed "אילת" twice, and so did טבריה's. */
+{
+  let clashes = 0;
+  for (const town of ['אילת', 'טבריה', 'באר שבע', 'ערד', 'דימונה', 'קריית שמונה', 'חולון', 'ראש העין']) {
+    let gs = G.newGame(7);
+    gs = G.setProfile(gs, { name: 'א', nickname: '', age: 38, type: 'mental' });
+    gs = G.pickCity(gs, town);
+    gs = G.afterSigning(gs, {});
+    checked++;
+    const shorts = gs.league.clubs.map(c => c.short);
+    const dupe = shorts.find((s, i) => shorts.indexOf(s) !== i);
+    if (dupe) {
+      clashes++;
+      fails.push(`${town}'s division lists "${dupe}" twice, so the table has two rows with one name`);
+    }
+  }
+  console.log(`  eight divisions checked for a repeated club name, ${clashes} clashed`);
+}
+
+/* 4b. THE PINNED PAIRS BEAT THE MAP. ראש העין is pinned against אורנית at
+       8.8km while כפר קאסם sits at 3.6km, and the pin is the whole point: a
+       rivalry is history, not geometry. */
+{
+  let gs = G.newGame(99);
+  gs = G.setProfile(gs, { name: 'א', nickname: '', age: 38, type: 'mental' });
+  gs = G.pickCity(gs, 'ראש העין');
+  gs = G.afterSigning(gs, {});
+  const found = G.myLocalRival(gs);
   checked += 3;
-  if (!seasons) fails.push('no season in the sample had a derby at all, so this proved nothing');
-  if (wrongRound) fails.push(`${wrongRound} first derbies of a season were not lit`);
-  if (twice) fails.push(`${twice} second or third derby meetings were lit as well, which makes it a fixture`);
-  console.log(`  the derby: ${lit} of ${seasons} sampled seasons lit their first meeting, ${twice} lit a later one`);
+  const them = found ? gs.league.clubs.find(c => c.id === found.id) : undefined;
+  if (!found) fails.push('ראש העין has no local rival at all');
+  else if (them?.city !== 'אורנית') {
+    fails.push(`ראש העין was given ${them?.city} and it is pinned against אורנית`);
+  } else if (found.kind !== 'region') {
+    fails.push('אורנית is a different town, so it is a region match and not a derby');
+  }
+  if (found && found.km > 12) fails.push(`the pinned rival is ${found.km.toFixed(1)}km away, which is not a neighbour at all`);
+}
+
+/* 4c. NOTHING BEYOND TEN KILOMETRES IS CALLED LOCAL, unless it is pinned. */
+{
+  let looked = 0, over = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const gs = career(seed);
+    const found = G.myLocalRival(gs);
+    if (!found || found.kind !== 'region') continue;
+    looked++;
+    const me = G.club(gs);
+    // the three pinned towns are allowed past the cap on purpose
+    const pinned = ['ראש העין', 'אורנית', 'אריאל'].includes(me.city);
+    if (!pinned && found.km > 10) { over++; fails.push(`${me.city} was given a neighbour ${found.km.toFixed(1)}km away`); }
+  }
+  checked += 2;
+  if (!looked) fails.push('no region match was sampled, so the ten kilometre rule was never tested');
+  console.log(`  ${looked} region matches sampled, ${over} of them over ten kilometres`);
 }
 
 /* 5. PROMOTION, AT BOTH ENDS OF THE MATHS. Two places go up out of eight, and a
@@ -263,7 +355,7 @@ function atTier(gs: G.GameState, tier: number): G.GameState {
   if (per > 3.0) fails.push(`${per.toFixed(2)} flare nights a season, which is one match in four and no longer an occasion`);
   if (emptySeasons) fails.push(`${emptySeasons} seasons of ${seasons} had no flare night at all, and the opener should have given every one of them one`);
   // every one of the four has to actually be reachable
-  for (const r of ['opener', 'derby', 'promotion', 'relegation']) {
+  for (const r of ['opener', 'derby', 'region', 'promotion', 'relegation']) {
     checked++;
     if (!seen.get(r)) fails.push(`"${r}" never fired in ${seasons} seasons, so that occasion does not exist in practice`);
   }

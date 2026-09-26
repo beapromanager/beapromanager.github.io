@@ -53,6 +53,7 @@ const FLARE_OUT = 420;
 const PHOTO: Partial<Record<FlareReason, string>> = {
   opener: asset('/flares/opener.webp'),
   derby: asset('/flares/crowd.webp'),
+  region: asset('/flares/crowd.webp'),
   promotion: asset('/flares/crowd.webp'),
   relegation: asset('/flares/crowd.webp'),
 };
@@ -76,6 +77,7 @@ const SAY_AT: Record<FlareReason, string> = {
   opener: '58%',
   // low enough to come off the arms, high enough not to hang at the bottom
   derby: '62%',
+  region: '62%',
   promotion: '62%',
   relegation: '62%',
 };
@@ -93,6 +95,9 @@ const SAY_AT: Record<FlareReason, string> = {
 const SAID: Record<FlareReason, { title: string; line: string }> = {
   opener:     { title: 'העונה נפתחת',   line: 'היציע חיכה לזה כל הקיץ.' },
   derby:      { title: 'דרבי מעל הכל',  line: 'כל העיר יודעת !' },
+  // a derby is one town, this is the town next door, so it does not borrow the
+  // line above and it does not say "city"
+  region:     { title: 'קרב על האזור',  line: 'כל השכונה מחכה לזה' },
   promotion:  { title: 'משחק עלייה',    line: '90 דקות של מלחמה על המגרש בשביל עלייה' },
   relegation: { title: 'משחק הישרדות',  line: '90 דקות של הישרדות בליגה' },
 };

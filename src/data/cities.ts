@@ -410,6 +410,93 @@ export function buildSiblingLeague(cityName: string, tier: number, avoidId: stri
   return { clubs, myId: mine.id, derbyId: clubs.find(c => c.id !== mine.id)?.id ?? mine.id };
 }
 
+/**
+ * How far a neighbouring town can be and still be a local fight.
+ *
+ * A derby is the same town: two clubs, one city, מ.ס ראש העין against הפועל
+ * ראש העין. What the game had been calling a derby is almost never that. It is
+ * ראש העין against אורנית, two towns nine kilometres apart, which is a fight
+ * over a piece of the map and not a derby, and it now has its own name.
+ *
+ * Ten kilometres, measured: of the 92 towns a manager can start in, 77% have a
+ * neighbour inside it, at a median of under four kilometres. Past ten it stops
+ * being the next town over and starts being a drive.
+ */
+export const LOCAL_KM = 10;
+
+/** The same town, or the town next door. Not the same thing and not said the same way. */
+export type LocalKind = 'derby' | 'region';
+
+export interface LocalRival { kind: LocalKind; id: string; km: number; }
+
+/**
+ * The one club in this division worth hating, and which kind of hate it is.
+ *
+ * In order, and the order is the whole rule:
+ *
+ *  1. a club from my own town. That is a derby, and nothing outranks it.
+ *  2. the town this town is pinned against. Pinned beats distance on purpose,
+ *     which is why ראש העין gets אורנית at 8.8km and not כפר קאסם at 3.6km. A
+ *     rivalry is history, not geometry, and the map does not know that.
+ *  3. otherwise the nearest town inside LOCAL_KM.
+ *
+ * Null when the division holds nobody close, which is a third of seasons and is
+ * what the club across town is made for. See state.ts.
+ */
+export function localRival(clubs: Club[], myId: string): LocalRival | null {
+  const me = clubs.find(c => c.id === myId);
+  if (!me) return null;
+
+  // 1. the other club in my town
+  const twin = clubs.find(c => c.id !== myId && c.city === me.city);
+  if (twin) return { kind: 'derby', id: twin.id, km: 0 };
+
+  const mine = findCity(me.city);
+  if (!mine) return null;                     // not a town on the map, so no geography to read
+
+  const kmTo = (c: Club) => {
+    const o = findCity(c.city);
+    return o ? distKm(mine, o) : null;
+  };
+
+  // 2. the pinned one, whatever the distance
+  const pinned = DERBY_OF[me.city];
+  if (pinned) {
+    const it = clubs.find(c => c.id !== myId && c.city === pinned);
+    if (it) return { kind: 'region', id: it.id, km: kmTo(it) ?? 0 };
+  }
+
+  // 3. the nearest town, if it is near enough to be one
+  let best: LocalRival | null = null;
+  for (const c of clubs) {
+    if (c.id === myId || c.city === me.city) continue;
+    const d = kmTo(c);
+    if (d === null || d > LOCAL_KM) continue;
+    if (!best || d < best.km) best = { kind: 'region', id: c.id, km: d };
+  }
+  return best;
+}
+
+/** The town furthest from mine in this division, which is the least local club in it. */
+export function furthestFrom(clubs: Club[], myId: string): Club | null {
+  const me = clubs.find(c => c.id === myId);
+  const mine = me ? findCity(me.city) : undefined;
+  if (!me || !mine) return null;
+  let far: Club | null = null, fd = -1;
+  for (const c of clubs) {
+    if (c.id === myId) continue;
+    const o = findCity(c.city);
+    const d = o ? distKm(mine, o) : Infinity;   // off the map counts as furthest of all
+    if (d > fd) { fd = d; far = c; }
+  }
+  return far;
+}
+
+/** Is this town on the map at all, which decides whether a twin can be made for it. */
+export function isRealTown(cityName: string): boolean {
+  return !!findCity(cityName);
+}
+
 export function buildRegionLeague(cityName: string, tier = 1): { clubs: Club[]; myId: string; derbyId: string } {
   const city = findCity(cityName) ?? CITIES[0];
   // a named rival is always in the division, even if it is not among the seven

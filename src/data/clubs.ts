@@ -145,10 +145,6 @@ export function setDerbies(pairs: Array<[string, string]>): void {
   derbyRegistry = new Set(pairs.map(([a, b]) => derbyKey(a, b)));
 }
 
-export function derbiesFromClubs(clubs: Club[]): Array<[string, string]> {
-  return clubs.filter(c => c.rivalId).map(c => [c.id, c.rivalId!] as [string, string]);
-}
-
 export function isDerby(a: string, b: string): boolean {
   if (derbyRegistry.has(derbyKey(a, b))) return true;
   return DERBIES.some(([x, y]) => (x === a && y === b) || (x === b && y === a));

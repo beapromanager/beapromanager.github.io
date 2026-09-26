@@ -12,7 +12,8 @@ import { NO_REPORTS } from './state.ts';
 import { STADIUM_START, FANS_START } from './career.ts';
 import { GEMS_AT_START } from './packs.ts';
 import { primePlayerIds } from '../data/squadGen.ts';
-import { setDerbies, derbiesFromClubs } from '../data/clubs.ts';
+import { setDerbies } from '../data/clubs.ts';
+import { localRival } from '../data/cities.ts';
 import { newCoach } from './coach.ts';
 import { emptyInvite } from './invite.ts';
 import { emptyMate } from './mate.ts';
@@ -80,7 +81,19 @@ export function loadCareer(): GameState | null {
   primePlayerIds(allIds);
   // rebuild the geographic derby registry from the saved clubs' rivals, since
   // it is module state that does not survive a reload
-  setDerbies(derbiesFromClubs(s.league?.clubs ?? []));
+  // One pair, worked out from the towns in the division rather than read off
+  // whatever rivalIds the save happens to carry. A career saved before this
+  // existed has a division full of clubs that were never given one, and this
+  // hands it its local fight back on the spot instead of next summer.
+  //
+  // It only ever reads the clubs that are already there. It cannot put the
+  // town's second club in, the way a new division can, because the fixture
+  // list is already drawn and rewriting it would throw away the season the
+  // manager is standing in the middle of.
+  {
+    const found = localRival(s.league?.clubs ?? [], s.clubId);
+    setDerbies(found ? [[s.clubId, found.id]] : []);
+  }
   // gracefully fill fields added in later versions so old saves keep working
   const patched: GameState = {
     ...s,
