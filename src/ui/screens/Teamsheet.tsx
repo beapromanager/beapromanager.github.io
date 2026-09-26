@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { surnameOf } from '../../data/names.ts';
 import { formation } from '../../data/formations.ts';
 import { Icon } from '../components/Icon.tsx';
+import { preloadFlare } from '../components/FlareBeat.tsx';
 
 /**
  * The team sheet, the way it is actually handed to a team: chalk on the old
@@ -40,6 +41,11 @@ export function TeamsheetScreen({ gs, onGo, onSwap, onMove }: {
 }) {
   const [picked, setPicked] = useState<{ id: string; from: 'eleven' | 'bench' } | null>(null);
   const [refused, setRefused] = useState<string | null>(null);
+  // If tonight is one of the four, its photograph is asked for now rather than
+  // when the terrace appears. The beat is 2.2 seconds long and the next screen
+  // is the match itself, so a picture that starts downloading then is a picture
+  // half of it is spent waiting for.
+  useEffect(() => { preloadFlare(G.flareReason(gs)); }, [gs.season, gs.week]);
   const fx = G.playerFixture(gs)!;
   const myId = G.club(gs).id;
   const opp = gs.league.clubs.find(c => c.id === (fx.homeId === myId ? fx.awayId : fx.homeId))!;

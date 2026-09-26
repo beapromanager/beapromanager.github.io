@@ -18,7 +18,7 @@
  * football behind it. That is a source guard on the one flag the match screen
  * stops its clock with.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import * as G from '../src/game/state.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
@@ -312,6 +312,63 @@ function atTier(gs: G.GameState, tier: number): G.GameState {
   if (tail && !tail.includes('prefers-reduced-motion')) {
     fails.push('the flare beat does not answer prefers-reduced-motion');
   }
+}
+
+/* --------------------------------------------------------------- the weight */
+
+/* 12. THE PICTURES STAY LIGHT. The largest single fall in the whole funnel was
+       a slow first screen, and it was fixed by re-encoding four photographs at
+       the width they are actually drawn at. These are drawn at 941 across and
+       they are mostly smoke, which compresses well, so there is no honest
+       reason for one of them to arrive as half a megabyte. This is not a guard
+       against the picture we have, it is a guard against the one somebody drops
+       in over it later without looking at the size. */
+{
+  const DIR = 'public/flares';
+  const CAP = 130 * 1024;              // a comfortable ceiling over the 72KB we ship
+  let files: string[] = [];
+  try { files = readdirSync(DIR); } catch { /* no pictures yet, see below */ }
+  checked += 2;
+
+  const photos = files.filter(f => /\.(webp|jpg|jpeg|png|avif)$/i.test(f));
+  if (!photos.length) fails.push(`there are no pictures in ${DIR} at all`);
+  // the opening night's picture is referenced by name in the component
+  if (!photos.includes('opener.webp')) fails.push('the opening night has no picture in public/flares');
+
+  for (const f of photos) {
+    checked++;
+    const bytes = statSync(`${DIR}/${f}`).size;
+    if (bytes > CAP) {
+      fails.push(`${DIR}/${f} is ${Math.round(bytes / 1024)}KB, over the ${CAP / 1024}KB the terrace allows`);
+    }
+    // and a png here means somebody skipped the conversion
+    if (/\.png$/i.test(f)) fails.push(`${DIR}/${f} is a png, it should be re-encoded to webp`);
+  }
+
+  // every picture the component names has to actually be on disk, or the beat
+  // opens on black for the length of a failed request
+  const comp = read('src/ui/components/FlareBeat.tsx');
+  for (const m of comp.matchAll(/asset\('\/flares\/([^']+)'\)/g)) {
+    checked++;
+    if (!photos.includes(m[1])) fails.push(`FlareBeat asks for /flares/${m[1]} and it is not in ${DIR}`);
+  }
+
+  const total = photos.reduce((n, f) => n + statSync(`${DIR}/${f}`).size, 0);
+  console.log(`  ${photos.length} picture(s), ${Math.round(total / 1024)}KB in total`);
+}
+
+/* 13. AND IT IS ASKED FOR BEFORE IT IS NEEDED. The beat lasts 2.2 seconds; a
+       photograph that starts downloading when it opens is one nobody sees. */
+{
+  const ts = read('src/ui/screens/Teamsheet.tsx');
+  checked += 2;
+  // the CALL, not the name: looking for "preloadFlare" alone matched the import
+  // line and kept passing with the call deleted, which a sabotage caught
+  if (!ts.includes('preloadFlare(G.flareReason(')) {
+    fails.push('the dressing room no longer asks for the night\'s picture, so the beat waits on it');
+  }
+  const comp = read('src/ui/components/FlareBeat.tsx');
+  if (!comp.includes('export function preloadFlare')) fails.push('preloadFlare is gone from FlareBeat');
 }
 
 console.log(`${checked} checks`);
