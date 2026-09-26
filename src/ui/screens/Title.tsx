@@ -57,13 +57,13 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
               position: 'relative', fontFamily: 'var(--font-display)', fontWeight: 800,
               fontSize: 16, letterSpacing: '0', color: '#1B1305', lineHeight: 1,
             }}>
-              מהשכונה עד אירופה
+              מהשכונה ועד אירופה
             </span>
           </div>
 
-          <p className="sub" style={{ textAlign: 'center', maxWidth: 300, fontSize: 14.5, marginTop: 4 }}>
-            קח קבוצה מליגה ג׳ ותוביל אותה עד אלופת אירופה.
-            <br />טירוף ישראלי, יציע שלא סולח, וחלום אחד גדול.
+          <p className="sub" style={{ textAlign: 'center', maxWidth: 320, fontSize: 14, marginTop: 4, lineHeight: 1.5 }}>
+            קח את הקבוצה של העיר שלך מליגה ג׳. תקבע הרכב, תקנה או תמכור שחקנים ותענה לעיתונות בחוכמה.
+            <br />חוויה ישראלית אמיתית: היציע מדבר אלייך, השכונה מגיבה למעשים שלך, והעיתונות מחכה שתיפול.
           </p>
         </div>
 
