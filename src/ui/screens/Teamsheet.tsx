@@ -77,11 +77,19 @@ export function TeamsheetScreen({ gs, onGo, onSwap, onMove }: {
 
   return (
     <div className="screen pad stack pad-b chalk-room" style={{ gap: 14, minHeight: '100%' }}>
-      <div className="stack" style={{ alignItems: 'center', gap: 3, marginTop: 10 }}>
-        <span className="label-cap">בחירת ההרכב</span>
-        <span className="hint" style={{ textAlign: 'center', margin: 0 }}>
-          רגע לפני שעולים למגרש. לחץ על שחקן ואז על מי שייכנס במקומו.
-        </span>
+      <div className="stack" style={{ alignItems: 'center', gap: 4, marginTop: 10, maxWidth: 330 }}>
+        <span className="label-cap">חדר ההלבשה</span>
+        {/* what the moment is, and then how the board works. The second line
+            is the whole reason anybody finds out it can be tapped at all. */}
+        <p style={{
+          margin: 0, textAlign: 'center', fontSize: 14.5, lineHeight: 1.45,
+          fontWeight: 600, color: 'var(--ink)', textWrap: 'balance',
+        }}>
+          רגע לפני שעולים למגרש זה הזמן לבחור את ההרכב.
+        </p>
+        <p className="hint" style={{ margin: 0, textAlign: 'center' }}>
+          לחץ על שחקן בהרכב ואז על מי שייכנס במקומו.
+        </p>
       </div>
 
       <div className="chalk-frame">
