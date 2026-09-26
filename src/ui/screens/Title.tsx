@@ -30,7 +30,7 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
         {/* wordmark, drawn like a matchday poster */}
         <div className="stack" style={{ alignItems: 'center', gap: 12, marginTop: 'clamp(26px,8vh,70px)' }}>
           <img src={asset('/logo.webp')} alt="BE A PRO" className="title-rise" style={{
-            width: 138, height: 138, objectFit: 'contain',
+            width: 130, height: 130, objectFit: 'contain',
             ['--i' as string]: 0,
             maskImage: 'radial-gradient(closest-side, #000 62%, transparent 97%)',
             WebkitMaskImage: 'radial-gradient(closest-side, #000 62%, transparent 97%)',
@@ -64,7 +64,7 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
             </span>
           </div>
 
-          <div className="title-rise stack" style={{ ['--i' as string]: 3, alignItems: 'center', gap: 7, marginTop: 6, maxWidth: 330 }}>
+          <div className="title-rise stack" style={{ ['--i' as string]: 3, alignItems: 'center', gap: 6, marginTop: 3, maxWidth: 330 }}>
             <p style={{
               margin: 0, textAlign: 'center', fontSize: 15, lineHeight: 1.52,
               fontWeight: 600, color: 'var(--ink)', textWrap: 'balance',
@@ -78,7 +78,8 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
               margin: 0, textAlign: 'center', fontSize: 13, lineHeight: 1.5,
               color: 'var(--ink-dim)', textWrap: 'balance',
             }}>
-              חוויה ישראלית אמיתית: היציע מדבר אלייך, השכונה מגיבה למעשים שלך, והעיתונות מחכה שתיפול.
+              חוויה ישראלית אמיתית:
+              <br />היציע מדבר אלייך, השכונה מגיבה למעשים שלך, והעיתונות מחכה שתיפול.
             </p>
           </div>
         </div>
