@@ -55,7 +55,8 @@
     "check:report": "node --experimental-strip-types scripts/report-check.mts",
     "check:fans": "node --experimental-strip-types scripts/fans-check.mts",
     "check:friends": "node --experimental-strip-types scripts/friends-check.mts",
-    "check:telemetry": "node --experimental-strip-types scripts/telemetry-check.mts"
+    "check:telemetry": "node --experimental-strip-types scripts/telemetry-check.mts",
+    "check:flares": "node --experimental-strip-types scripts/flare-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

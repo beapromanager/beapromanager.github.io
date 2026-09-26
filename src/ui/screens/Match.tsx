@@ -14,6 +14,7 @@ import { matchKits, type Kit as KitStrip } from '../../data/kits.ts';
 import { ScorePair } from '../components/bits.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { Portal } from '../components/Portal.tsx';
+import { FlareBeat } from '../components/FlareBeat.tsx';
 import { LivePitch } from '../components/LivePitch.tsx';
 import { PitchTurf, shortNames } from '../components/LineupPitch.tsx';
 import type { PitchPlay } from '../components/LivePitch.tsx';
@@ -151,6 +152,12 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
   const [, force] = useReducer(x => x + 1, 0);
   const [speed, setSpeed] = useState<1 | 2 | 3>(1);
   const [paused, setPaused] = useState(false);
+  /**
+   * The flares, on the four nights that are not ordinary. Read once, because the
+   * reason is a property of the fixture and cannot change while it is played, and
+   * because asking again on every minute would relight the terrace every tick.
+   */
+  const [flares, setFlares] = useState<G.FlareReason | null>(() => G.flareReason(gs));
   const [subOpen, setSubOpen] = useState(false);   // the substitution sheet
   const [subFocus, setSubFocus] = useState<string | null>(null);   // a player tapped for a quick swap
   const [redStop, setRedStop] = useState<{ name: string; minute: number } | null>(null);   // the red that stopped the match
@@ -202,7 +209,7 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
 
   // the clock also stops while the bench sheet is open, so managing a sub is not
   // a race against the minute, and the sheet is not re-rendered out from under you
-  const running = st.phase === 'play' && !paused && !st.pending && !play?.scored && !subOpen && !penOutcome && !fkOutcome && !shotOutcome && !oneOnOneOutcome && !defKeeperOutcome && !defTackleOutcome && !defPenOutcome;
+  const running = st.phase === 'play' && !flares && !paused && !st.pending && !play?.scored && !subOpen && !penOutcome && !fkOutcome && !shotOutcome && !oneOnOneOutcome && !defKeeperOutcome && !defTackleOutcome && !defPenOutcome;
   useEffect(() => {
     if (!running) return;
     const id = window.setInterval(() => {
@@ -381,6 +388,15 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
         <SubSheet st={st} focusId={subFocus} benchKit={st.iAmHome ? hdrKits.home : hdrKits.away} red={redStop}
           onSub={(off, on) => { L.makeSub(st, off, on); force(); }}
           onClose={() => { setSubOpen(false); setSubFocus(null); setRedStop(null); }} />
+      )}
+
+      {/* the terrace, before a ball is kicked. Portalled for the same reason the
+          moment cards are: .screen animates in with a transform, and a fixed
+          layer inside it would pin itself to the screen instead of the viewport */}
+      {flares && (
+        <Portal>
+          <FlareBeat reason={flares} onDone={() => setFlares(null)} />
+        </Portal>
       )}
     </div>
   );

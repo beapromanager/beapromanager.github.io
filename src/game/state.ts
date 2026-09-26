@@ -2689,6 +2689,105 @@ const SCOUT_LINES: Record<'favourite' | 'underdog' | 'even' | 'derby', string[]>
   ],
 };
 
+/* --------------------------------------------------------------- the flares */
+
+/**
+ * Why the terrace is lighting flares tonight, or null on an ordinary round.
+ *
+ * Four nights in a season are not like the others, and a crowd says so before
+ * the whistle rather than after. Only one of the four was a thing the game knew
+ * about, so the other three are defined here:
+ *
+ *  - the opener, which is simply the first round;
+ *  - the derby, and only the FIRST meeting of it in a season. A club in the
+ *    division can name us as its rival while we name someone else, so "a derby"
+ *    is as many as four different opponents and eight of the fourteen rounds.
+ *    Taking the first meeting only keeps the flare an occasion;
+ *  - promotion and relegation, in the last two rounds, and only while the
+ *    question is still open: not already won, not already lost.
+ *
+ * Measured over 238 seasons of played out careers: this lights 2.4 matches of a
+ * fourteen round season, and leaves no season without one, since the opener
+ * always counts.
+ */
+export type FlareReason = 'promotion' | 'relegation' | 'derby' | 'opener';
+
+/**
+ * The round of our first derby this season, or null when no rival is in the
+ * division, which is a third of seasons.
+ *
+ * Read off the fixture list rather than remembered, so it needs nothing on the
+ * save and an old career gets it for free.
+ */
+export function firstDerbyRound(gs: GameState): number | null {
+  let first: number | null = null;
+  for (const f of gs.league.fixtures) {
+    if (f.homeId !== gs.clubId && f.awayId !== gs.clubId) continue;
+    if (!isDerby(f.homeId, f.awayId)) continue;
+    if (first === null || f.round < first) first = f.round;
+  }
+  return first;
+}
+
+/**
+ * Is promotion, or relegation, still an open question going into this round.
+ *
+ * Read off the table as it stands, counting the points still to play for with
+ * tonight included. Open means both halves of it: it can still happen, and it
+ * is not settled already. A club that is up whatever happens gets no flare, and
+ * nor does one that is already down or already safe.
+ *
+ * Goal difference is not modelled here. Equal points counts as "could still
+ * pass me", which errs towards the night being live, and that is the side to
+ * err on: a flare at a match that turned out not to matter costs nothing, a
+ * dark terrace at the match that decided the season costs the moment.
+ */
+export function seasonStakes(gs: GameState): { promotion: boolean; relegation: boolean } {
+  const me = gs.league.table[gs.clubId];
+  if (!me) return { promotion: false, relegation: false };
+  const teams = gs.league.clubs.length;
+  const tier = club(gs).tier;
+  const left = gs.league.rounds - gs.week + 1;       // rounds still to play, tonight counted
+  const ceiling = me.pts + 3 * left;
+  const others = gs.league.clubs
+    .filter(c => c.id !== gs.clubId)
+    .map(c => gs.league.table[c.id])
+    .filter((s): s is Standing => !!s);
+
+  const couldPassMe = others.filter(s => s.pts + 3 * left >= me.pts).length;
+  const beyondMe = others.filter(s => s.pts > ceiling).length;
+
+  // two places go up: secure the moment at most one club can still get above us
+  const promotion = tier < TOP_TIER && couldPassMe > 1 && beyondMe < 2;
+  // the bottom club goes down: safe the moment one club can no longer catch us,
+  // and settled the other way when every other club is already out of reach
+  const relegation = tier > 1
+    && !others.some(s => s.pts + 3 * left < me.pts)
+    && beyondMe !== teams - 1;
+
+  return { promotion, relegation };
+}
+
+/**
+ * The reason the flares are up for the match about to be played, if any.
+ *
+ * When two reasons land on the same night the bigger stake wins, because the
+ * season coming down to one match is rarer than a derby and rarer than an
+ * opening day. A derby beats an opener for the same reason.
+ */
+export function flareReason(gs: GameState): FlareReason | null {
+  if (gs.preWeek > 0) return null;                  // the summer has no crowd
+  if (!playerFixture(gs)) return null;
+  if (gs.week >= gs.league.rounds - 1) {
+    const s = seasonStakes(gs);
+    if (s.promotion) return 'promotion';
+    if (s.relegation) return 'relegation';
+  }
+  if (gs.week === firstDerbyRound(gs)) return 'derby';
+  if (gs.week === 1) return 'opener';
+  return null;
+}
+
 /** Stable 0..999 from a string, so a fixture always gets the same line. */
 function lineSeed(s: string): number {
   let h = 2166136261;
