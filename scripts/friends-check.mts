@@ -512,8 +512,14 @@ const friendById = (gs: G.GameState, id: string) => mine(gs).find(p => p.id === 
   if (!mine(afterSell).some(p => p.id === friend.id)) {
     fails.push('a friend can be sold from the market with one tap');
   }
-  // and an ordinary man still sells, so the guard is not a wall around everyone
-  const ordinary = G.mySquad(gs).bench.find(p => !gs.friends.some(f => f.id === p.id));
+  // and an ordinary man still sells, so the guard is not a wall around everyone.
+  // An OUTFIELD one: the first man on the bench is always the reserve keeper,
+  // and a squad may no longer go down to one man who can keep goal, so he is
+  // refused for a reason that has nothing to do with friendship. Measured: this
+  // section was picking עידו מילר, a goalkeeper, and reading the keeper rule as
+  // "nobody can be sold any more".
+  const ordinary = G.mySquad(gs).bench.find(p =>
+    p.position !== 'GK' && !gs.friends.some(f => f.id === p.id));
   if (ordinary) {
     const sold = G.sellPlayer(gs, ordinary.id);
     if (mine(sold).some(p => p.id === ordinary.id)) fails.push('nobody can be sold any more, which is not the point');
