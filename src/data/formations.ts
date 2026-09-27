@@ -13,7 +13,7 @@
 
 import type { Player } from '../engine/matchEngine.ts';
 
-export type FormationId = '4-4-2' | '4-3-3' | '4-5-1' | '5-4-1';
+export type FormationId = '4-4-2' | '4-3-3' | '4-5-1' | '5-4-1' | '3-5-2' | '4-2-3-1' | '3-4-3';
 export type Line = 'GK' | 'DEF' | 'MID' | 'FWD';
 
 /** What a slot IS on the pitch, which is not always what its player is. */
@@ -51,6 +51,27 @@ export interface Formation {
   slots: FormationSlot[];   // 11, index 0 is always the keeper
 }
 
+/**
+ * WHY att AND def ARE NOT ROUND NUMBERS.
+ *
+ * Every squad in the game is generated to one fixed spread of positions
+ * (squadGen.ts: GK RB CB CB LB CDM CM CAM RW ST LW), which is a natural 4-3-3.
+ * So choosing any other shape costs rating before a shape's own numbers are
+ * read at all: measured across fourteen careers, the effective eleven is worth
+ * 0.83 less in 4-5-1, 1.39 less in 4-4-2 and 2.00 less in 5-4-1. Left alone
+ * that made 4-3-3 the right answer and the other three traps, and the default
+ * the game starts everybody in was the second worst of the four.
+ *
+ * These numbers pay that back. A back five IS harder to break down, so 5-4-1
+ * carrying the biggest defensive bonus is the honest way to charge for it
+ * rather than a thumb on the scale.
+ *
+ * Calibrated against the measurement, not by feel: formation-check plays three
+ * thousand matches per pairing with identical squads and home alternated, and
+ * fails if any shape has a real edge over every other or if any pairing is more
+ * than fourteen points apart. Before this they were 14.8 apart at the widest;
+ * after, 3.1.
+ */
 export const FORMATIONS: Formation[] = [
   {
     id: '4-4-2',
@@ -58,7 +79,8 @@ export const FORMATIONS: Formation[] = [
     name: 'מאוזן',
     desc: 'שני בלמים ומגן בכל צד, ארבעה בקישור, שני חלוצים באמצע. בלי הפתעות, בלי חורים.',
     counts: [4, 4, 2],
-    att: 1.00, def: 1.00, line: 0.00,
+    // See the note on calibration under FORMATIONS.
+    att: 1.02, def: 1.03, line: 0.00,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.09, y: 0.13, line: 'DEF', role: 'LB', brk: { d: 0.52, y: -0.09 } },   // מגן שמאל עולה על הקו
@@ -79,7 +101,7 @@ export const FORMATIONS: Formation[] = [
     name: 'התקפי',
     desc: 'שני בלמים ומגן בכל צד, שלושה קשרים, שלושה קדימה. יוצרים הרבה יותר, נפתחים מאחור.',
     counts: [4, 3, 3],
-    att: 1.06, def: 0.95, line: 0.055,
+    att: 1.03, def: 0.96, line: 0.055,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.10, y: 0.14, line: 'DEF', role: 'LB', brk: { d: 0.56, y: -0.10 } },
@@ -100,7 +122,7 @@ export const FORMATIONS: Formation[] = [
     name: 'שליטה',
     desc: 'שני בלמים ומגן בכל צד, חמישה בקישור, חלוץ בודד. שולטים בכדור ובאמצע, החלוץ עובד לבד למעלה.',
     counts: [4, 5, 1],
-    att: 0.95, def: 1.05, line: -0.02,
+    att: 0.96, def: 1.06, line: -0.02,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.09, y: 0.13, line: 'DEF', role: 'LB', brk: { d: 0.46, y: -0.08 } },
@@ -121,7 +143,7 @@ export const FORMATIONS: Formation[] = [
     name: 'הגנתי',
     desc: 'שלושה בלמים ומגן בכל צד, ארבעה בקישור, חלוץ בודד. קשה לפרוץ, קשה גם לצאת.',
     counts: [5, 4, 1],
-    att: 0.90, def: 1.09, line: -0.065,
+    att: 0.94, def: 1.13, line: -0.065,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.16, y: 0.09, line: 'DEF', role: 'LWB', brk: { d: 0.58, y: -0.05 } },   // מגן כנף רץ את כל הקו
@@ -134,6 +156,77 @@ export const FORMATIONS: Formation[] = [
       { d: 0.36, y: 0.60, line: 'MID', role: 'CM', brk: { d: 0.34, y: -0.04 } },
       { d: 0.48, y: 0.87, line: 'MID', role: 'RM', brk: { d: 0.30, y: 0.04 } },
       { d: 0.94, y: 0.50, line: 'FWD', role: 'ST', brk: { d: -0.26, y: 0.10 } },   // החלוץ הבודד רץ לערוצים
+    ],
+  },
+  {
+    id: '3-5-2',
+    label: '3-5-2',
+    name: 'רוחב',
+    desc: 'שלושה בלמים, מגני כנף שרצים את כל הקו, שלושה באמצע ושני חלוצים. הרוחב מגיע מאחור.',
+    // The wing backs count with the defence, the same way 5-4-1's do: a shape
+    // is filled line by line off these numbers, so a wing back listed in MID
+    // sends the squad's full backs into centre back shirts and midfielders out
+    // to the touchline. The label is the one people know, 3-5-2, and when the
+    // ball is lost it is a five, which is what these numbers describe.
+    counts: [5, 3, 2],
+    att: 1.015, def: 1.070, line: 0.00,
+    slots: [
+      { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
+      { d: 0.00, y: 0.30, line: 'DEF', role: 'CB', brk: { d: 0.22, y: 0.04 } },
+      { d: 0.00, y: 0.50, line: 'DEF', role: 'CB', brk: { d: 0.18, y: 0.00 } },
+      { d: 0.00, y: 0.70, line: 'DEF', role: 'CB', brk: { d: 0.22, y: -0.04 } },
+      { d: 0.34, y: 0.07, line: 'DEF', role: 'LWB', brk: { d: 0.54, y: -0.03 } },   // כל הקו שלו
+      { d: 0.34, y: 0.93, line: 'DEF', role: 'RWB', brk: { d: 0.54, y: 0.03 } },
+      { d: 0.44, y: 0.31, line: 'MID', role: 'CM', brk: { d: 0.36, y: 0.05 } },
+      { d: 0.32, y: 0.50, line: 'MID', role: 'CDM', brk: { d: 0.24, y: 0.00 } },
+      { d: 0.44, y: 0.69, line: 'MID', role: 'CM', brk: { d: 0.36, y: -0.05 } },
+      { d: 0.92, y: 0.39, line: 'FWD', role: 'ST', brk: { d: -0.28, y: 0.06 } },
+      { d: 0.92, y: 0.61, line: 'FWD', role: 'ST', brk: { d: 0.06, y: -0.06 } },
+    ],
+  },
+  {
+    id: '4-2-3-1',
+    label: '4-2-3-1',
+    name: 'מודרני',
+    desc: 'שני בלמים ומגן בכל צד, שני עוגנים מאחור, שלושה יוצרים מלפנים וחלוץ. הכי נפוץ בעולם היום.',
+    counts: [4, 5, 1],
+    att: 1.01, def: 1.03, line: 0.015,
+    slots: [
+      { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
+      { d: 0.09, y: 0.13, line: 'DEF', role: 'LB', brk: { d: 0.50, y: -0.09 } },
+      { d: 0.00, y: 0.37, line: 'DEF', role: 'CB', brk: { d: 0.26, y: 0.04 } },
+      { d: 0.00, y: 0.63, line: 'DEF', role: 'CB', brk: { d: 0.26, y: -0.04 } },
+      { d: 0.09, y: 0.87, line: 'DEF', role: 'RB', brk: { d: 0.50, y: 0.09 } },
+      { d: 0.30, y: 0.38, line: 'MID', role: 'CDM', brk: { d: 0.22, y: 0.03 } },    // שני העוגנים לא עוזבים
+      { d: 0.30, y: 0.62, line: 'MID', role: 'CDM', brk: { d: 0.22, y: -0.03 } },
+      { d: 0.62, y: 0.14, line: 'MID', role: 'LM', brk: { d: 0.24, y: 0.12 } },     // חותך פנימה מאחורי החלוץ
+      { d: 0.68, y: 0.50, line: 'MID', role: 'CAM', brk: { d: 0.26, y: 0.00 } },
+      { d: 0.62, y: 0.86, line: 'MID', role: 'RM', brk: { d: 0.24, y: -0.12 } },
+      { d: 0.96, y: 0.50, line: 'FWD', role: 'ST', brk: { d: -0.24, y: 0.07 } },
+    ],
+  },
+  {
+    id: '3-4-3',
+    label: '3-4-3',
+    name: 'לוחץ',
+    desc: 'שלושה בלמים, ארבעה בקישור ושלושה קדימה. לוחצים גבוה ומחפשים את השער, ומאחור זה דק.',
+    // The four is two wing backs and two centre midfielders, which is what a
+    // 3-4-3 is. Written with wide midfielders instead it had no full back in it
+    // anywhere, and every shape in this file has a left and a right.
+    counts: [5, 2, 3],
+    att: 1.095, def: 0.960, line: 0.06,
+    slots: [
+      { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
+      { d: 0.00, y: 0.29, line: 'DEF', role: 'CB', brk: { d: 0.26, y: 0.05 } },
+      { d: 0.00, y: 0.50, line: 'DEF', role: 'CB', brk: { d: 0.22, y: 0.00 } },
+      { d: 0.00, y: 0.71, line: 'DEF', role: 'CB', brk: { d: 0.26, y: -0.05 } },
+      { d: 0.42, y: 0.09, line: 'DEF', role: 'LWB', brk: { d: 0.46, y: -0.02 } },
+      { d: 0.42, y: 0.91, line: 'DEF', role: 'RWB', brk: { d: 0.46, y: 0.02 } },
+      { d: 0.40, y: 0.38, line: 'MID', role: 'CM', brk: { d: 0.34, y: 0.04 } },
+      { d: 0.40, y: 0.62, line: 'MID', role: 'CM', brk: { d: 0.34, y: -0.04 } },
+      { d: 0.90, y: 0.15, line: 'FWD', role: 'LW', brk: { d: 0.08, y: 0.18 } },
+      { d: 1.00, y: 0.50, line: 'FWD', role: 'ST', brk: { d: -0.32, y: 0.00 } },
+      { d: 0.90, y: 0.85, line: 'FWD', role: 'RW', brk: { d: 0.08, y: -0.18 } },
     ],
   },
 ];
