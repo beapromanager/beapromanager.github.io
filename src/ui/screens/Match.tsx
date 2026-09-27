@@ -762,7 +762,7 @@ function SubSheet({ st, onSub, onSwap, onFill, onClose, focusId, benchKit, red }
           </div>
 
 <p className="hint" style={{ margin: '2px 0 8px' }}>
-            לחץ על שחקן בלוח ואז על שחקן אחר, והם מחליפים מקום בלי לבזבז חילוף.
+            לחץ על שחקן ואז על שחקן אחר מתוך ה-11 בהרכב כדי לשנות עמדה לשחקנים
             {canSub ? ' או בחר מי מהספסל נכנס במקומו.' : ' נגמרו החילופים, אבל לסדר מחדש אפשר תמיד.'}
           </p>
 
