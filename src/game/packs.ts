@@ -112,7 +112,7 @@ export const PACKS: PackSpec[] = [
  * It is not in PACKS, because PACKS is the shop and this is not for sale.
  */
 export const GIFT_PACK: PackSpec = {
-  id: 'gift', name: 'חבילת מתנה', cost: 0,
+  id: 'gift', name: 'חבילה מתנה BE A PRO', cost: 0,
   blurb: 'שוער, מעט מעל רמת הליגה שלך',
   offset: +1.5, spread: 2.5, youth: 0.7, minUpside: 5, skew: 0.8, maxAge: 24,
 };

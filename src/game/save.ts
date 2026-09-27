@@ -240,8 +240,8 @@ export function loadCareer(): GameState | null {
   if ((s as Partial<GameState>).gifts === undefined) {
     patched.notices = [...patched.notices, {
       kind: 'story',
-      title: 'חבילת מתנה בשבילך',
-      body: 'תיקנו תקלה שנעלה קבוצות עם שוער אחד. מעכשיו חייבים שני שוערים בסגל, ומחכה לך במסך החבילות חבילה חינם עם שוער.',
+      title: 'חבילת מתנה מחכה לך',
+      body: 'לאחר שעברנו על פידבקים שלכם החלטנו לפנק בחבילה מתנה .',
       icon: 'glove',
     }];
   }
