@@ -327,6 +327,114 @@ const keepersOf = (gs: G.GameState) => {
   if (avg > 75) fails.push(`an outfield man in goal costs ${avg.toFixed(0)}% more goals, which is a punishment and not a match`);
 }
 
+/* ------------------------------------------- 4. the gift, given once */
+
+/*  A rule only helps from here on. Somebody already down to one keeper is
+    still down to one, so every career that existed before the rule did carries
+    a free pack with a keeper in it. Given ONCE, and the absence of the field is
+    the only record kept of that. */
+{
+  const store = new Map<string, string>();
+  (globalThis as unknown as { localStorage: unknown }).localStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => { store.set(k, v); },
+    removeItem: (k: string) => { store.delete(k); },
+    clear: () => store.clear(), key: () => null, length: 0,
+  };
+  const { saveCareer, loadCareer } = await import('../src/game/save.ts');
+
+  const fresh = career();
+  // a save as a build from before the gift existed would have written it
+  const asOld = JSON.parse(JSON.stringify(fresh)) as Record<string, unknown>;
+  delete asOld.gifts;
+
+  store.clear();
+  saveCareer(asOld as unknown as G.GameState);
+  const first = loadCareer();
+  checked += 3;
+  if (!first) fails.push('an old save did not come back from the loader at all');
+  if (first && G.giftsWaiting(first) !== 1) {
+    fails.push(`a career from before the gift existed was given ${first ? G.giftsWaiting(first) : '?'} packs and it should be 1`);
+  }
+  const told = first?.notices.some(n => n.kind === 'story' && n.title.includes('מתנה'));
+  if (!told) fails.push('nothing on the way back to the hub says the gift is there, so nobody will open it');
+
+  // and a career that has already SPENT its gift must come back with none.
+  // Checking a save that still holds one proves nothing: "always give one" and
+  // "give one once" are the same answer from there, and a sabotage caught it
+  if (first) {
+    const spent = { ...first, gifts: 0, notices: [] };
+    store.clear();
+    saveCareer(spent);
+    const second = loadCareer();
+    checked += 2;
+    if (second && G.giftsWaiting(second) !== 0) {
+      fails.push(`a career that already opened its gift was handed out again on the next load, giving ${G.giftsWaiting(second)}`);
+    }
+    const toldTwice = second?.notices.filter(n => n.kind === 'story' && n.title.includes('מתנה')).length ?? 0;
+    if (toldTwice > 0) fails.push(`the card announcing the gift came back ${toldTwice} more times`);
+
+    // opening it: free, always a keeper, and then gone. Across a spread of
+    // careers, because one roll can land on a keeper by luck
+    const opened = G.buyPack(first, 'gift');
+    checked += 3;
+    if (!opened.pull) fails.push('opening the gift produced no card at all');
+    if (opened.gems !== first.gems) fails.push(`the gift cost ${first.gems - opened.gems} gems, and it is free`);
+    if (G.giftsWaiting(opened) !== 0) fails.push('the gift was not used up when it was opened');
+    checked++;
+    if (G.packBlockedReason(opened, 'gift') === null) {
+      fails.push('the gift can be opened a second time after it is gone');
+    }
+
+    const pulled: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const owed = { ...career(700 + i * 13, CITIES[(i * 7) % CITIES.length].name), gifts: 1 };
+      checked++;
+      const got = G.buyPack(owed, 'gift');
+      pulled.push(got.pull?.player.position ?? 'none');
+    }
+    const notKeepers = pulled.filter(p => p !== 'GK');
+    if (notKeepers.length) {
+      fails.push(`${notKeepers.length} of ${pulled.length} gift packs produced ${notKeepers.join(', ')}, and every one has to be a keeper`);
+    }
+    console.log(`  the gift: ${pulled.length} opened across careers, all keepers: ${notKeepers.length === 0}`);
+  }
+
+  // a career born after the rule is not owed anything
+  checked++;
+  if (G.giftsWaiting(fresh) !== 0) {
+    fails.push('a new career starts owed a gift, and it starts with two keepers already');
+  }
+}
+
+/* 5. AND THE PAID PACKS ARE NOT ALL KEEPERS.
+
+      Found while proving the gift: the roll leaned toward the thinnest line,
+      and a squad always holds fewer keepers than defenders, so the thinnest
+      line was always the goalkeepers. Measured before the fix: 120 packs
+      opened across forty careers at all three prices, and 120 came back a
+      goalkeeper, including the eighteen gem one. A keeper is a candidate only
+      when there are fewer than two, which is what the comment always said. */
+{
+  const seen: string[] = [];
+  for (const id of ['boost', 'star', 'pro'] as const) {
+    for (let i = 0; i < 8; i++) {
+      const gs = { ...career(800 + i * 11, CITIES[(i * 6) % CITIES.length].name), gems: 99, adsWatched: i };
+      checked++;
+      if (keepersOf(gs).length < MIN_KEEPERS) continue;    // then a keeper IS what it should give
+      const got = G.buyPack(gs, id);
+      seen.push(got.pull?.player.position ?? 'none');
+    }
+  }
+  const gks = seen.filter(p => p === 'GK').length;
+  checked += 2;
+  if (!seen.length) fails.push('no paid pack was opened, so the roll was never checked');
+  if (gks) {
+    fails.push(`${gks} of ${seen.length} paid packs gave a goalkeeper to a squad that already had two`);
+  }
+  console.log(`  ${seen.length} paid packs opened with two keepers already in the squad, ${gks} came back a keeper`);
+}
+
 /* the rule is written down where a reader will find it */
 {
   const t = readFileSync('src/game/transfers.ts', 'utf8');

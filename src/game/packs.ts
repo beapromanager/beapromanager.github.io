@@ -49,7 +49,7 @@ export const ADS_PER_SEASON = 3;
 
 /* ----------------------------------------------------------------- packs */
 
-export type PackId = 'boost' | 'star' | 'pro';
+export type PackId = 'boost' | 'star' | 'pro' | 'gift';
 
 export interface PackSpec {
   id: PackId;
@@ -99,7 +99,26 @@ export const PACKS: PackSpec[] = [
   },
 ];
 
+/**
+ * The one that is given, not bought.
+ *
+ * A player wrote in stuck behind his only goalkeeper, and the rule that came
+ * out of it is that a squad never holds fewer than two. Everyone already in a
+ * career gets this once, so nobody has to climb out of the old hole on their
+ * own, and it is always a keeper because that is the hole. Priced at the
+ * middle pack's quality, a shade above the division, which is what Itzik asked
+ * for: good enough to be worth opening, not good enough to skip a division.
+ *
+ * It is not in PACKS, because PACKS is the shop and this is not for sale.
+ */
+export const GIFT_PACK: PackSpec = {
+  id: 'gift', name: 'חבילת מתנה', cost: 0,
+  blurb: 'שוער, מעט מעל רמת הליגה שלך',
+  offset: +1.5, spread: 2.5, youth: 0.7, minUpside: 5, skew: 0.8, maxAge: 24,
+};
+
 export function packById(id: PackId): PackSpec {
+  if (id === 'gift') return GIFT_PACK;
   return PACKS.find(p => p.id === id) ?? PACKS[0];
 }
 

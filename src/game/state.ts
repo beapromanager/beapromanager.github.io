@@ -66,6 +66,9 @@ import {
   starTarget, starFee, feeSweetener, youngTarget,
 } from './preseason.ts';
 import type { ChronicleEntry } from './chronicle.ts';
+// type only, the same way chronicle.ts reaches for it: no runtime dependency
+// on the interface from the game logic
+import type { IconName } from '../ui/components/Icon.tsx';
 import { chronicleAfterRound, chronicleAtSeasonEnd } from './chronicle.ts';
 import type { SeasonReport } from './career.ts';
 import {
@@ -156,7 +159,7 @@ export type SquadNotice =
   | { kind: 'suspended'; playerId: string; name: string; rival: string; needYouth: boolean }
   | { kind: 'youth_back'; name: string }
   | { kind: 'window'; weeks: number }
-  | { kind: 'story'; title: string; body: string }
+  | { kind: 'story'; title: string; body: string; icon?: IconName }
   /** the brand that just took the shirt, with the shirt */
   | { kind: 'sponsor'; brand: BrandId };
 
@@ -430,6 +433,14 @@ export interface GameState {
   kitReveal: SeasonKit | null;
   /** the card just pulled from a pack, waiting to be signed or sold */
   pull: PackPull | null;
+  /**
+   * Packs owed to the manager rather than bought by him.
+   *
+   * Undefined in a save written before this existed, and the loader reads that
+   * absence as "this career has not been given its one yet", which is how
+   * everybody already playing gets theirs exactly once. See save.ts.
+   */
+  gifts: number;
   /** the manager's own career: his abilities, his badge, his seasons */
   coach: Coach;
 }
@@ -534,6 +545,7 @@ export function newGame(seed = 12345): GameState {
     wardrobe: [],
     kitReveal: null,
     pull: null,
+    gifts: 0,
     coach: newCoach('mental'),
   };
 }
@@ -2446,9 +2458,15 @@ export function watchAdForGem(gs: GameState): GameState {
 
 export function packBlockedReason(gs: GameState, id: PackId): string | null {
   const spec = packById(id);
+  if (id === 'gift' && giftsWaiting(gs) <= 0) return 'אין לך חבילת מתנה';
   if (gs.gems < spec.cost) return `צריך ${spec.cost} יהלומים`;
   if (squadSize(gs) >= MAX_SQUAD) return `הסגל מלא, מקסימום ${MAX_SQUAD} שחקנים`;
   return null;
+}
+
+/** Packs owed to this manager. Reads an old save's missing field as none. */
+export function giftsWaiting(gs: GameState): number {
+  return gs.gifts ?? 0;
 }
 
 /**
@@ -2464,8 +2482,16 @@ export function buyPack(gs: GameState, id: PackId): GameState {
   // bias the roll toward whichever line is thinnest, so a reward is never a
   // twelfth striker while the defence is bare
   const rng = createRng(gs.seasonSeed + gs.season * 7919 + gs.gems * 131 + gs.adsWatched * 17);
-  const pull = openPack(spec, club(gs).tier, rng, { position: thinnestPosition(gs, rng), taken });
-  return { ...gs, gems: gs.gems - spec.cost, pull };
+  // the gift is always a keeper, because a missing keeper is what it is for.
+  // Every other pack leans toward whichever line is thinnest
+  const position = id === 'gift' ? 'GK' : thinnestPosition(gs, rng);
+  const pull = openPack(spec, club(gs).tier, rng, { position, taken });
+  return {
+    ...gs,
+    gems: gs.gems - spec.cost,
+    gifts: id === 'gift' ? giftsWaiting(gs) - 1 : giftsWaiting(gs),
+    pull,
+  };
 }
 
 /** The position the squad is shortest of, for biasing a pack roll. */
@@ -2474,9 +2500,22 @@ function thinnestPosition(gs: GameState, rng: Rng): Position {
   const all = [...sq.starters, ...sq.bench];
   const counts: Record<MarketLine, number> = { gk: 0, def: 0, mid: 0, atk: 0 };
   for (const p of all) counts[lineOfPosition(p.position)]++;
-  // a keeper is only ever wanted when there are fewer than two
+  /**
+   * A keeper is only ever wanted when there are fewer than two, and now the
+   * code actually says so.
+   *
+   * It used to put him in the race carrying his raw count, and a squad always
+   * holds fewer keepers than defenders, midfielders or forwards, so the
+   * thinnest line was ALWAYS the goalkeepers. Measured before the fix: of 120
+   * packs opened across forty careers and all three prices, 120 came back a
+   * goalkeeper. Every pack in the game, including the eighteen gem one.
+   *
+   * At two or more he is simply not a candidate.
+   */
   const order: [MarketLine, number, Position[]][] = [
-    ['gk', counts.gk < 2 ? -99 : counts.gk, ['GK']],
+    ...(counts.gk < MIN_KEEPERS
+      ? [['gk', -99, ['GK']] as [MarketLine, number, Position[]]]
+      : []),
     ['def', counts.def, ['CB', 'LB', 'RB']],
     ['mid', counts.mid, ['CDM', 'CM', 'CAM']],
     ['atk', counts.atk, ['ST', 'LW', 'RW']],

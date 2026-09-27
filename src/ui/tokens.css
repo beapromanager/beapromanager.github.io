@@ -1593,6 +1593,23 @@ a.btn{text-decoration:none;}
   outline:1.8px dashed rgba(236,232,220,.88); outline-offset:1px;
   border-bottom-color:transparent;
 }
+/* ------------------------------------------------------- the gift pack
+   Owed, not sold. It carries the only gold edge on the shop screen so the eye
+   lands on it first and does not mistake it for something with a price. */
+.gift-pack{
+  border-color:rgba(214,178,96,.42);
+  background:linear-gradient(180deg, rgba(214,178,96,.09), var(--surface) 62%);
+}
+.gift-badge{
+  flex:none; width:44px; height:44px; border-radius:14px;
+  display:grid; place-items:center;
+  background:rgba(214,178,96,.14); border:1px solid rgba(214,178,96,.3);
+}
+.gift-chip{
+  background:rgba(214,178,96,.18); color:var(--gold);
+  border:1px solid rgba(214,178,96,.34); font-weight:800;
+}
+
 @keyframes chalkIn{
   from{opacity:0; transform:translate(-50%,-50%) scale(.7);}
   to{opacity:1;}

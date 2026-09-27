@@ -57,6 +57,7 @@ const ADDED_SINCE = [
   'queued',                         // a talk booked for a coming week
   'friends',                        // the two he brought with him
   'mate', 'chatAnswers',            // the phone of the one who writes
+  'gifts',                          // the free pack owed after the keeper fix
 ] as const;
 
 function career(town = LEGEND_TOWN, seed = 4242): G.GameState {

@@ -178,6 +178,17 @@ export function loadCareer(): GameState | null {
     adsWatched: s.adsWatched ?? 0,
     reports: s.reports ?? NO_REPORTS,
     pull: s.pull ?? null,
+    /**
+     * The gift, owed to every career that existed before it did.
+     *
+     * A player wrote in locked out of his own save behind his only keeper. The
+     * rule that came out of it is that a squad never holds fewer than two, but
+     * a rule only helps from here on: a manager already down to one is still
+     * down to one. So every career from before carries a free pack with a
+     * keeper in it, and the ABSENCE of this field is the record of not having
+     * been given it yet. No flag and no date to keep in step.
+     */
+    gifts: s.gifts ?? 1,
     // a career from before the coach had a CV starts as an amateur on the
     // archetype it was saved with, which no longer exists, so newCoach falls
     // back to a sane default
@@ -224,6 +235,17 @@ export function loadCareer(): GameState | null {
     }
     patched.league = { ...patched.league, squads: { ...patched.league.squads, [patched.clubId]: { ...sq, starters, bench } } };
   }
+  // said out loud, once, on the way back to the hub. A pack nobody is told
+  // about is a pack nobody opens
+  if ((s as Partial<GameState>).gifts === undefined) {
+    patched.notices = [...patched.notices, {
+      kind: 'story',
+      title: 'חבילת מתנה בשבילך',
+      body: 'תיקנו תקלה שנעלה קבוצות עם שוער אחד. מעכשיו חייבים שני שוערים בסגל, ומחכה לך במסך החבילות חבילה חינם עם שוער.',
+      icon: 'glove',
+    }];
+  }
+
   if (patched.phase === 'match') return { ...patched, phase: 'hub' };
   // the crest card between the tactics and the dressing room is gone; a save
   // that was left standing on it opens on the board that followed it

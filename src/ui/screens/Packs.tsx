@@ -2,7 +2,7 @@ import { TopBack } from '../components/TopBack.tsx';
 import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { overall } from '../../engine/matchEngine.ts';
-import { PACKS, ADS_PER_SEASON, GEMS_PER_AD, GEMS_ON_PROMOTION } from '../../game/packs.ts';
+import { PACKS, GIFT_PACK, ADS_PER_SEASON, GEMS_PER_AD, GEMS_ON_PROMOTION } from '../../game/packs.ts';
 import { ADS_LIVE } from '../../data/ads.ts';
 import type { PackId, PackPull } from '../../game/packs.ts';
 import { RARITY_LABEL, RARITY_OVR_COLOR } from '../../game/cards.ts';
@@ -66,6 +66,33 @@ export function PacksScreen({ gs, onWatchAd, onBuy, onSign, onSell, onBack }: {
 
         {msg && (
           <div className="tile" style={{ padding: '10px 13px', fontSize: 14.5, fontWeight: 700 }} aria-live="polite">{msg}</div>
+        )}
+
+        {/* What is owed sits above what is sold, and looks like neither: gold
+            edge, no gem price, and the goalkeeper's glove rather than a shop
+            icon. One accent, used scarcely, so it reads as an occasion */}
+        {G.giftsWaiting(gs) > 0 && (
+          <div className="tile gift-pack" style={{ padding: '14px 15px' }}>
+            <div className="row" style={{ alignItems: 'flex-start', gap: 12 }}>
+              <span className="gift-badge" aria-hidden="true">
+                <Icon name="glove" size={24} color="var(--gold)" />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                  <div style={{ fontWeight: 900, fontSize: 18 }}>{GIFT_PACK.name}</div>
+                  <span className="chip gift-chip">חינם</span>
+                </div>
+                <div className="sub" style={{ fontSize: 13.5, marginTop: 3, lineHeight: 1.5 }}>{GIFT_PACK.blurb}</div>
+              </div>
+            </div>
+            <button
+              className="btn" style={{ marginTop: 12 }}
+              disabled={!!G.packBlockedReason(gs, 'gift')}
+              onClick={() => { setMsg(null); onBuy('gift'); }}
+            >
+              {G.packBlockedReason(gs, 'gift') ?? 'פתח את המתנה'}
+            </button>
+          </div>
         )}
 
         <div className="label-cap" style={{ marginTop: 2 }}>החבילות</div>
