@@ -15,6 +15,7 @@ import type { Squad } from '../data/squadGen.ts';
 import { makePlayer, makeSquad, nextPlayerId } from '../data/squadGen.ts';
 import { majoritySector, sectorForCity } from '../data/names.ts';
 import { withLegend } from '../data/legends.ts';
+import { MIN_KEEPERS } from './transfers.ts';
 import type { Player, Rng } from '../engine/matchEngine.ts';
 import { overall, createRng } from '../engine/matchEngine.ts';
 
@@ -228,6 +229,24 @@ export function ageSquad(
     bench.push(kid);
   }
 
+  /**
+   * And two men who can keep goal come out of every summer.
+   *
+   * Topping up only to minSquad is not enough: eighteen men with one keeper is
+   * a legal squad, and the day that keeper is banned or sat out the career
+   * cannot play another match. Age is the only road left to one keeper, now
+   * that nobody can be sold or released down to it, and this closes it. Found
+   * by a check that played careers out rather than by reading the code: the
+   * same top-up in fillWithYouth never ran here, because this is the other path.
+   */
+  while ([...starters, ...bench].filter(p => p.position === 'GK').length < MIN_KEEPERS) {
+    const gk = makePlayer('GK', leagueCeiling(tier) - 8, rng, undefined, used, sector);
+    gk.age = 18 + Math.floor(rng() * 4);
+    used.add(gk.name);
+    joined.push(gk.name);
+    bench.push(gk);
+  }
+
   // a keeper must always be in the eleven, promote one if the old one retired
   if (!starters.some(p => p.position === 'GK')) {
     const bi = bench.findIndex(p => p.position === 'GK');
@@ -269,6 +288,23 @@ export function fillWithYouth(squad: Squad, rng: Rng, tier: number, minSquad: nu
     joined.push(kid.name);
     bench.push(kid);
   }
+  /**
+   * And two men who can keep goal, always.
+   *
+   * Filling to the minimum is not enough on its own: a squad of eighteen with
+   * one keeper is a legal squad, and the day that keeper is rested or banned
+   * the career cannot play another match. Age is the road in, since nothing
+   * else can take the second one any more. MAX_SQUAD is not a worry here,
+   * because a squad only reaches this function after somebody has left it.
+   */
+  while ([...starters, ...bench].filter(p => p.position === 'GK').length < MIN_KEEPERS) {
+    const gk = makePlayer('GK', leagueCeiling(tier) - 8, rng, undefined, used, sector);
+    gk.age = 18 + Math.floor(rng() * 4);
+    used.add(gk.name);
+    joined.push(gk.name);
+    bench.push(gk);
+  }
+
   if (!starters.some(p => p.position === 'GK')) {
     const bi = bench.findIndex(p => p.position === 'GK');
     if (bi >= 0) { const gk = bench[bi]; bench[bi] = starters[0]; starters[0] = gk; }

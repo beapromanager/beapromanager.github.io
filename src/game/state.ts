@@ -60,7 +60,7 @@ import { buildFeed } from '../data/feed.ts';
 import type { FanContext, FanMessage, FanTiming } from '../data/fans.ts';
 import type { Outlet, PressQuestion, PressContext } from '../data/press.ts';
 import type { FreeAgent } from './transfers.ts';
-import { makeMarket, refreshMarket, settleMarket, windowState, sellPrice, transferFee, contractTerms, MIN_SQUAD, MAX_SQUAD } from './transfers.ts';
+import { makeMarket, refreshMarket, settleMarket, windowState, sellPrice, transferFee, contractTerms, MIN_SQUAD, MAX_SQUAD, MIN_KEEPERS } from './transfers.ts';
 import {
   PRE_ROUNDS, seedContract, contractYears, renewTerms, raiseBonus,
   starTarget, starFee, feeSweetener, youngTarget,
@@ -1458,6 +1458,8 @@ export function releasePlayer(gs: GameState, playerId: string): GameState {
   if (squadSize(gs) <= MIN_SQUAD) {
     return { ...gs, pendingOutcome: `אי אפשר לרדת מתחת ל-${MIN_SQUAD} שחקנים. תחתים מישהו קודם.` };
   }
+  const keeper = lastKeeperReason(gs, playerId);
+  if (keeper) return { ...gs, pendingOutcome: `${keeper}. תחתים שוער קודם.` };
   const p = [...sq.starters, ...sq.bench].find(x => x.id === playerId);
   if (!p) return gs;
   return {
@@ -1915,6 +1917,19 @@ export function movePlayers(gs: GameState, aId: string, bId: string): GameState 
 /* ---------------------------------------------------------- squad editing */
 
 /** Why a swap is not allowed, or null when it is fine. */
+/**
+ * Is there anybody left in the squad who can actually keep goal this round.
+ *
+ * Not "is there a keeper", which there always is now, but is one of them free
+ * to play: not banned, not sat out by an answer the manager gave, not the
+ * youth registered for the sheet alone.
+ */
+export function noKeeperAvailable(gs: GameState): boolean {
+  const sq = mySquad(gs);
+  return ![...sq.starters, ...sq.bench].some(p =>
+    p.position === 'GK' && !isUnavailable(gs, p.id));
+}
+
 export function swapBlockedReason(a: Player, b: Player, gs?: GameState): string | null {
   const aGk = a.position === 'GK', bGk = b.position === 'GK';
   // The rule is that exactly one keeper is in the eleven after the swap, not
@@ -1923,7 +1938,12 @@ export function swapBlockedReason(a: Player, b: Player, gs?: GameState): string 
   // he was not in goal, and still nobody but a keeper could replace him.
   const gksNow = gs ? mySquad(gs).starters.filter(p => p.position === 'GK').length : 1;
   const gksAfter = gksNow - (aGk ? 1 : 0) + (bGk ? 1 : 0);
-  if (gksAfter === 0) return 'חייב להישאר שוער אחד בשער';
+  // An eleven with nobody in goal is normally refused. The one exception is the
+  // night there is nobody to put there: both keepers banned, injured or sat out
+  // by an answer the manager gave. Then a defender goes in goal, which is what
+  // happens on a real pitch, and it costs him about half again as many goals.
+  // Without this door the career simply stops, and one did.
+  if (gksAfter === 0 && !(gs && noKeeperAvailable(gs))) return 'חייב להישאר שוער אחד בשער';
   if (gksAfter > 1) return 'יש כבר שוער בשער, שוער שני לא עולה';
   // the bench man is the one coming in
   if (gs && isSuspended(gs, b.id)) return `${b.name} מורחק למחזור הזה, הוא לא יכול לעלות להרכב`;
@@ -1978,11 +1998,32 @@ export function signPlayer(gs: GameState, playerId: string): GameState {
   };
 }
 
-export function sellBlockedReason(gs: GameState): string | null {
+/** How many men in the squad can keep goal. */
+export function keeperCount(gs: GameState): number {
+  const sq = mySquad(gs);
+  return [...sq.starters, ...sq.bench].filter(p => p.position === 'GK').length;
+}
+
+/**
+ * Why this man cannot leave: he is one of the last two keepers.
+ *
+ * DRAFT WORDING, Itzik's to write. Short because the sell screen prints the
+ * reason on the button itself, where there is room for about that much.
+ */
+export function lastKeeperReason(gs: GameState, playerId: string): string | null {
+  const sq = mySquad(gs);
+  const p = [...sq.starters, ...sq.bench].find(x => x.id === playerId);
+  if (!p || p.position !== 'GK') return null;
+  if (keeperCount(gs) > MIN_KEEPERS) return null;
+  return `חייבים ${MIN_KEEPERS} שוערים בסגל`;
+}
+
+export function sellBlockedReason(gs: GameState, playerId?: string): string | null {
   // A club in the red is always allowed to sell. Without this the owner could
   // sack you for a debt you had no way to pay off, which is a trap, not pressure.
   if (!transferWindow(gs).open && debt(gs).level === 'clear') return 'החלון סגור';
   if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר לרדת מתחת ל-${MIN_SQUAD} שחקנים`;
+  if (playerId) return lastKeeperReason(gs, playerId);
   return null;
 }
 
@@ -1997,7 +2038,7 @@ export function sellBlockedReason(gs: GameState): string | null {
   * market, so no screen can sell one by accident later.
   */
 export function sellPlayer(gs: GameState, playerId: string): GameState {
-  if (sellBlockedReason(gs)) return gs;
+  if (sellBlockedReason(gs, playerId)) return gs;
   if (isFriend(gs.friends, { id: playerId })) return gs;
   const sq = mySquad(gs);
   const p = sq.bench.find(x => x.id === playerId);
@@ -2120,6 +2161,8 @@ export function partBlockedReason(gs: GameState, playerId: string): string | nul
   if (!p) return 'הוא לא בסגל שלך';
   if (gs.emergencyYouth === playerId) return 'הוא רשום רק למחזור הזה, אחריו הוא חוזר לנוער';
   if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר לרדת מתחת ל-${MIN_SQUAD} שחקנים. תחתים מישהו קודם.`;
+  const keeper = lastKeeperReason(gs, playerId);
+  if (keeper) return `${keeper}. תחתים שוער קודם.`;
   return null;
 }
 
@@ -2297,7 +2340,7 @@ function formatShekels(n: number): string {
   return n >= 1000 ? `₪${Math.round(n / 1000)}K` : `₪${n}`;
 }
 
-export { playerValue, sellPrice, MIN_SQUAD, MAX_SQUAD };
+export { playerValue, sellPrice, MIN_SQUAD, MAX_SQUAD, MIN_KEEPERS };
 
 /* ------------------------------------------------------------- friends */
 

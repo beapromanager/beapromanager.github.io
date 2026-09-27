@@ -59,7 +59,7 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
 
   function trySell(id: string) {
     const p = sq.bench.find(x => x.id === id)!;
-    const reason = G.sellBlockedReason(gs);
+    const reason = G.sellBlockedReason(gs, id);
     if (reason) { setMsg(reason); return; }
     onSell(id);
     setMsg(`${p.name} נמכר תמורת ${formatMoney(sellPrice(p, myTier))}.`);
@@ -180,7 +180,7 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
               </p>
             )}
             {sq.bench.filter(p => !isFriend(gs.friends, p)).map(p => {
-              const blocked = G.sellBlockedReason(gs);
+              const blocked = G.sellBlockedReason(gs, p.id);
               return (
                 <div key={p.id} className="tile" style={{ padding: '4px 10px 12px' }}>
                   <PlayerRow p={p} traits={squadTraits.get(p.id) ?? []} onOpen={() => setCard(p)} />

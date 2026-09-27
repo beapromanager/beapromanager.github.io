@@ -173,16 +173,34 @@ const NEAR: Record<SlotRole, string[]> = {
  * engine charges, and the number the team sheet shows next to the red name,
  * so what the manager sees is exactly what the match will use.
  */
-export const FIT_MULT: Record<'natural' | 'covers' | 'out', number> = { natural: 1.0, covers: 0.96, out: 0.88 };
+/**
+ * A fourth level, for a man in goal who is not a keeper.
+ *
+ * "out" is the price of a shirt that is not yours: a centre back at right back,
+ * a midfielder up front. Keeping goal is not a shirt, it is a different sport,
+ * and the engine says so itself by rating keepers with their own formula off
+ * their own attributes. Charged at the ordinary "out" rate it was measured as
+ * costing between six per cent and NOTHING: in one of three clubs tested the
+ * side actually conceded fewer with its best outfield man in goal than with
+ * its real keeper, because 0.88 of a 55 beats a 49.
+ *
+ * NOGK is calibrated and not guessed. Itzik asked for about half again as many
+ * goals conceded; measured over five clubs at 900 matches each, 0.44 lands on
+ * +49% on average, between +44% and +54%. gk-check.mts holds it to that.
+ */
+export const FIT_MULT: Record<'natural' | 'covers' | 'out' | 'nogk', number> =
+  { natural: 1.0, covers: 0.96, out: 0.88, nogk: 0.44 };
 
 export function effectiveOverall(p: Player, role: SlotRole, ovr: number): number {
   return Math.round(ovr * FIT_MULT[roleFit(p.position, role)]);
 }
 
-export function roleFit(playerPos: string, role: SlotRole): 'natural' | 'covers' | 'out' {
+export function roleFit(playerPos: string, role: SlotRole): 'natural' | 'covers' | 'out' | 'nogk' {
   if (playerPos === role) return 'natural';
+  // an outfield man asked to keep goal. Not a shirt out of place, a different job
+  if (role === 'GK') return 'nogk';
   if (NEAR[role].includes(playerPos)) return 'covers';
-  // a keeper anywhere but in goal, or an outfield player in goal, is always out
+  // and a keeper anywhere but in goal is simply out of position
   return 'out';
 }
 

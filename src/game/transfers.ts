@@ -31,6 +31,21 @@ export function windowState(week: number, _totalRounds: number): WindowState {
 export const MIN_SQUAD = 16;
 export const MAX_SQUAD = 20;
 
+/**
+ * Two men who can keep goal, always.
+ *
+ * A player wrote in stuck: he had one keeper, a dilemma sat that keeper out,
+ * and the game then demanded he take a man out of the eleven that the same
+ * game would not let him take out, because a keeper has to be in goal. The
+ * career could not play another match. He escaped by opening a pack and
+ * pulling a keeper, which is luck, not a way out.
+ *
+ * A squad is born with two. This is what stops it ever going down to one:
+ * nobody can be sold, released or let go while he is one of the last two, and
+ * the summer tops the second one back up when age takes him.
+ */
+export const MIN_KEEPERS = 2;
+
 export interface FreeAgent {
   player: Player;
   fee: number;
