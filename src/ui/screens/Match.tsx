@@ -387,6 +387,8 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
       {subOpen && (
         <SubSheet st={st} focusId={subFocus} benchKit={st.iAmHome ? hdrKits.home : hdrKits.away} red={redStop}
           onSub={(off, on) => { L.makeSub(st, off, on); force(); }}
+          onSwap={(a, b) => { L.swapOnPitch(st, a, b); force(); }}
+          onFill={(id, slot) => { L.fillVacancy(st, id, slot); force(); }}
           onClose={() => { setSubOpen(false); setSubFocus(null); setRedStop(null); }} />
       )}
 
@@ -436,8 +438,10 @@ function fitColor(f: number): string {
  * rating sits in the shirt, the fitness bar under the name, and a tap on a
  * shirt opens who can come on for that man.
  */
-function SubBoard({ st, kit, picked, onPick }: {
+function SubBoard({ st, kit, picked, onPick, onVacant }: {
   st: LiveState; kit: KitStrip; picked: string | null; onPick: (p: Player) => void;
+  /** the shirt a sent off man left, tapped while somebody is held */
+  onVacant?: (slot: number) => void;
 }) {
   const side = L.mySide(st);
   // the shirts are seated in the shape being played RIGHT NOW, so a manager who
@@ -463,10 +467,18 @@ function SubBoard({ st, kit, picked, onPick }: {
       {side.sentOff.map(x => {
         const slot = form.slots[x.slot];
         if (!slot) return null;
+        // while a man is held, the shirt the sent off player left is somewhere
+        // to put him, and the hole then moves to the shirt HE was wearing
+        const open = !!picked && !!onVacant && slot.role !== 'GK';
         return (
-          <div key={x.player.id} className="lineup-man off"
-            style={{ top: `${slot.line === 'GK' ? 88 : 80 - slot.d * 68}%`, left: `${slot.y * 100}%` }}
-            aria-label={`${x.player.name} הורחק בדקה ${x.minute}`}>
+          <div key={x.player.id} className={`lineup-man off${open ? ' vacant' : ''}`}
+            role={open ? 'button' : undefined} tabIndex={open ? 0 : undefined}
+            onClick={open ? () => onVacant!(x.slot) : undefined}
+            onKeyDown={open ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onVacant!(x.slot); } } : undefined}
+            style={{ top: `${slot.line === 'GK' ? 88 : 80 - slot.d * 68}%`, left: `${slot.y * 100}%`, cursor: open ? 'pointer' : undefined }}
+            aria-label={open
+              ? `החולצה של ${x.player.name}, לחץ כדי להעביר לכאן את מי שבחרת`
+              : `${x.player.name} הורחק בדקה ${x.minute}`}>
             <span className="lineup-shirt" style={{ background: kit.shirt, borderColor: kit.trim }}>
               <span className="lineup-redcard" aria-hidden="true" />
             </span>
@@ -676,8 +688,12 @@ function BenchBar({ st, onOpen, onQuickSub }: {
  * live fitness and the two tap substitution flow, so the action screen behind
  * it stays clean.
  */
-function SubSheet({ st, onSub, onClose, focusId, benchKit, red }: {
+function SubSheet({ st, onSub, onSwap, onFill, onClose, focusId, benchKit, red }: {
   st: LiveState; onSub: (offId: string, onId: string) => void; onClose: () => void;
+  /** two of the eleven trading shirts, which costs nothing */
+  onSwap: (aId: string, bId: string) => void;
+  /** a man stepping into the shirt a sent off team mate left */
+  onFill: (playerId: string, slot: number) => void;
   focusId?: string | null;
   /** the strip my side is wearing today, so the bench matches the pitch */
   benchKit: KitStrip;
@@ -745,12 +761,22 @@ function SubSheet({ st, onSub, onClose, focusId, benchKit, red }: {
             <div className="bench-wood" aria-hidden="true" />
           </div>
 
-          <p className="hint" style={{ margin: '2px 0 8px' }}>
-            {canSub ? 'לחץ על שחקן בלוח כדי לראות מי מהספסל נכנס במקומו.' : 'נגמרו החילופים, אבל אפשר עדיין לעקוב אחרי הכושר.'}
+<p className="hint" style={{ margin: '2px 0 8px' }}>
+            לחץ על שחקן בלוח ואז על שחקן אחר, והם מחליפים מקום בלי לבזבז חילוף.
+            {canSub ? ' או בחר מי מהספסל נכנס במקומו.' : ' נגמרו החילופים, אבל לסדר מחדש אפשר תמיד.'}
           </p>
 
+          {/* Picking is NOT gated on having a substitution left any more. Moving
+              a man costs nothing, so a manager who has used all three must still
+              be able to reorganise: that is the whole point of this. */}
           <SubBoard st={st} kit={benchKit} picked={picked}
-            onPick={p => { if (canSub) setPicked(picked === p.id ? null : p.id); }} />
+            onPick={p => {
+              if (!picked) { setPicked(p.id); return; }
+              if (picked === p.id) { setPicked(null); return; }
+              onSwap(picked, p.id);
+              setPicked(null);
+            }}
+            onVacant={slot => { if (picked) { onFill(picked, slot); setPicked(null); } }} />
 
           {pickedPlayer && (
             <div ref={optRef}>

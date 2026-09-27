@@ -1593,6 +1593,24 @@ a.btn{text-decoration:none;}
   outline:1.8px dashed rgba(236,232,220,.88); outline-offset:1px;
   border-bottom-color:transparent;
 }
+/* A shirt standing empty, offered as somewhere to put the man being held.
+   Gold dashes rather than a filled button: it is a place, not a person, and
+   the eye should read it as a gap that can be closed. The tap area is the
+   whole shirt, which is already over 44px. */
+.lineup-man.off.vacant .lineup-shirt{
+  border-style:dashed; border-color:var(--gold);
+  box-shadow:0 0 0 3px rgba(233,185,73,.16);
+  animation:vacantPulse 1.4s ease-in-out infinite;
+}
+.lineup-man.off.vacant .lineup-name{color:var(--gold-hi);}
+@keyframes vacantPulse{
+  0%,100%{box-shadow:0 0 0 3px rgba(233,185,73,.16);}
+  50%{box-shadow:0 0 0 7px rgba(233,185,73,.05);}
+}
+@media (prefers-reduced-motion: reduce){
+  .lineup-man.off.vacant .lineup-shirt{animation:none;}
+}
+
 /* ------------------------------------------------------- the gift pack
    Owed, not sold. It carries the only gold edge on the shop screen so the eye
    lands on it first and does not mistake it for something with a price. */
