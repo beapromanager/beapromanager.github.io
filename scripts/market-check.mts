@@ -277,6 +277,43 @@ console.log(`\n${checked} checks across 3 careers, ${PRE_ROUNDS} summer rounds e
   if (!fails.length) console.log('  a man can be sold straight out of the eleven, and the bench takes his shirt');
 }
 
+/* 6. AND A BRAND NEW SQUAD HAS ROOM TO SELL ON DAY ONE.
+      A squad built to exactly MIN_SQUAD cannot sell anybody: the first answer
+      a new manager got was that he may not go below the number he was already
+      on, which reads as a broken market rather than a rule. Two spare men, so
+      the first summer is a decision, and the floor stops him after those two
+      rather than before the first. */
+{
+  const before = fails.length;
+  for (const seed of [4711, 9091, 555]) {
+    let gs = G.newGame(seed);
+    gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+    gs = G.pickCity(gs, 'באר שבע');
+    gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+
+    const all = () => { const s = G.mySquad(gs); return [...s.starters, ...s.bench]; };
+    checked += 3;
+    if (G.squadSize(gs) !== MIN_SQUAD + 2) {
+      fails.push(`a new squad has ${G.squadSize(gs)} men and the floor is ${MIN_SQUAD}, so he can sell ${Math.max(0, G.squadSize(gs) - MIN_SQUAD)} of them`);
+    }
+    if (all().filter(p => p.position === 'GK').length < 2) fails.push('a new squad does not have two men who can keep goal');
+
+    // exactly two go, and the third is refused rather than ignored
+    let g = gs, gone = 0;
+    for (let i = 0; i < 4; i++) {
+      const next = [...G.mySquad(g).bench, ...G.mySquad(g).starters].find(p => !G.sellBlockedReason(g, p.id));
+      if (!next) break;
+      const after = G.sellPlayer(g, next.id);
+      if (G.squadSize(after) === G.squadSize(g)) break;
+      g = after; gone++;
+    }
+    if (gone !== 2) fails.push(`a new manager could sell ${gone} men before the floor stopped him, not 2`);
+    const keepersLeft = [...G.mySquad(g).starters, ...G.mySquad(g).bench].filter(p => p.position === 'GK').length;
+    if (keepersLeft < 2) fails.push(`selling down to the floor left ${keepersLeft} keepers`);
+  }
+  if (fails.length === before) console.log('  a new squad carries two spare men, and exactly two of them can go');
+}
+
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, the market moves, warns before it takes, and ends on a star');
 process.exit(fails.length ? 1 : 0);

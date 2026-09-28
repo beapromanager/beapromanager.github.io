@@ -3,9 +3,23 @@ import { overall, playerSeed } from '../engine/matchEngine.ts';
 import { makeName, squadOrigins, type Origin } from './names.ts';
 import type { ClubTraits } from './clubs.ts';
 
-/** Formation slots for a starting XI plus a small bench. */
+/**
+ * Formation slots for a starting XI plus a bench.
+ *
+ * Eighteen men, and the last two are the point of it. MIN_SQUAD is sixteen, so
+ * a squad built to sixteen could not sell a single player: the first thing a
+ * new manager was told, if he tried, was that he may not go below the number
+ * he was already on. Two spare men mean the market is a decision from the
+ * first summer rather than a locked door, and selling both is as far as it
+ * goes, which is the floor doing its job instead of standing in the doorway.
+ *
+ * They are a left back and a left winger because the bench had neither: every
+ * other line could already cover itself like for like, and those two shirts
+ * had nobody behind them at all. The second keeper stays where he was, so the
+ * two who can keep goal are still there after both spare men are sold.
+ */
 const XI: Position[] = ['GK', 'RB', 'CB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'RW', 'ST', 'LW'];
-const BENCH: Position[] = ['GK', 'CB', 'CM', 'ST', 'RW'];
+const BENCH: Position[] = ['GK', 'CB', 'LB', 'CM', 'ST', 'RW', 'LW'];
 
 export const NEUTRAL_TRAITS: ClubTraits = { attack: 0, defence: 0, budget: 1, prestige: 30, youth: 0.15 };
 
