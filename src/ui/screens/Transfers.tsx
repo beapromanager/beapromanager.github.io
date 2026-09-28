@@ -58,7 +58,7 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
   }
 
   function trySell(id: string) {
-    const p = sq.bench.find(x => x.id === id)!;
+    const p = [...sq.bench, ...sq.starters].find(x => x.id === id)!;
     const reason = G.sellBlockedReason(gs, id);
     if (reason) { setMsg(reason); return; }
     onSell(id);
@@ -99,7 +99,7 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
             שחקנים חופשיים
           </button>
           <button role="tab" aria-selected={tab === 'mine'} data-on={tab === 'mine' ? '1' : '0'} onClick={() => { setTab('mine'); setMsg(null); scrollToTop(); }}>
-            מכירה מהספסל
+            מכירת שחקנים
           </button>
         </div>
 
@@ -168,22 +168,28 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
 
         {tab === 'mine' && (
           <div className="stack" style={{ gap: 10 }}>
-            <p className="hint">אפשר למכור רק שחקני ספסל. אם אתה רוצה להיפטר משחקן מההרכב, קודם תוציא אותו במסך הסגל.</p>
+            <p className="hint">אפשר למכור כל שחקן, גם מההרכב. מי שנמכר מההרכב, הטוב ביותר שמתאים לו מהספסל לובש את החולצה שלו מיד.</p>
             {/* The two he brought with him are not stock. One of them sitting
                 on the bench used to appear here with a price and a Sell
                 button, one tap from gone, which is not what a man who came
                 with you from the neighbourhood is. He can still be let go,
                 from his own card, where the screen says what it is. */}
-            {sq.bench.some(p => isFriend(gs.friends, p)) && (
+            {[...sq.bench, ...sq.starters].some(p => isFriend(gs.friends, p)) && (
               <p className="hint" style={{ color: 'var(--gold-hi)' }}>
                 מי שבא איתך לא נמכר מכאן. אם באמת צריך להיפרד, זה מהכרטיס שלו במסך הסגל.
               </p>
             )}
-            {sq.bench.filter(p => !isFriend(gs.friends, p)).map(p => {
+            {/* The bench first, which is where this list has always started, and
+                the eleven under it marked for what it is. A man about to be sold
+                out of the eleven is a different decision from one off the bench,
+                so the row says which he is before the price does. */}
+            {[...sq.bench, ...sq.starters].filter(p => !isFriend(gs.friends, p)).map(p => {
               const blocked = G.sellBlockedReason(gs, p.id);
+              const starting = sq.starters.some(x => x.id === p.id);
               return (
                 <div key={p.id} className="tile" style={{ padding: '4px 10px 12px' }}>
-                  <PlayerRow p={p} traits={squadTraits.get(p.id) ?? []} onOpen={() => setCard(p)} />
+                  <PlayerRow p={p} traits={squadTraits.get(p.id) ?? []} onOpen={() => setCard(p)}
+                    mark={starting ? 'בהרכב' : null} />
                   <div className="row" style={{ gap: 10, padding: '10px 8px 0' }}>
                     <div style={{ flex: 1 }}>
                       <div className="sub" style={{ fontSize: 12.5 }}>תקבל</div>

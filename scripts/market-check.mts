@@ -12,7 +12,7 @@
 import * as G from '../src/game/state.ts';
 import { overall } from '../src/engine/matchEngine.ts';
 import { PRE_ROUNDS } from '../src/game/preseason.ts';
-import { refreshMarket, WINTER_WEEKS } from '../src/game/transfers.ts';
+import { refreshMarket, WINTER_WEEKS, MIN_SQUAD } from '../src/game/transfers.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { CITIES } from '../src/data/cities.ts';
@@ -210,6 +210,71 @@ console.log(`\n${checked} checks across 3 careers, ${PRE_ROUNDS} summer rounds e
   checked++;
   if (after && (after.open || after.warned.length)) fails.push(`week ${shuts + 1}: the window is ${after.open ? 'still open' : 'shut'} with ${after.warned.length} men on notice`);
   console.log(`  the winter window opens on a fresh twelve, moves while it is open, and settles when it shuts`);
+}
+
+/* 5. A MAN CAN BE SOLD STRAIGHT OUT OF THE ELEVEN.
+      Reported from ליגה ג׳: in the summer you cannot change the eleven, so you
+      cannot sell anybody you left in it. The market used to take bench men
+      only and told you to go and drop him on the squad screen first, and the
+      summer has no squad screen, so that instruction had nowhere to be
+      carried out and the man stayed until the winter window.
+
+      This plays the sale rather than reading the source, because what has to
+      hold is not that a line of code exists: it is that the eleven survives
+      the sale. Eleven men, one keeper, the shirt filled from the bench, the
+      money in, and the man actually gone. */
+{
+  let gs = G.newGame(4711);
+  gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+  gs = G.pickCity(gs, 'באר שבע');
+  gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+
+  // a squad opens on exactly the minimum, so nothing at all can be sold until
+  // somebody has been signed. Without this the section would "pass" on the
+  // squad size rule while never reaching the thing it is about.
+  for (const fa of [...gs.market]) {
+    if (G.squadSize(gs) >= MIN_SQUAD + 2) break;
+    if (!G.signBlockedReason(gs, fa)) gs = G.signPlayer(gs, fa.player.id);
+  }
+
+  checked++;
+  if (G.squadSize(gs) <= MIN_SQUAD) {
+    fails.push('could not get the squad above the minimum, so the sale was never actually tested');
+  } else {
+    const before = G.mySquad(gs);
+    // an outfield man, so what is measured is the eleven and not the keeper rule
+    const victim = before.starters.find(p => p.position !== 'GK')!;
+    const money0 = gs.meters.money;
+    const size0 = G.squadSize(gs);
+
+    checked += 7;
+    const why = G.sellBlockedReason(gs, victim.id);
+    if (why) fails.push(`a man in the eleven cannot be sold in the summer: ${why}`);
+
+    const after = G.sellPlayer(gs, victim.id);
+    const sq = G.mySquad(after);
+    if ([...sq.starters, ...sq.bench].some(p => p.id === victim.id)) {
+      fails.push('he was sold and is still in the squad');
+    }
+    if (sq.starters.length !== 11) fails.push(`the sale left ${sq.starters.length} men on the team sheet`);
+    const gks = sq.starters.filter(p => p.position === 'GK').length;
+    if (gks !== 1) fails.push(`the eleven came out of the sale with ${gks} keepers`);
+    if (after.meters.money <= money0) fails.push('the man went and the money did not come');
+    if (G.squadSize(after) !== size0 - 1) fails.push(`the squad went from ${size0} to ${G.squadSize(after)}, which is not one man leaving`);
+    if (!sq.starters.some(p => before.bench.some(b => b.id === p.id))) {
+      fails.push('nobody came off the bench to take the empty shirt');
+    }
+    // and the refusal still has to speak: a squad on the minimum sells nobody
+    let thin = gs;
+    while (G.squadSize(thin) > MIN_SQUAD) {
+      const b = G.mySquad(thin).bench.find(p => !G.sellBlockedReason(thin, p.id));
+      if (!b) break;
+      thin = G.sellPlayer(thin, b.id);
+    }
+    const thinWhy = G.sellBlockedReason(thin, G.mySquad(thin).starters[1]?.id);
+    if (!thinWhy) fails.push('a squad down to the minimum still offers to sell out of the eleven');
+  }
+  if (!fails.length) console.log('  a man can be sold straight out of the eleven, and the bench takes his shirt');
 }
 
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));

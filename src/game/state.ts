@@ -2035,27 +2035,84 @@ export function sellBlockedReason(gs: GameState, playerId?: string): string | nu
   // sack you for a debt you had no way to pay off, which is a trap, not pressure.
   if (!transferWindow(gs).open && debt(gs).level === 'clear') return 'החלון סגור';
   if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר לרדת מתחת ל-${MIN_SQUAD} שחקנים`;
-  if (playerId) return lastKeeperReason(gs, playerId);
+  if (playerId) {
+    const keeper = lastKeeperReason(gs, playerId);
+    if (keeper) return keeper;
+    // A man in the eleven can go now, but only if somebody is allowed to take
+    // his shirt. Refusing here rather than inside the sale means the button
+    // says why instead of doing nothing when it is pressed.
+    if (mySquad(gs).starters.some(p => p.id === playerId) && !benchReplacementFor(gs, playerId)) {
+      return 'אין מי שיחליף אותו בהרכב';
+    }
+  }
   return null;
 }
 
 /**
-  * Only bench players can be sold, starters must be swapped out first.
-  *
-  * And never one of the two he brought with him. They are ordinary players in
-  * every other respect, which was the problem: one of them sitting on the
-  * bench appeared in the market with a price and a Sell button, one tap from
-  * gone. A friend can still be let go, but from his own card, deliberately,
-  * and the screen asks first. The refusal lives here rather than only in the
-  * market, so no screen can sell one by accident later.
-  */
+ * Who takes the shirt when a man is sold out of the eleven.
+ *
+ * His own position first, then anyone on his line, then simply the best man
+ * left. The candidates are filtered through swapBlockedReason rather than
+ * beside it, because that is where the eleven's rules already live: the keeper
+ * who has to stay in goal, the man suspended this round, the one sat out by an
+ * answer the manager gave. A second list of the same rules here would be one
+ * refactor away from disagreeing with the first.
+ */
+function benchReplacementFor(gs: GameState, starterId: string): Player | null {
+  const sq = mySquad(gs);
+  const out = sq.starters.find(p => p.id === starterId);
+  if (!out) return null;
+  const line = LINE[out.position] ?? 'MID';
+  const legal = sq.bench.filter(b => !swapBlockedReason(out, b, gs));
+  if (!legal.length) return null;
+  const fit = (b: Player) =>
+    b.position === out.position ? 2 : (LINE[b.position] ?? 'MID') === line ? 1 : 0;
+  return [...legal].sort((a, b) => fit(b) - fit(a) || overall(b) - overall(a))[0];
+}
+
+/**
+ * Sell a man, off the bench or straight out of the eleven.
+ *
+ * It used to be the bench alone, and the market said so in as many words: take
+ * him out on the squad screen first. A reader in ליגה ג׳ found what was wrong
+ * with that. The summer is the one window that is always open, and the summer
+ * has no squad screen, so a manager who walked into it wanting rid of a man in
+ * his eleven was told to do something the game gave him nowhere to do, and
+ * then had to carry that man through the summer and seven more rounds before
+ * the winter window would have him.
+ *
+ * So the eleven empties itself now: the best man on the bench who is allowed
+ * to take that shirt takes it, and the sale goes through from there. The move
+ * runs through swapPlayers, so the eleven that comes out the other side obeys
+ * exactly what an ordinary substitution obeys, and a sale with no legal
+ * replacement behind it is refused before any money moves rather than halfway
+ * through.
+ *
+ * And never one of the two he brought with him. They are ordinary players in
+ * every other respect, which was the problem: one of them sitting on the
+ * bench appeared in the market with a price and a Sell button, one tap from
+ * gone. A friend can still be let go, but from his own card, deliberately,
+ * and the screen asks first. The refusal lives here rather than only in the
+ * market, so no screen can sell one by accident later.
+ */
 export function sellPlayer(gs: GameState, playerId: string): GameState {
   if (sellBlockedReason(gs, playerId)) return gs;
   if (isFriend(gs.friends, { id: playerId })) return gs;
-  const sq = mySquad(gs);
+
+  let g = gs;
+  if (mySquad(g).starters.some(p => p.id === playerId)) {
+    const inn = benchReplacementFor(g, playerId);
+    if (!inn) return gs;
+    g = swapPlayers(g, playerId, inn.id);
+    // swapPlayers refuses by returning the state untouched, so the eleven is
+    // asked whether it worked rather than assumed to have done as it was told
+    if (mySquad(g).starters.some(p => p.id === playerId)) return gs;
+  }
+
+  const sq = mySquad(g);
   const p = sq.bench.find(x => x.id === playerId);
   if (!p) return gs;
-  const next = writeSquad(gs, { starters: sq.starters, bench: sq.bench.filter(x => x.id !== playerId) });
+  const next = writeSquad(g, { starters: sq.starters, bench: sq.bench.filter(x => x.id !== playerId) });
   const moved = moveToLeagueClub(next, p);
   return {
     ...moved.gs,
