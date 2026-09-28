@@ -339,6 +339,17 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
         On the first visit there is no hub yet, so neither belongs. */}
     {!firstTime && <Meters {...gs.meters} gems={gs.gems} />}
     <div className={`screen pad stack pad-b${view === 'pitch' ? ' squad-fit' : ''}`} style={{ gap: view === 'pitch' ? 7 : 12 }}>
+      {/* The way out rides ABOVE the scroller, and this is the whole reason it
+          is not one line further down. In the pitch view the only thing that
+          scrolls is the column below, and that view has no bottom button to
+          fall back on, so a back button living inside the scroller went off the
+          top of the screen the moment anybody reached down for the bench, with
+          nothing to bring it back: scrollToTop resets the page, which is not
+          the element that moved. On a phone with a back button of its own that
+          was survivable. Added to an iPhone home screen there is no browser
+          gesture and no hardware button left either, and a reader wrote in that
+          the only way back to the hub was to close the game and open it again. */}
+      {!firstTime && <TopBack onBack={onDone} />}
       {/* In the pitch view this is a column exactly as tall as the window:
           everything down to the team sheet scrolls inside, and the bench is the
           last row of it, in the flow. That is the whole of the layout now. It
@@ -347,7 +358,6 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
           flicker, because a measurement that feeds the layout it measures can
           always disagree with it. The browser cannot. */}
       <div className={view === 'pitch' ? 'squad-scroll' : 'contents'}>
-      {!firstTime && <TopBack onBack={onDone} />}
       {firstTime && <Stepper current={6} />}
       {firstTime && <CoachGuide text="אלה השחקנים שלך. שלושה שכדאי להכיר למעלה, כל השאר בלחיצה על השם." />}
       <div className="row" style={{ marginTop: 8 }}>

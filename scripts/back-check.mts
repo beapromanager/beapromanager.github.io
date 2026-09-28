@@ -157,6 +157,45 @@ const back = readFileSync('src/ui/back.ts', 'utf8');
   console.log(`  ${rooms.length + 4} rooms opened from the hub show their way out at the top`);
 }
 
+/* 6. AND THAT WAY OUT IS NOT ITSELF INSIDE SOMETHING THAT SCROLLS.
+      Reported from an iPhone, season one, round four: no way back to the hub
+      short of closing the game and opening it again.
+
+      The squad screen opens on the pitch, and the pitch view is a column
+      exactly as tall as the window with one scroller inside it. The way out
+      sat in that scroller, so it left the screen the moment a thumb reached
+      down for the bench, and nothing brought it back: scrollToTop resets the
+      page, which is not the element that moved. The pitch view has no bottom
+      button behind it either. In a browser tab the phone's own gesture covered
+      for all of this. Added to a home screen there is no gesture and no
+      hardware button, and back.ts never hears a thing.
+
+      Checking that the file merely CONTAINS a back button, which is what the
+      section above does, cannot see any of that. This one reads the order. */
+{
+  const before = fails.length;
+  const squad = readFileSync('src/ui/screens/Squad.tsx', 'utf8');
+  const scroller = squad.indexOf("'squad-scroll'");
+  const topBack = squad.indexOf('<TopBack');
+  checked += 3;
+  if (scroller < 0) {
+    fails.push('the squad screen has no squad-scroll column, so this check is reading the wrong file');
+  } else if (topBack < 0) {
+    fails.push('the squad screen has no TopBack at all');
+  } else if (topBack > scroller) {
+    fails.push('the squad screen keeps its only way out inside the scrolling column, where a thumb reaching for the bench scrolls it off the screen');
+  }
+  // and the bench, which is what people scroll down to reach, stays outside it
+  if (!readFileSync('src/ui/tokens.css', 'utf8').includes('.squad-fit .bench-bar{flex:none')) {
+    fails.push('the bench no longer rides outside the scroller, so the scroll distance this is about has changed');
+  }
+  // said only when it is true: a line claiming the very thing that just failed
+  // is worse than no line at all
+  if (fails.length === before) {
+    console.log('  the squad screen shows its way out above the part that scrolls');
+  }
+}
+
 console.log(`\n${checked} checks`);
 console.log(fails.length ? '\n  ' + fails.slice(0, 8).join('\n  ') + '\nFAIL'
   : '\nOK, back means back, and leaving the game is asked for rather than assumed');
