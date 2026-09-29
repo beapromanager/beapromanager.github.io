@@ -9,9 +9,8 @@
  */
 import { useState } from 'react';
 import * as G from '../../game/state.ts';
-import { SCOUT_TEXT } from '../../game/scout.ts';
+import { SCOUT_TEXT, scoutReach } from '../../game/scout.ts';
 import { overall } from '../../engine/matchEngine.ts';
-import { potentialOf } from '../../game/career.ts';
 import { Icon } from '../components/Icon.tsx';
 import { Meters, formatMoney, formatMoneyExact } from '../components/bits.tsx';
 import { Kit } from '../components/Kit.tsx';
@@ -175,7 +174,12 @@ function WindowNotice({ gs, weeks, onDismiss, onTransfers }: {
 
 /** What the scout says: the boy by name and number when he found one, the plain word when not. */
 function scoutNews(gs: G.GameState): string {
-  const p = gs.scout.found?.player;
-  if (!p) return SCOUT_TEXT.newsBody;
-  return SCOUT_TEXT.keenNews(p.name, p.age, overall(p), potentialOf(p));
+  const f = gs.scout.found;
+  const p = f?.player;
+  if (!f || !p) return SCOUT_TEXT.newsBody;
+  if (f.style === 'safe') {
+    const from = gs.league.clubs.find(c => c.id === f.fromClubId);
+    return SCOUT_TEXT.safeNews(p.name, from?.name ?? '', p.age, overall(p), scoutReach('safe', p));
+  }
+  return SCOUT_TEXT.keenNews(p.name, p.age, overall(p), scoutReach('keen', p));
 }

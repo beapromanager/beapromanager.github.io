@@ -15,15 +15,23 @@
  *   7. the keen one: a boy of seventeen with a ceiling, who walks in with the
  *      next window a year older and priced as he then is, can be signed once,
  *      and is gone when the window shuts
+ *   8. the safe one: a real man of nineteen or twenty from a club fighting the
+ *      manager in the table, priced over the ordinary fee, who leaves that club
+ *      the moment he is signed and not a minute before
  */
 import * as G from '../src/game/state.ts';
 import {
   SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, SCOUT_TIER, scoutWindowKey, emptyScout, findKeen, scoutBudget,
 } from '../src/game/scout.ts';
 import { potentialOf } from '../src/game/career.ts';
-import { leagueCeiling } from '../src/data/clubs.ts';
+import { leagueCeiling, setDerbies } from '../src/data/clubs.ts';
+import { makePlayer, NEUTRAL_TRAITS } from '../src/data/squadGen.ts';
 import { transferFee } from '../src/game/transfers.ts';
 import { overall, createRng } from '../src/engine/matchEngine.ts';
+import { requiredCapacity } from '../src/game/career.ts';
+import { sortedTable } from '../src/game/league.ts';
+import { pickSafe, feeRange } from '../src/game/scout.ts';
+import type { RivalKid } from '../src/game/scout.ts';
 import { WINTER_WEEKS } from '../src/game/transfers.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
@@ -64,6 +72,45 @@ function playRound(g: G.GameState): G.GameState {
   while (gs.phase === 'press') gs = G.answerPress(gs, 0);
   if (gs.phase === 'chat') gs = G.closeChat(gs);
   return gs;
+}
+/**
+ * A career played up to its first season in ליגה א׳, by the same rules the
+ * climb check plays by, so the rivals in the league are the squads the game
+ * really builds for it and not a first division dressed up as a third.
+ */
+function climbTo3(seed: number): G.GameState {
+  let gs = G.newGame(seed);
+  gs = G.setProfile(gs, { name: 'א', nickname: '', age: 38, type: 'mental' } as never);
+  gs = G.pickClub(gs, gs.league.clubs[0].id);
+  gs = G.afterSigning(gs, {});
+  for (let s = 1; s <= 8; s++) {
+    gs = G.enterSeason(gs);
+    while (gs.phase === 'kit') gs = G.closeKitReveal(gs);
+    if (gs.phase === 'sponsor') gs = G.takeSponsor(gs, 'base');
+    for (let w = 1; w <= gs.league.rounds; w++) {
+      if (!gs.stadium.project) {
+        const l = gs.lastLedger;
+        const reserve = (l ? l.total : 60_000) * Math.max(4, Math.round(gs.league.rounds * 0.5));
+        const want = G.crowdWanted(gs) * 1.25;
+        if (gs.stadium.capacity < Math.max(want, requiredCapacity(G.club(gs).tier + 1))) {
+          for (const o of [...G.expansions(gs)].reverse()) {
+            if (!G.expansionBlockedReason(gs, o) && gs.meters.money - o.cost >= reserve) { gs = G.startStadiumProject(gs, o.key); break; }
+          }
+        }
+      }
+      gs = playRound(gs);
+      if (gs.sacking || gs.phase === 'season-end') break;
+    }
+    if (gs.sacking) break;
+    gs = G.startNextSeason(gs);
+    if (G.club(gs).tier >= SCOUT_TIER) {
+      gs = G.enterSeason(gs);
+      while (gs.phase === 'kit') gs = G.closeKitReveal(gs);
+      if (gs.phase === 'sponsor') gs = G.takeSponsor(gs, 'base');
+      return { ...gs, week: 1, notices: [], crisisDone: true, meters: { ...gs.meters, money: 900_000 } };
+    }
+  }
+  throw new Error('the career never reached the division the scout works in');
 }
 const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'scout').length;
 
@@ -256,6 +303,173 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
   }
   ok(emptyScout().offer === null, 'a fresh scout had an offer');
   console.log('  the keen one: found at seventeen, arrives a year older with the window, signed once, gone when it shuts');
+}
+
+/* 8. THE SAFE ONE */
+{
+  const t3 = climbTo3(31);
+  const tier = G.club(t3).tier;
+  ok(tier >= SCOUT_TIER, "the climb did not reach the scout's division");
+  const rivalsOf = (gs: G.GameState) => gs.league.clubs.filter(c => c.id !== gs.clubId);
+  const kidsOf = (gs: G.GameState, ids: string[]): RivalKid[] =>
+    ids.flatMap(id => [...gs.league.squads[id].starters, ...gs.league.squads[id].bench].map(player => ({ clubId: id, player })));
+  const all = kidsOf(t3, rivalsOf(t3).map(c => c.id));
+
+  // the picker, against an independent count over the same men
+  const eligible = all.filter(k => k.player.age >= 19 && k.player.age <= 20 && k.player.position !== 'GK');
+  const inBand = eligible.filter(k => { const p = potentialOf(k.player); return p >= 70 && p <= 83; });
+  const got = pickSafe(all);
+  if (inBand.length) {
+    const best = Math.max(...inBand.map(k => overall(k.player)));
+    ok(got !== null && overall(got.player) === best && inBand.some(k => k.player.id === got.player.id), 'the safe pick was not the best man now among those with a ceiling in the band');
+  }
+  ok(pickSafe([]) === null, 'an empty pool produced a pick');
+  ok(pickSafe(all.filter(k => k.player.age > 20 || k.player.age < 19)) === null, 'the picker took a man who was not nineteen or twenty');
+  ok(pickSafe(all.filter(k => k.player.position === 'GK')) === null, 'the picker took a keeper');
+  const outside = eligible.filter(k => { const p = potentialOf(k.player); return p < 70 || p > 83; });
+  if (outside.length) {
+    const top = Math.max(...outside.map(k => potentialOf(k.player)));
+    const fb = pickSafe(outside);
+    ok(fb !== null && potentialOf(fb.player) === top, 'with nobody in the band the picker did not fall back to the highest ceiling');
+  }
+  const fr = feeRange([61_000, 87_000, 70_000]);
+  ok(fr !== null && fr[0] === 60_000 && fr[1] === 90_000, `the range for three fees was ${fr}`);
+  ok(feeRange([]) === null, 'an empty list of fees had a range');
+
+  // hired, away three rounds, and he names a man at a club near him in the table
+  let gs = G.hireScout(t3, 'safe');
+  for (let r = 0; r < SCOUT_ROUNDS; r++) gs = playRound(gs);
+  const found = gs.scout.found;
+  const kid = found?.player ?? null;
+  ok(kid !== null && !!found?.fromClubId, 'the safe scout came back without a man and a club');
+  if (kid && found?.fromClubId) {
+    const club = gs.league.squads[found.fromClubId];
+    ok(!!club && [...club.starters, ...club.bench].some(p => p.id === kid.id), 'the man he found was not in the squad he named');
+    ok(found.fromClubId !== gs.clubId, "the scout took a man from the manager's own club");
+    ok((kid.age === 19 || kid.age === 20) && kid.position !== 'GK', 'the man he found was not a nineteen or twenty year old outfield player');
+    const table = sortedTable(gs.league);
+    const mine = table.findIndex(s => s.clubId === gs.clubId);
+    const near = table.map((s, i) => ({ id: s.clubId, d: Math.abs(i - mine) })).filter(x => x.id !== gs.clubId).sort((a, b) => a.d - b.d).slice(0, 3).map(x => x.id);
+    ok(near.includes(found.fromClubId) || G.myLocalRival(gs)?.club.id === found.fromClubId, 'he took from a club that is neither near in the table nor the derby');
+  }
+
+  // the window opens: he is offered from the squad as it stands, and not yet taken
+  const seven = { ...gs, week: 7, notices: [], meters: { ...gs.meters, money: 6_000_000 } };
+  const open = playRound(seven);
+  const offer = open.scout.offer;
+  ok(open.week === 8 && offer !== null && offer.style === 'safe' && !!offer.fromClubId, 'the safe find did not arrive with the winter window');
+  if (offer && offer.fromClubId && kid) {
+    const from = offer.fromClubId;
+    ok(offer.player.id === kid.id, 'the man who arrived was not the man who was found');
+    ok(offer.fee === Math.round((1.5 * transferFee(offer.player, tier)) / 1000) * 1000, `the price ${offer.fee} was not one and a half times the ordinary fee`);
+    const src = open.league.squads[from];
+    ok([...src.starters, ...src.bench].some(p => p.id === offer.player.id), 'he had left his club before anybody signed him');
+    const range = G.scoutBudgetFor(seven, 'safe');
+    ok(range !== null && offer.fee >= range[0] && offer.fee <= range[1], `the price ${offer.fee} is outside the range on the card, ${range}`);
+
+    // signed: he leaves them, joins us, the money moves once, and their eleven is still eleven
+    const before = open.league.squads[from];
+    const signed = G.signScoutOffer(open);
+    const after = signed.league.squads[from];
+    ok(open.meters.money - signed.meters.money === offer.fee, 'signing cost something other than the price');
+    ok(G.mySquad(signed).bench.some(p => p.id === offer.player.id), 'he did not land on our bench');
+    ok(![...after.starters, ...after.bench].some(p => p.id === offer.player.id), 'he was still in their squad after we signed him');
+    ok(after.starters.length + after.bench.length === before.starters.length + before.bench.length - 1, 'their squad did not shrink by exactly one');
+    ok(after.starters.length === 11, `their eleven was ${after.starters.length} after losing him`);
+    ok([...after.starters, ...after.bench].filter(p => p.position === 'GK').length >= 1 && after.starters.some(p => p.position === 'GK'), 'taking him left them without a keeper in goal');
+    ok(G.signScoutOffer(signed).league.squads[from] === after, 'a second signing touched their squad again');
+
+    // and if he is not signed, they keep him to the end
+    const nine = playRound({ ...open, notices: [] });
+    const ten = playRound({ ...nine, notices: [] });
+    const ids = (sq: { starters: { id: string }[]; bench: { id: string }[] }) => [...sq.starters, ...sq.bench].map(p => p.id).sort().join();
+    ok(ten.scout.offer === null && ids(ten.league.squads[from]) === ids(open.league.squads[from]), 'an unsigned man left his club anyway');
+
+    // if he has gone from the club, the offer cannot be signed
+    const gone = { ...open, league: { ...open.league, squads: { ...open.league.squads, [from]: { starters: before.starters.filter(p => p.id !== offer.player.id), bench: before.bench.filter(p => p.id !== offer.player.id) } } } };
+    ok(G.scoutSignBlockedReason(gone) === SCOUT_TEXT.gone, 'a man who had left his club could still be signed');
+  }
+
+  // a summer can move him on; the scout finds the next best rather than nobody
+  if (kid && found?.fromClubId) {
+    const summer = G.enterPreseason({ ...gs, scout: { ...gs.scout, found: { ...found, player: { ...kid, id: 'ghost-1' } } } });
+    ok(summer.scout.offer !== null && summer.scout.offer.player.id !== 'ghost-1', 'a man who had vanished over the summer was offered anyway, or nobody was');
+    const summerSame = G.enterPreseason(gs);
+    ok(summerSame.scout.offer?.player.id === kid.id, 'a man still at his club in the summer was replaced');
+  }
+  console.log('  the safe one: a real man from a club near us, priced over the ordinary fee, taken from them only when signed');
+}
+
+/* 8b. THE SAFE ONE, ON A BOARD SET UP TO TELL THE RULES APART.
+      The league the climb produces may have no boy in the band, or the best boy
+      may happen to sit at a near club, and then the claims above are true of a
+      broken finder too. Here the men are built to a stated ceiling, and the table
+      is spread so nobody can change places in three rounds. */
+{
+  const t3 = climbTo3(31);
+  const tier = G.club(t3).tier;
+  const rng = createRng(2024);
+
+  /** a real player, drawn until his ceiling is in the band (or out of it), then aged as asked */
+  const synth = (inBand: boolean, age: number, pos: 'CM' | 'ST' | 'CB' | 'GK' = 'CM', minOvr = 0, bump = 0): ReturnType<typeof findKeen> => {
+    for (let i = 0; i < 4000; i++) {
+      const p = makePlayer(pos, leagueCeiling(tier) - 2 + bump, rng, { ...NEUTRAL_TRAITS, youth: 0 }, new Set());
+      const pot = potentialOf(p);
+      if ((pot >= 70 && pot <= 83) !== inBand) continue;
+      if (overall(p) < minOvr) continue;
+      p.age = age;
+      return p;
+    }
+    throw new Error('no such man');
+  };
+
+  // the picker on men of known ceilings and known levels
+  const low = synth(true, 19, 'CM', 0);
+  const high = synth(true, 20, 'ST', overall(low) + 3, 5);
+  const off = synth(false, 19, 'CM', overall(high) + 4, 14);   // better now, but his ceiling is out of the band
+  const keeperKid = synth(true, 19, 'GK', overall(high) + 4, 14);
+  const pool = (list: ReturnType<typeof findKeen>[]): RivalKid[] => list.map((player, i) => ({ clubId: `c${i}`, player }));
+  ok(overall(high) > overall(low) && overall(off) > overall(high), 'the synthetic men were not built in the order the claims need');
+  const pick1 = pickSafe(pool([low, off, high, keeperKid]));
+  ok(pick1?.player.id === high.id, 'the picker did not take the best man now among those in the band, over a better one out of it and a keeper');
+  const pick2 = pickSafe(pool([off, keeperKid]));
+  ok(pick2?.player.id === off.id, 'with nobody in the band the picker did not fall back to the man with the highest ceiling');
+
+  // the board: fourteen points between every pair worth caring about
+  const ids = t3.league.clubs.filter(c => c.id !== t3.clubId).map(c => c.id);
+  const pts = [90, 88, 86, /* me */ 50, 10, 8, 6];
+  const order = [...ids.slice(0, 3), t3.clubId, ...ids.slice(3)];
+  const table = Object.fromEntries(order.map((id, i) => [id, { ...t3.league.table[id], pts: pts[i] }]));
+  const near = [order[2], order[4], order[1]];        // one either side, then the next above
+  const far = order[6];                                // furthest below
+  const board = (derbyIsFar: boolean): G.GameState => {
+    const clubs = t3.league.clubs.map(c => c.id === t3.clubId ? { ...c, rivalId: derbyIsFar ? far : order[5] } : c);
+    const squads = { ...t3.league.squads };
+    for (const id of ids) {
+      const sq = squads[id];
+      // nobody in the band anywhere, to start with: those boys grow up
+      const grown = (list: typeof sq.bench) => list.map(p => (p.age === 19 || p.age === 20) && potentialOf(p) >= 70 && potentialOf(p) <= 83 ? { ...p, age: 23 } : p);
+      squads[id] = { starters: grown(sq.starters), bench: grown(sq.bench) };
+    }
+    // every near club has a boy, none of them in the band
+    for (const id of near) squads[id] = { ...squads[id], bench: [synth(false, 19), ...squads[id].bench.slice(1)] };
+    // and the club furthest from us has the only boy in the band
+    squads[far] = { ...squads[far], bench: [synth(true, 19), ...squads[far].bench.slice(1)] };
+    return { ...t3, league: { ...t3.league, clubs, squads, table } };
+  };
+  const scoutAt = (g0: G.GameState) => {
+    let g = G.hireScout(g0, 'safe');
+    for (let r = 0; r < SCOUT_ROUNDS; r++) g = playRound(g);
+    return g.scout.found;
+  };
+
+  setDerbies([]);
+  const noDerby = scoutAt(board(false));
+  ok(!!noDerby?.fromClubId && near.includes(noDerby.fromClubId), 'without a derby he did not look among the clubs nearest in the table');
+  ok(noDerby?.fromClubId !== far, 'he reached past the near clubs for a better boy at the far end of the table');
+  const derby = scoutAt(board(true));
+  ok(derby?.fromClubId === far, 'with the derby at the far end of the table he did not look there too');
+  console.log('  the safe one, on a set board: near clubs and the derby, and only those');
 }
 
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));

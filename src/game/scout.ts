@@ -16,7 +16,7 @@ import type { Player, Position, Rng } from '../engine/matchEngine.ts';
 import { overall, createRng } from '../engine/matchEngine.ts';
 import { makePlayer, NEUTRAL_TRAITS } from '../data/squadGen.ts';
 import { leagueCeiling } from '../data/clubs.ts';
-import { potentialOf, growForYear } from './career.ts';
+import { potentialOf, reachableCeiling, growForYear } from './career.ts';
 import { WINTER_WEEKS, transferFee } from './transfers.ts';
 
 /**
@@ -46,7 +46,7 @@ export interface ScoutState {
    * What he came back with, waiting for the next window to open. The player is
    * null for a style that cannot find one yet.
    */
-  found: { style: ScoutStyle; season: number; player: Player | null } | null;
+  found: { style: ScoutStyle; season: number; player: Player | null; fromClubId?: string } | null;
   /**
    * The find, arrived, for as long as the window that brought him stays open.
    * The price is fixed on arrival, from the man as he is then, a year older.
@@ -60,7 +60,8 @@ export interface ScoutState {
   seenKey: string;
 }
 
-export interface ScoutOffer { player: Player; fee: number; style: ScoutStyle }
+/** `fromClubId` is the club he is being taken from, when he is somebody's already. */
+export interface ScoutOffer { player: Player; fee: number; style: ScoutStyle; fromClubId?: string }
 
 export function emptyScout(): ScoutState {
   return { hiredSeason: 0, job: null, found: null, offer: null, seenKey: '' };
@@ -105,6 +106,10 @@ export const SCOUT_TEXT = {
   tooPoor: 'אין מספיק תקציב',
   tooLow: 'סקאוט מגיע בליגה א׳.',
   gone: 'אין שחקן שהסקאוט הביא.',
+  // the safe one's news, with the club he plays for in it
+  safeNews: (name: string, clubName: string, age: number, level: number, reach: number) =>
+    `מצאתי שחקן אצל ${clubName}: ${name}, בן ${age}, ברמה ${level}. הוא יכול להגיע ל־${reach}. כשהחלון ייפתח, אפשר לחתום עליו, והם יישארו בלעדיו.`,
+  from: (clubName: string) => `מ${clubName}`,
 } as const;
 
 export const SCOUT_STYLE_TEXT: Record<ScoutStyle, { name: string; blurb: string }> = {
@@ -191,4 +196,60 @@ export function scoutBudget(style: ScoutStyle, tier: number): [number, number] |
   }
   budgetMemo.set(key, range);
   return range;
+}
+
+/* ------------------------------------------------------------- the safe one */
+
+/**
+ * The safe one: a man of nineteen or twenty already playing for a rival in this
+ * league, with a good ceiling and less of it than the keen one's. He is taken
+ * from the club that is closest to the manager in the table, or from his derby,
+ * so the club that loses him is one the manager is actually fighting.
+ */
+export const SAFE_POTENTIAL: [number, number] = [70, 83];
+/** What it costs over the ordinary fee to take a man from a club that wants him. */
+export const SAFE_PREMIUM = 1.5;
+/** How many clubs nearest in the table the scout looks in, on top of the derby. */
+export const SAFE_NEAREST = 3;
+
+export interface RivalKid { clubId: string; player: Player }
+
+/**
+ * Who he takes. Among the nineteen and twenty year olds on offer (never a
+ * keeper, that line has its own floor), the best man now whose ceiling is in the
+ * band; if nobody's is, the highest ceiling there is, so the search never comes
+ * back empty-handed while a boy that age exists. Ties go to whoever was listed
+ * first, which is the order the squads are kept in.
+ */
+export function pickSafe(pool: RivalKid[]): RivalKid | null {
+  const kids = pool.filter(k => k.player.age >= 19 && k.player.age <= 20 && k.player.position !== 'GK');
+  if (!kids.length) return null;
+  const band = kids.filter(k => {
+    const p = potentialOf(k.player);
+    return p >= SAFE_POTENTIAL[0] && p <= SAFE_POTENTIAL[1];
+  });
+  if (band.length) return band.reduce((a, b) => (overall(b.player) > overall(a.player) ? b : a));
+  return kids.reduce((a, b) => (potentialOf(b.player) > potentialOf(a.player) ? b : a));
+}
+
+/** The price of taking him, on the man as he is. */
+export function safeFee(p: Player, tier: number): number {
+  return Math.round((SAFE_PREMIUM * transferFee(p, tier)) / 1000) * 1000;
+}
+
+/**
+ * The number on the card, "he can reach". The keen one's boy is seventeen and
+ * shows the ceiling he was born with; a man of nineteen shows the game's
+ * ordinary one, what a season or two can realistically make of him.
+ */
+export function scoutReach(style: ScoutStyle, p: Player): number {
+  return style === 'keen' ? potentialOf(p) : reachableCeiling(p);
+}
+
+/** A range from the fees of everybody he could take, rounded outward to five thousand. */
+export function feeRange(fees: number[]): [number, number] | null {
+  if (!fees.length) return null;
+  const lo = Math.floor(Math.min(...fees) / 5000) * 5000;
+  const hi = Math.ceil(Math.max(...fees) / 5000) * 5000;
+  return [lo, Math.max(hi, lo + 5000)];
 }

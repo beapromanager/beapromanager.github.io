@@ -1,6 +1,5 @@
 import * as G from '../../game/state.ts';
-import { SCOUT_FEE, SCOUT_STYLES, SCOUT_STYLE_TEXT, SCOUT_TEXT, scoutBudget } from '../../game/scout.ts';
-import { potentialOf } from '../../game/career.ts';
+import { SCOUT_FEE, SCOUT_STYLES, SCOUT_STYLE_TEXT, SCOUT_TEXT, scoutReach } from '../../game/scout.ts';
 import { PlayerRow } from './Squad.tsx';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
@@ -45,10 +44,15 @@ export function ScoutScreen({ gs, onHire, onSign, onBack }: {
           <div className="tile" style={{ padding: '4px 10px 12px', borderColor: 'var(--win)', background: 'rgba(51,194,122,.08)' }}>
             <div className="row" style={{ gap: 6, padding: '8px 8px 0', justifyContent: 'space-between' }}>
               <span className="chip" style={{ background: 'rgba(51,194,122,.2)', color: 'var(--win)', fontWeight: 800 }}>{SCOUT_TEXT.offerTitle}</span>
+              {offer.fromClubId && (
+                <span className="chip" style={{ background: 'rgba(233,185,73,.16)', color: 'var(--gold-hi)', fontWeight: 800 }}>
+                  {SCOUT_TEXT.from(gs.league.clubs.find(x => x.id === offer.fromClubId)?.name ?? '')}
+                </span>
+              )}
               {win.open && <span className="chip" style={{ background: 'rgba(255,255,255,.07)', color: 'var(--ink-dim)' }}>נסגר בעוד <span className="num">{win.weeksLeft}</span> מחזורים</span>}
             </div>
             <PlayerRow p={offer.player} />
-            <p className="hint" style={{ padding: '0 8px' }}>יכול להגיע ל־<span className="num">{potentialOf(offer.player)}</span></p>
+            <p className="hint" style={{ padding: '0 8px' }}>יכול להגיע ל־<span className="num">{scoutReach(offer.style, offer.player)}</span></p>
             <div className="row" style={{ gap: 10, padding: '10px 8px 0' }}>
               <div style={{ flex: 1 }}>
                 <div className="sub" style={{ fontSize: 12.5 }}>מחיר</div>
@@ -88,7 +92,7 @@ export function ScoutScreen({ gs, onHire, onSign, onBack }: {
                   <div style={{ fontWeight: 900, fontSize: 17 }}>{t.name}</div>
                   <p className="hint" style={{ margin: '5px 0 0' }}>{t.blurb}</p>
                   {(() => {
-                    const range = scoutBudget(style, c.tier);
+                    const range = G.scoutBudgetFor(gs, style);
                     return range && (
                       <p className="hint" style={{ margin: '7px 0 0', color: 'var(--gold-hi)' }}>
                         {SCOUT_TEXT.budget} <span className="num">{formatMoney(range[0])}</span> ל־<span className="num">{formatMoney(range[1])}</span>. {SCOUT_TEXT.budgetTail}

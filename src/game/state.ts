@@ -28,7 +28,9 @@ import { emptyYouth, seedYouth, advanceYouth } from './youth.ts';
 import type { Youth } from './youth.ts';
 import {
   emptyScout, scoutWindowKey, SCOUT_TIER, SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, findKeen, arrivedKeen,
+  pickSafe, safeFee, feeRange, scoutBudget, SAFE_NEAREST, SAFE_POTENTIAL,
 } from './scout.ts';
+import type { RivalKid } from './scout.ts';
 import type { ScoutState, ScoutStyle } from './scout.ts';
 export type { Youth };
 import { sponsorOffers, signSponsor, sponsorRound, sponsorName } from './sponsor.ts';
@@ -76,7 +78,7 @@ import type { IconName } from '../ui/components/Icon.tsx';
 import { chronicleAfterRound, chronicleAtSeasonEnd } from './chronicle.ts';
 import type { SeasonReport } from './career.ts';
 import {
-  buildNextSeason, matchPrize, roundCosts, fillWithYouth, TOP_TIER, playerWage,
+  buildNextSeason, matchPrize, roundCosts, fillWithYouth, TOP_TIER, playerWage, potentialOf,
   STADIUM_START, FANS_START, requiredCapacity, stadiumImageTier, gateIncome, crowdDemand, signageRound, expansionOptions,
 } from './career.ts';
 import type { RoundCosts, ExpansionOption } from './career.ts';
@@ -3988,7 +3990,7 @@ function scoutBack(gs: GameState, next: number): ScoutState | null {
   if (!job) return null;
   if (job.season !== gs.season) return { ...gs.scout, job: null };
   if (next < job.startWeek + SCOUT_ROUNDS) return null;
-  return { ...gs.scout, job: null, found: { style: job.style, season: job.season, player: scoutFind(gs, job.style, next) } };
+  return { ...gs.scout, job: null, found: scoutFound(gs, job.style, job.season, next) };
 }
 
 /**
@@ -3996,17 +3998,86 @@ function scoutBack(gs: GameState, next: number): ScoutState | null {
  * reported, so the same career always meets the same man however many times
  * the round is played. Null for a style that cannot find anybody yet.
  */
-function scoutFind(gs: GameState, style: ScoutStyle, week: number): Player | null {
-  if (style !== 'keen') return null;
-  const sq = mySquad(gs);
-  const taken = new Set<string>([...sq.starters, ...sq.bench, ...gs.youth.players, ...gs.market.map(f => f.player)].map(p => p.name));
-  return findKeen(club(gs).tier, createRng(gs.seasonSeed * 971 + gs.season * 37 + week), taken);
+function scoutFound(gs: GameState, style: ScoutStyle, season: number, week: number): NonNullable<ScoutState['found']> {
+  if (style === 'keen') {
+    const sq = mySquad(gs);
+    const taken = new Set<string>([...sq.starters, ...sq.bench, ...gs.youth.players, ...gs.market.map(f => f.player)].map(p => p.name));
+    return { style, season, player: findKeen(club(gs).tier, createRng(gs.seasonSeed * 971 + gs.season * 37 + week), taken) };
+  }
+  if (style === 'safe') {
+    const pick = pickSafe(rivalKids(gs, scoutRivals(gs))) ?? pickSafe(rivalKids(gs, allRivals(gs)));
+    return { style, season, player: pick?.player ?? null, fromClubId: pick?.clubId };
+  }
+  return { style, season, player: null };
+}
+
+/** Every other club in the division that has a squad. */
+function allRivals(gs: GameState): string[] {
+  return gs.league.clubs.filter(c => c.id !== gs.clubId && !!gs.league.squads[c.id]).map(c => c.id);
+}
+
+/**
+ * The clubs the safe one looks in: my derby, when the division has one, and the
+ * three closest to me in the table either side, which are the ones I am
+ * actually fighting for a place with. Ties go to the club higher up.
+ */
+function scoutRivals(gs: GameState): string[] {
+  const table = sortedTable(gs.league);
+  const mine = table.findIndex(s => s.clubId === gs.clubId);
+  const near = table
+    .map((s, i) => ({ id: s.clubId, d: Math.abs(i - mine) }))
+    .filter(x => x.id !== gs.clubId && !!gs.league.squads[x.id])
+    .sort((a, b) => a.d - b.d)
+    .slice(0, SAFE_NEAREST)
+    .map(x => x.id);
+  const derby = derbyRivalId(gs);
+  return derby && !near.includes(derby) ? [derby, ...near] : near;
+}
+
+/** The men of those clubs he could take. A squad at the floor is left alone. */
+function rivalKids(gs: GameState, ids: string[]): RivalKid[] {
+  const out: RivalKid[] = [];
+  for (const id of ids) {
+    const sq = gs.league.squads[id];
+    if (!sq || sq.starters.length + sq.bench.length <= MIN_SQUAD) continue;
+    for (const player of [...sq.starters, ...sq.bench]) out.push({ clubId: id, player });
+  }
+  return out;
+}
+
+/** One man out of a rival's squad; if he started, the best man on his line steps up. */
+function dropFromSquad(sq: Squad, id: string): Squad {
+  const gone = [...sq.starters, ...sq.bench].find(x => x.id === id);
+  if (!gone) return sq;
+  const starters = sq.starters.filter(x => x.id !== id);
+  let bench = sq.bench.filter(x => x.id !== id);
+  if (starters.length < sq.starters.length && bench.length) {
+    const keeper = gone.position === 'GK';
+    const same = bench.filter(x => (x.position === 'GK') === keeper);
+    const line = same.filter(x => (LINE[x.position] ?? 'MID') === (LINE[gone.position] ?? 'MID'));
+    const from = line.length ? line : same.length ? same : bench;
+    const up = from.reduce((a, b) => (overall(b) > overall(a) ? b : a));
+    starters.push(up);
+    bench = bench.filter(x => x !== up);
+  }
+  return { starters, bench };
 }
 
 /** The find walks in with the window: a year older, and priced as he now is. */
 function scoutArrives(gs: GameState, scout: ScoutState): ScoutState {
   const f = scout.found;
   if (!f?.player) return scout;
+  if (f.style === 'safe') {
+    // he is a real man in a real squad, so he is looked up as he is now: a
+    // summer may have moved him on, in which case the scout finds the next best
+    const sq = f.fromClubId ? gs.league.squads[f.fromClubId] : undefined;
+    const now = sq ? [...sq.starters, ...sq.bench].find(x => x.id === f.player!.id) : undefined;
+    const pick: RivalKid | null = now && f.fromClubId
+      ? { clubId: f.fromClubId, player: now }
+      : pickSafe(rivalKids(gs, scoutRivals(gs))) ?? pickSafe(rivalKids(gs, allRivals(gs)));
+    if (!pick) return { ...scout, found: null };
+    return { ...scout, found: null, offer: { player: pick.player, fee: safeFee(pick.player, club(gs).tier), style: 'safe', fromClubId: pick.clubId } };
+  }
   const player = arrivedKeen(f.player, coachYouthGrowth(gs.coach));
   return { ...scout, found: null, offer: { player, fee: transferFee(player, club(gs).tier), style: f.style } };
 }
@@ -4015,6 +4086,10 @@ function scoutArrives(gs: GameState, scout: ScoutState): ScoutState {
 export function scoutSignBlockedReason(gs: GameState): string | null {
   const o = gs.scout.offer;
   if (!o) return SCOUT_TEXT.gone;
+  if (o.fromClubId) {
+    const sq = gs.league.squads[o.fromClubId];
+    if (!sq || ![...sq.starters, ...sq.bench].some(x => x.id === o.player.id)) return SCOUT_TEXT.gone;
+  }
   return signBlockedReason(gs, { player: o.player, fee: o.fee, note: '' });
 }
 
@@ -4023,7 +4098,26 @@ export function signScoutOffer(gs: GameState): GameState {
   const o = gs.scout.offer;
   if (!o || scoutSignBlockedReason(gs)) return gs;
   const next = signPlayer({ ...gs, market: [...gs.market, { player: o.player, fee: o.fee, note: '' }] }, o.player.id);
-  return { ...next, scout: { ...next.scout, offer: null } };
+  // and the club he came from is a man short: that is the whole point of him
+  const from = o.fromClubId;
+  const league = from && next.league.squads[from]
+    ? { ...next.league, squads: { ...next.league.squads, [from]: dropFromSquad(next.league.squads[from], o.player.id) } }
+    : next.league;
+  return { ...next, league, scout: { ...next.scout, offer: null } };
+}
+
+/**
+ * The range on the card that asks the manager to hire. The keen one is drawn
+ * fresh, so his is drawn from the finder; the safe one is somebody who already
+ * exists, so his is the fees of the men he could take right now, everybody in
+ * the division the search could reach, and the man he brings is one of them.
+ */
+export function scoutBudgetFor(gs: GameState, style: ScoutStyle): [number, number] | null {
+  if (style === 'keen') return scoutBudget('keen', club(gs).tier);
+  if (style !== 'safe') return null;
+  const kids = rivalKids(gs, allRivals(gs)).filter(k => k.player.age >= 19 && k.player.age <= 20 && k.player.position !== 'GK');
+  const band = kids.filter(k => { const p = potentialOf(k.player); return p >= SAFE_POTENTIAL[0] && p <= SAFE_POTENTIAL[1]; });
+  return feeRange((band.length ? band : kids).map(k => safeFee(k.player, club(gs).tier)));
 }
 
 /** Rounds left before the scout in the field reports, or null when nobody is out. */
