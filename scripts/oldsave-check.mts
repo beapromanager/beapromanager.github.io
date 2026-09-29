@@ -58,6 +58,7 @@ const ADDED_SINCE = [
   'friends',                        // the two he brought with him
   'mate', 'chatAnswers',            // the phone of the one who writes
   'gifts',                          // the free pack owed after the keeper fix
+  'scout',                          // the one hired a season, three rounds away
 ] as const;
 
 function career(town = LEGEND_TOWN, seed = 4242): G.GameState {

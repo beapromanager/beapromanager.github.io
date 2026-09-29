@@ -13,6 +13,7 @@ import { FanNote } from '../components/FanNote.tsx';
 import { Feed } from '../components/Feed.tsx';
 import { Gem } from '../components/Gem.tsx';
 import { PACKS } from '../../game/packs.ts';
+import { SCOUT_LIVE, SCOUT_TEXT } from '../../game/scout.ts';
 
 /**
  * The home screen.
@@ -35,10 +36,10 @@ import { PACKS } from '../../game/packs.ts';
  * round is never more than one tap away.
  */
 
-export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth }: {
+export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth, onScout }: {
   gs: G.GameState; onStart: () => void; onSquad: () => void; onTransfers: () => void;
   onChronicle: () => void; onCaptain: () => void; onAssistant: () => void; onInbox: () => void;
-  onStadium: () => void; onPacks: () => void; onCoach: () => void; onTable: () => void; onYouth: () => void;
+  onStadium: () => void; onPacks: () => void; onCoach: () => void; onTable: () => void; onYouth: () => void; onScout: () => void;
 }) {
   const c = G.club(gs);
   const fx = G.playerFixture(gs);
@@ -100,6 +101,10 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
             badge={G.unreadChronicle(gs) || undefined} />
           <Cell i={8} icon="star" label="נוער" onClick={onYouth}
             dot={gs.youth.players.some(p => p.age >= 18) ? 'var(--gold)' : undefined} />
+          {SCOUT_LIVE && G.scoutAvailable(gs) && (
+            <Cell i={9} icon="target" label={SCOUT_TEXT.door} onClick={onScout}
+              dot={G.scoutDot(gs) ? 'var(--loss)' : undefined} blink={G.scoutDot(gs)} />
+          )}
         </div>
 
         <FanNote msg={G.fanNote(gs, 'pre')} />
@@ -260,16 +265,16 @@ function Side({ club, pos }: { club: Club; pos: number }) {
 
 /* ---------------------------------------------------------------- the grid */
 
-function Cell({ i, icon, glyph, label, onClick, dot, badge, count }: {
+function Cell({ i, icon, glyph, label, onClick, dot, badge, count, blink }: {
   i: number; icon?: IconName; glyph?: React.ReactNode; label: string;
-  onClick: () => void; dot?: string; badge?: number; count?: number | string;
+  onClick: () => void; dot?: string; badge?: number; count?: number | string; blink?: boolean;
 }) {
   return (
     <button className="hub-cell" style={{ ...({ '--i': i } as React.CSSProperties) }} onClick={onClick}>
       <span className="hub-cell-icon">
         {glyph ?? <Icon name={icon!} size={21} color="var(--gold)" />}
         {badge ? <span className="hub-badge">{badge}</span>
-          : dot ? <span className="hub-dot" style={{ background: dot }} /> : null}
+          : dot ? <span className={blink ? 'hub-dot blink' : 'hub-dot'} style={{ background: dot }} /> : null}
       </span>
       <span className="hub-cell-label">{label}</span>
       {count !== undefined && <span className="hub-cell-count num">{count}</span>}

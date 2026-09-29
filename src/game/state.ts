@@ -26,6 +26,10 @@ import type { KitPattern } from '../data/kits.ts';
 import { debtState, debtLine, debtLimit } from './finance.ts';
 import { emptyYouth, seedYouth, advanceYouth } from './youth.ts';
 import type { Youth } from './youth.ts';
+import {
+  emptyScout, scoutWindowKey, SCOUT_TIER, SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT,
+} from './scout.ts';
+import type { ScoutState, ScoutStyle } from './scout.ts';
 export type { Youth };
 import { sponsorOffers, signSponsor, sponsorRound, sponsorName } from './sponsor.ts';
 import type { Sponsor, SponsorOffer, SponsorId } from './sponsor.ts';
@@ -92,7 +96,7 @@ export type Phase =
   | 'onboard-archetype' | 'onboard-manager' | 'onboard-club' | 'signing' | 'friends' | 'squad' | 'hub' | 'transfers' | 'invite'
   | 'dilemma' | 'tactic' | 'vs' | 'teamsheet' | 'match' | 'result' | 'press' | 'season-end' | 'chronicle'
   | 'captain' | 'assistant' | 'coach' | 'preseason' | 'preseason-market' | 'inbox' | 'chat' | 'table' | 'stadium'
-  | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit';
+  | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit' | 'scout';
 
 export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
 
@@ -161,7 +165,9 @@ export type SquadNotice =
   | { kind: 'window'; weeks: number }
   | { kind: 'story'; title: string; body: string; icon?: IconName }
   /** the brand that just took the shirt, with the shirt */
-  | { kind: 'sponsor'; brand: BrandId };
+  | { kind: 'sponsor'; brand: BrandId }
+  /** the scout is back, three rounds after he was sent */
+  | { kind: 'scout' };
 
 /** A man of yours who went to another club in the league. */
 export interface PlayerExit {
@@ -443,6 +449,8 @@ export interface GameState {
   gifts: number;
   /** the manager's own career: his abilities, his badge, his seasons */
   coach: Coach;
+  /** the scout: one hired a season, three rounds away, back with a name */
+  scout: ScoutState;
 }
 
 /**
@@ -547,6 +555,7 @@ export function newGame(seed = 12345): GameState {
     pull: null,
     gifts: 0,
     coach: newCoach('mental'),
+    scout: emptyScout(),
   };
 }
 
@@ -3924,7 +3933,85 @@ function endOfWeek(gs: GameState): GameState {
   const due = gs.followUps.filter(f => f.season === gs.season && f.week <= next);
   const followUps = gs.followUps.filter(f => !due.includes(f));
   notices = [...notices, ...due.map(f => ({ kind: 'story' as const, title: f.title, body: f.body }))];
-  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices, followUps, market: winterMarket(gs, next) };
+  // the scout has been away his three rounds, and the news comes before the hub
+  const back = scoutBack(gs, next);
+  if (back && back.found !== gs.scout.found) notices = [...notices, { kind: 'scout' as const }];
+  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices, followUps, market: winterMarket(gs, next), scout: back ?? gs.scout };
+}
+
+/* -------------------------------------------------------------- the scout */
+
+/** Is there a scout to hire at this level of the game at all. */
+export function scoutAvailable(gs: GameState): boolean {
+  return club(gs).tier >= SCOUT_TIER;
+}
+
+/**
+ * Why this scout cannot be hired now, or null when he can.
+ *
+ * The order is the order a manager would run into them: a club that is too
+ * small has no scout at all, a season that already had one is done, the
+ * window is when the market is his to work, and a job that would not be over
+ * before the last round is not a job.
+ */
+export function scoutBlockedReason(gs: GameState, _style: ScoutStyle): string | null {
+  if (!scoutAvailable(gs)) return SCOUT_TEXT.tooLow;
+  if (gs.scout.hiredSeason === gs.season) return SCOUT_TEXT.hiredThisSeason;
+  if (transferWindow(gs).open) return SCOUT_TEXT.windowOpen;
+  if (gs.week + SCOUT_ROUNDS > gs.league.rounds) return SCOUT_TEXT.tooLate;
+  if (gs.meters.money < SCOUT_FEE) return SCOUT_TEXT.tooPoor;
+  return null;
+}
+
+/** Sign him. The fee goes now, the report comes SCOUT_ROUNDS rounds from this week. */
+export function hireScout(gs: GameState, style: ScoutStyle): GameState {
+  if (scoutBlockedReason(gs, style)) return gs;
+  return {
+    ...gs,
+    meters: { ...gs.meters, money: cash(gs.meters.money - SCOUT_FEE) },
+    scout: { ...gs.scout, hiredSeason: gs.season, job: { style, startWeek: gs.week, season: gs.season } },
+    pendingOutcome: SCOUT_TEXT.signed,
+  };
+}
+
+/**
+ * The scout's state once the week turns to `next`, or null when nothing about
+ * him changes. He is back when three rounds have been played since he was
+ * sent; a job left over from another season is dropped rather than reported.
+ */
+function scoutBack(gs: GameState, next: number): ScoutState | null {
+  const job = gs.scout.job;
+  if (!job) return null;
+  if (job.season !== gs.season) return { ...gs.scout, job: null };
+  if (next < job.startWeek + SCOUT_ROUNDS) return null;
+  return { ...gs.scout, job: null, found: { style: job.style, season: job.season } };
+}
+
+/** Rounds left before the scout in the field reports, or null when nobody is out. */
+export function scoutRoundsLeft(gs: GameState): number | null {
+  const job = gs.scout.job;
+  if (!job || job.season !== gs.season) return null;
+  return Math.max(0, job.startWeek + SCOUT_ROUNDS - gs.week);
+}
+
+/**
+ * The red dot on the hub. It is on from the moment a window shuts, for as long
+ * as a scout could still be hired, until the manager opens the door once.
+ * Answered against the stretch of the season he last looked in, so the next
+ * window to shut turns it back on with no bookkeeping.
+ */
+export function scoutDot(gs: GameState): boolean {
+  if (!scoutAvailable(gs) || gs.scout.hiredSeason === gs.season) return false;
+  if (gs.week + SCOUT_ROUNDS > gs.league.rounds) return false;
+  const key = scoutWindowKey(gs.season, gs.week);
+  return key !== '' && gs.scout.seenKey !== key;
+}
+
+export function openScout(gs: GameState): GameState {
+  return {
+    ...gs, phase: 'scout', pendingOutcome: null,
+    scout: { ...gs.scout, seenKey: scoutWindowKey(gs.season, gs.week) },
+  };
 }
 
 /**

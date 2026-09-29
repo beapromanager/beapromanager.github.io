@@ -17,6 +17,7 @@ import { localRival } from '../data/cities.ts';
 import { newCoach } from './coach.ts';
 import { emptyInvite } from './invite.ts';
 import { emptyMate } from './mate.ts';
+import { emptyScout } from './scout.ts';
 import { DEFAULT_FORMATION } from '../data/formations.ts';
 
 const KEY = 'beapro.career.v1';
@@ -201,6 +202,8 @@ export function loadCareer(): GameState | null {
     // at the next summer, and keeps the shirt it is already wearing until then
     wardrobe: s.wardrobe ?? [],
     kitReveal: s.kitReveal ?? null,
+    // a career from before the scout has never hired one
+    scout: s.scout ?? emptyScout(),
   };
   /**
    * A career saved before the manager had a standing has no record of what he

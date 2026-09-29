@@ -9,6 +9,7 @@
  */
 import { useState } from 'react';
 import * as G from '../../game/state.ts';
+import { SCOUT_TEXT } from '../../game/scout.ts';
 import { Icon } from '../components/Icon.tsx';
 import { Meters, formatMoney, formatMoneyExact } from '../components/bits.tsx';
 import { Kit } from '../components/Kit.tsx';
@@ -28,10 +29,11 @@ export function NoticeScreen({ gs, onDismiss, onSquad, onYouth, onTransfers }: {
   if (n.kind === 'sponsor') return <SponsorNotice gs={gs} brand={n.brand} onDismiss={onDismiss} />;
 
   const red = n.kind === 'suspended';
-  const title = red ? 'הרחקה' : n.kind === 'story' ? n.title : `${n.name} חוזר לנוער`;
+  const title = red ? 'הרחקה' : n.kind === 'story' ? n.title : n.kind === 'scout' ? SCOUT_TEXT.newsTitle : `${n.name} חוזר לנוער`;
   const body = red
     ? `${n.name} קיבל אדום ולא ישחק מול ${n.rival}. הוא חייב לצאת מההרכב.`
     : n.kind === 'story' ? n.body
+    : n.kind === 'scout' ? SCOUT_TEXT.newsBody
     : `הוא היה רשום לסגל רק למחזור הזה. עכשיו הוא חוזר למחלקת הנוער להמשיך להתפתח.`;
 
   return (
@@ -48,7 +50,7 @@ export function NoticeScreen({ gs, onDismiss, onSquad, onYouth, onTransfers }: {
             display: 'grid', placeItems: 'center',
             background: red ? 'rgba(226,72,77,.18)' : 'rgba(51,194,122,.16)',
           }}>
-            <Icon name={red ? 'alert' : n.kind === 'story' ? (n.icon ?? 'mic') : 'star'} size={30} color={red ? 'var(--loss)' : 'var(--win)'} />
+            <Icon name={red ? 'alert' : n.kind === 'story' ? (n.icon ?? 'mic') : n.kind === 'scout' ? 'target' : 'star'} size={30} color={red ? 'var(--loss)' : 'var(--win)'} />
           </div>
           <div className="h2" style={{ marginBottom: 6 }}>{title}</div>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: 'var(--ink)' }}>{body}</p>

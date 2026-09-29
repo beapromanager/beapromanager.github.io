@@ -24,6 +24,7 @@ import { SackedScreen } from './screens/Sacked.tsx';
 import { SponsorScreen } from './screens/Sponsor.tsx';
 import { KitReveal } from './screens/KitReveal.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
+import { ScoutScreen } from './screens/Scout.tsx';
 import { NoticeScreen } from './screens/Notice.tsx';
 import { UltimatumScreen } from './screens/Ultimatum.tsx';
 import { RescueScreen } from './screens/Rescue.tsx';
@@ -60,7 +61,7 @@ import type { Ad } from '../data/ads.ts';
  * to answer, and letting a stray thumb walk out of them would lose the answer.
  */
 const BACK_TO_HUB = new Set<G.Phase>([
-  'squad', 'youth', 'stadium', 'coach', 'packs', 'captain', 'assistant',
+  'squad', 'youth', 'stadium', 'coach', 'packs', 'captain', 'assistant', 'scout',
 ]);
 
 export function App() {
@@ -313,7 +314,13 @@ export function App() {
           onPacks={() => setGs(G.openPacks(gs))}
           onCoach={() => setGs(G.openCoach(gs))}
           onYouth={() => setGs(G.openYouth(gs))}
+          onScout={() => setGs(G.openScout(gs))}
           onTable={() => setGs(G.openTable(gs))} />
+      )}
+      {gs.phase === 'scout' && (
+        <ScoutScreen gs={gs}
+          onHire={style => setGs(g => G.hireScout(g, style))}
+          onBack={() => setGs(G.backToHub(gs))} />
       )}
       {gs.phase === 'youth' && (
         <YouthScreen gs={gs}
