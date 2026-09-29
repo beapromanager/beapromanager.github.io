@@ -179,6 +179,38 @@ function takeOutfield(bench: Player[]): Player {
   return bench.splice(i >= 0 ? i : 0, 1)[0];
 }
 
+/**
+ * The one who breaks out, and the reason there is one at all.
+ *
+ * A squad does not stand still, it runs on a treadmill. Measured over a fresh
+ * eighteen: about five men gain ground in a summer, by two and a half each,
+ * and about seven lose it, by two and a bit each. The two cancel, the squad
+ * average sits on the same number for six seasons, and a manager who has been
+ * at it for three of them is being told, correctly, that nothing he does moves
+ * anybody. A reader in ליגה ג׳ wrote in to say exactly that.
+ *
+ * Lifting everybody would only move the treadmill, and the ladder with it,
+ * because the AI clubs are rebuilt to their division's level every summer
+ * while his squad is not. So one man moves instead, and he moves enough to be
+ * worth a name: the most promising boy in the building, twice his ordinary
+ * step, and never past the ceiling he was born with. It fires in about three
+ * summers out of four, and the end of season screen already has the place to
+ * say so, under "פרצו קדימה".
+ *
+ * Chosen off devFactor, which is read from the seed he was born with, so the
+ * same summer always breaks out the same boy however many times it is played.
+ */
+const BREAKOUT_AGE = 21;
+const BREAKOUT_ROOM = 8;
+const BREAKOUT_MULT = 2;
+
+function breakoutPick(squad: Squad): string | null {
+  const able = [...squad.starters, ...squad.bench]
+    .filter(p => p.age <= BREAKOUT_AGE && potentialOf(p) - overall(p) >= BREAKOUT_ROOM);
+  if (!able.length) return null;
+  return able.reduce((a, b) => (devFactor(b) > devFactor(a) ? b : a)).id;
+}
+
 export function ageSquad(
   squad: Squad, rng: Rng, tier: number, minSquad: number,
   /** how much of their potential the young reach under this manager, 1 = neutral */
@@ -186,6 +218,9 @@ export function ageSquad(
   /** extra condition a fitness coach brings out of pre season, 0 = neutral */
   fitnessBonus = 0,
 ): AgeOutcome {
+  // picked across the whole squad before anybody is carried, because carry()
+  // runs twice, once down the eleven and once down the bench
+  const breakout = breakoutPick(squad);
   const retired: { name: string; age: number }[] = [];
   const risers: AgeChange[] = [];
   const fallers: AgeChange[] = [];
@@ -200,7 +235,13 @@ export function ageSquad(
       p.age += 1;
       // only improvement is coached, decline happens to everyone alike
       const raw = growth(effectiveAge(p), devFactor(p), before, potentialOf(p));
-      applyDelta(p, raw > 0 ? raw * youthGrowth : raw);
+      let delta = raw > 0 ? raw * youthGrowth : raw;
+      // the boy who breaks out takes two years in one, and stops at his own
+      // ceiling: a potential that can be walked straight past is not a ceiling
+      if (p.id === breakout && delta > 0) {
+        delta = Math.max(delta, Math.min(delta * BREAKOUT_MULT, potentialOf(p) - before));
+      }
+      applyDelta(p, delta);
       // a fresh pre season resets the body, not the years
       p.fitness = Math.max(60, Math.min(100, 88 + Math.floor(rng() * 12) + fitnessBonus));
       const after = overall(p);
