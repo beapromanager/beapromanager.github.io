@@ -282,6 +282,65 @@ if (roleFit('GK', 'ST') !== 'out') fails.push('a keeper up front reads as fine')
   console.log('  the bench rides the bottom of the pitch view, every tile a drop target');
 }
 
+/* THE BENCH MAN WORTH A SHIRT, AND THE OFFER TO GIVE HIM ONE.
+   A squad improves from underneath: the boys on the bench grow over a summer
+   and the men in the eleven age. By the fourth season the worst man in the
+   eleven averages 43 against 57 for the best on the bench, and the screen never
+   said a word, so a manager watching the same eleven every week concluded his
+   players never develop. One wrote in to say so.
+
+   The suggestion has to be worth taking and legal to take, so this plays it:
+   the eleven is turned upside down on purpose, and then every offer the game
+   makes is accepted until it stops making them. */
+{
+  const worth = (g: G.GameState) => {
+    const f = formation(g.tactic?.formation);
+    return G.lineup(g).reduce((s, p, i) => s + effectiveOverall(p, f.slots[i].role, overall(p)), 0);
+  };
+
+  let gs = G.newGame(4242);
+  gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', age: 38, type: 'mental' } as never);
+  gs = G.pickClub(gs, gs.league.clubs[0].id);
+  gs = G.afterSigning(gs, {});
+
+  // the worst men in the eleven and the best on the bench, which is the shape a
+  // squad drifts into on its own over a few seasons, reached here on purpose
+  const sq = G.mySquad(gs);
+  const all = [...sq.starters, ...sq.bench].slice().sort((a, b) => overall(a) - overall(b));
+  const gk = all.filter(p => p.position === 'GK');
+  const out = all.filter(p => p.position !== 'GK');
+  const starters = [gk[0], ...out.slice(0, 10)];
+  const bench = [gk[1], ...out.slice(10)].filter(Boolean);
+  gs = { ...gs, league: { ...gs.league, squads: { ...gs.league.squads, [gs.clubId]: { starters, bench } } } } as G.GameState;
+
+  checked++;
+  const first = G.bestUpgrade(gs);
+  if (!first) fails.push('the worst eleven in the squad was offered no upgrade at all');
+
+  let before = worth(gs), steps = 0, seen: G.Upgrade | null = first;
+  while (seen && steps < 40) {
+    checked += 3;
+    if (seen.gain < 3) fails.push(`an upgrade worth only ${seen.gain} was offered, under the three it takes to be worth saying`);
+    const why = G.swapBlockedReason(seen.out, seen.in, gs);
+    if (why) fails.push(`the game offered a swap it will not allow: ${why}`);
+
+    const after = G.swapPlayers(gs, seen.out.id, seen.in.id);
+    const gained = worth(after) - before;
+    if (gained !== seen.gain) fails.push(`it promised ${seen.gain} and the eleven gained ${gained}`);
+
+    gs = after; before = worth(gs); steps++;
+    seen = G.bestUpgrade(gs);
+  }
+
+  checked += 3;
+  if (steps === 0) fails.push('no upgrade was ever taken, so nothing here was measured');
+  if (steps >= 40) fails.push('the offers never ran out, so taking them does not settle');
+  if (G.mySquad(gs).starters.filter(p => p.position === 'GK').length !== 1) {
+    fails.push('taking every upgrade left the eleven without exactly one keeper');
+  }
+  console.log(`  the worst eleven in the squad took ${steps} offered upgrades and then ran out, every one legal and worth what it said`);
+}
+
 console.log(`${checked} checks across ${FORMATIONS.length} formations`);
 console.log(`seating improved the fit in ${improved} of ${improved + sameOrWorse} squads, made it worse in 0`);
 console.log(`4-4-2 reads: ${formation('4-4-2').slots.map(s => s.role).join(' ')}`);

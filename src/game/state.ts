@@ -37,7 +37,7 @@ export type { BrandId, Brand } from '../data/sponsors.ts';
 import type { DebtState } from './finance.ts';
 export { debtLine };
 export type { DebtState };
-import { DEFAULT_FORMATION, formationForClub, formation, fillFormation } from '../data/formations.ts';
+import { DEFAULT_FORMATION, formationForClub, formation, fillFormation, effectiveOverall } from '../data/formations.ts';
 import { ADS_LIVE } from '../data/ads.ts';
 import type { FormationId } from '../data/formations.ts';
 import { TEMPLATES, eligible, rollDilemma } from '../data/dilemmas.ts';
@@ -1965,6 +1965,55 @@ export function swapBlockedReason(a: Player, b: Player, gs?: GameState): string 
 }
 
 /** Move a starter to the bench and a bench player into the XI. */
+/**
+ * How much better a man on the bench has to be before it is worth saying.
+ *
+ * One point is noise, and nagging about noise teaches a manager to stop
+ * reading the line it is written on.
+ */
+export const UPGRADE_WORTH_SAYING = 3;
+
+export interface Upgrade { out: Player; in: Player; gain: number }
+
+/**
+ * The bench man most worth bringing into the eleven, or nobody.
+ *
+ * A squad improves from underneath. The boys on the bench grow over a summer
+ * and the men in the eleven age, and nothing in the game ever said so: measured
+ * over eight careers, by the fourth season the worst man in the eleven averaged
+ * 43 while the best on the bench averaged 57, and in eight out of eight
+ * somebody better was sitting down. A manager watching the same eleven every
+ * week reasonably concludes that his players never develop, and one wrote in to
+ * say exactly that. The breakout that now lifts one boy a summer lands on the
+ * bench too, so without this it would never reach a pitch.
+ *
+ * Judged in the shirt, not on the raw rating: effectiveOverall for that slot is
+ * the same number the match engine reads, so a striker is never recommended
+ * into a centre back's shirt on the strength of being a better striker. Every
+ * candidate goes through swapBlockedReason first, so a suspended man, one the
+ * manager sat out, and the keeper who has to stay in goal are never suggested.
+ *
+ * It suggests one, the biggest. The screen offers it and the manager taps it,
+ * or does not: an eleven rearranged behind his back is not his eleven.
+ */
+export function bestUpgrade(gs: GameState, minGain = UPGRADE_WORTH_SAYING): Upgrade | null {
+  const form = formation(gs.tactic?.formation);
+  const onPitch = lineup(gs);
+  const bench = mySquad(gs).bench;
+  let best: Upgrade | null = null;
+  onPitch.forEach((p, i) => {
+    const role = form.slots[i]?.role;
+    if (!role) return;
+    const his = effectiveOverall(p, role, overall(p));
+    for (const b of bench) {
+      if (swapBlockedReason(p, b, gs)) continue;
+      const gain = effectiveOverall(b, role, overall(b)) - his;
+      if (gain >= minGain && (!best || gain > best.gain)) best = { out: p, in: b, gain };
+    }
+  });
+  return best;
+}
+
 export function swapPlayers(gs: GameState, starterId: string, benchId: string): GameState {
   const sq = mySquad(gs);
   const si = sq.starters.findIndex(p => p.id === starterId);

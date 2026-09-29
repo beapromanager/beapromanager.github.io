@@ -264,6 +264,32 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
     .map((p, i) => ({ name: p.name, pos: p.position, role: form.slots[i].role, fit: roleFit(p.position, form.slots[i].role) }))
     .filter(x => x.fit === 'out'), [onPitch, form]);
 
+  // the bench man most worth a shirt, judged in the shirt rather than on a raw
+  // rating, and filtered through the same rules an ordinary substitution obeys.
+  // The whole of it lives in state.ts, where it can be played rather than read.
+  const upgrade = useMemo(() => G.bestUpgrade(gs), [gs]);
+
+  /**
+   * What the bar says, and what the button beside it does, decided together.
+   *
+   * They used to be two separate conditions and they disagreed: the line was
+   * still talking about men out of position while a button offering to promote
+   * somebody nobody had mentioned sat next to it. One value now, so the button
+   * can only ever belong to the sentence it is standing beside.
+   */
+  const saying: { text: string; act?: 'cancel' | 'upgrade' } =
+    flash ? { text: flash }
+    : pickedPlayer ? { text: `${pickedPlayer.name} נבחר. לחץ על מי שמחליף אותו.`, act: 'cancel' }
+    : view === 'pitch' && outOfPosition.length === 1
+      ? { text: `${outOfPosition[0].name} משחק ${ROLE_LABEL[outOfPosition[0].role]} והוא ${POS_LABEL[outOfPosition[0].pos]}. היכולת שלו שם נפגעת.` }
+    : view === 'pitch' && outOfPosition.length > 1
+      ? { text: `${outOfPosition.length} שחקנים לא בתפקיד הטבעי שלהם. השם באדום מראה מי.` }
+    // once the shirts are on the right men, the next thing worth a line is who
+    // ought to be wearing one
+    : upgrade
+      ? { text: `${upgrade.in.name} שווה ${upgrade.gain} יותר מ${upgrade.out.name} בעמדה הזאת.`, act: 'upgrade' }
+      : { text: 'גרור שחקן על שחקן אחר כדי להחליף. לחיצה פותחת את הנתונים שלו.' };
+
   /** Put a and b together: a swap across the line, or two shirts changing hands. */
   function join(aId: string, bId: string): boolean {
     const a = byId(aId), b = byId(bId);
@@ -399,19 +425,17 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
     move a man at all. */}
       <div className="tile squad-say" style={{ background: pickedPlayer ? 'rgba(232,182,76,.12)' : 'var(--surface)', borderColor: pickedPlayer ? 'var(--gold)' : 'var(--line)' }}>
         <div className="row" style={{ gap: 10 }}>
-          <div className="squad-say-line" aria-live="polite">
-            {flash
-              ?? (pickedPlayer
-                ? `${pickedPlayer.name} נבחר. לחץ על מי שמחליף אותו.`
-                : view === 'pitch' && outOfPosition.length === 1
-                  ? `${outOfPosition[0].name} משחק ${ROLE_LABEL[outOfPosition[0].role]} והוא ${POS_LABEL[outOfPosition[0].pos]}. היכולת שלו שם נפגעת.`
-                  : view === 'pitch' && outOfPosition.length > 1
-                    ? `${outOfPosition.length} שחקנים לא בתפקיד הטבעי שלהם. השם באדום מראה מי.`
-                    : 'גרור שחקן על שחקן אחר כדי להחליף. לחיצה פותחת את הנתונים שלו.')}
-          </div>
-          {pickedPlayer && (
+          <div className="squad-say-line" aria-live="polite">{saying.text}</div>
+          {saying.act === 'cancel' && (
             <button className="btn ghost btn-sm" style={{ width: 'auto', padding: '7px 13px' }}
               onClick={() => setPicked(null)}>בטל</button>
+          )}
+          {saying.act === 'upgrade' && upgrade && (
+            // one tap, one swap, and through the same door an ordinary
+            // substitution goes through. The line then names the next one, if
+            // there is a next one, so the manager keeps deciding.
+            <button className="btn btn-sm" style={{ width: 'auto', padding: '7px 13px' }}
+              onClick={() => join(upgrade.out.id, upgrade.in.id)}>תעלה אותו</button>
           )}
         </div>
       </div>
