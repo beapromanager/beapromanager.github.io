@@ -14,7 +14,7 @@
  */
 import * as G from '../src/game/state.ts';
 import { wageBill } from '../src/game/career.ts';
-import { transferFee, WINTER_WEEKS } from '../src/game/transfers.ts';
+import { transferFee, WINTER_WEEKS, MIN_SQUAD } from '../src/game/transfers.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { makeSquad } from '../src/data/squadGen.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
@@ -47,7 +47,28 @@ function career(seed = 4242): G.GameState {
   return { ...gs, phase: 'hub' };
 }
 
-/** Seventeen men, so there is one to spare above the floor. */
+/**
+ * Exactly what the league demands and not one man more, so the refusals below
+ * are the floor refusing rather than a squad that happens to be small.
+ *
+ * A new squad used to be built to exactly MIN_SQUAD, so the section below sat
+ * on the floor without asking to. It opens two above it now, and the two spare
+ * men are the whole point of that change: a manager can sell them. So the
+ * fixture puts the career on the floor itself. Spare outfield men only, never
+ * the second keeper.
+ */
+function atFloor(gs: G.GameState): G.GameState {
+  const sq = G.mySquad(gs);
+  const bench = [...sq.bench];
+  while (sq.starters.length + bench.length > MIN_SQUAD) {
+    const i = bench.findIndex(p => p.position !== 'GK');
+    if (i < 0) break;
+    bench.splice(i, 1);
+  }
+  return { ...gs, league: { ...gs.league, squads: { ...gs.league.squads, [gs.clubId]: { starters: sq.starters, bench } } } };
+}
+
+/** One man above the floor, whatever the floor is. */
 function withSpare(gs: G.GameState): G.GameState {
   const extra = makeSquad(58, createRng(9)).bench[2];
   const sq = G.mySquad(gs);
@@ -111,13 +132,13 @@ function withSpare(gs: G.GameState): G.GameState {
 
 /* 4. THE FLOOR, THE REGISTERED YOUTH, AND THE ELEVEN. */
 {
-  let gs = { ...career(13), week: WINTER_WEEKS[0] };
+  let gs = atFloor({ ...career(13), week: WINTER_WEEKS[0] });
   const p = G.mySquad(gs).bench.find(x => x.position !== 'GK')!;
   checked += 2;
-  if (G.squadSize(gs) !== 16) fails.push('the fixture squad is not sixteen');
-  if (!G.partBlockedReason(gs, p.id) || G.partOptions(gs, p.id).length) fails.push('a sixteen-man squad could let a man go');
+  if (G.squadSize(gs) !== MIN_SQUAD) fails.push(`the fixture squad is ${G.squadSize(gs)}, this section needs it on the floor of ${MIN_SQUAD}`);
+  if (!G.partBlockedReason(gs, p.id) || G.partOptions(gs, p.id).length) fails.push('a squad on the floor could let a man go');
 
-  // a starter leaving from seventeen: the eleven refills, with one keeper
+  // a starter leaving from one above the floor: the eleven refills, one keeper
   gs = withSpare(gs);
   const starter = G.mySquad(gs).starters[7];
   const after = G.partWays(gs, starter.id, 'transfer');

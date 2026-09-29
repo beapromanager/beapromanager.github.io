@@ -21,7 +21,30 @@ const fails: string[] = [];
 let checked = 0;
 let homeDraws = 0, awayDraws = 0, climbs = 0, tops = 0, flats = 0;
 
-for (const [city, seed] of [['אשדוד', 4242], ['חיפה', 777], ['רמת גן', 31], ['באר שבע', 9091]] as const) {
+/*
+ * Four seasons always, and more only while something has still never happened.
+ *
+ * The three lines at the bottom refuse to call this a check unless the seasons
+ * actually contained a home draw, an away draw, a win that climbed, a win that
+ * moved nobody, and a win while already top. That last one is rare: measured
+ * over a hundred and eighty rounds it turned up eight times and converted
+ * none. Four fixed seasons happened to hold one for as long as squads were
+ * generated the way they were, and the day every player in the game came out
+ * different there were none, so the check said it proves nothing. It was
+ * right, and four was never a number to rely on for it.
+ *
+ * So the first four are still played in full, because they are what tests the
+ * lines, and after that a career is only played while some branch has still
+ * never been seen. A covered run stops early and pays for nothing it does not
+ * need; an unlucky one keeps drawing until it has what it came for.
+ */
+const CITIES = ['אשדוד', 'חיפה', 'רמת גן', 'באר שבע'];
+const ALWAYS: [string, number][] = [['אשדוד', 4242], ['חיפה', 777], ['רמת גן', 31], ['באר שבע', 9091]];
+const MOST = 24;
+
+for (let k = 0; k < MOST; k++) {
+  if (k >= ALWAYS.length && homeDraws && awayDraws && climbs && flats && tops) break;
+  const [city, seed] = k < ALWAYS.length ? ALWAYS[k] : [CITIES[k % CITIES.length], 4242 + k * 811];
   let gs = G.newGame(seed);
   gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
   gs = G.pickCity(gs, city);

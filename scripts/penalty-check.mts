@@ -175,16 +175,32 @@ const everyN = 1 / perMatch;
       Otherwise buying a keeper does nothing on the one night it should matter
       most, and the squad screen is lying about what a goalkeeper is for. */
 {
+  // The guess is held still for this one, and that is the whole of the fix.
+  // resolveDefPenalty pays 0.55 + (gk-60)/250 for a read he got right and
+  // 0.06 + (gk-60)/500 for one he got wrong, so the guess is worth about
+  // fifty points of save rate and the keeper's own hands about eight. Sent to
+  // a corner at random, the thing being measured sat underneath the noise of
+  // the thing that was not: this section was deciding which way a few hundred
+  // coins fell, and it passed for as long as they fell kindly. The day a squad
+  // was built two men bigger and every player in the game came out different,
+  // it reported 22% against 23% and said the keeper does not matter.
+  //
+  // Sending him the same way in both runs leaves his hands as the only
+  // difference between them, and a margin is demanded rather than any win at
+  // all, because a strict greater-than on two noisy numbers is a coin toss
+  // dressed as an assertion.
   const good = blank(), poor = blank();
-  for (let i = 1; i <= 1500; i++) play(i * 6151 + 7, good, 74, 58);
-  for (let i = 1; i <= 1500; i++) play(i * 6151 + 7, poor, 44, 58);
+  for (let i = 1; i <= 1500; i++) play(i * 6151 + 7, good, 74, 58, 'always-right');
+  for (let i = 1; i <= 1500; i++) play(i * 6151 + 7, poor, 44, 58, 'always-right');
   const g = good.savedPens / Math.max(1, good.against);
   const p = poor.savedPens / Math.max(1, poor.against);
-  checked++;
+  checked += 2;
   if (g <= p) {
     fails.push(`a 74 squad saves ${(g * 100).toFixed(0)}% and a 44 squad ${(p * 100).toFixed(0)}%: the keeper does not matter`);
+  } else if (g - p < 0.04) {
+    fails.push(`a 74 keeper saves only ${((g - p) * 100).toFixed(1)} points more than a 44 keeper, which is not worth buying one for`);
   }
-  console.log(`  the keeper: ${(g * 100).toFixed(0)}% saved by a strong side, ${(p * 100).toFixed(0)}% by a weak one`);
+  console.log(`  the keeper, sent the same way both times: ${(g * 100).toFixed(0)}% saved behind a strong side, ${(p * 100).toFixed(0)}% behind a weak one`);
 }
 
 /* 6. THE WHISTLE DOES NOT CARE HOW GOOD THEY ARE.

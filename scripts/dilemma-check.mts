@@ -13,6 +13,7 @@
  * act ever throws, and no outcome speaks in the past about the match ahead.
  */
 import * as G from '../src/game/state.ts';
+import { MIN_SQUAD } from '../src/game/transfers.ts';
 import * as L from '../src/game/liveMatch.ts';
 import { TEMPLATES } from '../src/data/dilemmas.ts';
 import type { RolledDilemma } from '../src/data/dilemmas.ts';
@@ -33,6 +34,22 @@ function career(seed = 4242, town = LEGEND_TOWN): G.GameState {
   gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
   while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
   return { ...gs, phase: 'hub' };
+}
+
+/**
+ * The squad cut to exactly what the league demands, spare outfield men off the
+ * bench and never the second keeper. Used where a section is about the floor
+ * refusing something, rather than about how big a new squad happens to be.
+ */
+function atFloor(gs: G.GameState): G.GameState {
+  const sq = G.mySquad(gs);
+  const bench = [...sq.bench];
+  while (sq.starters.length + bench.length > MIN_SQUAD) {
+    const i = bench.findIndex(p => p.position !== 'GK');
+    if (i < 0) break;
+    bench.splice(i, 1);
+  }
+  return { ...gs, league: { ...gs.league, squads: { ...gs.league.squads, [gs.clubId]: { starters: sq.starters, bench } } } };
 }
 
 /** Put a named dilemma in front of the manager and answer it. */
@@ -236,9 +253,14 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
 /* SELL: the owner's buyer is a club in this league, and the outcome names it */
 {
   let gs = career(37);
-  // the owner only asks when there is a man to spare
-  checked++;
-  if (G.rollNamedDilemma(gs, 'owner_sell_star', 1)) fails.push('the owner asks to sell on a squad of sixteen');
+  // The owner only asks when there is a man to spare. Both sides of that are
+  // worth holding, and until squads opened above the floor only one of them
+  // could be: a new squad was built to exactly the floor, so this line read as
+  // "the owner never asks" and would have passed just as happily if he never
+  // asked at all.
+  checked += 2;
+  if (G.rollNamedDilemma(atFloor(gs), 'owner_sell_star', 1)) fails.push('the owner asks to sell with the squad already on the floor');
+  if (!G.rollNamedDilemma(gs, 'owner_sell_star', 1)) fails.push('the owner never asks to sell, even with men to spare');
   const spare = { ...G.mySquad(gs).bench[2], id: 'spare-x', name: 'ספייר ספייר' };
   gs = { ...gs, league: { ...gs.league, squads: { ...gs.league.squads, [gs.clubId]: { starters: G.mySquad(gs).starters, bench: [...G.mySquad(gs).bench, spare] } } } };
   const s = star(gs);

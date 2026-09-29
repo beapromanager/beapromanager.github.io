@@ -20,6 +20,7 @@ import * as G from '../src/game/state.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import type { MatchResult, MatchEvent } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
+import { MIN_SQUAD } from '../src/game/transfers.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
 import { readFileSync } from 'node:fs';
@@ -34,15 +35,52 @@ const store = new Map<string, string>();
 const fails: string[] = [];
 let checked = 0;
 
-/** A fresh career, walked to the hub the way a player walks it, academy and all. */
-function career(seed = 4242): G.GameState {
+/**
+ * A fresh career, walked to the hub the way a player walks it, academy and all.
+ *
+ * `toFloor` sells the spare men off the bench until the squad sits exactly on
+ * MIN_SQUAD. The arc below is about a team sheet one name short of what the
+ * league demands, and that only ever happens at the floor: a squad of sixteen
+ * with one man banned has fifteen. A new squad used to open on exactly sixteen,
+ * so the arc set itself up by accident, and the day a new squad opened two men
+ * bigger the whole section fell over reporting that seventeen eligible names
+ * were not short of sixteen. They were not. The fixture now says out loud where
+ * it needs the career to be instead of leaning on what a squad happens to be
+ * built to, and the sections that do not care keep the squad they are given.
+ */
+function career(seed = 4242, toFloor = false): G.GameState {
   let gs = G.newGame(seed);
   gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
   gs = G.pickCity(gs, LEGEND_TOWN);
   gs = G.afterSigning(gs, {});
   gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
   while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
-  return { ...gs, phase: 'hub' };
+  const hub = { ...gs, phase: 'hub' } as G.GameState;
+  return toFloor ? atFloor(hub) : hub;
+}
+
+/**
+ * The squad cut to exactly what the league demands: spare outfield men off the
+ * bench, never the second keeper.
+ *
+ * Written into the state rather than sold, the way the other fixtures in this
+ * folder build the squad they need. Selling was tried first and does not hold:
+ * the only window open at that point is the summer, and a man sold inside it
+ * was back in the squad by the end of it, while by the time the hub is reached
+ * the window is shut and nothing can be sold at all.
+ */
+function atFloor(gs: G.GameState): G.GameState {
+  const sq = G.mySquad(gs);
+  const bench = [...sq.bench];
+  while (sq.starters.length + bench.length > MIN_SQUAD) {
+    const i = bench.findIndex(p => p.position !== 'GK');
+    if (i < 0) break;
+    bench.splice(i, 1);
+  }
+  return {
+    ...gs,
+    league: { ...gs.league, squads: { ...gs.league.squads, [gs.clubId]: { starters: sq.starters, bench } } },
+  };
 }
 
 /** Simulate the round from the live input, optionally with one of ours sent off. */
@@ -71,9 +109,9 @@ const ids = (xs: { id: string }[]) => new Set(xs.map(x => x.id));
 
 /* 1 to 3. THE WHOLE ARC, ON A SQUAD OF SIXTEEN. */
 {
-  let gs = career();
+  let gs = career(4242, true);
   checked++;
-  if (G.squadSize(gs) !== 16) fails.push(`the fixture squad is ${G.squadSize(gs)}, this arc needs exactly sixteen`);
+  if (G.squadSize(gs) !== MIN_SQUAD) fails.push(`the fixture squad is ${G.squadSize(gs)}, this arc needs exactly ${MIN_SQUAD}`);
   checked++;
   if (!gs.youth.players.length) fails.push('the fixture career has no academy to register from');
 
