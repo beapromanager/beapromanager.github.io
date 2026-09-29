@@ -4035,13 +4035,16 @@ export function scoutRoundsLeft(gs: GameState): number | null {
 
 /**
  * The red dot on the hub. It is on from the moment a window shuts, for as long
- * as a scout could still be hired, until the manager opens the door once.
+ * as a scout could still be hired and the club can pay him, until the manager
+ * opens the door once. A dot that promises what the purse cannot buy is worse
+ * than none: the owner's crisis empties the account in the first ליגה א׳ season.
  * Answered against the stretch of the season he last looked in, so the next
  * window to shut turns it back on with no bookkeeping.
  */
 export function scoutDot(gs: GameState): boolean {
   if (!scoutAvailable(gs) || gs.scout.hiredSeason === gs.season) return false;
   if (gs.week + SCOUT_ROUNDS > gs.league.rounds) return false;
+  if (gs.meters.money < SCOUT_FEE) return false;
   const key = scoutWindowKey(gs.season, gs.week);
   return key !== '' && gs.scout.seenKey !== key;
 }

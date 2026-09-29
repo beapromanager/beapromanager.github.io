@@ -149,6 +149,8 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
   ok(G.scoutDot(afterWindow), 'the dot did not come back when the winter window shut');
   ok(!G.scoutDot(G.hireScout(s, 'safe')), 'the dot was on with a scout already hired this season');
   ok(!G.scoutDot({ ...s, week: s.league.rounds - SCOUT_ROUNDS + 1 }), 'the dot was on when there was no time left for a job');
+  ok(!G.scoutDot(hubAt(SCOUT_TIER, 1, SCOUT_FEE - 1)), 'the dot was on for a club that could not pay the scout');
+  ok(G.scoutDot(hubAt(SCOUT_TIER, 1, SCOUT_FEE)), 'the dot was off for a club with exactly the fee');
   console.log('  the dot: on when a window shuts, off once the door is opened, back for the next window');
 }
 
