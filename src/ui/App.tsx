@@ -320,6 +320,7 @@ export function App() {
       {gs.phase === 'scout' && (
         <ScoutScreen gs={gs}
           onHire={style => setGs(g => G.hireScout(g, style))}
+          onSign={() => setGs(g => G.signScoutOffer(g))}
           onBack={() => setGs(G.backToHub(gs))} />
       )}
       {gs.phase === 'youth' && (

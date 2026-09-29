@@ -27,7 +27,7 @@ import { debtState, debtLine, debtLimit } from './finance.ts';
 import { emptyYouth, seedYouth, advanceYouth } from './youth.ts';
 import type { Youth } from './youth.ts';
 import {
-  emptyScout, scoutWindowKey, SCOUT_TIER, SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT,
+  emptyScout, scoutWindowKey, SCOUT_TIER, SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, findKeen, arrivedKeen,
 } from './scout.ts';
 import type { ScoutState, ScoutStyle } from './scout.ts';
 export type { Youth };
@@ -1041,7 +1041,7 @@ export function enterPreseason(gs: GameState): GameState {
     else if (firstEver) contracts[id] = seedContract(id);
     else contracts[id] = 3;   // a kid up from the youth signs a three year deal
   }
-  const opened = { ...gs, phase: 'preseason-market' as const, preWeek: 1, preResolved: [], contracts, pendingOutcome: null, arrivals: [] };
+  const opened = { ...gs, phase: 'preseason-market' as const, preWeek: 1, preResolved: [], contracts, pendingOutcome: null, arrivals: [], scout: scoutArrives(gs, gs.scout) };
   return { ...opened, summerMark: summerFingerprint(opened) };
 }
 
@@ -1182,7 +1182,7 @@ function finishPreseason(gs: GameState): GameState {
 
 export function enterSeason(gs: GameState): GameState {
   // the summer is over, so its warnings and its star are over too
-  gs = { ...gs, market: settleMarket(gs.market) };
+  gs = { ...gs, market: settleMarket(gs.market), scout: { ...gs.scout, offer: null } };
   gs = seasonWithLegend(gs);
   gs = dressForTheSeason(gs);
   // the new shirt is unveiled before anything else, because it is the first
@@ -3936,7 +3936,11 @@ function endOfWeek(gs: GameState): GameState {
   // the scout has been away his three rounds, and the news comes before the hub
   const back = scoutBack(gs, next);
   if (back && back.found !== gs.scout.found) notices = [...notices, { kind: 'scout' as const }];
-  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices, followUps, market: winterMarket(gs, next), scout: back ?? gs.scout };
+  // and what he found arrives with the window, and is gone when it shuts
+  let scout = back ?? gs.scout;
+  if (wintry.open && !wasOpen) scout = scoutArrives(gs, scout);
+  else if (!wintry.open && wasOpen) scout = { ...scout, offer: null };
+  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices, followUps, market: winterMarket(gs, next), scout };
 }
 
 /* -------------------------------------------------------------- the scout */
@@ -3984,7 +3988,42 @@ function scoutBack(gs: GameState, next: number): ScoutState | null {
   if (!job) return null;
   if (job.season !== gs.season) return { ...gs.scout, job: null };
   if (next < job.startWeek + SCOUT_ROUNDS) return null;
-  return { ...gs.scout, job: null, found: { style: job.style, season: job.season } };
+  return { ...gs.scout, job: null, found: { style: job.style, season: job.season, player: scoutFind(gs, job.style, next) } };
+}
+
+/**
+ * Who the scout brings back, drawn off the season's seed and the week he
+ * reported, so the same career always meets the same man however many times
+ * the round is played. Null for a style that cannot find anybody yet.
+ */
+function scoutFind(gs: GameState, style: ScoutStyle, week: number): Player | null {
+  if (style !== 'keen') return null;
+  const sq = mySquad(gs);
+  const taken = new Set<string>([...sq.starters, ...sq.bench, ...gs.youth.players, ...gs.market.map(f => f.player)].map(p => p.name));
+  return findKeen(club(gs).tier, createRng(gs.seasonSeed * 971 + gs.season * 37 + week), taken);
+}
+
+/** The find walks in with the window: a year older, and priced as he now is. */
+function scoutArrives(gs: GameState, scout: ScoutState): ScoutState {
+  const f = scout.found;
+  if (!f?.player) return scout;
+  const player = arrivedKeen(f.player, coachYouthGrowth(gs.coach));
+  return { ...scout, found: null, offer: { player, fee: transferFee(player, club(gs).tier), style: f.style } };
+}
+
+/** Why the offer on the table cannot be signed right now, or null when it can. */
+export function scoutSignBlockedReason(gs: GameState): string | null {
+  const o = gs.scout.offer;
+  if (!o) return SCOUT_TEXT.gone;
+  return signBlockedReason(gs, { player: o.player, fee: o.fee, note: '' });
+}
+
+/** Sign the scout's find into the senior squad, through the same door as any signing. */
+export function signScoutOffer(gs: GameState): GameState {
+  const o = gs.scout.offer;
+  if (!o || scoutSignBlockedReason(gs)) return gs;
+  const next = signPlayer({ ...gs, market: [...gs.market, { player: o.player, fee: o.fee, note: '' }] }, o.player.id);
+  return { ...next, scout: { ...next.scout, offer: null } };
 }
 
 /** Rounds left before the scout in the field reports, or null when nobody is out. */

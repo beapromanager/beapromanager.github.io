@@ -12,9 +12,18 @@
  *   5. the red dot: on after a window shuts, off once the door has been opened,
  *      on again when the next window shuts, never on while hired or while open
  *   6. a job left over from another season is dropped, never reported
+ *   7. the keen one: a boy of seventeen with a ceiling, who walks in with the
+ *      next window a year older and priced as he then is, can be signed once,
+ *      and is gone when the window shuts
  */
 import * as G from '../src/game/state.ts';
-import { SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, SCOUT_TIER, scoutWindowKey } from '../src/game/scout.ts';
+import {
+  SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, SCOUT_TIER, scoutWindowKey, emptyScout, findKeen, scoutBudget,
+} from '../src/game/scout.ts';
+import { potentialOf } from '../src/game/career.ts';
+import { leagueCeiling } from '../src/data/clubs.ts';
+import { transferFee } from '../src/game/transfers.ts';
+import { overall, createRng } from '../src/engine/matchEngine.ts';
 import { WINTER_WEEKS } from '../src/game/transfers.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
@@ -33,7 +42,9 @@ function hubAt(tier: number, week = 1, money = 900_000): G.GameState {
   while (gs.phase === 'kit') gs = G.closeKitReveal(gs);
   if (gs.phase === 'sponsor') gs = G.takeSponsor(gs, 'base');
   return {
-    ...gs, week, notices: [],
+    // the owner's crisis is a once in a career event at round four of ליגה א׳; these
+    // claims are about the scout, so it is marked as already behind him
+    ...gs, week, notices: [], crisisDone: true,
     meters: { ...gs.meters, money },
     league: { ...gs.league, clubs: gs.league.clubs.map(c => c.id === gs.clubId ? { ...c, tier } : c) },
   };
@@ -147,6 +158,102 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
   const stale = { ...gs, season: gs.season + 1 };
   ok(G.scoutRoundsLeft(stale) === null, 'a job from last season still showed a counter');
   console.log('  a job from another season is not counted');
+}
+
+/* 7. THE KEEN ONE */
+{
+  const tier = SCOUT_TIER;
+  const level = leagueCeiling(tier);
+
+  // the finder: who he is, and that it is always the same man off the same stream
+  const a = findKeen(tier, createRng(31), new Set());
+  const b = findKeen(tier, createRng(31), new Set());
+  // the id is a running counter shared by the whole game, so it is the one thing that differs
+  const same = (x: typeof a, y: typeof a) => JSON.stringify({ ...x, id: 0 }) === JSON.stringify({ ...y, id: 0 });
+  ok(same(a, b), 'the same stream found two different boys');
+  let bad = 0;
+  for (let i = 0; i < 60; i++) {
+    const p = findKeen(tier, createRng(1000 + i), new Set());
+    const o = overall(p);
+    if (p.age !== 17 || o < level - 9 || o > level - 3 || potentialOf(p) < 84) bad++;
+  }
+  ok(bad === 0, `${bad} of 60 keen finds were not a seventeen year old ${level - 9} to ${level - 3} with a ceiling of 84`);
+  const taken = new Set([a.name]);
+  ok(findKeen(tier, createRng(31), taken).name !== a.name, 'the finder handed out a name that was already taken');
+
+  // hired in round one, back after three, and he carries a boy
+  let gs = G.hireScout(hubAt(tier), 'keen');
+  for (let r = 0; r < SCOUT_ROUNDS; r++) gs = playRound(gs);
+  const boy = gs.scout.found?.player ?? null;
+  ok(boy !== null && boy.age === 17, 'the keen scout came back without a boy of seventeen');
+  ok(G.hireScout(hubAt(tier), 'safe').scout.job?.style === 'safe' && G.hireScout(hubAt(tier), 'old').scout.job?.style === 'old', 'the other styles could not be hired');
+
+  // he waits for the window: the round before it opens nothing has arrived
+  const rich = { ...gs.meters, money: 6_000_000 };
+  const waiting = { ...gs, week: 6, notices: [], meters: rich };
+  const before = playRound(waiting);
+  ok(before.week === 7 && before.scout.offer === null && before.scout.found !== null, 'the boy arrived before the window');
+
+  // the window opens: he walks in, a year older, priced as he now is
+  const seven = { ...gs, week: 7, notices: [], meters: rich };
+  const open = playRound(seven);
+  const offer = open.scout.offer;
+  ok(open.week === 8 && offer !== null && open.scout.found === null, 'the boy did not arrive when the winter window opened');
+  if (offer && boy) {
+    ok(offer.player.age === 18, `he arrived at ${offer.player.age}, not 18`);
+    ok(overall(offer.player) > overall(boy), 'he did not grow in the year he was away');
+    ok(potentialOf(offer.player) === potentialOf(boy), 'his ceiling moved on the way');
+    ok(offer.fee === transferFee(offer.player, tier), 'the price was not the price of the man who arrived');
+    ok(G.scoutSignBlockedReason(open) === null, `the offer could not be signed with money and room: ${G.scoutSignBlockedReason(open)}`);
+
+    // signing: the price, once, into the senior squad, through the ordinary door
+    const signed = G.signScoutOffer(open);
+    ok(open.meters.money - signed.meters.money === offer.fee, 'signing cost something other than the price');
+    ok(G.squadSize(signed) === G.squadSize(open) + 1, 'signing did not add exactly one man');
+    ok(G.mySquad(signed).bench.some(p => p.id === offer.player.id), 'he did not land on the senior bench');
+    ok(signed.scout.offer === null, 'the offer stayed on the table after signing');
+    ok(G.signScoutOffer(signed).meters.money === signed.meters.money, 'a second signing took money');
+
+    // the rules of signing are the market's own
+    const poor = { ...open, meters: { ...open.meters, money: offer.fee - 1 } };
+    ok(G.scoutSignBlockedReason(poor) === SCOUT_TEXT.tooPoor && G.signScoutOffer(poor).scout.offer !== null, 'a manager short by a shekel could sign him');
+    let full = open;
+    for (const fa of open.market.slice(0, 2)) full = G.signPlayer(full, fa.player.id);
+    ok(G.squadSize(full) >= G.MAX_SQUAD && G.scoutSignBlockedReason(full) !== null, 'he could be signed into a full squad');
+
+    // the window shuts on him: still here in the second round of it, gone after
+    const nine = playRound({ ...open, notices: [] });
+    ok(nine.week === 9 && nine.scout.offer !== null, 'he left before the window shut');
+    const ten = playRound({ ...nine, notices: [] });
+    ok(ten.week === 10 && ten.scout.offer === null, 'he was still on offer after the window shut');
+    ok(![...G.mySquad(ten).starters, ...G.mySquad(ten).bench].some(p => p.id === offer.player.id), 'an unsigned boy ended up in the squad');
+  }
+
+  // the summer window carries him too, and the season kicks him out
+  const summer = G.enterPreseason({ ...gs, scout: { ...gs.scout } });
+  ok(summer.phase === 'preseason-market' && summer.scout.offer !== null && summer.scout.found === null, 'the boy did not arrive with the summer market');
+  const season = G.enterSeason(summer);
+  ok(season.scout.offer === null, 'the offer survived the end of the summer');
+
+  // the card quotes what the counter charges: 30 real arrivals against the range on the card
+  const range = scoutBudget('keen', tier);
+  ok(range !== null && range[0] < range[1], 'the keen card had no budget range');
+  if (range) {
+    // real arrivals, through the game's own window, not the function the card is drawn from
+    const fees: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const kid = findKeen(tier, createRng(5000 + i), new Set());
+      const at = playRound({ ...seven, notices: [], scout: { ...emptyScout(), hiredSeason: 1, found: { style: 'keen', season: 1, player: kid } } });
+      if (at.scout.offer) fees.push(at.scout.offer.fee);
+    }
+    ok(fees.length === 12, `only ${fees.length} of 12 boys arrived through the window`);
+    fees.sort((x, y) => x - y);
+    const median = fees[Math.floor(fees.length / 2)];
+    ok(median >= range[0] && median <= range[1], `the median arrival price ${median} is outside the range on the card, ${range[0]} to ${range[1]}`);
+    ok(scoutBudget('safe', tier) === null && scoutBudget('old', tier) === null, 'a style that finds nobody yet quoted a budget');
+  }
+  ok(emptyScout().offer === null, 'a fresh scout had an offer');
+  console.log('  the keen one: found at seventeen, arrives a year older with the window, signed once, gone when it shuts');
 }
 
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));

@@ -203,7 +203,7 @@ export function loadCareer(): GameState | null {
     wardrobe: s.wardrobe ?? [],
     kitReveal: s.kitReveal ?? null,
     // a career from before the scout has never hired one
-    scout: s.scout ?? emptyScout(),
+    scout: { ...emptyScout(), ...(s.scout ?? {}) },
   };
   /**
    * A career saved before the manager had a standing has no record of what he

@@ -153,6 +153,21 @@ function effectiveAge(p: Player): number {
   return p.position === 'GK' ? p.age - 3 : p.age;
 }
 
+/**
+ * A player as he would be after one more year at the given age, by the same
+ * step the summer takes. For the man the scout found at seventeen and who
+ * reaches the club at eighteen: the year he was away is a year he grew.
+ * Returns a copy, and keeps his ceiling, which is read off his seed.
+ */
+export function growForYear(src: Player, toAge: number, youthGrowth = 1): Player {
+  const p: Player = { ...src, attrs: { ...src.attrs }, gk: src.gk ? { ...src.gk } : undefined };
+  const before = overall(p);
+  p.age = toAge;
+  const raw = growth(effectiveAge(p), devFactor(p), before, potentialOf(p));
+  applyDelta(p, raw > 0 ? raw * youthGrowth : raw);
+  return p;
+}
+
 function retires(p: Player, rng: Rng): boolean {
   const a = effectiveAge(p);
   if (a >= 37) return true;

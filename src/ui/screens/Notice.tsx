@@ -10,6 +10,8 @@
 import { useState } from 'react';
 import * as G from '../../game/state.ts';
 import { SCOUT_TEXT } from '../../game/scout.ts';
+import { overall } from '../../engine/matchEngine.ts';
+import { potentialOf } from '../../game/career.ts';
 import { Icon } from '../components/Icon.tsx';
 import { Meters, formatMoney, formatMoneyExact } from '../components/bits.tsx';
 import { Kit } from '../components/Kit.tsx';
@@ -33,7 +35,7 @@ export function NoticeScreen({ gs, onDismiss, onSquad, onYouth, onTransfers }: {
   const body = red
     ? `${n.name} קיבל אדום ולא ישחק מול ${n.rival}. הוא חייב לצאת מההרכב.`
     : n.kind === 'story' ? n.body
-    : n.kind === 'scout' ? SCOUT_TEXT.newsBody
+    : n.kind === 'scout' ? scoutNews(gs)
     : `הוא היה רשום לסגל רק למחזור הזה. עכשיו הוא חוזר למחלקת הנוער להמשיך להתפתח.`;
 
   return (
@@ -169,4 +171,11 @@ function WindowNotice({ gs, weeks, onDismiss, onTransfers }: {
       </div>
     </>
   );
+}
+
+/** What the scout says: the boy by name and number when he found one, the plain word when not. */
+function scoutNews(gs: G.GameState): string {
+  const p = gs.scout.found?.player;
+  if (!p) return SCOUT_TEXT.newsBody;
+  return SCOUT_TEXT.keenNews(p.name, p.age, overall(p), potentialOf(p));
 }

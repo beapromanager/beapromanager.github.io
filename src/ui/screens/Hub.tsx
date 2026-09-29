@@ -103,7 +103,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
             dot={gs.youth.players.some(p => p.age >= 18) ? 'var(--gold)' : undefined} />
           {SCOUT_LIVE && G.scoutAvailable(gs) && (
             <Cell i={9} icon="target" label={SCOUT_TEXT.door} onClick={onScout}
-              dot={G.scoutDot(gs) ? 'var(--loss)' : undefined} blink={G.scoutDot(gs)} />
+              dot={G.scoutDot(gs) ? 'var(--loss)' : gs.scout.offer ? 'var(--win)' : undefined} blink={G.scoutDot(gs)} />
           )}
         </div>
 
