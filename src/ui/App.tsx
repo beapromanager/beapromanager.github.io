@@ -191,6 +191,15 @@ export function App() {
     // no later: the tab is switched away from and never comes back
     return flushOnLeaving();
   }, [adminKey]);
+  // And the moment the title screen is actually up, which is a different moment
+  // from the one above: "open" is reported when the app mounts, and the cold
+  // open plays for four and a half seconds before anybody sees a button. The
+  // two together split the largest fall in the funnel into the part that is the
+  // film's fault and the part that is the title screen's.
+  useEffect(() => {
+    if (adminKey || !introDone || booted) return;
+    track('title');
+  }, [adminKey, introDone, booted]);
   useEffect(() => {
     if (!booted || adminKey) return;
     const step = stepFor(gs);

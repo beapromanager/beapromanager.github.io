@@ -26,7 +26,22 @@ import { TELEMETRY_URL } from '../data/telemetry.ts';
 
 /** the furthest a player got, in the order he would get there */
 export const STEPS = [
-  'open',            // the title screen drew
+  // Not "the title screen drew", which is what this used to say and was not
+  // true: it is reported the moment the app mounts, before a frame of the cold
+  // open. The difference is the whole of the next line's reason for existing.
+  'open',            // the game booted
+  /**
+   * The title screen is up, with the button on it.
+   *
+   * Two in five of everybody who opened the game never started a career, the
+   * largest fall in the funnel by a distance, and until this step there was no
+   * way to tell three different people apart inside that number: the one whose
+   * screen never drew, the one who left during four and a half seconds of cold
+   * open, and the one who looked at the button and did not press it. They want
+   * three different fixes, and guessing which to build would have been exactly
+   * that, a guess.
+   */
+  'title',
   'career_new',      // tapped a new career
   'manager',         // named himself
   'club',            // picked a town and colours

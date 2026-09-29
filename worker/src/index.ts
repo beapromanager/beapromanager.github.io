@@ -49,7 +49,7 @@ export interface Env {
  * telemetry-check compares the two lists now.
  */
 const STEPS = [
-  'open', 'career_new', 'manager', 'club', 'archetype', 'signing', 'friends',
+  'open', 'title', 'career_new', 'manager', 'club', 'archetype', 'signing', 'friends',
   'squad', 'market', 'season', 'round_1', 'round_3', 'round_7', 'season_end', 'season_2',
 ] as const;
 type Step = typeof STEPS[number];

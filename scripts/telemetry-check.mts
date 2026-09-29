@@ -108,8 +108,25 @@ let checked = 0;
   const far = ['season_end', 'season_2'] as const;
   if (T.stepFor({ phase: 'season-end', season: 1, week: 14 }) !== 'season_end') fails.push('finishing a season reports something else');
   if (T.stepFor({ phase: 'hub', season: 2, week: 1 }) !== 'season_2') fails.push('a second season reports something else');
-  const missing = T.STEPS.filter(s => s !== 'open' && s !== 'career_new' && !far.includes(s as never) && !reached.has(s));
+  // open, title and career_new are the three the SCREENS report, not the state:
+  // the app mounting, the title screen coming up behind the cold open, and the
+  // tap. stepFor reads a career, and none of the three is one yet.
+  const fromScreens = ['open', 'title', 'career_new'];
+  const missing = T.STEPS.filter(s => !fromScreens.includes(s) && !far.includes(s as never) && !reached.has(s));
   if (missing.length) fails.push(`a real career never reaches: ${missing.join(', ')}`);
+
+  /* AND THE THREE THE SCREENS REPORT ARE ACTUALLY REPORTED BY A SCREEN.
+     A step nobody fires is a bar that is always empty, and an empty bar reads
+     as people leaving rather than as a line of code nobody wrote. */
+  const appSrc = readFileSync('src/ui/App.tsx', 'utf8');
+  for (const s of fromScreens) {
+    checked++;
+    if (!appSrc.includes(`track('${s}')`)) fails.push(`nothing in the App ever reports "${s}", so its bar can only ever be empty`);
+  }
+  checked++;
+  if (T.STEP_ORDER['title'] !== T.STEP_ORDER['open'] + 1) {
+    fails.push('"title" is not the step straight after "open", which is the only place it answers anything');
+  }
 
   // and it never goes backwards
   const order = seen.map(s => (s.step ? T.STEP_ORDER[s.step] : -1));

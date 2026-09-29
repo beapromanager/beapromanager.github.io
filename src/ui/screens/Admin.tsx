@@ -135,6 +135,7 @@ export type Stats = {
 /** the steps in words, so the chart reads without the code beside it */
 const LABEL: Record<string, string> = {
   open: 'פתחו את המשחק',
+  title: 'ראו את מסך הפתיחה',
   career_new: 'התחילו קריירה',
   manager: 'נתנו שם',
   club: 'בחרו עיר וצבעים',
