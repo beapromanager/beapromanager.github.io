@@ -582,7 +582,7 @@ function HalfTime({ st, onTalk, onShape, onRevert, onSub }: {
           the eleven immediately, so the bench sheet and the pitch both show the
           new shape before he sends them back out. */}
       <div className="label-cap" style={{ marginBottom: 8 }}>מערך למחצית השנייה</div>
-      <div className="row" style={{ gap: 7, marginBottom: 13, alignItems: 'stretch' }}>
+      <div className="ht-shapes">
         {L.FORMATION_CHOICES.map(f => (
           <button key={f.id} className={`ht-shape${f.id === shape ? ' on' : ''}${f.id === asking ? ' ask' : ''}`}
             aria-pressed={f.id === shape} disabled={!L.canChangeFormation(st) && f.id !== shape}
@@ -1292,7 +1292,7 @@ function ShapeSheet({ st, onShape, onClose }: {
           <div className="sub" style={{ fontSize: 13.5, marginBottom: 12 }}>
             {left === 1 ? 'נשארה החלפה אחת' : `נשארו ${left} החלפות`}
           </div>
-          <div className="row" style={{ gap: 7, marginBottom: 13, alignItems: 'stretch', flexWrap: 'wrap' }}>
+          <div className="ht-shapes">
             {L.FORMATION_CHOICES.map(f => (
               <button key={f.id} className={`ht-shape${f.id === current ? ' on' : ''}${f.id === asking ? ' ask' : ''}`}
                 aria-pressed={f.id === current} onClick={() => setAsking(f.id === current ? null : f.id)}>
