@@ -1576,6 +1576,13 @@ a.btn{text-decoration:none;}
   text-shadow:0 0 6px rgba(236,232,220,.18);
 }
 .chalk-cap{color:var(--gold-hi); font-weight:800; margin-inline-end:3px;}
+/* position and rating, small: under a name on the pitch, after a name on the bench */
+.chalk-meta{font-family:var(--font-display); font-weight:600; font-size:10.5px; line-height:1; letter-spacing:.02em;
+  color:rgba(236,232,220,.62); direction:ltr; unicode-bidi:isolate; white-space:nowrap;}
+.chalk-man .chalk-meta{margin-top:1px;}
+.chalk-man[data-fit="covers"] .chalk-meta{color:var(--gold-hi);}
+.chalk-man[data-fit="out"] .chalk-meta, .chalk-man[data-fit="out"] .chalk-name{color:#ff8a8e;}
+.chalk-sub .chalk-meta{margin-inline-start:2px;}
 .chalk-bench{
   margin-top:10px; padding-top:9px;
   border-top:1.6px dashed rgba(236,232,220,.24);

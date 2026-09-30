@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { surnameOf } from '../../data/names.ts';
-import { formation } from '../../data/formations.ts';
+import { formation, effectiveOverall, roleFit } from '../../data/formations.ts';
+import { overall } from '../../engine/matchEngine.ts';
 import { Icon } from '../components/Icon.tsx';
 import { preloadFlare } from '../components/FlareBeat.tsx';
 
@@ -116,12 +117,18 @@ export function TeamsheetScreen({ gs, onGo, onSwap, onMove }: {
             {eleven.map((p, i) => {
               const slot = form.slots[i];
               if (!slot || !p) return null;
-              const top = slot.line === 'GK' ? 90 : 79 - slot.d * 66;
+              // the back line sits a little higher than it did, now that every man carries a second line
+              // of small print: at 79 the middle of three centre backs touched the keeper's ring
+              const top = slot.line === 'GK' ? 90 : 74 - slot.d * 61;
               const left = slot.y * 100;
+              // the number the match will use, for the shirt he stands in, and which shirt it is:
+              // the same two things the squad screen's pitch shows under every man
+              const fit = roleFit(p.position, slot.role);
+              const shown = effectiveOverall(p, slot.role, overall(p));
               return (
-                <button key={p.id} type="button" className="chalk-man"
+                <button key={p.id} type="button" className="chalk-man" data-fit={fit}
                   data-picked={picked?.id === p.id ? '1' : '0'}
-                  aria-label={`${p.name}, ${p.position}`}
+                  aria-label={`${p.name}, ${slot.role}, דירוג ${shown}${fit === 'out' ? ', לא בתפקידו' : ''}`}
                   onClick={() => tap(p.id, 'eleven')}
                   style={{
                   top: `${top}%`, left: `${Math.max(9, Math.min(91, left))}%`,
@@ -133,6 +140,7 @@ export function TeamsheetScreen({ gs, onGo, onSwap, onMove }: {
                     {p.id === captainId && <span className="chalk-cap num">C </span>}
                     {surnameOf(p.name)}
                   </span>
+                  <span className="chalk-meta num" data-fit={fit}>{slot.role} {shown}</span>
                 </button>
               );
             })}
@@ -143,9 +151,9 @@ export function TeamsheetScreen({ gs, onGo, onSwap, onMove }: {
             {bench.map(p => (
               <button key={p.id} type="button" className="chalk-sub"
                 data-picked={picked?.id === p.id ? '1' : '0'}
-                aria-label={`${p.name}, ${p.position}, על הספסל`}
+                aria-label={`${p.name}, ${p.position}, דירוג ${overall(p)}, על הספסל`}
                 onClick={() => tap(p.id, 'bench')}>
-                {surnameOf(p.name)}
+                {surnameOf(p.name)} <span className="chalk-meta num">{p.position} {overall(p)}</span>
               </button>
             ))}
           </div>

@@ -259,6 +259,32 @@ if (roleFit('GK', 'ST') !== 'out') fails.push('a keeper up front reads as fine')
   console.log('  the chalkboard hangs between the tunnel and the pitch, with the real eleven on it');
 }
 
+/* THE BOARD SAYS WHAT EACH MAN IS, NOT JUST WHAT HE IS CALLED.
+   Players asked for it: the board before the match showed a surname and nothing
+   else, so a manager could not tell from it that a left back was standing in at
+   right back, or which of two centre halves was the better one. Every man on
+   the pitch carries the shirt he is in and what he is worth IN it, the number
+   the match will use and the same one the squad screen's pitch prints; every
+   man on the bench carries his own position and rating. Source guards, like the
+   ones above: the board is type and CSS, not something this suite can draw. */
+{
+  const sheet = readFileSync('src/ui/screens/Teamsheet.tsx', 'utf8');
+  const css = readFileSync('src/ui/tokens.css', 'utf8');
+  checked += 5;
+  if (!/effectiveOverall\(p, slot\.role, overall\(p\)\)/.test(sheet)) fails.push('the chalkboard does not work out what each man is worth in the shirt he stands in');
+  if (!/chalk-meta num" data-fit=\{fit\}>\{slot\.role\} \{shown\}/.test(sheet)) fails.push('the chalkboard does not print the shirt and the rating under each man on the pitch');
+  if (!/chalk-meta num">\{p\.position\} \{overall\(p\)\}/.test(sheet)) fails.push('the chalkboard bench does not print each man\'s position and rating');
+  if (!/aria-label=\{`\$\{p\.name\}, \$\{slot\.role\}, דירוג \$\{shown\}/.test(sheet)) fails.push('a man on the chalkboard does not read out his rating to a screen reader');
+  if (!/^\.chalk-meta\{[^}]*font-size:/m.test(css)) fails.push('the small print on the chalkboard has no style');
+  // and the small print has somewhere to go: the line of centre backs stands far enough
+  // in front of the keeper that the second line of type under a man does not land on his ring
+  // (at 79 against 90 the middle of three centre backs touched the keeper)
+  checked++;
+  const geo = /slot\.line === 'GK' \? (\d+) : (\d+) - slot\.d \* (\d+)/.exec(sheet);
+  if (!geo || Number(geo[1]) - Number(geo[2]) < 15) fails.push(`the chalkboard puts the back line ${geo ? Number(geo[1]) - Number(geo[2]) : '?'} per cent of the pitch from the keeper, under 15, so the small print lands on his ring`);
+  console.log('  the chalkboard: every man carries his shirt and his rating, the bench its positions and ratings');
+}
+
 /* THE BENCH RIDES THE BOTTOM OF THE SCREEN.
    In the pitch view the bench is a sticky strip at the thumb, every tile a
    drop target, so moving a man between pitch and bench is never a journey
