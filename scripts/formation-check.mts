@@ -124,6 +124,53 @@ for (const f of FORMATIONS) {
   }
 }
 
+/* NOT TWINS.
+   Level in wins is not the same as different. 3-5-2 and 4-2-3-1 were within a
+   hundredth of a goal of 4-4-2 in everything a manager can see, so choosing
+   either at half time changed nothing, and possession was the same forty nine
+   to fifty one per cent in every shape because none of them had a midfield
+   number. Every shape is played against the same neutral opponent, 4-4-2, and
+   any two of them have to differ by at least eight hundredths of a goal, for
+   or against, or two points of the ball. These are the agreed numbers, not
+   ones read out of the code under test. */
+const APART_SHAPES = 0.08;
+const character = new Map<FormationId, { gf: number; ga: number; poss: number }>();
+for (const f of FORMATIONS) {
+  let gf = 0, ga = 0, poss = 0;
+  for (let i = 0; i < MATCHES; i++) {
+    const swap = i % 2 === 1;
+    const r = simulateMatch(team('A', swap ? '4-4-2' : f.id, true), team('B', swap ? f.id : '4-4-2', false), i * 7919 + 13);
+    gf += swap ? r.score[1] : r.score[0];
+    ga += swap ? r.score[0] : r.score[1];
+    poss += swap ? 1 - r.home.stats.possession : r.home.stats.possession;
+  }
+  character.set(f.id, { gf: gf / MATCHES, ga: ga / MATCHES, poss: (100 * poss) / MATCHES });
+}
+let closest = 99, closestPair = '';
+for (const a of FORMATIONS) {
+  for (const b of FORMATIONS) {
+    if (a.id >= b.id) continue;
+    const x = character.get(a.id)!, y = character.get(b.id)!;
+    const gap = Math.max(Math.abs(x.gf - y.gf), Math.abs(x.ga - y.ga), Math.abs(x.poss - y.poss) / 25);
+    checked++;
+    if (gap < closest) { closest = gap; closestPair = `${a.id} and ${b.id}`; }
+    if (gap < APART_SHAPES) fails.push(`${a.id} and ${b.id} play the same football: within ${gap.toFixed(3)} in goals for, goals against and the ball, so changing from one to the other changes nothing`);
+  }
+}
+console.log('');
+console.log('shape     goals for  against   the ball (against 4-4-2)');
+for (const f of FORMATIONS) {
+  const c = character.get(f.id)!;
+  console.log(`${f.id.padEnd(9)} ${c.gf.toFixed(2).padStart(8)} ${c.ga.toFixed(2).padStart(8)} ${c.poss.toFixed(1).padStart(9)}%`);
+}
+console.log(`closest pair: ${closestPair}, ${closest.toFixed(3)} apart`);
+// and the ones that say they keep the ball, do; and the one that gives it away, does
+const ball = (id: FormationId) => character.get(id)!.poss;
+checked += 3;
+if (ball('4-5-1') < 51.5) fails.push(`4-5-1 is called control and has ${ball('4-5-1').toFixed(1)} per cent of the ball, under 51.5`);
+if (ball('4-2-3-1') < 51.5) fails.push(`4-2-3-1 is called creative and has ${ball('4-2-3-1').toFixed(1)} per cent of the ball, under 51.5`);
+if (ball('3-5-2') > 49.5) fails.push(`3-5-2 is the open shape and has ${ball('3-5-2').toFixed(1)} per cent of the ball, over 49.5`);
+
 checked++;
 const spread = mostGoals - fewestGoals;
 if (spread < APART) {

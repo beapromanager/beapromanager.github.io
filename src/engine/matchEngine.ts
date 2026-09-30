@@ -263,7 +263,7 @@ export function teamRatings(team: TeamInput): TeamRatings {
   const cDef = team.coach?.def ?? 1;
   return {
     att: att * base * ap.att * fm.att * cAtt,
-    mid: mid * base * pr.mid,
+    mid: mid * base * pr.mid * fm.mid,
     def: def * base * ap.def * fm.def * pr.def * cDef,
     gk,
   };

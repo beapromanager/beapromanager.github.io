@@ -44,6 +44,12 @@ export interface Formation {
   att: number;
   def: number;
   /**
+   * How much of the ball it wins, the midfield rating: possession, and the chances
+   * that follow from it. Before this every shape had the same, so nothing that
+   * called itself control controlled anything.
+   */
+  mid: number;
+  /**
    * Where the block sits before play pulls it about. A back five defends ten
    * metres deeper than a front three does, and that shows up on the map.
    */
@@ -71,6 +77,16 @@ export interface Formation {
  * fails if any shape has a real edge over every other or if any pairing is more
  * than fourteen points apart. Before this they were 14.8 apart at the widest;
  * after, 3.1.
+ *
+ * AND WHY THE SHAPES ARE NOT TWINS.
+ *
+ * Balanced is not the same as different. 3-5-2 and 4-2-3-1 came out within a
+ * hundredth of a goal of 4-4-2 in everything a manager could see, so changing to
+ * either at half time changed nothing, and possession was the same forty nine to
+ * fifty one per cent in every shape because none of them had a midfield number.
+ * Each now has a character: 4-5-1 and 4-2-3-1 keep the ball (52 per cent against
+ * 4-4-2), 3-5-2 gives it away for more open play (48), and formation-check holds
+ * every pair apart in goals or possession as well as holding them level in wins.
  */
 export const FORMATIONS: Formation[] = [
   {
@@ -80,7 +96,7 @@ export const FORMATIONS: Formation[] = [
     desc: 'שני בלמים ומגן בכל צד, ארבעה בקישור, שני חלוצים באמצע. בלי הפתעות, בלי חורים.',
     counts: [4, 4, 2],
     // See the note on calibration under FORMATIONS.
-    att: 1.02, def: 1.03, line: 0.00,
+    att: 1.02, def: 1.03, mid: 1.00, line: 0.00,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.09, y: 0.13, line: 'DEF', role: 'LB', brk: { d: 0.52, y: -0.09 } },   // מגן שמאל עולה על הקו
@@ -101,7 +117,7 @@ export const FORMATIONS: Formation[] = [
     name: 'התקפי',
     desc: 'שני בלמים ומגן בכל צד, שלושה קשרים, שלושה קדימה. יוצרים הרבה יותר, נפתחים מאחור.',
     counts: [4, 3, 3],
-    att: 1.03, def: 0.96, line: 0.055,
+    att: 1.03, def: 0.96, mid: 1.00, line: 0.055,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.10, y: 0.14, line: 'DEF', role: 'LB', brk: { d: 0.56, y: -0.10 } },
@@ -122,7 +138,7 @@ export const FORMATIONS: Formation[] = [
     name: 'שליטה',
     desc: 'שני בלמים ומגן בכל צד, חמישה בקישור, חלוץ בודד. שולטים בכדור ובאמצע, החלוץ עובד לבד למעלה.',
     counts: [4, 5, 1],
-    att: 0.96, def: 1.06, line: -0.02,
+    att: 0.96, def: 1.06, mid: 1.06, line: -0.02,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.09, y: 0.13, line: 'DEF', role: 'LB', brk: { d: 0.46, y: -0.08 } },
@@ -143,7 +159,7 @@ export const FORMATIONS: Formation[] = [
     name: 'הגנתי',
     desc: 'שלושה בלמים ומגן בכל צד, ארבעה בקישור, חלוץ בודד. קשה לפרוץ, קשה גם לצאת.',
     counts: [5, 4, 1],
-    att: 0.94, def: 1.13, line: -0.065,
+    att: 0.94, def: 1.13, mid: 1.00, line: -0.065,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.16, y: 0.09, line: 'DEF', role: 'LWB', brk: { d: 0.58, y: -0.05 } },   // מגן כנף רץ את כל הקו
@@ -169,7 +185,7 @@ export const FORMATIONS: Formation[] = [
     // to the touchline. The label is the one people know, 3-5-2, and when the
     // ball is lost it is a five, which is what these numbers describe.
     counts: [5, 3, 2],
-    att: 1.015, def: 1.070, line: 0.00,
+    att: 1.07, def: 1.03, mid: 0.97, line: 0.00,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.00, y: 0.30, line: 'DEF', role: 'CB', brk: { d: 0.22, y: 0.04 } },
@@ -190,7 +206,7 @@ export const FORMATIONS: Formation[] = [
     name: 'יצירתי',
     desc: 'שני בלמים ומגן בכל צד, שני עוגנים מאחור, שלושה יוצרים מלפנים וחלוץ. יוצרים מהאמצע, אבל אין רוחב טבעי.',
     counts: [4, 5, 1],
-    att: 1.01, def: 1.03, line: 0.015,
+    att: 1.04, def: 1.00, mid: 1.05, line: 0.015,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.09, y: 0.13, line: 'DEF', role: 'LB', brk: { d: 0.50, y: -0.09 } },
@@ -214,7 +230,7 @@ export const FORMATIONS: Formation[] = [
     // 3-4-3 is. Written with wide midfielders instead it had no full back in it
     // anywhere, and every shape in this file has a left and a right.
     counts: [5, 2, 3],
-    att: 1.095, def: 0.960, line: 0.06,
+    att: 1.095, def: 0.960, mid: 1.00, line: 0.06,
     slots: [
       { d: 0.00, y: 0.50, line: 'GK', role: 'GK' },
       { d: 0.00, y: 0.29, line: 'DEF', role: 'CB', brk: { d: 0.26, y: 0.05 } },
