@@ -181,5 +181,6 @@ function scoutNews(gs: G.GameState): string {
     const from = gs.league.clubs.find(c => c.id === f.fromClubId);
     return SCOUT_TEXT.safeNews(p.name, from?.name ?? '', p.age, overall(p), scoutReach('safe', p));
   }
+  if (f.style === 'old') return SCOUT_TEXT.oldNews(p.name, p.age, overall(p));
   return SCOUT_TEXT.keenNews(p.name, p.age, overall(p), scoutReach('keen', p));
 }

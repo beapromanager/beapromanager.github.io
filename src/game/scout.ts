@@ -16,8 +16,8 @@ import type { Player, Position, Rng } from '../engine/matchEngine.ts';
 import { overall, createRng } from '../engine/matchEngine.ts';
 import { makePlayer, NEUTRAL_TRAITS } from '../data/squadGen.ts';
 import { leagueCeiling } from '../data/clubs.ts';
-import { potentialOf, reachableCeiling, growForYear } from './career.ts';
-import { WINTER_WEEKS, transferFee } from './transfers.ts';
+import { potentialOf, reachableCeiling, growForYear, purseBase } from './career.ts';
+import { WINTER_WEEKS, transferFee, MARQUEE_SHARE } from './transfers.ts';
 
 /**
  * Held back until all three styles can find somebody. The hub does not show the
@@ -110,6 +110,10 @@ export const SCOUT_TEXT = {
   safeNews: (name: string, clubName: string, age: number, level: number, reach: number) =>
     `מצאתי שחקן אצל ${clubName}: ${name}, בן ${age}, ברמה ${level}. הוא יכול להגיע ל־${reach}. כשהחלון ייפתח, אפשר לחתום עליו, והם יישארו בלעדיו.`,
   from: (clubName: string) => `מ${clubName}`,
+  // the old one's news is Itzik's sentence, word for word
+  oldNews: (name: string, age: number, level: number) =>
+    `מצאתי שחקן: ${name}, בן ${age}, ברמה ${level}. הוא כבר הוכיח את עצמו בליגה בכירה. כשהחלון ייפתח, אפשר להחתים אותו.`,
+  fromHigher: 'מליגה בכירה',
 } as const;
 
 export const SCOUT_STYLE_TEXT: Record<ScoutStyle, { name: string; blurb: string }> = {
@@ -186,6 +190,12 @@ export function scoutBudget(style: ScoutStyle, tier: number): [number, number] |
   const key = `${style}:${tier}`;
   if (budgetMemo.has(key)) return budgetMemo.get(key)!;
   let range: [number, number] | null = null;
+  if (style === 'old') {
+    const rng = createRng(9933 + tier);
+    const fees: number[] = [];
+    for (let i = 0; i < 40; i++) fees.push(oldFee(findOld(tier, rng, new Set()), tier));
+    range = feeRange(fees);
+  }
   if (style === 'keen') {
     const rng = createRng(9911 + tier);
     const fees: number[] = [];
@@ -243,7 +253,7 @@ export function safeFee(p: Player, tier: number): number {
  * ordinary one, what a season or two can realistically make of him.
  */
 export function scoutReach(style: ScoutStyle, p: Player): number {
-  return style === 'keen' ? potentialOf(p) : reachableCeiling(p);
+  return style === 'keen' ? potentialOf(p) : reachableCeiling(p);   // nothing left to grow at 24, so the old one's is his own level
 }
 
 /** A range from the fees of everybody he could take, rounded outward to five thousand. */
@@ -252,4 +262,56 @@ export function feeRange(fees: number[]): [number, number] | null {
   const lo = Math.floor(Math.min(...fees) / 5000) * 5000;
   const hi = Math.ceil(Math.max(...fees) / 5000) * 5000;
   return [lo, Math.max(hi, lo + 5000)];
+}
+
+/* -------------------------------------------------------------- the old one */
+
+/**
+ * The old one: a man of twenty four or five who has already shown in a higher
+ * league what he can do, so he is exactly as good as he looks and has nothing
+ * left to grow into. He is the best player the scout brings, by a distance, and
+ * the dearest, and he is kept short of the summer's marquee on both counts, so
+ * the one big name of the window is still the big name.
+ */
+export const OLD_AGES: [number, number] = [24, 25];
+/** How far over the division's level he plays, as a band. */
+const OLD_ABOVE: [number, number] = [4, 10];
+/** What he costs at his usual level, as a share of what the marquee costs. */
+export const OLD_SHARE = 0.75;
+/** The level the anchor price belongs to, over the division's. */
+const OLD_REFERENCE_ABOVE = 7;
+
+const OLD_POSITIONS: Position[] = ['CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
+
+export function findOld(tier: number, rng: Rng, taken: Set<string>): Player {
+  const level = leagueCeiling(tier);
+  let last: Player | null = null;
+  for (let i = 0; i < 2000; i++) {
+    const pos = OLD_POSITIONS[Math.floor(rng() * OLD_POSITIONS.length)];
+    const p = makePlayer(pos, level + 2 + Math.floor(rng() * 6), rng, { ...NEUTRAL_TRAITS, youth: 0 }, new Set(taken));
+    p.age = OLD_AGES[0] + Math.floor(rng() * 2);
+    last = p;
+    const o = overall(p);
+    if (o >= level + OLD_ABOVE[0] && o <= level + OLD_ABOVE[1]) return p;
+  }
+  return last!;
+}
+
+/**
+ * What the summer's marquee costs in this division, the floor it is never sold
+ * under. The old one is priced off this rather than off his own value, because
+ * a proven man from a higher league is not a bargain whatever the formula says.
+ */
+export function marqueePrice(tier: number): number {
+  return Math.round((purseBase(tier) * MARQUEE_SHARE) / 1000) * 1000;
+}
+
+/**
+ * Three quarters of the marquee at his usual level, and up or down with the
+ * man by the same curve the game values everyone on, so a better one costs more
+ * and the range on the card is real.
+ */
+export function oldFee(p: Player, tier: number): number {
+  const ref = leagueCeiling(tier) + OLD_REFERENCE_ABOVE;
+  return Math.round((OLD_SHARE * marqueePrice(tier) * Math.pow(overall(p) / ref, 2.6)) / 1000) * 1000;
 }

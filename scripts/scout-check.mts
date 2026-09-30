@@ -18,6 +18,8 @@
  *   8. the safe one: a real man of nineteen or twenty from a club fighting the
  *      manager in the table, priced over the ordinary fee, who leaves that club
  *      the moment he is signed and not a minute before
+ *   9. the old one: a proven man of 24 or 25 who belongs to nobody, the dearest of
+ *      the three and still under the marquee, priced by his level
  */
 import * as G from '../src/game/state.ts';
 import {
@@ -28,9 +30,9 @@ import { leagueCeiling, setDerbies } from '../src/data/clubs.ts';
 import { makePlayer, NEUTRAL_TRAITS } from '../src/data/squadGen.ts';
 import { transferFee } from '../src/game/transfers.ts';
 import { overall, createRng } from '../src/engine/matchEngine.ts';
-import { requiredCapacity } from '../src/game/career.ts';
+import { requiredCapacity, purseBase } from '../src/game/career.ts';
 import { sortedTable } from '../src/game/league.ts';
-import { pickSafe, feeRange } from '../src/game/scout.ts';
+import { pickSafe, feeRange, findOld, oldFee } from '../src/game/scout.ts';
 import type { RivalKid } from '../src/game/scout.ts';
 import { WINTER_WEEKS } from '../src/game/transfers.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
@@ -299,7 +301,7 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
     fees.sort((x, y) => x - y);
     const median = fees[Math.floor(fees.length / 2)];
     ok(median >= range[0] && median <= range[1], `the median arrival price ${median} is outside the range on the card, ${range[0]} to ${range[1]}`);
-    ok(scoutBudget('safe', tier) === null && scoutBudget('old', tier) === null, 'a style that finds nobody yet quoted a budget');
+    ok(scoutBudget('safe', tier) === null, 'the safe one quoted a budget from the finder, when his comes from the league');
   }
   ok(emptyScout().offer === null, 'a fresh scout had an offer');
   console.log('  the keen one: found at seventeen, arrives a year older with the window, signed once, gone when it shuts');
@@ -470,6 +472,103 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
   const derby = scoutAt(board(true));
   ok(derby?.fromClubId === far, 'with the derby at the far end of the table he did not look there too');
   console.log('  the safe one, on a set board: near clubs and the derby, and only those');
+}
+
+/* 9. THE OLD ONE */
+{
+  const t3 = climbTo3(31);
+  const tier = G.club(t3).tier;
+  const level = leagueCeiling(tier);
+  // the anchor, from the numbers that were agreed and not from the code under test
+  const marquee = Math.round((purseBase(tier) * 0.25) / 1000) * 1000;
+  const anchor = Math.round((0.75 * marquee) / 1000) * 1000;
+
+  // the finder
+  let bad = 0;
+  for (let i = 0; i < 60; i++) {
+    const p = findOld(tier, createRng(2000 + i), new Set());
+    const o = overall(p);
+    if ((p.age !== 24 && p.age !== 25) || o < level + 4 || o > level + 10 || p.position === 'GK') bad++;
+  }
+  ok(bad === 0, `${bad} of 60 old finds were not an outfield player of 24 or 25, four to ten over the division's level`);
+  const a = findOld(tier, createRng(31), new Set());
+  const same = JSON.stringify({ ...a, id: 0 }) === JSON.stringify({ ...findOld(tier, createRng(31), new Set()), id: 0 });
+  ok(same, 'the same stream found two different old men');
+  ok(findOld(tier, createRng(31), new Set([a.name])).name !== a.name, 'the finder handed out a name that was already taken');
+
+  // the price: three quarters of the marquee at level plus seven, by the game's own curve either side
+  let atRef: ReturnType<typeof findOld> | null = null;
+  const fees: { o: number; fee: number }[] = [];
+  for (let i = 0; i < 400; i++) {
+    const p = findOld(tier, createRng(7000 + i), new Set());
+    fees.push({ o: overall(p), fee: oldFee(p, tier) });
+    if (!atRef && overall(p) === level + 7) atRef = p;
+  }
+  ok(atRef !== null && oldFee(atRef, tier) === anchor, `a man at level plus seven cost ${atRef ? oldFee(atRef, tier) : 'nobody'}, not three quarters of the marquee, ${anchor}`);
+  // and the curve either side of it is the game's own, the value of a man rising with his rating to the power of two point six
+  let atTop: ReturnType<typeof findOld> | null = null;
+  for (let i = 0; i < 2000 && !atTop; i++) { const p = findOld(tier, createRng(9000 + i), new Set()); if (overall(p) === level + 10) atTop = p; }
+  const topExpected = Math.round((0.75 * marquee * Math.pow((level + 10) / (level + 7), 2.6)) / 1000) * 1000;
+  ok(atTop !== null && oldFee(atTop, tier) === topExpected, `a man at level plus ten cost ${atTop ? oldFee(atTop, tier) : 'nobody'}, not ${topExpected}`);
+  fees.sort((x, y) => x.o - y.o);
+  let monotone = true;
+  for (let i = 1; i < fees.length; i++) if (fees[i].fee < fees[i - 1].fee) monotone = false;
+  ok(monotone, 'a better old man cost less than a worse one');
+  ok(fees[fees.length - 1].fee < marquee, `the dearest old man cost ${fees[fees.length - 1].fee}, which is not under the marquee, ${marquee}`);
+
+  // dearest of the three, and still under the marquee
+  const oldRange = scoutBudget('old', tier);
+  const safeRange = G.scoutBudgetFor(t3, 'safe');
+  const keenRange = scoutBudget('keen', tier);
+  ok(oldRange !== null && safeRange !== null && keenRange !== null, 'a style had no range on its card');
+  if (oldRange && safeRange && keenRange) {
+    ok(oldRange[0] > safeRange[1] && safeRange[0] > keenRange[0] && oldRange[0] > keenRange[1], `the old one is not the dearest: keen ${keenRange}, safe ${safeRange}, old ${oldRange}`);
+    ok(oldRange[1] < marquee, `the old one's range ${oldRange} reaches the marquee, ${marquee}`);
+    ok(G.scoutBudgetFor(t3, 'old')?.join() === oldRange.join(), 'the card and the scout quoted different ranges for the old one');
+  }
+
+  // hired, away three rounds, and he names a man who is nobody's
+  let gs = G.hireScout(t3, 'old');
+  for (let r = 0; r < SCOUT_ROUNDS; r++) gs = playRound(gs);
+  const found = gs.scout.found;
+  const man = found?.player ?? null;
+  ok(man !== null && (man.age === 24 || man.age === 25) && !found?.fromClubId, 'the old scout did not come back with a man of 24 or 25 who belongs to nobody');
+
+  // the window opens: he walks in exactly as he was, at the price of the man he is
+  const kid = findOld(tier, createRng(99), new Set());
+  const rich = { ...gs.meters, money: 6_000_000 };
+  const seven = { ...gs, week: 7, notices: [], meters: rich, scout: { ...emptyScout(), hiredSeason: 1, found: { style: 'old' as const, season: 1, player: kid } } };
+  const open = playRound(seven);
+  const offer = open.scout.offer;
+  ok(open.week === 8 && offer !== null && offer.style === 'old' && !offer.fromClubId, 'the old find did not arrive with the winter window');
+  if (offer) {
+    ok(JSON.stringify(offer.player) === JSON.stringify(kid), 'the old man changed on the way to the window');
+    ok(offer.fee === oldFee(kid, tier), 'the price was not the old one price of the man who arrived');
+    const signed = G.signScoutOffer(open);
+    ok(open.meters.money - signed.meters.money === offer.fee, 'signing cost something other than the price');
+    ok(G.squadSize(signed) === G.squadSize(open) + 1 && G.mySquad(signed).bench.some(p => p.id === kid.id), 'he did not join our squad');
+    const others = (g: G.GameState) => Object.entries(g.league.squads).filter(([id]) => id !== g.clubId).map(([, sq]) => [...sq.starters, ...sq.bench].map(p => p.id).sort().join()).join('|');
+    ok(others(signed) === others(open), 'signing the old one took a man out of another club');
+    const ten = playRound(playRound({ ...open, notices: [] }));
+    ok(ten.scout.offer === null, 'the old one was still on offer after the window shut');
+  }
+
+  // the summer carries him too, and the card quotes what the counter charges
+  const summer = G.enterPreseason({ ...gs, scout: { ...gs.scout, found: { style: 'old', season: 1, player: kid } } });
+  ok(summer.scout.offer?.player.id === kid.id && summer.scout.offer.fee === oldFee(kid, tier), 'the old one did not arrive with the summer market');
+  if (oldRange) {
+    const paid: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const p = findOld(tier, createRng(5500 + i), new Set());
+      const at = playRound({ ...seven, notices: [], scout: { ...emptyScout(), hiredSeason: 1, found: { style: 'old' as const, season: 1, player: p } } });
+      if (at.scout.offer) paid.push(at.scout.offer.fee);
+    }
+    ok(paid.length === 12, `only ${paid.length} of 12 old men arrived through the window`);
+    paid.sort((x, y) => x - y);
+    const median = paid[Math.floor(paid.length / 2)];
+    ok(median >= oldRange[0] && median <= oldRange[1], `the median price ${median} is outside the range on the card, ${oldRange}`);
+  }
+  console.log('  the old one: a proven man of 24 or 25, three quarters of the marquee by his level, signed from nobody');
 }
 
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));

@@ -1,6 +1,7 @@
 import * as G from '../../game/state.ts';
 import { SCOUT_FEE, SCOUT_STYLES, SCOUT_STYLE_TEXT, SCOUT_TEXT, scoutReach } from '../../game/scout.ts';
 import { PlayerRow } from './Squad.tsx';
+import { overall } from '../../engine/matchEngine.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { TopBack } from '../components/TopBack.tsx';
@@ -49,10 +50,15 @@ export function ScoutScreen({ gs, onHire, onSign, onBack }: {
                   {SCOUT_TEXT.from(gs.league.clubs.find(x => x.id === offer.fromClubId)?.name ?? '')}
                 </span>
               )}
+              {offer.style === 'old' && (
+                <span className="chip" style={{ background: 'rgba(233,185,73,.16)', color: 'var(--gold-hi)', fontWeight: 800 }}>{SCOUT_TEXT.fromHigher}</span>
+              )}
               {win.open && <span className="chip" style={{ background: 'rgba(255,255,255,.07)', color: 'var(--ink-dim)' }}>נסגר בעוד <span className="num">{win.weeksLeft}</span> מחזורים</span>}
             </div>
             <PlayerRow p={offer.player} />
-            <p className="hint" style={{ padding: '0 8px' }}>יכול להגיע ל־<span className="num">{scoutReach(offer.style, offer.player)}</span></p>
+            {scoutReach(offer.style, offer.player) > overall(offer.player) && (
+              <p className="hint" style={{ padding: '0 8px' }}>יכול להגיע ל־<span className="num">{scoutReach(offer.style, offer.player)}</span></p>
+            )}
             <div className="row" style={{ gap: 10, padding: '10px 8px 0' }}>
               <div style={{ flex: 1 }}>
                 <div className="sub" style={{ fontSize: 12.5 }}>מחיר</div>

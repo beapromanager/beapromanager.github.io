@@ -121,7 +121,7 @@ const LEAVING_PER_ROUND = 3;
  * at a third of a season down at the bottom and most of one in ליגה ב׳.
  * A quarter of a season is a real decision in every division.
  */
-const MARQUEE_SHARE = 0.25;
+export const MARQUEE_SHARE = 0.25;
 
 const MARQUEE_NOTES = [
   'ירד מליגה גבוהה, והסוכן שלו מחפש לו בית מהר',

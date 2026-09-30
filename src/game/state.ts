@@ -28,7 +28,7 @@ import { emptyYouth, seedYouth, advanceYouth } from './youth.ts';
 import type { Youth } from './youth.ts';
 import {
   emptyScout, scoutWindowKey, SCOUT_TIER, SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, findKeen, arrivedKeen,
-  pickSafe, safeFee, feeRange, scoutBudget, SAFE_NEAREST, SAFE_POTENTIAL,
+  pickSafe, safeFee, feeRange, scoutBudget, SAFE_NEAREST, SAFE_POTENTIAL, findOld, oldFee,
 } from './scout.ts';
 import type { RivalKid } from './scout.ts';
 import type { ScoutState, ScoutStyle } from './scout.ts';
@@ -4008,7 +4008,13 @@ function scoutFound(gs: GameState, style: ScoutStyle, season: number, week: numb
     const pick = pickSafe(rivalKids(gs, scoutRivals(gs))) ?? pickSafe(rivalKids(gs, allRivals(gs)));
     return { style, season, player: pick?.player ?? null, fromClubId: pick?.clubId };
   }
-  return { style, season, player: null };
+  return { style, season, player: findOld(club(gs).tier, createRng(gs.seasonSeed * 977 + gs.season * 41 + week), takenNames(gs)) };
+}
+
+/** Every name already in the club, the academy or the market. */
+function takenNames(gs: GameState): Set<string> {
+  const sq = mySquad(gs);
+  return new Set<string>([...sq.starters, ...sq.bench, ...gs.youth.players, ...gs.market.map(f => f.player)].map(p => p.name));
 }
 
 /** Every other club in the division that has a squad. */
@@ -4078,6 +4084,10 @@ function scoutArrives(gs: GameState, scout: ScoutState): ScoutState {
     if (!pick) return { ...scout, found: null };
     return { ...scout, found: null, offer: { player: pick.player, fee: safeFee(pick.player, club(gs).tier), style: 'safe', fromClubId: pick.clubId } };
   }
+  if (f.style === 'old') {
+    // a man of twenty four does not change in the months he was away
+    return { ...scout, found: null, offer: { player: f.player, fee: oldFee(f.player, club(gs).tier), style: 'old' } };
+  }
   const player = arrivedKeen(f.player, coachYouthGrowth(gs.coach));
   return { ...scout, found: null, offer: { player, fee: transferFee(player, club(gs).tier), style: f.style } };
 }
@@ -4113,8 +4123,7 @@ export function signScoutOffer(gs: GameState): GameState {
  * the division the search could reach, and the man he brings is one of them.
  */
 export function scoutBudgetFor(gs: GameState, style: ScoutStyle): [number, number] | null {
-  if (style === 'keen') return scoutBudget('keen', club(gs).tier);
-  if (style !== 'safe') return null;
+  if (style === 'keen' || style === 'old') return scoutBudget(style, club(gs).tier);
   const kids = rivalKids(gs, allRivals(gs)).filter(k => k.player.age >= 19 && k.player.age <= 20 && k.player.position !== 'GK');
   const band = kids.filter(k => { const p = potentialOf(k.player); return p >= SAFE_POTENTIAL[0] && p <= SAFE_POTENTIAL[1]; });
   return feeRange((band.length ? band : kids).map(k => safeFee(k.player, club(gs).tier)));
