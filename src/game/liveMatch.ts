@@ -1166,6 +1166,16 @@ export function mySide(st: LiveState): Side {
   return playerSide(st);
 }
 
+/**
+ * The shots as the broadcast bar prints them, home on the right like the score.
+ * The score is drawn right to left and the stat row is drawn left to right, so
+ * `${shots[0]} - ${shots[1]}` put the home side's shots under the AWAY badge:
+ * 0:2 above, and a "3 - 1" underneath that belonged to the other team.
+ */
+export function shotsLine(shots: [number, number]): string {
+  return `${shots[1]} - ${shots[0]}`;
+}
+
 const LINE_OF: Record<string, 'gk' | 'def' | 'mid' | 'atk'> = {
   GK: 'gk', CB: 'def', LB: 'def', RB: 'def',
   CDM: 'mid', CM: 'mid', CAM: 'mid',

@@ -468,6 +468,24 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
   console.log('  open play: allowed, re-seated, dated, limited to three with the dressing room as one, shut during a moment');
 }
 
+/* 9. THE SHOTS SIT UNDER THE SAME BADGE AS THE GOALS.
+   The score is drawn right to left with the home side on the right; the stat row is drawn left to right. Printed
+   as home then away, the home side's shots landed under the away badge, and a manager read 3 - 1 as his when it
+   was theirs. */
+{
+  checked += 5;
+  if (L.shotsLine([3, 1]) !== '1 - 3') fails.push(`home 3 shots away 1 prints "${L.shotsLine([3, 1])}", the home figure must be last so it sits on the right like the score`);
+  if (L.shotsLine([0, 7]) !== '7 - 0') fails.push(`home 0 shots away 7 prints "${L.shotsLine([0, 7])}"`);
+  const src = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  const uses = src.split('L.shotsLine(st.shots)').length - 1;
+  if (uses !== 2) fails.push(`the shots are printed through the helper in ${uses} places, the broadcast bar and the dressing room need both`);
+  if (/\$\{st\.shots\[0\]\} - \$\{st\.shots\[1\]\}/.test(src)) fails.push('a stat row still prints the shots home first, under the wrong badge');
+  // the score really is drawn home on the right, which is the premise of all of this
+  const bits = readFileSync('src/ui/components/bits.tsx', 'utf8');
+  if (!/direction: 'rtl'[\s\S]{0,400}<span>\{h\}<\/span>/.test(bits)) fails.push('ScorePair no longer draws home first in a right to left row, so the shots order must be rethought');
+  console.log('  shots: printed home on the right, like the score');
+}
+
 console.log(`\n${checked} checks`);
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, the shape changes in the dressing room and everything downstream knows');

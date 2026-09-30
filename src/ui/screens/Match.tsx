@@ -308,7 +308,7 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
 
         <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
           <Stat label="שליטה" value={`${Math.round(st.possession * 100)}%`} />
-          <Stat label="בעיטות" value={`${st.shots[0]} - ${st.shots[1]}`} />
+          <Stat label="בעיטות" value={L.shotsLine(st.shots)} />
           <Stat label="חילופים" value={`${st.subsUsed}/${L.MAX_SUBS}`} />
         </div>
       </div>
@@ -566,7 +566,7 @@ function HalfTime({ st, onTalk, onShape, onRevert, onSub }: {
 
       <div className="row" style={{ gap: 8, marginBottom: 13 }}>
         <Stat label="שליטה" value={`${Math.round(st.possession * 100)}%`} />
-        <Stat label="בעיטות" value={`${st.shots[0]} - ${st.shots[1]}`} />
+        <Stat label="בעיטות" value={L.shotsLine(st.shots)} />
         <Stat label="חילופים" value={`${st.subsUsed}/${L.MAX_SUBS}`} />
       </div>
 
