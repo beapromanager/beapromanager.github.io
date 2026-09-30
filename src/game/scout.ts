@@ -25,7 +25,7 @@ import { WINTER_WEEKS, transferFee, MARQUEE_SHARE } from './transfers.ts';
  * that comes back with nothing. The rules underneath do not read it: they are
  * tested whether or not the door is open.
  */
-export const SCOUT_LIVE = false;
+export const SCOUT_LIVE = true;
 
 export type ScoutStyle = 'keen' | 'safe' | 'old';
 export const SCOUT_STYLES: readonly ScoutStyle[] = ['keen', 'safe', 'old'];

@@ -36,6 +36,8 @@ import { pickSafe, feeRange, findOld, oldFee } from '../src/game/scout.ts';
 import type { RivalKid } from '../src/game/scout.ts';
 import { WINTER_WEEKS } from '../src/game/transfers.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
+import { SCOUT_LIVE } from '../src/game/scout.ts';
+import { readFileSync } from 'node:fs';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 
 const fails: string[] = [];
@@ -569,6 +571,16 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
     ok(median >= oldRange[0] && median <= oldRange[1], `the median price ${median} is outside the range on the card, ${oldRange}`);
   }
   console.log('  the old one: a proven man of 24 or 25, three quarters of the marquee by his level, signed from nobody');
+}
+
+/* 10. THE DOOR IS OPEN.
+      All three men can find somebody, so the hub shows the way in, and shows it only
+      to a club that has a scout to hire. It was held shut while two of them could not. */
+{
+  ok(SCOUT_LIVE === true, 'the scout door is still shut');
+  const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
+  ok(/SCOUT_LIVE\s*&&\s*G\.scoutAvailable\(gs\)/.test(hub), 'the hub does not gate the scout door on the flag and on the division');
+  console.log('  the door is open, and only for a club with a scout to hire');
 }
 
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
