@@ -838,10 +838,10 @@ function RedCoverCard({ st, onCover }: { st: LiveState; onCover: (forwardId: str
       background: 'var(--bg)', border: '1px solid rgba(233,185,73,.32)',
       borderRadius: 'var(--r-sm)', animation: 'riseIn var(--t-fast) var(--ease-out)',
     }}>
-      {/* DRAFT WORDING, Itzik's to correct */}
+      {/* the title and the word "יוצא" are DRAFT WORDING, Itzik's to correct; the sentence below is his own */}
       <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--gold)' }}>חסר לכם {COVER_ROLE[cover.role]}</div>
       <div className="sub" style={{ fontSize: 12 }}>
-        אפשר להוריד חלוץ ולהכניס מגן מהספסל. הוא יעמוד בחולצה הפנויה, וזה חילוף אחד.
+        אפשר להוציא חלוץ ולהכניס {cover.role === 'CB' ? 'בלם' : 'מגן'} מהספסל. הוא יעמוד בעמדה הפנויה.
       </div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <span className="sub" style={{ fontSize: 11.5 }}>יוצא</span>
