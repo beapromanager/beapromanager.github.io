@@ -3682,7 +3682,7 @@ export function liveMatchInput(gs: GameState) {
     oppStarters: opp.starters, oppBench: opp.bench,
     guestId: mods.guest?.id ?? null,
     moraleBias: (gs.meters.morale - 65) / 100,
-    friends: gs.friends,
+    friends: gs.friends, tier: club(gs).tier,
     captainId: currentCaptainId(gs),
     coach: {
       chemistry: coachChemistry(gs.coach),

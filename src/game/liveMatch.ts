@@ -225,6 +225,8 @@ export function createLive(input: {
   coach?: { chemistry: number; att: number; def: number; cards: number };
   /** the two he brought with him, so their quality is the one he chose */
   friends?: Friend[];
+  /** the division, so a trait that only fits the lower leagues is not handed out above them */
+  tier?: number;
 }): LiveState {
   const clone = (p: Player): Player => ({ ...p, attrs: { ...p.attrs } });
   const pStarters = input.playerStarters.map(clone);
@@ -236,8 +238,8 @@ export function createLive(input: {
   const oStarters = input.oppStarters.map(clone);
   const oBench = input.oppBench.map(clone);
   // personality touches the match, but only a little, and only here
-  applySquadTraits(pStarters, pBench, mods, input.friends ?? []);
-  applySquadTraits(oStarters, oBench, mods);
+  applySquadTraits(pStarters, pBench, mods, input.friends ?? [], input.tier);
+  applySquadTraits(oStarters, oBench, mods, [], input.tier);
 
   // the captain on the pitch lifts the room a touch, a small edge only
   if (input.captainId && pStarters.some(p => p.id === input.captainId)) {
@@ -280,8 +282,8 @@ export function createLive(input: {
  * a fitness nudge at kickoff per player, and a capped morale bump for the XI.
  * Records each player's live modifiers into `mods` for the rest of the match.
  */
-function applySquadTraits(starters: Player[], bench: Player[], mods: Map<string, PlayerMods>, friends: Friend[] = []) {
-  const tmap = assignTraits([...starters, ...bench], friends);
+function applySquadTraits(starters: Player[], bench: Player[], mods: Map<string, PlayerMods>, friends: Friend[] = [], tier?: number) {
+  const tmap = assignTraits([...starters, ...bench], friends, tier);
   for (const p of [...starters, ...bench]) {
     const pm = playerMods(tmap.get(p.id) ?? []);
     mods.set(p.id, pm);

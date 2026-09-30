@@ -70,7 +70,7 @@ export function PreSeasonMarket({
   }
 
   const [card, setCard] = useState<Player | null>(null);
-  const traits = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends), [sq, gs.friends]);
+  const traits = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends, G.club(gs).tier), [sq, gs.friends, gs]);
 
   // an answered piece of business shows its outcome, same grammar as the inbox
   if (gs.pendingOutcome != null) {
@@ -216,7 +216,7 @@ export function PreSeasonMarket({
       </div>
 
       {card && (
-        <PlayerCard p={card} club={c} season={gs.seasonStats[card.id]} career={G.careerOf(gs, card.id)}
+        <PlayerCard p={card} club={c} tier={c.tier} season={gs.seasonStats[card.id]} career={G.careerOf(gs, card.id)}
           traits={traits.get(card.id) ?? []} onClose={() => setCard(null)} />
       )}
     </>

@@ -60,7 +60,8 @@
     "check:flares": "node --experimental-strip-types scripts/flare-check.mts",
     "check:gk": "node --experimental-strip-types scripts/gk-check.mts",
     "check:reshuffle": "node --experimental-strip-types scripts/reshuffle-check.mts",
-    "check:scout": "node --experimental-strip-types scripts/scout-check.mts"
+    "check:scout": "node --experimental-strip-types scripts/scout-check.mts",
+    "check:traits": "node --experimental-strip-types scripts/traits-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

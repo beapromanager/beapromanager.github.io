@@ -55,7 +55,7 @@ export function ScoutScreen({ gs, onHire, onSign, onBack }: {
               )}
               {win.open && <span className="chip" style={{ background: 'rgba(255,255,255,.07)', color: 'var(--ink-dim)' }}>נסגר בעוד <span className="num">{win.weeksLeft}</span> מחזורים</span>}
             </div>
-            <PlayerRow p={offer.player} />
+            <PlayerRow p={offer.player} tier={c.tier} />
             {scoutReach(offer.style, offer.player) > overall(offer.player) && (
               <p className="hint" style={{ padding: '0 8px' }}>יכול להגיע ל־<span className="num">{scoutReach(offer.style, offer.player)}</span></p>
             )}

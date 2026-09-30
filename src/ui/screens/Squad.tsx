@@ -72,8 +72,10 @@ export const FRIEND_MARK = 'בא איתך';
 /** the chip on a man the manager gave his word to this week */
 const PROMISED = 'הבטחת לו';
 
-export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mark, role }: {
+export function PlayerRow({ p, traits, tier, state, onOpen, swap, onSwap, captain, mark, role }: {
   p: Player;
+  /** the division, for the traits that can only be said in some of them */
+  tier?: number;
   /** squad-assigned traits, falls back to standalone when omitted */
   traits?: Trait[];
   state?: 'idle' | 'selected' | 'target' | 'blocked';
@@ -99,7 +101,7 @@ export function PlayerRow({ p, traits, state, onOpen, swap, onSwap, captain, mar
     : st === 'target' ? 'rgba(51,194,122,.12)'
     : 'transparent';
   // an explicit array (even empty) is authoritative, only undefined falls back
-  const trait = traits ? (traits[0] ?? null) : headlineTrait(p);
+  const trait = traits ? (traits[0] ?? null) : headlineTrait(p, tier);
 
   const inner = (
     <>
@@ -226,7 +228,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   const benchBar = useRef<HTMLDivElement | null>(null);
 
   // one personality pass over the whole squad, so no two players repeat
-  const traitMap = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends), [sq, gs.friends]);
+  const traitMap = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends, c.tier), [sq, gs.friends, c.tier]);
   const tr = (p: Player): Trait[] => traitMap.get(p.id) ?? [];
   const captainId = G.currentCaptainId(gs);
   // banned for the round, or the youth on the sheet who never plays
@@ -402,7 +404,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
         </div>
       </div>
 
-      {firstTime && <DressingRoom sq={sq} traitMap={traitMap} onOpen={setCard} />}
+      {firstTime && <DressingRoom sq={sq} traitMap={traitMap} tier={c.tier} onOpen={setCard} />}
 
       {promised && (() => {
         const kept = onPitch.some(p => p.id === promised.id);
@@ -559,7 +561,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
       )}
 
       {sheetPlayer && !card && (
-        <PlayerSheet p={sheetPlayer} role={roleOf(sheetPlayer.id)} traits={tr(sheetPlayer)}
+        <PlayerSheet p={sheetPlayer} role={roleOf(sheetPlayer.id)} traits={tr(sheetPlayer)} tier={c.tier}
           captain={sheetPlayer.id === captainId} mark={markOf(sheetPlayer)}
           onCard={() => setCard(sheetPlayer)}
           onSwap={() => { setPicked(sheetPlayer.id); setSheet(null); setFlash(null); }}
@@ -592,8 +594,8 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
  * attributes as bars, the shirt he is in and what it costs him, and the two
  * things a manager does next: swap him, or read the whole card.
  */
-function PlayerSheet({ p, role, traits, captain, mark, onCard, onSwap, onClose }: {
-  p: Player; role: SlotRole | null; traits: Trait[]; captain: boolean; mark: string | null;
+function PlayerSheet({ p, role, traits, tier, captain, mark, onCard, onSwap, onClose }: {
+  p: Player; role: SlotRole | null; traits: Trait[]; tier: number; captain: boolean; mark: string | null;
   onCard: () => void; onSwap: () => void; onClose: () => void;
 }) {
   const o = overall(p);
@@ -622,7 +624,7 @@ function PlayerSheet({ p, role, traits, captain, mark, onCard, onSwap, onClose }
               <span style={{ opacity: .5 }}> · </span>כושר <span className="num">{Math.round(p.fitness)}</span>
               {mark && <><span style={{ opacity: .5 }}> · </span><span style={{ color: mark === 'מורחק' ? 'var(--loss)' : 'var(--ink-faint)' }}>{mark}</span></>}
             </div>
-            {trait && <div style={{ fontSize: 13.5, marginTop: 3 }}><span style={{ color: TONE_COLOR[trait.tone], fontWeight: 700 }}>{trait.label}</span><span style={{ opacity: .5 }}> · </span><span className="sub">{renderLine(trait, { ...p, name: surnameOf(p.name) })}</span></div>}
+            {trait && <div style={{ fontSize: 13.5, marginTop: 3 }}><span style={{ color: TONE_COLOR[trait.tone], fontWeight: 700 }}>{trait.label}</span><span style={{ opacity: .5 }}> · </span><span className="sub">{renderLine(trait, { ...p, name: surnameOf(p.name) }, tier)}</span></div>}
           </div>
           <div style={{ textAlign: 'center', flex: 'none' }}>
             <div className="score-face" style={{ fontSize: 30, color: ovrColor(eff), lineHeight: 1 }}>{eff}</div>
@@ -772,8 +774,8 @@ const POS_LABEL: Record<string, string> = {
  * character when he has one, and what he is for the team when he does not,
  * so a plain squad still has three names to remember.
  */
-function DressingRoom({ sq, traitMap, onOpen }: {
-  sq: Squad; traitMap: Map<string, Trait[]>; onOpen: (p: Player) => void;
+function DressingRoom({ sq, traitMap, tier, onOpen }: {
+  sq: Squad; traitMap: Map<string, Trait[]>; tier: number; onOpen: (p: Player) => void;
 }) {
   const picks = [...sq.starters, ...sq.bench].sort((a, b) => overall(b) - overall(a)).slice(0, 3);
   const ROLE: Record<'gk' | 'def' | 'mid' | 'atk', string> = {
@@ -803,7 +805,7 @@ function DressingRoom({ sq, traitMap, onOpen }: {
                 </span>
                 <span style={{ display: 'block', fontSize: 14.5, lineHeight: 1.45, color: t ? 'var(--ink-dim)' : 'var(--ink-faint)' }}>
                   {t
-                    ? <><span style={{ color: TONE_COLOR[t.tone], fontWeight: 700 }}>{t.label}</span><span style={{ opacity: .5 }}> · </span>{renderLine(t, { ...p, name: surnameOf(p.name) })}</>
+                    ? <><span style={{ color: TONE_COLOR[t.tone], fontWeight: 700 }}>{t.label}</span><span style={{ opacity: .5 }}> · </span>{renderLine(t, { ...p, name: surnameOf(p.name) }, tier)}</>
                     : ROLE[LINE_OF[p.position]]}
                 </span>
               </span>

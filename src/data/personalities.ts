@@ -27,6 +27,7 @@ import { friendTrait, friendLine } from '../game/friends.ts';
 import { overall } from '../engine/matchEngine.ts';
 import { BRONZE_FROM } from '../game/cards.ts';
 import { originOfName } from './names.ts';
+import { LEAGUE_NAMES } from './clubs.ts';
 
 export type Tone = 'fun' | 'warn' | 'heart' | 'pro' | 'friend';
 
@@ -39,13 +40,15 @@ export interface Trait {
   group: string;
   /** short chip on the player row */
   label: string;
-  /** the dressing room line, filled from a per player picker for the slots */
-  line: (name: string, pick: Picker) => string;
+  /** the dressing room line, filled from a per player picker for the slots. `tier` is the division he plays in, when the caller knows it */
+  line: (name: string, pick: Picker, tier?: number) => string;
   /** honest manager advice, shown only when it changes a decision */
   tip?: string;
   tone: Tone;
   /** eligibility, so an 18 year old is never "talks about retiring" */
   fit?: (p: Player) => boolean;
+  /** the divisions this can be said in: a day job is a story of the lower leagues, not of a man on a professional wage */
+  tiers?: (tier: number) => boolean;
   /**
    * Defines a KIND of player (a teenager, a veteran, a keeper) rather than just
    * excluding some. Signature traits lead the personality so a keeper reads
@@ -54,6 +57,9 @@ export interface Trait {
    */
   signature?: boolean;
 }
+
+/** ליגה א׳ and below. In הלאומית and ליגת העל a footballer is paid to be one. */
+export const DAY_JOB_TOP_TIER = 3;
 
 const young = (p: Player) => p.age <= 21;
 const veteran = (p: Player) => p.age >= 32;
@@ -360,7 +366,8 @@ export const TRAITS: Trait[] = [
   },
   {
     id: 'day-job', group: 'work', label: 'עבודה ביום', tone: 'heart',
-    line: (n, p) => `${n} עובד ${p(JOBS)} כל השבוע ומתאמן בערב. בליגה ג׳ הכדורגל לא מפרנס, הוא עושה את זה מאהבה.`,
+    line: (n, p, tier) => `${n} עובד ${p(JOBS)} כל השבוע ומתאמן בערב. ב${(tier && LEAGUE_NAMES[tier]) || 'ליגה שלנו'} הכדורגל לא מפרנס, הוא עושה את זה מאהבה.`,
+    tiers: t => t <= DAY_JOB_TOP_TIER,
   },
   {
     id: 'commute', group: 'work', label: 'נוסע רחוק', tone: 'warn',
@@ -400,6 +407,8 @@ function hash(s: string): number {
  * the rest of the squad already took.
  */
 function orderedTraits(p: Player): Trait[] {
+  // the pool is the same for every division, so a player's character never reshuffles with the league: a trait
+  // that cannot be said here is skipped where it is picked, and the next one is taken
   const eligible = TRAITS.filter(t => !t.fit || t.fit(p));
   if (!eligible.length) return [];
   const seed = hash(p.id + '|' + p.name);
@@ -419,6 +428,11 @@ function orderedTraits(p: Player): Trait[] {
   return out;
 }
 
+/** Can this be said in this division. No division given means the caller does not know, and nothing is held back. */
+function sayable(t: Trait, tier?: number): boolean {
+  return tier === undefined || !t.tiers || t.tiers(tier);
+}
+
 /** How many traits a player carries when they carry any. One in five is simpler. */
 function wantCount(p: Player): number {
   return hash(p.id + '|' + p.name) % 5 === 0 ? 1 : 2;
@@ -429,7 +443,7 @@ function wantCount(p: Player): number {
  * (a fallback). Prefer assignTraits for anything that shows a group of players,
  * because only that path dedups and thins the weak ones.
  */
-export function traitsFor(p: Player): Trait[] {
+export function traitsFor(p: Player, tier?: number): Trait[] {
   // the same floor as the squad pass: below bronze there is no character line
   if (overall(p) < OVR_FLOOR && !legendByName(p.name)) return [];
   const ordered = orderedTraits(p);
@@ -438,7 +452,7 @@ export function traitsFor(p: Player): Trait[] {
   const groups = new Set<string>();
   for (const t of ordered) {
     if (picked.length >= want) break;
-    if (groups.has(t.group)) continue;
+    if (groups.has(t.group) || !sayable(t, tier)) continue;
     groups.add(t.group);
     picked.push(t);
   }
@@ -484,7 +498,7 @@ export function friendAsTrait(f: Friend): Trait {
   };
 }
 
-export function assignTraits(players: Player[], friends: Friend[] = []): Map<string, Trait[]> {
+export function assignTraits(players: Player[], friends: Friend[] = [], tier?: number): Map<string, Trait[]> {
   const map = new Map<string, Trait[]>();
   if (!players.length) return map;
 
@@ -522,7 +536,7 @@ export function assignTraits(players: Player[], friends: Friend[] = []): Map<str
     // pass 1, keep groups spread across the squad
     for (const t of ordered) {
       if (picked.length >= want) break;
-      if (usedIds.has(t.id) || localGroups.has(t.group)) continue;
+      if (usedIds.has(t.id) || localGroups.has(t.group) || !sayable(t, tier)) continue;
       if ((groupUse.get(t.group) ?? 0) >= 2) continue;
       picked.push(t); localGroups.add(t.group);
     }
@@ -530,7 +544,7 @@ export function assignTraits(players: Player[], friends: Friend[] = []): Map<str
     if (picked.length < want) {
       for (const t of ordered) {
         if (picked.length >= want) break;
-        if (usedIds.has(t.id) || localGroups.has(t.group)) continue;
+        if (usedIds.has(t.id) || localGroups.has(t.group) || !sayable(t, tier)) continue;
         picked.push(t); localGroups.add(t.group);
       }
     }
@@ -542,13 +556,13 @@ export function assignTraits(players: Player[], friends: Friend[] = []): Map<str
 }
 
 /** The finished dressing room line for a player, with their slots filled in. */
-export function renderLine(t: Trait, p: Player): string {
-  return t.line(p.name, makePicker(hash(p.id + '|' + t.id)));
+export function renderLine(t: Trait, p: Player, tier?: number): string {
+  return t.line(p.name, makePicker(hash(p.id + '|' + t.id)), tier);
 }
 
 /** The single trait that best introduces this player, or null. */
-export function headlineTrait(p: Player): Trait | null {
-  return traitsFor(p)[0] ?? null;
+export function headlineTrait(p: Player, tier?: number): Trait | null {
+  return traitsFor(p, tier)[0] ?? null;
 }
 
 export const TONE_COLOR: Record<Tone, string> = {

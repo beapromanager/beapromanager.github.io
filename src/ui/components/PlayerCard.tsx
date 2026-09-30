@@ -37,8 +37,10 @@ const GK_ATTRS: [string, string][] = [
  * The player card. A rating alone never made anyone care about a footballer,
  * so this leads with who he is and backs it with the numbers.
  */
-export function PlayerCard({ p, club, season, career, traits, friend, gaveWord, part, onClose }: {
+export function PlayerCard({ p, club, tier, season, career, traits, friend, gaveWord, part, onClose }: {
   p: Player;
+  /** the division he is being read in, see Trait.tiers */
+  tier?: number;
   club: Club;
   season?: PlayerSeason;
   /** finished seasons, newest last. Empty or omitted for a first year player */
@@ -57,7 +59,7 @@ export function PlayerCard({ p, club, season, career, traits, friend, gaveWord, 
   const band = friend && !friend.sold
     ? friendBand(friendTrait(friend.trait), overall(p))
     : potentialBand(p);
-  const list = traits ?? traitsFor(p);
+  const list = traits ?? traitsFor(p, tier);
   const isGk = p.position === 'GK';
 
   // escape closes, same as tapping the scrim
@@ -122,7 +124,7 @@ export function PlayerCard({ p, club, season, career, traits, friend, gaveWord, 
                     }} />
                     <span style={{ fontSize: 12, fontWeight: 800, color: TONE_COLOR[t.tone] }}>{t.label}</span>
                   </div>
-                  <div style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--ink)' }}>{renderLine(t, p)}</div>
+                  <div style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--ink)' }}>{renderLine(t, p, tier)}</div>
                   {t.tip && (
                     <div className="row" style={{ gap: 6, marginTop: 8 }}>
                       <Icon name="clipboard" size={13} color="var(--ink-faint)" />

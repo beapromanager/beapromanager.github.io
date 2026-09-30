@@ -35,8 +35,8 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
   const size = G.squadSize(gs);
 
   // personalities: my squad as one group, the market as its own group
-  const squadTraits = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends), [sq, gs.friends]);
-  const marketTraits = useMemo(() => assignTraits(gs.market.map(f => f.player)), [gs.market]);
+  const squadTraits = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends, G.club(gs).tier), [sq, gs.friends, gs]);
+  const marketTraits = useMemo(() => assignTraits(gs.market.map(f => f.player), [], G.club(gs).tier), [gs.market, gs]);
   const cardTraits = card
     ? squadTraits.get(card.id) ?? marketTraits.get(card.id) ?? []
     : [];
@@ -221,7 +221,7 @@ export function TransfersScreen({ gs, onSign, onSell, onBack }: {
       )}
 
       {card && (
-        <PlayerCard p={card} club={G.club(gs)} season={gs.seasonStats[card.id]} career={G.careerOf(gs, card.id)} traits={cardTraits} onClose={() => setCard(null)} />
+        <PlayerCard p={card} club={G.club(gs)} season={gs.seasonStats[card.id]} career={G.careerOf(gs, card.id)} traits={cardTraits} tier={G.club(gs).tier} onClose={() => setCard(null)} />
       )}
     </>
   );
