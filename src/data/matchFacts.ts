@@ -143,15 +143,17 @@ export function matchFacts(
   }
 
   /* the shape of the performance */
-  // a shape changed in the dressing room is judged by the half that followed
+  // a shape change is judged by what followed it, from the score at the moment it was made.
+  // A result saved before the minute was kept has the half time score under its old name
   if (r.shape) {
     const iAmHome = r.home.id === myId;
-    const before = r.shape.atHalf[iAmHome ? 0 : 1] - r.shape.atHalf[iAmHome ? 1 : 0];
+    const at = r.shape.atChange ?? (r.shape as unknown as { atHalf: [number, number] }).atHalf;
+    const before = at[iAmHome ? 0 : 1] - at[iAmHome ? 1 : 0];
     const after = (iAmHome ? r.score[0] - r.score[1] : r.score[1] - r.score[0]) - before;
     // a half won is a change that worked, and so is a lead held quietly. A
     // deficit that stayed a deficit is not
     const worked = after > 0 || (after === 0 && before > 0);
-    facts.push({ kind: worked ? 'shape_worked' : 'shape_failed', who: r.shape.to, n: after });
+    facts.push({ kind: worked ? 'shape_worked' : 'shape_failed', who: r.shape.to, n: after, minute: r.shape.minute ?? 45 });
   }
   if (theirGoals === 0) facts.push({ kind: 'clean_sheet' });
   const myStats = r.home.id === myId ? r.home.stats : r.away.stats;

@@ -10,11 +10,11 @@
  * changes, and two thirds of those reds land while substitutions are still
  * worth having.
  *
- * The line this holds, and it is the reason it is safe: the SHAPE does not move
- * mid-play. Only who wears which shirt inside it. Changing 4-4-2 to 5-4-1 the
- * moment the opponent threatens would be a free tactical reset, which is why
- * that lives in the dressing room and stays there. Moving a man is a trade: the
- * shirt he leaves stands empty.
+ * The line this holds, and it is the reason it is safe: moving a man is not
+ * changing the SHAPE. Only who wears which shirt inside it moves, and it is a
+ * trade: the shirt he leaves stands empty. The shape itself can be changed in open
+ * play too, three times a match, and that is a different thing with its own count,
+ * held by shape-check: a man moved about the pitch does not use one of the three.
  */
 import * as L from '../src/game/liveMatch.ts';
 import type { LiveState } from '../src/game/liveMatch.ts';
@@ -197,14 +197,18 @@ function seating(st: LiveState): Map<number, string> {
   console.log(`  a forward swapped into defence moved the ratings by ${moved.toFixed(2)} across attack and defence`);
 }
 
-/* 6. THE SHAPE ITSELF STILL DOES NOT MOVE MID-PLAY. */
+/* 6. MOVING A MAN IS NOT CHANGING THE SHAPE, AND USES NONE OF THE THREE. */
 {
   const st = live(31);
-  checked += 2;
-  if (L.canChangeFormation(st)) {
-    fails.push('the formation can be changed in open play, which is a free tactical reset and belongs in the dressing room');
-  }
-  if (L.changeFormation(st, '4-3-3')) fails.push('the formation was changed in open play');
+  const shape = me(st).tactic.formation;
+  const a = me(st).onPitch[1].id, b = me(st).onPitch[10].id;
+  L.swapOnPitch(st, a, b);
+  checked += 4;
+  if (me(st).tactic.formation !== shape) fails.push(`trading two shirts changed the shape from ${shape} to ${me(st).tactic.formation}`);
+  if (L.shapeChangesUsed(st) !== 0) fails.push(`trading two shirts used ${L.shapeChangesUsed(st)} of the three changes of shape`);
+  if (st.shape) fails.push('trading two shirts left a change of shape on the record for the reporter');
+  // and the three are all still there afterwards
+  if (!L.canChangeFormation(st)) fails.push('after trading two shirts the shape can no longer be changed');
 }
 
 /* 7. AND THE MATCH CARRIES ON AFTERWARDS. */

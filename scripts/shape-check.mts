@@ -76,17 +76,19 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
   checked += 2;
   const res = L.finalize(st);
   if (res.shape?.to !== '4-3-3') fails.push('the result does not record which shape the manager switched to');
-  if (res.shape && (res.shape.atHalf[0] !== st.score[0] || res.shape.atHalf[1] !== st.score[1]))
-    fails.push('the result records the wrong half-time score alongside the shape change');
+  if (res.shape && (res.shape.atChange[0] !== st.score[0] || res.shape.atChange[1] !== st.score[1]))
+    fails.push('the result records the wrong score alongside the shape change');
+  checked++;
+  if (res.shape?.minute !== 45) fails.push(`a change in the dressing room is recorded at minute ${res.shape?.minute}, not 45`);
   const untouched = L.finalize(toHalfTime(4242));
   checked++;
   if (untouched.shape) fails.push('a match with no shape change still reports one');
 
+  // and in open play it is allowed too, now, see section 8 for what limits it
   const playing = toHalfTime(4242);
   L.resumeFromHalfTime(playing);
-  checked += 2;
-  if (L.canChangeFormation(playing)) fails.push('the shape can be reshuffled in open play, which is a free reset');
-  if (L.changeFormation(playing, '5-4-1')) fails.push('a mid-play reshape went through anyway');
+  checked++;
+  if (!L.canChangeFormation(playing)) fails.push('the shape cannot be changed in open play');
 }
 
 /* 2. AND THE ELEVEN ARE RE-SEATED INTO IT.
@@ -281,6 +283,189 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
     fails.push('the half time picker changes the shape on a single tap');
   }
   if (!/onRevert/.test(src) || !/revertFormation/.test(src)) fails.push('the dressing room offers no way back from a change');
+}
+
+/* 8. IN OPEN PLAY TOO, THREE TIMES A MATCH, THE DRESSING ROOM COUNTING AS ONE.
+      Players asked for it. It was half time only on the grounds that a change in
+      open play would be a free reset, and it was measured: a change to suit the
+      score is worth about six hundredths of a point a match, and changing every
+      quarter of an hour is worth no more than once. So it is allowed, limited for
+      the feed's sake and not for the balance. */
+{
+  const MAX = 3;   // the number that was agreed, not read off the code
+
+  /** play on, answering every moment the way the driver above does, until this minute */
+  const advance = (st: LiveState, seed: number, minute: number) => {
+    const rng = createRng(seed);
+    const pick = <T,>(xs: T[]) => xs[Math.floor(rng() * xs.length)];
+    let guard = 0;
+    // and on until the moment, if one is waiting, has been answered: the match is in open play when this returns
+    while ((st.minute < minute || st.phase === 'moment') && st.phase !== 'done' && st.phase !== 'halftime' && guard++ < 4000) {
+      if (st.phase === 'moment' && st.pending) {
+        const m = st.pending;
+        switch (m.kind) {
+          case 'penalty': L.resolvePenalty(st, pick(CORNERS)); break;
+          case 'def_penalty': L.resolveDefPenalty(st, pick(CORNERS)); break;
+          case 'shot': L.resolveShot(st, pick(CORNERS)); break;
+          case 'free_kick': L.resolveFreeKick(st, pick(CORNERS)); break;
+          case 'one_on_one': L.resolveOneOnOne(st, pick(['dribble', 'finish'])); break;
+          case 'def_keeper': L.resolveDefKeeper(st, pick(['rush', 'stay'])); break;
+          case 'def_tackle': L.resolveDefTackle(st, pick(['slide', 'contain'])); break;
+          case 'tactic': L.resolveTactic(st, m.options?.[0]?.id ?? ''); break;
+        }
+        if (st.phase === 'moment') st.phase = 'play';
+        continue;
+      }
+      L.step(st);
+    }
+  };
+  /** a match in the second half, in open play, at about the hour */
+  const hour = (seed: number, shape: FormationId = '4-4-2') => {
+    const st = toHalfTime(seed, shape);
+    L.resumeFromHalfTime(st);
+    advance(st, seed, 60);
+    return st;
+  };
+
+  // a change in open play: allowed, re-seated, recorded under the minute it was made
+  {
+    const st = hour(6001);
+    const was = mySide(st).onPitch.map(p => p.id);
+    const minute = st.minute, score: [number, number] = [st.score[0], st.score[1]];
+    checked += 9;
+    if (st.phase !== 'play') fails.push(`the match was not in open play at the hour, it was ${st.phase}`);
+    if (!L.canChangeFormation(st)) fails.push('the shape cannot be changed in open play');
+    if (!L.changeFormation(st, '3-4-3')) fails.push('a change in open play was refused');
+    const now = mySide(st).onPitch.map(p => p.id);
+    if ([...was].sort().join() !== [...now].sort().join()) fails.push('the eleven on the pitch changed when only the shape did');
+    if (now.join() !== fillFormation(mySide(st).onPitch, formation('3-4-3')).map(p => p.id).join()) fails.push('the change in open play did not seat the eleven as the filler does');
+    if (mySide(st).tactic.formation !== '3-4-3') fails.push('the side is not playing the shape it was changed to');
+    if (st.shape?.minute !== minute || st.shape?.atChange.join() !== score.join()) fails.push(`the change is recorded at minute ${st.shape?.minute} and ${st.shape?.atChange}, it was made at ${minute} and ${score}`);
+    if (!st.events.some(e => e.type === 'tactic' && e.minute === minute && e.text.startsWith('שינוי מערך'))) fails.push('a change in open play left no trace in the feed under its minute');
+    if (L.shapeChangesUsed(st) !== 1) fails.push(`one change in open play counts as ${L.shapeChangesUsed(st)}`);
+    const res = L.finalize(st);
+    checked += 2;
+    if (res.shape?.to !== formation('3-4-3').label || res.shape?.minute !== minute) fails.push('the result does not carry the change made in open play');
+    if (st.shapeFrom || st.shapeSeats) fails.push('a change in open play left dressing room state behind');
+  }
+
+  // it bites: the new shape changes what the side can do, straight away
+  {
+    const st = hour(6002);
+    const side = mySide(st);
+    const rate = (f: FormationId) => teamRatings({
+      id: side.id, name: side.name, players: side.onPitch,
+      tactic: { formation: f, approach: side.tactic.approach, press: side.tactic.press }, chemistry: 0.7, isHome: true, seated: false,
+    });
+    const before = rate('4-4-2');
+    L.changeFormation(st, '3-4-3');
+    const after = rate('3-4-3');
+    checked++;
+    if (!(after.att > before.att && after.def < before.def)) fails.push('changing to 3-4-3 in open play did not trade defence for attack');
+  }
+
+  // not while a moment is waiting for an answer, and not when it is over
+  {
+    let found: LiveState | null = null;
+    for (let seed = 6100; seed < 6160 && !found; seed++) {
+      const st = toHalfTime(seed);
+      L.resumeFromHalfTime(st);
+      let guard = 0;
+      while (st.phase !== 'moment' && st.phase !== 'done' && guard++ < 4000) L.step(st);
+      if (st.phase === 'moment' && st.pending) found = st;
+    }
+    checked += 3;
+    if (!found) fails.push('no match in sixty produced a moment to test against');
+    else {
+      if (L.canChangeFormation(found) || L.changeFormation(found, '5-4-1')) fails.push('the shape was changed while a moment was waiting for an answer');
+    }
+    const over = hour(6003);
+    over.phase = 'done';
+    if (L.canChangeFormation(over) || L.changeFormation(over, '5-4-1')) fails.push('the shape was changed after the final whistle');
+  }
+
+  // three, and each one counts, taking it back included
+  {
+    const st = hour(6004);
+    const order: FormationId[] = ['3-4-3', '4-4-2', '5-4-1'];   // the second one is a return to the opening shape
+    let ok = 0;
+    for (const f of order) { advance(st, 6004 + ok, st.minute + 1); if (st.phase === 'play' && L.changeFormation(st, f)) ok++; }
+    checked += 4;
+    if (ok !== MAX) fails.push(`${ok} changes went through in open play, expected ${MAX}, going back to the opening shape included`);
+    if (L.shapeChangesUsed(st) !== MAX) fails.push(`three changes count as ${L.shapeChangesUsed(st)}`);
+    if (L.canChangeFormation(st) || L.changeFormation(st, '4-3-3')) fails.push('a fourth change went through');
+    if (!L.SHAPE_LIMIT_TEXT.includes(String(MAX))) fails.push('the limit text does not say how many there are');
+  }
+
+  // the dressing room counts as one, however often it was changed in there, and not at all if it was taken back
+  {
+    const st = toHalfTime(6005);
+    L.changeFormation(st, '4-3-3'); L.changeFormation(st, '3-5-2'); L.changeFormation(st, '5-4-1');
+    L.resumeFromHalfTime(st);
+    checked += 4;
+    if (L.shapeChangesUsed(st) !== 1) fails.push(`three taps in the dressing room count as ${L.shapeChangesUsed(st)}, not one`);
+    advance(st, 6005, 60);
+    const a = L.changeFormation(st, '4-4-2');
+    advance(st, 6006, st.minute + 1);
+    const b = L.changeFormation(st, '3-4-3');
+    advance(st, 6007, st.minute + 1);
+    if (!a || !b) fails.push('the two changes left after the dressing room were not both allowed');
+    if (L.canChangeFormation(st) || L.changeFormation(st, '4-3-3')) fails.push('the dressing room plus two changes in open play did not use up the three');
+
+    const taken = toHalfTime(6008);
+    L.changeFormation(taken, '4-3-3'); L.revertFormation(taken);
+    L.resumeFromHalfTime(taken);
+    checked++;
+    if (L.shapeChangesUsed(taken) !== 0) fails.push(`a change taken back in the dressing room still counts as ${L.shapeChangesUsed(taken)}`);
+  }
+
+  // the first half can use them up, and then the dressing room has no change left to offer
+  {
+    const st = toHalfTime(6009);   // this is the dressing room; go again from the start of the match for the first half
+    const early = L.createLive({
+      seed: 6009, homeId: 'me', homeName: 'שלי', awayId: 'them', awayName: 'שלהם', iAmHome: true,
+      playerStarters: makeSquad(56, createRng(6009)).starters, playerBench: makeSquad(56, createRng(6009)).bench,
+      playerTactic: { approach: 'balanced', press: 'mid', formation: '4-4-2' },
+      oppStarters: makeSquad(56, createRng(6010)).starters, oppBench: makeSquad(56, createRng(6010)).bench, moraleBias: 0,
+    });
+    let n = 0;
+    for (const f of ['3-4-3', '4-4-2', '5-4-1'] as FormationId[]) { advance(early, 6009 + n, early.minute + 3); if (early.phase === 'play' && L.changeFormation(early, f)) n++; }
+    advance(early, 6020, 46);
+    checked += 3;
+    if (n !== MAX) fails.push(`only ${n} changes went through in the first half`);
+    if (early.phase !== 'halftime') fails.push(`the match did not reach half time, it is ${early.phase}`);
+    if (L.canChangeFormation(early) || L.changeFormation(early, '3-5-2')) fails.push('the dressing room offered a fourth change');
+    void st;
+  }
+
+  // a change in open play does not disturb taking back the dressing room's own
+  {
+    const st = toHalfTime(6011);
+    const early = st;   // the first half is over; put an open play record in by hand, as a first half change would have left it
+    early.shape = { to: formation('3-4-3').label, atChange: [0, 0], minute: 20 };
+    L.changeFormation(early, '5-4-1');
+    L.revertFormation(early);
+    checked += 2;
+    if (early.shape?.minute !== 20 || early.shape?.to !== formation('3-4-3').label) fails.push('taking back the dressing room change lost the change made earlier in open play');
+    L.changeFormation(early, '5-4-1'); L.changeFormation(early, '3-5-2'); L.revertFormation(early);
+    if (early.shape?.minute !== 20) fails.push('two changes and a revert in the dressing room lost the earlier record');
+  }
+
+  // the screen: a button beside the pause, a sheet that stops the match, and the same limit
+  {
+    const src = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+    checked += 5;
+    if (!/function ShapeSheet\(/.test(src)) fails.push('there is no sheet to change shape in open play');
+    if (!/setShapeOpen\(true\)/.test(src)) fails.push('nothing opens the change of shape sheet');
+    if (!/disabled=\{!L\.canChangeFormation\(st\) \|\| shapeBusy\}/.test(src)) fails.push('the button is not shut when the limit is used or a moment is waiting');
+    if (!/&& !shapeOpen &&/.test(src)) fails.push('the match runs on behind the change of shape sheet');
+    // the dressing room shows its own change to take back, not the last one of the match: after a change in
+    // the first half it offered to undo a change it had not made
+    checked++;
+    if (!/const changed = st.shapeFrom ?/.test(src)) fails.push('the dressing room offers to take back the last change of the match, not one made in it');
+    if (!/L\.changeFormation\(st, id\); force\(\); setShapeOpen\(false\)/.test(src)) fails.push('choosing a shape in the sheet does not change it and close');
+  }
+  console.log('  open play: allowed, re-seated, dated, limited to three with the dressing room as one, shut during a moment');
 }
 
 console.log(`\n${checked} checks`);

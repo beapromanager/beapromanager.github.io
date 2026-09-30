@@ -159,6 +159,7 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
    */
   const [flares, setFlares] = useState<G.FlareReason | null>(() => G.flareReason(gs));
   const [subOpen, setSubOpen] = useState(false);   // the substitution sheet
+  const [shapeOpen, setShapeOpen] = useState(false);   // the change of shape sheet
   const [subFocus, setSubFocus] = useState<string | null>(null);   // a player tapped for a quick swap
   const [redStop, setRedStop] = useState<{ name: string; minute: number } | null>(null);   // the red that stopped the match
   const [penOutcome, setPenOutcome] = useState<{ corner: Corner; scored: boolean } | null>(null);
@@ -209,7 +210,9 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
 
   // the clock also stops while the bench sheet is open, so managing a sub is not
   // a race against the minute, and the sheet is not re-rendered out from under you
-  const running = st.phase === 'play' && !flares && !paused && !st.pending && !play?.scored && !subOpen && !penOutcome && !fkOutcome && !shotOutcome && !oneOnOneOutcome && !defKeeperOutcome && !defTackleOutcome && !defPenOutcome;
+  // anything on the screen that is waiting for an answer: a shape is not changed under it
+  const shapeBusy = !!(flares || play?.scored || penOutcome || fkOutcome || shotOutcome || oneOnOneOutcome || defKeeperOutcome || defTackleOutcome || defPenOutcome);
+  const running = st.phase === 'play' && !flares && !paused && !st.pending && !play?.scored && !subOpen && !shapeOpen && !penOutcome && !fkOutcome && !shotOutcome && !oneOnOneOutcome && !defKeeperOutcome && !defTackleOutcome && !defPenOutcome;
   useEffect(() => {
     if (!running) return;
     const id = window.setInterval(() => {
@@ -373,6 +376,15 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
           <button className="btn dark btn-sm" style={{ width: 'auto', paddingInline: 16 }} onClick={() => setPaused(p => !p)}>
             <Icon name={paused ? 'play' : 'pause'} size={15} color="var(--gold)" />
           </button>
+          {/* the shape, in open play too: one tap opens the sheet, which stops the match.
+              Shut while a moment is waiting for an answer, and when the three are used */}
+          <button className="btn dark btn-sm" style={{ width: 'auto', paddingInline: 14, gap: 6 }}
+            disabled={!L.canChangeFormation(st) || shapeBusy}
+            aria-label={`החלפת מערך, ${L.shapeChangesUsed(st)} מתוך ${L.MAX_SHAPE_CHANGES}`}
+            onClick={() => setShapeOpen(true)}>
+            <span style={{ fontWeight: 800 }}>מערך</span>
+            <span className="num" style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{L.shapeChangesUsed(st)}/{L.MAX_SHAPE_CHANGES}</span>
+          </button>
           <div className="seg" style={{ flex: 1 }}>
             {SPEEDS.map(s => (
               <button key={s} data-on={speed === s ? '1' : '0'} onClick={() => setSpeed(s)}>
@@ -390,6 +402,12 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
           onSwap={(a, b) => { L.swapOnPitch(st, a, b); force(); }}
           onFill={(id, slot) => { L.fillVacancy(st, id, slot); force(); }}
           onClose={() => { setSubOpen(false); setSubFocus(null); setRedStop(null); }} />
+      )}
+
+      {shapeOpen && (
+        <ShapeSheet st={st}
+          onShape={id => { L.changeFormation(st, id); force(); setShapeOpen(false); }}
+          onClose={() => setShapeOpen(false)} />
       )}
 
       {/* the terrace, before a ball is kicked. Portalled for the same reason the
@@ -518,7 +536,10 @@ function HalfTime({ st, onTalk, onShape, onRevert, onSub }: {
 }) {
   const shape = (st.iAmHome ? st.home : st.away).tactic.formation ?? '4-4-2';
   const before = L.formationBefore(st);
-  const changed = st.shape ? L.FORMATION_CHOICES.find(f => f.id === shape) : null;
+  // a change made in THIS dressing room, which can be taken back. st.shape is the last change of the
+  // match, and after one in open play it is set with nobody having touched the dressing room: it said
+  // "leaving in 5-4-1, was 5-4-1" with a button to undo nothing
+  const changed = st.shapeFrom ? L.FORMATION_CHOICES.find(f => f.id === shape) : null;
   const wasLabel = L.FORMATION_CHOICES.find(f => f.id === before)?.label ?? before;
   // a shape tapped but not yet confirmed. The card pops in under a finger that
   // was closing the moment before the whistle, and a formation is not a thing
@@ -564,7 +585,8 @@ function HalfTime({ st, onTalk, onShape, onRevert, onSub }: {
       <div className="row" style={{ gap: 7, marginBottom: 13, alignItems: 'stretch' }}>
         {L.FORMATION_CHOICES.map(f => (
           <button key={f.id} className={`ht-shape${f.id === shape ? ' on' : ''}${f.id === asking ? ' ask' : ''}`}
-            aria-pressed={f.id === shape} onClick={() => setAsking(f.id === shape ? null : f.id)}>
+            aria-pressed={f.id === shape} disabled={!L.canChangeFormation(st) && f.id !== shape}
+            onClick={() => setAsking(f.id === shape ? null : f.id)}>
             <span className="ht-shape-num num">{f.label}</span>
             <span className="ht-shape-name">{f.name}</span>
           </button>
@@ -585,7 +607,7 @@ function HalfTime({ st, onTalk, onShape, onRevert, onSub }: {
         </div>
       ) : (
         <p className="hint" style={{ margin: '-6px 0 13px', textAlign: 'center' }}>
-          {L.FORMATION_CHOICES.find(f => f.id === shape)?.desc}
+          {L.canChangeFormation(st) ? L.FORMATION_CHOICES.find(f => f.id === shape)?.desc : L.SHAPE_LIMIT_TEXT}
         </p>
       )}
 
@@ -1228,6 +1250,70 @@ function MomentPopup({ m, kind, onPickCorner, onPickOption, imgOverride }: {
         </div>
       </div>
     </div>
+    </Portal>
+  );
+}
+
+/**
+ * Change shape in open play.
+ *
+ * The same picker as the dressing room, two taps and not one, because it opens under
+ * a finger that was a moment ago on the pause. Opening it stops the match, and says
+ * so; choosing a shape re-seats the eleven at once and closes the sheet, and the
+ * feed carries the change under the minute it was made. Three a match, the dressing
+ * room counting as one.
+ *
+ * DRAFT WORDING, Itzik's to correct, apart from "חזרה למשחק" and "המשחק עצור", which
+ * are the substitution sheet's own.
+ */
+function ShapeSheet({ st, onShape, onClose }: {
+  st: LiveState; onShape: (id: FormationId) => void; onClose: () => void;
+}) {
+  const current = (st.iAmHome ? st.home : st.away).tactic.formation ?? '4-4-2';
+  const [asking, setAsking] = useState<FormationId | null>(null);
+  const left = L.MAX_SHAPE_CHANGES - L.shapeChangesUsed(st);
+  const choice = asking ? L.FORMATION_CHOICES.find(f => f.id === asking) : null;
+  const now = L.FORMATION_CHOICES.find(f => f.id === current);
+
+  return (
+    <Portal>
+      <div className="sheet-scrim" onClick={onClose}>
+        <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '84vh', overflowY: 'auto' }} role="dialog" aria-label="החלפת מערך">
+          <div className="sheet-grip" />
+          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+            <button className="sheet-back" onClick={onClose}>
+              <Icon name="chevron" size={15} /> חזרה למשחק
+            </button>
+            <span className="chip" style={{ background: 'rgba(233,185,73,.13)', color: 'var(--gold-hi)', border: '1px solid rgba(233,185,73,.3)' }}>
+              <Icon name="pause" size={12} /> המשחק עצור
+            </span>
+          </div>
+          <div className="h2" style={{ marginBottom: 4 }}>החלפת מערך</div>
+          <div className="sub" style={{ fontSize: 13.5, marginBottom: 12 }}>
+            {left === 1 ? 'נשארה החלפה אחת' : `נשארו ${left} החלפות`}
+          </div>
+          <div className="row" style={{ gap: 7, marginBottom: 13, alignItems: 'stretch', flexWrap: 'wrap' }}>
+            {L.FORMATION_CHOICES.map(f => (
+              <button key={f.id} className={`ht-shape${f.id === current ? ' on' : ''}${f.id === asking ? ' ask' : ''}`}
+                aria-pressed={f.id === current} onClick={() => setAsking(f.id === current ? null : f.id)}>
+                <span className="ht-shape-num num">{f.label}</span>
+                <span className="ht-shape-name">{f.name}</span>
+              </button>
+            ))}
+          </div>
+          {choice ? (
+            <div className="ht-confirm">
+              <div className="ht-confirm-line">לעבור ל-<b className="num">{choice.label}</b> {choice.name}? האחד עשר ייושבו מחדש.</div>
+              <div className="row" style={{ gap: 8 }}>
+                <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => { onShape(choice.id); setAsking(null); }}>כן, לשנות</button>
+                <button className="btn dark btn-sm" style={{ flex: 1 }} onClick={() => setAsking(null)}>להשאיר <span className="num">{now?.label}</span></button>
+              </div>
+            </div>
+          ) : (
+            <p className="hint" style={{ margin: '-6px 0 4px', textAlign: 'center' }}>{now?.desc}</p>
+          )}
+        </div>
+      </div>
     </Portal>
   );
 }

@@ -97,6 +97,9 @@ export interface LiveEvent {
   big?: boolean;   // goals, flashed
 }
 
+/** A change of shape, as the reporter is told about it. */
+export interface ShapeChange { to: string; atChange: [number, number]; minute: number }
+
 export interface LiveState {
   seed: number;
   rc: number;
@@ -115,8 +118,14 @@ export interface LiveState {
   subsUsed: number;
   /** the owner's boy, promised a half: he comes on at the break whatever the score */
   guestId?: string | null;
-  /** the half-time shape change, kept so the reporter can ask about it */
-  shape?: { to: string; atHalf: [number, number] };
+  /** the last change of shape, kept so the reporter can ask about it */
+  shape?: ShapeChange;
+  /** what stood before this dressing room's change, put back when that change is taken back */
+  shapePrev?: ShapeChange | null;
+  /** changes made in open play, each one counts */
+  shapeInPlay?: number;
+  /** a change was standing when the side went back out after the break: it counts as one */
+  halfShapeChange?: boolean;
   /** the shape the side went in with, so a change can be taken back in the dressing room */
   shapeFrom?: FormationId;
   /** who sat where in that shape, the manager's own placing, restored on the way back */
@@ -982,6 +991,10 @@ export function resumeFromHalfTime(st: LiveState) {
     }
     st.guestId = null;
   }
+  // a change standing as the side goes back out counts against the limit, once, however
+  // many times it was changed in there; and the way back is shut, so what was kept for it goes
+  if (st.shapeFrom) st.halfShapeChange = true;
+  st.shapeFrom = undefined; st.shapeSeats = undefined; st.shapePrev = undefined;
   st.phase = 'play';
 }
 
@@ -1004,15 +1017,33 @@ export function resumeFromHalfTime(st: LiveState) {
  * a midfielder having a hard evening, which is what the squad screen has always
  * said and what the ratings model already prices in.
  *
- * Deliberately half time only. Reshaping mid-play would be a free tactical
- * reset every time the opponent threatened, and the in-match shout already
- * exists for that.
+ * It used to be half time only, on the grounds that reshaping mid-play would be a
+ * free tactical reset every time the opponent threatened. Players asked for it, and
+ * it was measured: a change to suit the score, made once at sixty minutes, is worth
+ * about six hundredths of a point a match, and changing every quarter of an hour
+ * is worth no more than changing once, because the shapes are balanced against each
+ * other. So it is allowed in open play too, three times a match counting the dressing
+ * room, and costs nothing else.
  */
 /** The shapes a manager may switch to, for a picker that never hard-codes them. */
 export const FORMATION_CHOICES = FORMATIONS.map(f => ({ id: f.id, label: f.label, name: f.name, desc: f.desc }));
 
+/** The most times a manager may change shape in a match, the dressing room counting as one. */
+export const MAX_SHAPE_CHANGES = 3;
+/** DRAFT WORDING, Itzik's to correct. */
+export const SHAPE_LIMIT_TEXT = `נגמרו החלפות המערך, ${MAX_SHAPE_CHANGES} מקסימום`;
+
+/** How many he has used: each change in open play, and the dressing room's as one. */
+export function shapeChangesUsed(st: LiveState): number {
+  return (st.shapeInPlay ?? 0) + (st.halfShapeChange ? 1 : 0);
+}
+
 export function canChangeFormation(st: LiveState): boolean {
-  return st.phase === 'halftime';
+  // in the dressing room a change already standing can be changed again at no cost,
+  // it is still the one; a fresh one needs a place. In open play, never mid moment
+  if (st.phase === 'halftime') return !!st.shapeFrom || shapeChangesUsed(st) < MAX_SHAPE_CHANGES;
+  if (st.phase === 'play') return !st.pending && shapeChangesUsed(st) < MAX_SHAPE_CHANGES;
+  return false;
 }
 
 export function changeFormation(st: LiveState, id: FormationId): boolean {
@@ -1021,9 +1052,26 @@ export function changeFormation(st: LiveState, id: FormationId): boolean {
   const current = side.tactic.formation ?? DEFAULT_FORMATION;
   if (current === id) return false;
 
+  // in open play every change is a change: there is no dressing room to take it back in,
+  // so there is no going back to "as if it never happened", and each one counts
+  if (st.phase === 'play') {
+    side.tactic = { ...side.tactic, formation: id };
+    side.onPitch = fillFormation(side.onPitch, formation(id));
+    vacateTail(side, formation(id).slots.length);
+    st.shapeInPlay = (st.shapeInPlay ?? 0) + 1;
+    st.shape = { to: formation(id).label, atChange: [st.score[0], st.score[1]], minute: st.minute };
+    // DRAFT WORDING, Itzik's to correct
+    st.events.push({
+      minute: st.minute, type: 'tactic', teamId: side.id,
+      text: `שינוי מערך, ${formation(id).label} ${formation(id).name}`,
+    });
+    return true;
+  }
+
   // the shape he went in with is what a change is measured against, and what
   // taking the change back returns to; a second change in the same dressing
   // room does not move it
+  const firstHere = st.shapeFrom === undefined;
   const from = st.shapeFrom ?? current;
   const seats = st.shapeSeats ?? side.onPitch.map(p => p.id);
   side.tactic = { ...side.tactic, formation: id };
@@ -1035,15 +1083,16 @@ export function changeFormation(st: LiveState, id: FormationId): boolean {
     const same = seats.length === side.onPitch.length && seats.every(x => byId.has(x));
     side.onPitch = same ? seats.map(x => byId.get(x)!) : fillFormation(side.onPitch, formation(id));
     if (!same) vacateTail(side, formation(id).slots.length);
-    st.shape = undefined; st.shapeFrom = undefined; st.shapeSeats = undefined;
+    st.shape = st.shapePrev ?? undefined; st.shapeFrom = undefined; st.shapeSeats = undefined; st.shapePrev = undefined;
     dropShapeEvents(st);
     return true;
   }
   side.onPitch = fillFormation(side.onPitch, formation(id));
   vacateTail(side, formation(id).slots.length);
+  if (firstHere) st.shapePrev = st.shape ?? null;
   st.shapeFrom = from;
   st.shapeSeats = seats;
-  st.shape = { to: formation(id).label, atHalf: [st.score[0], st.score[1]] };
+  st.shape = { to: formation(id).label, atChange: [st.score[0], st.score[1]], minute: 45 };
   dropShapeEvents(st);
   st.events.push({
     minute: 45, type: 'tactic', teamId: side.id,

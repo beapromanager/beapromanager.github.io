@@ -250,7 +250,10 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
   shape_worked: [(_c, f) => ({
     id: 'shape_worked',
     tone: 'serious',
-    text: `עברת ל-${f.who} בהפסקה והמחצית השנייה נראתה אחרת לגמרי. מה ראית בחדר ההלבשה?`,
+    // at half time, or in open play: DRAFT WORDING for the second, Itzik's to correct
+    text: (f.minute ?? 45) === 45
+      ? `עברת ל-${f.who} בהפסקה והמחצית השנייה נראתה אחרת לגמרי. מה ראית בחדר ההלבשה?`
+      : `עברת ל-${f.who} בדקה ${f.minute} והמשחק נראה אחרת לגמרי. מה ראית מהקווים?`,
     answers: [
       { label: 'ראיתי שהם צריכים שינוי, לא צעקה', effect: { morale: +2, prestige: +3 }, reply: 'מאמן שקורא משחק. הכותרת של מחר.' },
       { label: 'השחקנים עשו את זה, לא המערך', effect: { morale: +4 }, reply: 'העברת את הקרדיט. השחקנים מעריכים אותך.' },
@@ -260,7 +263,9 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
   shape_failed: [(_c, f) => ({
     id: 'shape_failed',
     tone: 'brutal',
-    text: `שינית ל-${f.who} בהפסקה וזה לא הזיז כלום. בדיעבד, טעות?`,
+    text: (f.minute ?? 45) === 45
+      ? `שינית ל-${f.who} בהפסקה וזה לא הזיז כלום. בדיעבד, טעות?`
+      : `שינית ל-${f.who} בדקה ${f.minute} וזה לא הזיז כלום. בדיעבד, טעות?`,
     answers: [
       { label: 'לא. ניסיתי, לפעמים זה לא עובד', effect: { morale: +1, prestige: +2 }, reply: 'עמדת מאחורי ההחלטה. מכבדים.' },
       { label: 'אולי. אני אסתכל על זה שוב', effect: { morale: +2, prestige: -1 }, reply: 'כנות. הכתב הופתע לשמוע אותה.' },

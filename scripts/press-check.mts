@@ -136,8 +136,8 @@ const kinds = (r: MatchResult) => matchFacts(r, 'ME').map(f => f.kind);
 
 // a shape changed at half time is judged by the half that followed
 {
-  const withShape = (score: [number, number], atHalf: [number, number]): MatchResult =>
-    ({ ...fake([], score), shape: { to: '5-4-1', atHalf } });
+  const withShape = (score: [number, number], atChange: [number, number], minute = 45): MatchResult =>
+    ({ ...fake([], score), shape: { to: '5-4-1', atChange, minute } });
   checked += 4;
   if (!kinds(withShape([2, 0], [1, 0])).includes('shape_worked')) fails.push('a half won after the change did not read as worked');
   if (!kinds(withShape([1, 0], [1, 0])).includes('shape_worked')) fails.push('a lead held after the change did not read as worked');
@@ -146,6 +146,37 @@ const kinds = (r: MatchResult) => matchFacts(r, 'ME').map(f => f.kind);
   const f = matchFacts(withShape([2, 0], [1, 0]), 'ME').find(x => x.kind === 'shape_worked');
   checked++;
   if (f?.who !== '5-4-1') fails.push('the shape question does not know which shape was chosen');
+}
+
+// a shape changed in open play is judged from the score at that moment, and the question says when
+{
+  const ctx: PressContext = {
+    result: 'win', isDerby: false, lowMorale: false, highPrestige: false, tablePos: 5, totalTeams: 10,
+    star: '', rival: '', city: '', isHome: true, fans: 50, lossRun: 0, gate: 0.7, justUp: false,
+  };
+  const withShape = (score: [number, number], atChange: [number, number], minute = 45): MatchResult =>
+    ({ ...fake([], score), shape: { to: '5-4-1', atChange, minute } });
+  const ask = (r: MatchResult) => {
+    const fact = matchFacts(r, 'ME').find(x => x.kind === 'shape_worked' || x.kind === 'shape_failed');
+    return fact ? pickPressQuestions(ctx, createRng(1), [fact]).qs[0].text : '';
+  };
+  checked += 6;
+  // level at the change, a goal after it: the change worked, whatever the score was at half time
+  if (!kinds(withShape([1, 0], [0, 0], 60)).includes('shape_worked')) fails.push('a goal after a change in open play did not read as worked');
+  if (!kinds(withShape([0, 2], [0, 1], 60)).includes('shape_failed')) fails.push('a goal let in after a change in open play did not read as failed');
+  const late = ask(withShape([2, 0], [1, 0], 60));
+  if (!late.includes('60') || late.includes('בהפסקה')) fails.push(`a change in the 60th minute is asked about as if it was half time: "${late}"`);
+  const half = ask(withShape([2, 0], [1, 0], 45));
+  if (!half.includes('בהפסקה')) fails.push(`a change at half time is not asked about as one: "${half}"`);
+  // the verdict is measured from the score when the change was made: 1-0 up at the change and 3-1 at the end is one goal better, not two
+  checked += 2;
+  const n = (r: MatchResult) => matchFacts(r, 'ME').find(x => x.kind === 'shape_worked' || x.kind === 'shape_failed')?.n;
+  if (n(withShape([3, 1], [1, 0], 60)) !== 1) fails.push(`1-0 at the change and 3-1 at the end reads as ${n(withShape([3, 1], [1, 0], 60))} goals better, not 1`);
+  if (n(withShape([1, 1], [0, 0], 60)) !== 0) fails.push('level at the change and level at the end does not read as no change at all');
+  // a result saved before the minute was kept has the score under its old name and no minute at all
+  const old = { ...fake([], [2, 0]), shape: { to: '5-4-1', atHalf: [1, 0] } } as unknown as MatchResult;
+  if (!kinds(old).includes('shape_worked')) fails.push('a result saved with the half time score under its old name no longer reads');
+  if (!ask(old).includes('בהפסקה')) fails.push('an old result with no minute is not taken for half time');
 }
 
 // one of the ראש העין regulars scoring is a story of its own
