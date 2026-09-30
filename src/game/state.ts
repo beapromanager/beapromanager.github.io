@@ -24,7 +24,8 @@ import { seasonKit, firstKit, reasonFor } from '../data/seasonKit.ts';
 import type { SeasonKit } from '../data/seasonKit.ts';
 import type { KitPattern } from '../data/kits.ts';
 import { debtState, debtLine, debtLimit } from './finance.ts';
-import { emptyYouth, seedYouth, advanceYouth } from './youth.ts';
+import { emptyYouth, seedYouth, advanceYouth, outlook } from './youth.ts';
+import type { Outlook } from './youth.ts';
 import type { Youth } from './youth.ts';
 import {
   emptyScout, scoutWindowKey, SCOUT_TIER, SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, findKeen, arrivedKeen,
@@ -98,7 +99,7 @@ export type Phase =
   | 'onboard-archetype' | 'onboard-manager' | 'onboard-club' | 'signing' | 'friends' | 'squad' | 'hub' | 'transfers' | 'invite'
   | 'dilemma' | 'tactic' | 'vs' | 'teamsheet' | 'match' | 'result' | 'press' | 'season-end' | 'chronicle'
   | 'captain' | 'assistant' | 'coach' | 'preseason' | 'preseason-market' | 'inbox' | 'chat' | 'table' | 'stadium'
-  | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit' | 'scout';
+  | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit' | 'scout' | 'youth-decision';
 
 export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
 
@@ -871,6 +872,74 @@ export function promoteYouth(gs: GameState, playerId: string): GameState {
   };
 }
 
+/* ------------------------------------------------ the eighteen year olds, decided */
+
+/**
+ * The kids who turned eighteen this summer and are waiting for the manager's
+ * word, best first. Before this they left the academy list on their birthday and
+ * survived only as a name that no screen showed, so nobody could ever be signed.
+ */
+export function youthGraduates(gs: GameState): Player[] {
+  return gs.youth.players.filter(p => p.age >= 18).sort((a, b) => overall(b) - overall(a));
+}
+
+/** The band he can reach, and what the youth coach makes of him. */
+export function graduateOutlook(gs: GameState, p: Player): Outlook {
+  return outlook(p, club(gs).tier);
+}
+
+/** How many men over the maximum the squad is: the number that has to go before the league starts. */
+export function overSquadBy(gs: GameState): number {
+  return Math.max(0, squadSize(gs) - MAX_SQUAD);
+}
+
+/**
+ * A senior deal for one of them. Signing past the maximum is allowed here, on
+ * purpose: the manager decides on the kids first and on who makes room after,
+ * and the summer will not start until the squad is back under the limit.
+ */
+export function signGraduate(gs: GameState, playerId: string): GameState {
+  const kid = youthGraduates(gs).find(p => p.id === playerId);
+  if (!kid) return gs;
+  const sq = mySquad(gs);
+  return {
+    ...writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, kid] }),
+    youth: {
+      ...gs.youth,
+      players: gs.youth.players.filter(p => p.id !== playerId),
+      ready: gs.youth.ready.filter(n => n !== kid.name),
+    },
+    contracts: { ...gs.contracts, [kid.id]: 3 },
+  };
+}
+
+/** Let him go, altogether: nothing of him is kept, not in the squad, not on a list, not in the story. */
+export function releaseGraduate(gs: GameState, playerId: string): GameState {
+  const kid = youthGraduates(gs).find(p => p.id === playerId);
+  if (!kid) return gs;
+  return {
+    ...gs,
+    youth: {
+      ...gs.youth,
+      players: gs.youth.players.filter(p => p.id !== playerId),
+      ready: gs.youth.ready.filter(n => n !== kid.name),
+    },
+  };
+}
+
+/** Everyone the youth coach does not recommend, released in one go. */
+export function releaseUnrecommended(gs: GameState): GameState {
+  let g = gs;
+  for (const kid of youthGraduates(gs)) if (!graduateOutlook(gs, kid).recommend) g = releaseGraduate(g, kid.id);
+  return g;
+}
+
+/** On to the summer, once every one of them has an answer. */
+export function finishYouthDecision(gs: GameState): GameState {
+  if (gs.phase !== 'youth-decision' || youthGraduates(gs).length) return gs;
+  return { ...gs, phase: 'preseason' };
+}
+
 /** Let a youth player go, whatever his age. */
 export function releaseYouth(gs: GameState, playerId: string): GameState {
   const kid = gs.youth.players.find(p => p.id === playerId);
@@ -1124,6 +1193,12 @@ export function backToPreseason(gs: GameState): GameState {
  */
 export function preseasonBlockedReason(gs: GameState): string | null {
   if (gs.preWeek < PRE_ROUNDS) return null;
+  // a squad that signed the academy's eighteen year olds past the maximum has to be
+  // brought back under it before a ball is kicked. DRAFT WORDING, Itzik's to correct.
+  const over = overSquadBy(gs);
+  if (over > 0) {
+    return `הסגל עומד על ${squadSize(gs)} ומותר ${MAX_SQUAD} לכל היותר. צריך למכור או לשחרר ${over === 1 ? 'שחקן אחד' : `${over} שחקנים`} לפני שהעונה מתחילה`;
+  }
   // the badge comes first: a division you are not qualified for will not let
   // you take the touchline at all, whatever else you sorted out this summer
   if (courseRequired(gs)) {
@@ -4613,7 +4688,9 @@ export function startNextSeason(gs: GameState): GameState {
   };
   // the man who was told "until the end of the season" goes now, to a club
   // in the league he is about to play in
-  return settleSummerExits(summer);
+  const settled = settleSummerExits(summer);
+  // the kids who turned eighteen come first: the summer starts with them
+  return youthGraduates(settled).length ? { ...settled, phase: 'youth-decision' } : settled;
 }
 
 /**

@@ -17,7 +17,7 @@ import type { Player, Rng, Position } from '../engine/matchEngine.ts';
 import { overall } from '../engine/matchEngine.ts';
 import { makePlayer } from '../data/squadGen.ts';
 import { leagueCeiling } from '../data/clubs.ts';
-import { devFactor } from './career.ts';
+import { devFactor, potentialOf, potentialBand } from './career.ts';
 
 export interface Youth {
   /** the players currently at the academy, 16 to 18 */
@@ -32,6 +32,42 @@ export function emptyYouth(): Youth {
   return { players: [], graduated: [], ready: [] };
 }
 
+/**
+ * WHO IS WORTH A SENIOR DEAL.
+ *
+ * At the moment they turn eighteen most of what an academy makes is not good
+ * enough, and a manager who is asked to sign all of them has nothing to decide.
+ * One kid in four is a prospect, the rest are not, and the youth coach only
+ * recommends a kid who could become at least four points better than the
+ * standard of the division: a man for the eleven, not for the bench. Measured on
+ * the intake the game used to make, that bar was cleared by three in four in
+ * ליגה ג׳ and by half in ליגה א׳, because a ceiling is an absolute number and the
+ * divisions are not.
+ */
+export const PROSPECT_SHARE = 0.32;
+/** A prospect's ceiling: at least this far over the division's level. */
+export const PROSPECT_ABOVE = 8;
+/** Everybody else's: at most this far over it. */
+export const OTHERS_AT_MOST = 1;
+/** The coach recommends a kid who can reach at least this far over the division's level. */
+export const RECOMMEND_ABOVE = 4;
+
+export interface Outlook {
+  /** the band the game already calls "can reach", as the manager reads it */
+  lo: number;
+  hi: number;
+  /** the youth coach's word: worth a senior deal, or not */
+  recommend: boolean;
+}
+
+export function outlook(p: Player, tier: number): Outlook {
+  const band = potentialBand(p);
+  const now = overall(p);
+  const lo = band ? band.lo : now;
+  const hi = band ? band.hi : now;
+  return { lo, hi, recommend: hi >= leagueCeiling(tier) + RECOMMEND_ABOVE };
+}
+
 const YOUTH_POS: Position[] = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
 
 /**
@@ -41,15 +77,26 @@ const YOUTH_POS: Position[] = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW',
  * because these are teenagers, not ringers.
  */
 export function seedYouth(tier: number, rng: Rng, used: Set<string>, count = 5): Player[] {
-  const base = leagueCeiling(tier) - 12;
+  const level = leagueCeiling(tier);
+  const base = level - 12;
   const out: Player[] = [];
   for (let i = 0; i < count; i++) {
     const pos = YOUTH_POS[Math.floor(rng() * YOUTH_POS.length)];
-    // a spread, so an intake is not five identical kids
-    const p = makePlayer(pos, base + Math.round((rng() - 0.4) * 6), rng, undefined, used);
-    p.age = 16 + Math.floor(rng() * 2);   // 16 or 17, so most get a year at the academy
-    used.add(p.name);
-    out.push(p);
+    // one kid in four is a prospect and the rest are not. A ceiling is read off the
+    // seed a player is born with, so it cannot be asked for: kids are drawn until one
+    // has the ceiling of the kind this one is meant to be
+    const prospect = rng() < PROSPECT_SHARE;
+    let p: Player | null = null;
+    for (let tries = 0; tries < 400; tries++) {
+      // a spread, so an intake is not five identical kids
+      const c = makePlayer(pos, base + Math.round((rng() - 0.4) * 6), rng, undefined, new Set(used));
+      const pot = potentialOf(c);
+      p = c;
+      if (prospect ? pot >= level + PROSPECT_ABOVE : pot <= level + OTHERS_AT_MOST) break;
+    }
+    p!.age = 16 + Math.floor(rng() * 2);   // 16 or 17, so most get a year at the academy
+    used.add(p!.name);
+    out.push(p!);
   }
   return out;
 }
@@ -68,7 +115,11 @@ export function advanceYouth(
   /** kids the manager let train with the seniors: a bigger year for them */
   boosted: Set<string> = new Set(),
 ): Youth {
-  const players = youth.players.map(p => ({ ...p, attrs: { ...p.attrs } }));
+  // Anybody already eighteen when the summer starts was never decided on. The game
+  // stops on them every summer, so the only way here is a save or a test that walked
+  // past it, and a list that grew by a year of undecided men every summer would be
+  // worse than dropping them.
+  const players = youth.players.filter(p => p.age < 18).map(p => ({ ...p, attrs: { ...p.attrs } }));
   const graduated: string[] = [];
   const ready: string[] = [];
 
@@ -90,13 +141,18 @@ export function advanceYouth(
   }
 
   const staying = players.filter(p => p.age < 18);
-  for (const p of players) if (p.age >= 18) ready.push(p.name);
+  const grown = players.filter(p => p.age >= 18);
+  for (const p of grown) ready.push(p.name);
 
   // keep the academy stocked
   const room = Math.max(0, 5 - staying.length);
   const intake = room > 0 ? seedYouth(tier, rng, used, room) : [];
 
-  return { players: [...staying, ...intake], graduated, ready };
+  // the eighteen year olds STAY on the list: they used to be dropped here and kept
+  // only as a name in `ready` that no screen showed, so the kid who turned eighteen
+  // simply vanished and nobody could be given a senior deal. They leave the list
+  // when the manager signs them or lets them go.
+  return { players: [...staying, ...grown, ...intake], graduated, ready };
 }
 
 /**

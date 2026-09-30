@@ -25,6 +25,7 @@ import { SponsorScreen } from './screens/Sponsor.tsx';
 import { KitReveal } from './screens/KitReveal.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
 import { ScoutScreen } from './screens/Scout.tsx';
+import { YouthDecisionScreen } from './screens/YouthDecision.tsx';
 import { NoticeScreen } from './screens/Notice.tsx';
 import { UltimatumScreen } from './screens/Ultimatum.tsx';
 import { RescueScreen } from './screens/Rescue.tsx';
@@ -316,6 +317,13 @@ export function App() {
           onYouth={() => setGs(G.openYouth(gs))}
           onScout={() => setGs(G.openScout(gs))}
           onTable={() => setGs(G.openTable(gs))} />
+      )}
+      {gs.phase === 'youth-decision' && (
+        <YouthDecisionScreen gs={gs}
+          onSign={id => setGs(g => G.signGraduate(g, id))}
+          onRelease={id => setGs(g => G.releaseGraduate(g, id))}
+          onReleaseRest={() => setGs(g => G.releaseUnrecommended(g))}
+          onFinish={() => setGs(g => G.finishYouthDecision(g))} />
       )}
       {gs.phase === 'scout' && (
         <ScoutScreen gs={gs}
