@@ -1307,6 +1307,72 @@ export function vacantSlots(st: LiveState): number[] {
   return playerSide(st).sentOff.map(x => x.slot).sort((a, b) => a - b);
 }
 
+/* ----------------------------------------------------- a defender sent off */
+
+const DEFENDER_ROLES = new Set(['CB', 'LB', 'RB']);
+
+export interface RedCover {
+  /** the empty shirt, in the formation's own numbering */
+  slot: number;
+  role: 'CB' | 'LB' | 'RB';
+  /** defenders on the bench, the natural one for that shirt first, and only defenders */
+  defenders: SubSuggestion[];
+  /** who can come off for him, the one the team can best spare first */
+  forwards: Player[];
+}
+
+/**
+ * The offer after a defender is sent off: a defender from the bench in place
+ * of a forward, and he goes straight into the empty shirt.
+ *
+ * Nobody can be put INTO the shirt of a man who was sent off, the side is
+ * down to ten, but a manager who loses a centre back does not want a winger
+ * there. What he does in real life is take a forward off and send a defender
+ * on, which costs one of the three changes, and that is all this does in one
+ * tap instead of three. The list of who comes on is defenders only, the
+ * natural one for the shirt first; a forward sent off offers nothing, because
+ * a side that loses a striker plays on as it is.
+ */
+export function redCover(st: LiveState): RedCover | null {
+  if (!(st.phase === 'play' || st.phase === 'halftime') || !canSub(st)) return null;
+  const side = playerSide(st);
+  const fm = formation(side.tactic.formation ?? DEFAULT_FORMATION);
+  const gap = [...side.sentOff].sort((a, b) => a.slot - b.slot)
+    .find(x => DEFENDER_ROLES.has(fm.slots[x.slot]?.role ?? ''));
+  if (!gap) return null;
+  const role = fm.slots[gap.slot].role as 'CB' | 'LB' | 'RB';
+  const worth = (p: Player) => overall(p) + p.fitness * 0.3;
+
+  const defenders = side.bench
+    .filter(p => LINE_OF[p.position] === 'def')
+    .map(p => {
+      const exact = p.position === role;
+      return {
+        player: p, exact, score: (exact ? 6 : 0) + worth(p),
+        reason: exact ? `${p.position} טבעי, כושר ${Math.round(p.fitness)}` : `מכסה את ההגנה, כושר ${Math.round(p.fitness)}`,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ player, reason, exact }) => ({ player, reason, exact }));
+  const forwards = side.onPitch.filter(p => LINE_OF[p.position] === 'atk').sort((a, b) => worth(a) - worth(b));
+  if (!defenders.length || !forwards.length) return null;
+  return { slot: gap.slot, role, defenders, forwards };
+}
+
+/** The offer taken: the forward goes off, the defender comes on and stands in the empty shirt. One change used. */
+export function coverRed(st: LiveState, forwardId: string, defenderId: string): boolean {
+  const cover = redCover(st);
+  if (!cover) return false;
+  const side = playerSide(st);
+  const on = side.bench.find(p => p.id === defenderId);
+  if (!on || LINE_OF[on.position] !== 'def') return false;
+  if (!cover.forwards.some(p => p.id === forwardId)) return false;
+  if (subBlockedReason(st, forwardId, defenderId)) return false;
+  makeSub(st, forwardId, defenderId);
+  return fillVacancy(st, defenderId, cover.slot);
+}
+
 export function makeSub(st: LiveState, offId: string, onId: string) {
   if (subBlockedReason(st, offId, onId)) return;
   const side = playerSide(st);

@@ -401,6 +401,7 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
           onSub={(off, on) => { L.makeSub(st, off, on); force(); }}
           onSwap={(a, b) => { L.swapOnPitch(st, a, b); force(); }}
           onFill={(id, slot) => { L.fillVacancy(st, id, slot); force(); }}
+          onCover={(forwardId, defenderId) => { L.coverRed(st, forwardId, defenderId); force(); }}
           onClose={() => { setSubOpen(false); setSubFocus(null); setRedStop(null); }} />
       )}
 
@@ -710,8 +711,10 @@ function BenchBar({ st, onOpen, onQuickSub }: {
  * live fitness and the two tap substitution flow, so the action screen behind
  * it stays clean.
  */
-function SubSheet({ st, onSub, onSwap, onFill, onClose, focusId, benchKit, red }: {
+function SubSheet({ st, onSub, onSwap, onFill, onCover, onClose, focusId, benchKit, red }: {
   st: LiveState; onSub: (offId: string, onId: string) => void; onClose: () => void;
+  /** a defender from the bench for a forward, into the shirt a sent off defender left */
+  onCover: (forwardId: string, defenderId: string) => void;
   /** two of the eleven trading shirts, which costs nothing */
   onSwap: (aId: string, bId: string) => void;
   /** a man stepping into the shirt a sent off team mate left */
@@ -765,6 +768,8 @@ function SubSheet({ st, onSub, onSwap, onFill, onClose, focusId, benchKit, red }
             </div>
           )}
 
+          <RedCoverCard st={st} onCover={onCover} />
+
           {/* the bench itself, players sitting on it, before anything else */}
           <div className="bench-strip" role="list" aria-label="הספסל">
             {side.bench.length === 0
@@ -812,6 +817,63 @@ function SubSheet({ st, onSub, onSwap, onFill, onClose, focusId, benchKit, red }
         </div>
       </div>
     </Portal>
+  );
+}
+
+const COVER_ROLE: Record<string, string> = { CB: 'בלם', LB: 'מגן שמאלי', RB: 'מגן ימני' };
+
+/**
+ * After a defender is sent off: the defenders on the bench, in place of a
+ * forward, and one tap puts him in the empty shirt. Nothing shows for any
+ * other red card, a side that loses a striker plays on as it is.
+ */
+function RedCoverCard({ st, onCover }: { st: LiveState; onCover: (forwardId: string, defenderId: string) => void }) {
+  const [offId, setOffId] = useState<string | null>(null);
+  const cover = L.redCover(st);
+  if (!cover) return null;
+  const forward = cover.forwards.find(p => p.id === offId) ?? cover.forwards[0];
+  return (
+    <div className="stack" style={{
+      gap: 7, margin: '0 0 10px', padding: '11px 12px',
+      background: 'var(--bg)', border: '1px solid rgba(233,185,73,.32)',
+      borderRadius: 'var(--r-sm)', animation: 'riseIn var(--t-fast) var(--ease-out)',
+    }}>
+      {/* DRAFT WORDING, Itzik's to correct */}
+      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--gold)' }}>חסר לכם {COVER_ROLE[cover.role]}</div>
+      <div className="sub" style={{ fontSize: 12 }}>
+        אפשר להוריד חלוץ ולהכניס מגן מהספסל. הוא יעמוד בחולצה הפנויה, וזה חילוף אחד.
+      </div>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span className="sub" style={{ fontSize: 11.5 }}>יוצא</span>
+        {cover.forwards.map(p => (
+          <button key={p.id} className="chip" data-on={p.id === forward.id ? '1' : '0'}
+            style={{
+              border: 'none', cursor: 'pointer',
+              background: p.id === forward.id ? 'rgba(233,185,73,.22)' : 'rgba(255,255,255,.06)',
+              color: p.id === forward.id ? 'var(--gold-hi)' : 'var(--ink-dim)', fontWeight: 800,
+            }}
+            onClick={() => setOffId(p.id)}>
+            {p.name.split(' ').slice(-1)[0]} <span className="num" style={{ color: ovrColor(overall(p)) }}>{overall(p)}</span>
+          </button>
+        ))}
+      </div>
+      {cover.defenders.map(o => (
+        <button key={o.player.id} className="btn dark btn-sm"
+          style={{ justifyContent: 'space-between', minHeight: 50, padding: '9px 12px' }}
+          onClick={() => onCover(forward.id, o.player.id)}>
+          <span className="row" style={{ gap: 8 }}>
+            <span className="chip" style={{ background: o.exact ? 'rgba(47,169,107,.18)' : 'rgba(255,255,255,.06)', color: o.exact ? 'var(--win)' : 'var(--ink-dim)', minWidth: 34, justifyContent: 'center' }}>
+              {o.player.position}
+            </span>
+            <span style={{ textAlign: 'start' }}>
+              <span style={{ display: 'block', fontWeight: 800, fontSize: 13.5 }}>{o.player.name}</span>
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-faint)', fontWeight: 600 }}>{o.reason}</span>
+            </span>
+          </span>
+          <span className="score-face" style={{ fontSize: 20, color: ovrColor(overall(o.player)) }}>{overall(o.player)}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 

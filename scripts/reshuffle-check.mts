@@ -232,12 +232,107 @@ function seating(st: LiveState): Map<number, string> {
   console.log(`  a match played to the whistle after a reorganisation, final score ${st.score[0]}:${st.score[1]}`);
 }
 
+/* 8. A DEFENDER IS SENT OFF: DEFENDERS ARE OFFERED, IN PLACE OF A FORWARD, STRAIGHT INTO THE EMPTY SHIRT.
+   Asked for by a player: a centre back gets a red and the substitutions offered should be for THAT position,
+   and since nobody can be put into a sent off man's shirt, the offer is a defender for a forward. A forward
+   sent off offers nothing, a side that loses a striker plays on as it is. */
+{
+  const DEF = new Set(['CB', 'LB', 'RB']), ATK = new Set(['LW', 'RW', 'ST']), MID = new Set(['CDM', 'CM', 'CAM']);
+  /** a side with one man of this kind of shirt sent off, and a bench that holds what the test needs */
+  const reded = (seed: number, kind: Set<string>) => {
+    const st = live(seed);
+    const s = me(st);
+    const fm = formation(s.tactic.formation ?? '4-4-2');
+    const k = s.onPitch.findIndex((p, i) => p.position !== 'GK' && kind.has(fm.slots[L.seatOf(s, i)]?.role));
+    const sent = s.onPitch[k], slot = L.seatOf(s, k);
+    s.sentOff.push({ player: sent, slot, minute: 54 });
+    s.onPitch.splice(k, 1);
+    return { st, s, slot, sent };
+  };
+  const benchDefs = (s: ReturnType<typeof me>) => s.bench.filter(p => DEF.has(p.position));
+
+  let tested = 0, exactOk = 0;
+  for (let seed = 500; seed < 540; seed++) {
+    const { st, s, slot } = reded(seed, DEF);
+    if (!benchDefs(s).length) continue;
+    tested++;
+    const c = L.redCover(st);
+    checked += 10;
+    if (!c) { fails.push(`seed ${seed}: a defender was sent off, a defender is on the bench and nothing is offered`); continue; }
+    if (c.slot !== slot) fails.push(`seed ${seed}: the offer is for shirt ${c.slot}, the empty one is ${slot}`);
+    if (c.defenders.some(o => !DEF.has(o.player.position))) fails.push(`seed ${seed}: a man who is not a defender is offered for a defender's shirt`);
+    if (c.defenders.some(o => !s.bench.includes(o.player))) fails.push(`seed ${seed}: somebody who is not on the bench is offered`);
+    if (c.forwards.some(p => !ATK.has(p.position))) fails.push(`seed ${seed}: a man who is not a forward is offered to come off`);
+    if (c.defenders.some(o => o.exact !== (o.player.position === c.role))) fails.push(`seed ${seed}: a defender is labelled natural for a shirt that is not his`); else exactOk++;
+
+    const fwd = c.forwards[0], def = c.defenders[0].player;
+    const before = seating(st), subs = st.subsUsed, fwdSlot = [...before].find(([, id]) => id === fwd.id)![0];
+    if (!L.coverRed(st, fwd.id, def.id)) { fails.push(`seed ${seed}: the offer could not be taken`); continue; }
+    const after = seating(st);
+    if (st.subsUsed !== subs + 1) fails.push(`seed ${seed}: taking the offer used ${st.subsUsed - subs} changes, it is one`);
+    if (s.onPitch.length !== 10) fails.push(`seed ${seed}: ${s.onPitch.length} men on the pitch after the change, the side is still down to ten`);
+    if (after.get(slot) !== def.id) fails.push(`seed ${seed}: the defender is not standing in the shirt that was left empty`);
+    if (after.has(fwdSlot)) fails.push(`seed ${seed}: the forward's shirt is not the one that stands empty now`);
+    if (!L.vacantSlots(st).includes(fwdSlot) || L.vacantSlots(st).includes(slot)) fails.push(`seed ${seed}: the empty shirt did not move from the defender's to the forward's`);
+    let moved = 0;
+    for (const [sl, id] of before) if (sl !== fwdSlot && sl !== slot && after.get(sl) !== id) moved++;
+    if (moved) fails.push(`seed ${seed}: ${moved} other men changed shirts`);
+    if (s.bench.some(p => p.id === def.id) || !s.bench.some(p => p.id === fwd.id)) fails.push(`seed ${seed}: the bench did not swap the two`);
+  }
+  checked += 2;
+  if (tested < 25) fails.push(`only ${tested} of 40 matches had a defender on the bench, the section proves too little`);
+  if (exactOk !== tested) fails.push('the natural label was wrong somewhere');
+  console.log(`  a defender sent off: ${tested} matches, defenders only, for a forward, into the empty shirt, one change`);
+
+  // nothing is offered for a forward or a midfielder who is sent off
+  checked += 2;
+  for (const [name, kind] of [['forward', ATK], ['midfielder', MID]] as const) {
+    const { st } = reded(510, kind);
+    if (L.redCover(st)) fails.push(`a ${name} was sent off and a defender is offered`);
+  }
+
+  // no change left, nothing offered and nothing done
+  {
+    const { st, s } = reded(510, DEF);
+    st.subsUsed = L.MAX_SUBS;
+    const fwd = s.onPitch.find(p => ATK.has(p.position))!, def = benchDefs(s)[0];
+    checked += 3;
+    if (L.redCover(st)) fails.push('all changes are used and a change is still offered');
+    if (def && L.coverRed(st, fwd.id, def.id)) fails.push('all changes are used and the cover went through');
+    if (s.onPitch.length !== 10) fails.push('the refused cover still changed the side');
+  }
+
+  // only a defender may come on, only a forward may go off
+  {
+    const { st, s } = reded(510, DEF);
+    const fwd = s.onPitch.find(p => ATK.has(p.position))!;
+    const midOff = s.onPitch.find(p => MID.has(p.position))!;
+    const nonDef = s.bench.find(p => !DEF.has(p.position) && p.position !== 'GK')!;
+    const def = benchDefs(s)[0];
+    checked += 3;
+    if (nonDef && L.coverRed(st, fwd.id, nonDef.id)) fails.push('a man who is not a defender was put in for a forward as cover');
+    if (def && L.coverRed(st, midOff.id, def.id)) fails.push('a midfielder was taken off as cover, only a forward can be');
+    if (st.subsUsed !== 0) fails.push(`refused covers used ${st.subsUsed} changes`);
+  }
+
+  // a bench with no defender on it offers nothing
+  {
+    const { st, s } = reded(510, DEF);
+    s.bench = s.bench.filter(p => !DEF.has(p.position));
+    checked++;
+    if (L.redCover(st)) fails.push('a bench with no defender on it still offers one');
+  }
+}
+
 /* the screen has to offer it, or none of the above is reachable */
 {
   const m = readFileSync('src/ui/screens/Match.tsx', 'utf8');
   checked += 2;
   if (!m.includes('L.swapOnPitch')) fails.push('the match screen never lets two men trade shirts');
   if (!m.includes('L.fillVacancy')) fails.push('the match screen never lets a man take an empty shirt');
+  checked += 2;
+  if (!m.includes('L.coverRed(st, forwardId, defenderId)')) fails.push('the match screen never takes the cover offered after a defender is sent off');
+  if (!m.includes('<RedCoverCard st={st} onCover={onCover} />')) fails.push('the sheet opened by a red card does not show the cover');
 }
 
 console.log(`${checked} checks`);
