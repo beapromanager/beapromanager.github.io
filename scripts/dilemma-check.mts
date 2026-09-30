@@ -502,6 +502,59 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   console.log(`  terrace: the boycott answers move the fans meter ${before} -> ${gave.meters.fans} / ${stood.meters.fans}`);
 }
 
+/* PROMOTE: "do you promote him?" and the answer that says he is in the squad.
+   With the squad at its maximum the answer said "he is in the squad from now on"
+   and left him in the academy, which a manager found by looking. It is not asked
+   when there is no place for him; and if the squad fills while the question sits
+   in the inbox, the answer says what happened instead of what was hoped. */
+{
+  const MAX = 20;   // the most men a squad may hold: the number the rule was agreed at, not read off the code
+  const grow = (gs: G.GameState, to: number) => {
+    let g = gs;
+    for (let i = 0; g && G.squadSize(g) < to && i < 12; i++) {
+      const sq = G.mySquad(g);
+      const extra = { ...sq.bench.find(p => p.position !== 'GK')!, id: `fill-${i}`, name: `נוסף ${i}` };
+      g = { ...g, league: { ...g.league, squads: { ...g.league.squads, [g.clubId]: { starters: sq.starters, bench: [...sq.bench, extra] } } } };
+    }
+    return g;
+  };
+  const inSquad = (gs: G.GameState, name: string) => [...G.mySquad(gs).starters, ...G.mySquad(gs).bench].some(p => p.name === name);
+
+  const roomy = grow(career(41), MAX - 1);
+  checked += 2;
+  if (G.squadSize(roomy) !== MAX - 1) fails.push(`the fixture squad has ${G.squadSize(roomy)}, not ${MAX - 1}`);
+  const rolled = G.rollNamedDilemma(roomy, 'youth_talent', 1);
+  if (!rolled) fails.push('the youth talent question is not asked with room for one more');
+  else {
+    const name = roomy.youth.players.slice().sort((a, b) => overall(b) - overall(a))[0].name;
+    checked += 5;
+    if (!rolled.text.includes(name)) fails.push(`the question does not name the best kid at the academy, ${name}: ${rolled.text}`);
+    const yes = G.chooseDilemma({ ...roomy, phase: 'dilemma', dilemma: rolled }, 0);
+    if (!inSquad(yes, name)) fails.push('answering yes did not put the kid in the squad');
+    if (yes.youth.players.some(p => p.name === name)) fails.push('answering yes left the kid in the academy as well');
+    if (G.squadSize(yes) !== MAX) fails.push(`the squad is ${G.squadSize(yes)} after the promotion, not ${MAX}`);
+    const kid = [...G.mySquad(yes).starters, ...G.mySquad(yes).bench].find(p => p.name === name);
+    if (!kid || yes.contracts[kid.id] !== 3) fails.push('the promoted kid has no three year deal');
+
+    // the message sat in the inbox and the squad filled up before it was answered
+    const filled = grow(roomy, MAX);
+    checked += 4;
+    const late = G.chooseDilemma({ ...filled, phase: 'dilemma', dilemma: rolled }, 0);
+    if (inSquad(late, name)) fails.push('a full squad took the kid anyway');
+    if (!late.youth.players.some(p => p.name === name)) fails.push('a full squad lost the kid from the academy');
+    if (G.squadSize(late) !== MAX) fails.push(`a full squad changed size to ${G.squadSize(late)}`);
+    if (late.pendingOutcome?.includes('בסגל מעכשיו')) fails.push(`the answer still says he is in the squad: "${late.pendingOutcome}"`);
+    if (!late.pendingOutcome?.includes('הסגל')) fails.push(`the answer did not say why: "${late.pendingOutcome}"`);
+  }
+
+  // and with the squad already full it is simply not asked
+  const full = grow(career(41), MAX);
+  checked += 2;
+  if (G.squadSize(full) !== MAX) fails.push(`the full fixture squad has ${G.squadSize(full)}, not ${MAX}`);
+  if (G.rollNamedDilemma(full, 'youth_talent', 1)) fails.push('the youth talent question is asked with a full squad, so the answer can only be a lie');
+  console.log('  promote: the kid comes up when there is room, is not offered when there is none, and the answer never claims what did not happen');
+}
+
 console.log('');
 if (fails.length) {
   console.log(`FAIL (${fails.length} of ${checked})`);

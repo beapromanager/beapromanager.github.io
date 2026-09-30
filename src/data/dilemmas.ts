@@ -111,6 +111,8 @@ export interface Ctx {
   kids3: string;
   /** how many men the squad holds, so a sale is only asked for when one can be spared */
   squadSize: number;
+  /** how many more men the squad can take before it is full */
+  room: number;
   /** where you actually are */
   pos: number;
   teams: number;
@@ -443,7 +445,9 @@ export const TEMPLATES: DilemmaTemplate[] = [
     id: 'youth_talent',
     speaker: 'youth',
     subject: 'academy',
-    when: c => !!c.academy,
+    // asked only when there is a place for him: answering yes to "do you promote
+    // him" with a full squad told the manager he was in and left him in the academy
+    when: c => !!c.academy && c.room > 0,
     slots: {
       note: ['הוא הכי טוב שראיתי פה בעשר שנים', 'סקאוט מקבוצה גדולה בא לראות אותו בשבוע שעבר', 'הוא כובש כל שבוע בנוער ומשעמם לו'],
     },

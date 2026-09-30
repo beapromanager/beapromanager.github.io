@@ -3184,6 +3184,7 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
       ? gs.youth.players.slice(0, 3).map(p => surname(p.name)).reduce((s, n, i, a) => i === 0 ? n : i === a.length - 1 ? `${s} ו${n}` : `${s}, ${n}`, '')
       : '',
     squadSize: squadSize(gs),
+    room: Math.max(0, MAX_SQUAD - squadSize(gs)),
     pos, teams: gs.league.clubs.length,
     week: gs.week,
     isDerby: isDerby(gs.clubId, rivalId),
@@ -3406,7 +3407,10 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
       }
       case 'promote': {
         const kid = [...gs.youth.players].sort((a, b) => overall(b) - overall(a))[0];
-        if (!kid || squadSize(gs) >= MAX_SQUAD) break;
+        if (!kid) break;
+        // a message can sit in the inbox while the squad fills up, and the answer must
+        // not claim what did not happen: the promise is replaced, not corrected after
+        if (squadSize(gs) >= MAX_SQUAD) { note += '|noRoom'; break; }
         const sq = mySquad(gs);
         gs = {
           ...writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, kid] }),
@@ -3442,7 +3446,11 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
 }
 
 /** The outcome text, with anything only the acts could know filled in. */
+/** DRAFT WORDING, Itzik's to correct: what the answer says when the squad filled up before it was given. */
+const NO_ROOM_OUTCOME = 'הסגל התמלא בינתיים, אז הוא נשאר בנוער עד שיתפנה מקום.';
+
 function finishOutcome(outcome: string, note: string): string {
+  if (note.includes('|noRoom')) return NO_ROOM_OUTCOME;
   const m = note.match(/\|buyerClub=([^|]+)$/);
   const clean = note.replace(/\|buyerClub=[^|]+$/, '');
   return outcome.replace('{buyerClub}', m?.[1] ?? 'קבוצה אחרת') + clean;
