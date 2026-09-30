@@ -13,6 +13,7 @@ import * as G from '../src/game/state.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { debtState, debtLimit } from '../src/game/finance.ts';
+import { LEAGUE_NAMES } from '../src/data/clubs.ts';
 
 const bad: string[] = [];
 const ok: string[] = [];
@@ -91,8 +92,14 @@ function career(startMoney: number, reckless = false, seasons = 1, tier = 1) {
 const doomed = career(0, true, 4, 3);
 check('promoted, broke, and unable to carry it: sacked', !!doomed.gs.sacking,
   doomed.gs.sacking ? `after ${doomed.rounds} rounds` : `survived, money ${doomed.gs.meters.money}`);
+// Six reckless seasons from the bottom. The claim is about the BOTTOM division: a
+// club that has climbed out of it and is then sacked in ליגה א׳ has not been sacked
+// in ליגה ג׳, and whether it climbs in season four or five is a matter of how the
+// league happens to fall, which any change to how the other clubs play will move.
+// This used to be "was not sacked at all", and failed the day one shape got better.
+const bottom = career(0, true, 6, 1).gs.sacking;
 check('ליגה ג׳ cannot sack you, there is not enough money to lose',
-  !career(0, true, 6, 1).gs.sacking);
+  !bottom || bottom.league !== LEAGUE_NAMES[1], bottom ? `sacked in ${bottom.league}` : 'never sacked');
 check('the sack sends you to the letter', doomed.gs.phase === 'sacked', `phase ${doomed.gs.phase}`);
 if (doomed.gs.sacking) {
   const s = doomed.gs.sacking;

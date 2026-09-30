@@ -134,7 +134,10 @@ const shop = BRANDS.find(b => b.id === 'ultraskit')!;
   const laundryAgain = offers.find(o => o.brand === 'blacksheep')!;
   checked += 3;
   if (Math.abs(shopBack.raise - 0.2) > 1e-9 || shopBack.raiseWhy !== 'comeback') fails.push(`in season 2 the shop's raise is ${shopBack.raise}/${shopBack.raiseWhy}, expected 0.2/comeback`);
-  if (Math.abs(shopBack.perRound / shopBack.plainPerRound - 1.2) > 0.03) fails.push(`the shop's price ${shopBack.perRound} is not twenty percent over ${shopBack.plainPerRound}`);
+  // both prices are rounded to the hundred, so the ratio is only good to a hundred a round:
+  // 2600 over 2100 is a fair twenty percent when the unrounded price was 2145. Asking
+  // for 3 per cent on a price of two thousand was asking for less than the rounding.
+  if (Math.abs(shopBack.perRound - 1.2 * shopBack.plainPerRound) > 110) fails.push(`the shop's price ${shopBack.perRound} is not twenty percent over ${shopBack.plainPerRound}`);
   if (laundryAgain.raise !== 0) fails.push('the laundry raised its own price after one season');
 
   // switch to the shop: the run restarts, and next summer the laundry comes back
