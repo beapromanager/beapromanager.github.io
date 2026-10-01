@@ -4777,6 +4777,12 @@ function seasonChronicle(gs: GameState, r: SeasonReport, clubShort: string): Chr
   return [];
 }
 
+/** The season is over and this club finished first. */
+export function wonTheLeague(gs: GameState): boolean {
+  if (gs.phase !== 'season-end') return false;
+  return sortedTable(gs.league)[0]?.clubId === gs.clubId;
+}
+
 /** Is the club already at the top of the Israeli ladder. */
 export function atTopTier(gs: GameState): boolean {
   return club(gs).tier >= TOP_TIER;

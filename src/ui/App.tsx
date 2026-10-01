@@ -43,7 +43,7 @@ import { setInviteHandler, setInstallHandler, setReportHandler } from './compone
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, STEP_ORDER } from '../game/telemetry.ts';
 import { AdminScreen } from './screens/Admin.tsx';
 import type { Stats as AdminStats } from './screens/Admin.tsx';
 import { TELEMETRY_URL } from '../data/telemetry.ts';
@@ -207,6 +207,19 @@ export function App() {
     const step = stepFor(gs);
     if (step) track(step);
   }, [booted, adminKey, gs.phase, gs.season, gs.week]);
+
+  // Where careers get to: which division, in which season, and who wins one. Counted from the moment a manager is
+  // out in the league, so picking a colour is not an arrival. A career that is carried on from a save reports where
+  // it stands the next time it is opened. Numbers only, see game/telemetry.ts.
+  useEffect(() => {
+    if (!booted || adminKey || !gs.clubId) return;
+    const at = stepFor(gs);
+    if (at && STEP_ORDER[at] >= STEP_ORDER.season) reached(G.club(gs).tier, gs.season);
+  }, [booted, adminKey, gs.clubId, gs.phase, gs.season, gs.clubId && G.club(gs).tier]);
+  useEffect(() => {
+    if (!booted || adminKey || !gs.clubId) return;
+    if (G.wonTheLeague(gs)) wonLeague(G.club(gs).tier);
+  }, [booted, adminKey, gs.phase, gs.clubId]);
 
   function startNew() {
     track('career_new');

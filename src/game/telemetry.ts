@@ -68,13 +68,49 @@ const QUEUE_KEY = 'beapro.tq';
 /** beyond this the oldest go, see the note at the top */
 export const QUEUE_CAP = 60;
 
+/**
+ * Where careers GET TO, which the funnel above cannot say. It stops at "came back for a second season", and a
+ * manager who has won two divisions and one who has just survived a season look the same there.
+ *
+ * Two kinds, both made from numbers and nothing else:
+ *   t3s5   a career was in the third division, in its fifth season
+ *   w5     a career won the top division
+ *
+ * They are not steps. A step implies the ones before it, and a division does not: a career can be sacked back down,
+ * and reaching the top does not mean having sat in every season on the way. So they are never backfilled, each is
+ * reported when it happens, and the server keeps one of each per device like every other step.
+ */
+export type Milestone = `t${number}s${number}` | `w${number}`;
+/** a career older than this is counted in its twentieth season, "twenty or more" */
+export const MAX_SEASON = 20;
+/** the only shapes the game sends and the worker keeps. The worker holds the same pattern, telemetry-check compares them */
+export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5])$/;
+
+export function isMilestone(k: unknown): k is Milestone {
+  return typeof k === 'string' && MILESTONE.test(k);
+}
+
+/** "in this division, in this season", or null for anything that is not one */
+export function reachKey(tier: number, season: number): Milestone | null {
+  if (!Number.isFinite(tier) || !Number.isFinite(season)) return null;
+  const t = Math.round(tier), s = Math.min(MAX_SEASON, Math.round(season));
+  return t >= 1 && t <= 5 && s >= 1 ? `t${t}s${s}` : null;
+}
+
+/** "won this division" */
+export function titleKey(tier: number): Milestone | null {
+  if (!Number.isFinite(tier)) return null;
+  const t = Math.round(tier);
+  return t >= 1 && t <= 5 ? `w${t}` : null;
+}
+
 export type Event = {
   /** anonymous device id */
   a: string;
   /** this sitting */
   s: string;
-  /** the step reached, or 'crash' */
-  k: Step | 'crash';
+  /** the step reached, a milestone, or 'crash' */
+  k: Step | Milestone | 'crash';
   /** when, ms since epoch, from the device clock */
   t: number;
   /** a crash only: the step he had got to when it broke */
@@ -230,7 +266,7 @@ function isEvent(e: unknown): e is Event {
   const x = e as Event;
   return !!x && typeof x.a === 'string' && typeof x.s === 'string'
     && typeof x.t === 'number' && typeof x.k === 'string'
-    && (x.k === 'crash' || x.k in STEP_ORDER);
+    && (x.k === 'crash' || x.k in STEP_ORDER || isMilestone(x.k));
 }
 
 /** The queue with one more on the end, oldest dropped past the cap. */
@@ -259,6 +295,31 @@ export function track(step: Step): void {
     queue = enqueued(queue, { a, s: sessionId, k: s, t });
   }
   write(QUEUE_KEY, JSON.stringify(queue));
+  void flush();
+}
+
+/** which milestones this sitting has already said. In memory only, for the same reason as sentThisSitting */
+const milestonesThisSitting = new Set<string>();
+
+/**
+ * Note that a career got somewhere: this division in this season. Reported when a career is out in the league, so a
+ * manager who is still picking a colour is not counted as having reached anything.
+ */
+export function reached(tier: number, season: number): void {
+  const k = reachKey(tier, season);
+  if (k) trackMilestone(k);
+}
+
+/** Note that a career won a division. */
+export function wonLeague(tier: number): void {
+  const k = titleKey(tier);
+  if (k) trackMilestone(k);
+}
+
+function trackMilestone(k: Milestone): void {
+  if (!endpoint() || milestonesThisSitting.has(k)) return;
+  milestonesThisSitting.add(k);
+  write(QUEUE_KEY, JSON.stringify(enqueued(readQueue(), { a: deviceId(), s: sessionId, k, t: Date.now() })));
   void flush();
 }
 

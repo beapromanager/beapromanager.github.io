@@ -55,6 +55,30 @@ const STEPS = [
 type Step = typeof STEPS[number];
 const KNOWN = new Set<string>(STEPS);
 
+/**
+ * Where careers get to, which are not steps: `t3s5` is a career in the third division in its fifth season, `w5` a
+ * career that won the top division. The same pattern as MILESTONE in src/game/telemetry.ts, and telemetry-check
+ * compares the two, because a copy nobody compares is a copy that drifts.
+ */
+const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5])$/;
+
+/**
+ * What the dashboard asks of the milestones. Plain SQL over the same table as the funnel, one row per device per
+ * milestone, so a person counts once however often the game reports it. Exported so a check can run them.
+ */
+export const REACH_SQL = {
+  /** how many people were in each division in each season */
+  grid: "SELECT CAST(substr(step, 2, 1) AS INTEGER) AS tier, CAST(substr(step, 4) AS INTEGER) AS season, COUNT(*) AS n FROM steps WHERE step GLOB 't[1-5]s*' GROUP BY tier, season ORDER BY tier, season",
+  /** people who have ever been in each division */
+  ever: "SELECT CAST(substr(step, 2, 1) AS INTEGER) AS tier, COUNT(DISTINCT aid) AS n FROM steps WHERE step GLOB 't[1-5]s*' GROUP BY tier ORDER BY tier",
+  /** the highest division each person has reached, counted by division */
+  best: "SELECT t AS tier, COUNT(*) AS n FROM (SELECT aid, MAX(CAST(substr(step, 2, 1) AS INTEGER)) AS t FROM steps WHERE step GLOB 't[1-5]s*' GROUP BY aid) GROUP BY t ORDER BY t",
+  /** the furthest season each person has reached, counted by season */
+  seasons: "SELECT s AS season, COUNT(*) AS n FROM (SELECT aid, MAX(CAST(substr(step, 4) AS INTEGER)) AS s FROM steps WHERE step GLOB 't[1-5]s*' GROUP BY aid) GROUP BY s ORDER BY s",
+  /** people who have won each division */
+  titles: "SELECT CAST(substr(step, 2, 1) AS INTEGER) AS tier, COUNT(*) AS n FROM steps WHERE step GLOB 'w[1-5]' GROUP BY tier ORDER BY tier",
+};
+
 /** the error kinds the game may report; anything else is dropped */
 const ERROR_NAMES = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'other']);
 
@@ -92,18 +116,18 @@ type Incoming = { a?: unknown; s?: unknown; k?: unknown; t?: unknown; w?: unknow
  * happened on, and the class of error. Neither can be free text, which is
  * what keeps a name a player typed from ever having a way in here.
  */
-function clean(e: Incoming, now: number): { aid: string; sid: string; step: Step | 'crash'; ts: number; where: string; err: string } | null {
+function clean(e: Incoming, now: number): { aid: string; sid: string; step: string; ts: number; where: string; err: string } | null {
   const aid = typeof e.a === 'string' ? e.a.slice(0, MAX_ID) : '';
   const sid = typeof e.s === 'string' ? e.s.slice(0, MAX_ID) : '';
   const step = typeof e.k === 'string' ? e.k : '';
-  if (!aid || !sid || !(KNOWN.has(step) || step === 'crash')) return null;
+  if (!aid || !sid || !(KNOWN.has(step) || MILESTONE.test(step) || step === 'crash')) return null;
   const where = typeof e.w === 'string' && (KNOWN.has(e.w) || e.w === 'none') ? e.w : 'none';
   const err = typeof e.n === 'string' && ERROR_NAMES.has(e.n) ? e.n : 'other';
   // a device clock can be anything at all, so it is only trusted to be a
   // number and never to be right: far future or far past lands on arrival
   const raw = typeof e.t === 'number' && Number.isFinite(e.t) ? e.t : now;
   const ts = Math.abs(raw - now) > 1000 * 60 * 60 * 24 * 30 ? now : Math.round(raw);
-  return { aid, sid, step: step as Step | 'crash', ts, where, err };
+  return { aid, sid, step, ts, where, err };
 }
 
 export default {
@@ -149,7 +173,7 @@ export default {
       const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days') ?? 30)));
       const since = today(Date.now() - days * 86400000);
 
-      const [funnel, totals, daily, returning, crashes] = await Promise.all([
+      const [funnel, totals, daily, returning, crashes, grid, ever, best, seasons, titles] = await Promise.all([
         env.DB.prepare('SELECT step, COUNT(*) AS n FROM steps GROUP BY step').all(),
         env.DB.prepare(
           'SELECT (SELECT COUNT(DISTINCT aid) FROM sessions) AS people,' +
@@ -170,6 +194,11 @@ export default {
           'SELECT where_step AS step, err, COUNT(*) AS n, COUNT(DISTINCT aid) AS people' +
           ' FROM crashes GROUP BY where_step, err ORDER BY n DESC LIMIT 12'
         ).all(),
+        env.DB.prepare(REACH_SQL.grid).all(),
+        env.DB.prepare(REACH_SQL.ever).all(),
+        env.DB.prepare(REACH_SQL.best).all(),
+        env.DB.prepare(REACH_SQL.seasons).all(),
+        env.DB.prepare(REACH_SQL.titles).all(),
       ]);
 
       const counts: Record<string, number> = {};
@@ -184,6 +213,8 @@ export default {
         returned: (returning.results[0] as { n: number })?.n ?? 0,
         daily: daily.results,
         crashes: crashes.results,
+        // where careers get to, from the milestones: empty until the game that reports them is out
+        reach: { grid: grid.results, ever: ever.results, best: best.results, seasons: seasons.results, titles: titles.results },
       }, 200, origin);
     }
 

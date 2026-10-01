@@ -90,6 +90,48 @@ export function AdminScreen({ stats: data }: { stats: Stats }) {
         </>
       )}
 
+      {/* The funnel stops at a second season. This is where the careers that kept going got to, which is what says how
+          much there is to build past the top: DRAFT WORDING, Itzik's to correct. */}
+      {data.reach && (
+        <>
+          <div className="label-cap">לאן מגיעים</div>
+          <div className="tile" style={{ padding: '11px 12px' }}>
+            {[1, 2, 3, 4, 5].map(t => {
+              const ever = data.reach!.ever.find(x => x.tier === t)?.n ?? 0;
+              const best = data.reach!.best.find(x => x.tier === t)?.n ?? 0;
+              const won = data.reach!.titles.find(x => x.tier === t)?.n ?? 0;
+              return (
+                <div key={t} className="row" style={{ justifyContent: 'space-between', padding: '5px 0', borderTop: t > 1 ? '1px solid var(--line)' : undefined }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{TIER_NAME[t]}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+                    <span className="num">{ever}</span> היו שם
+                    <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                    <span className="num">{best}</span> עצרו שם
+                    <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                    <span className="num" style={{ color: won ? 'var(--gold-hi)' : undefined }}>{won}</span> לקחו אליפות
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="label-cap">באיזו עונה עצרו (המקסימום שכל אחד הגיע אליו)</div>
+          <div className="tile" style={{ padding: '11px 12px' }}>
+            {data.reach.seasons.length === 0
+              ? <div className="sub" style={{ fontSize: 13 }}>עוד אין נתונים. הם נספרים מהרגע שהמדידה עלתה.</div>
+              : <div className="row" style={{ gap: 7, flexWrap: 'wrap' }}>
+                {data.reach.seasons.map(s => (
+                  <span key={s.season} className="chip" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--ink-dim)' }}>
+                    עונה <span className="num">{s.season === 20 ? '20+' : s.season}</span>: <span className="num" style={{ fontWeight: 800 }}>{s.n}</span>
+                  </span>
+                ))}
+              </div>}
+          </div>
+          <p className="hint">
+            נספר מרגע שהמדידה עלתה, ומי שממשיך קריירה ישנה נספר בפעם הבאה שהוא פותח את המשחק.
+          </p>
+        </>
+      )}
+
       <div className="label-cap">לפי יום</div>
       <div className="tile" style={{ padding: '11px 12px' }}>
         {data.daily.length === 0
@@ -130,7 +172,17 @@ export type Stats = {
   daily: { day: string; people: number; sittings: number }[];
   /** where the game broke, and on how many separate phones */
   crashes?: { step: string; err: string; n: number; people: number }[];
+  /** where careers get to, absent from a worker that does not report it yet */
+  reach?: {
+    grid: { tier: number; season: number; n: number }[];
+    ever: { tier: number; n: number }[];
+    best: { tier: number; n: number }[];
+    seasons: { season: number; n: number }[];
+    titles: { tier: number; n: number }[];
+  };
 };
+
+const TIER_NAME: Record<number, string> = { 1: 'ליגה ג׳', 2: 'ליגה ב׳', 3: 'ליגה א׳', 4: 'הליגה הלאומית', 5: 'ליגת העל' };
 
 /** the steps in words, so the chart reads without the code beside it */
 const LABEL: Record<string, string> = {

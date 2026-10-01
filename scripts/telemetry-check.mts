@@ -382,6 +382,151 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   console.log(`  the link carries a card: ${Math.round(size / 1024)}KB, absolute, with a title and words`);
 }
 
+/* 3g. WHERE CAREERS GET TO.
+      The funnel stops at a second season, so a manager who has won two divisions and one who has just survived a
+      year look the same on it. Two kinds of milestone say more: a division in a season (t3s5) and a title (w5).
+      They are numbers and nothing else, they are not steps (no backfill: a career can be sacked back down), and
+      the worker keeps one of each per device. */
+{
+  checked += 13;
+  // the keys, in the shapes agreed
+  if (T.reachKey(3, 5) !== 't3s5') fails.push(`the third division in the fifth season is "${T.reachKey(3, 5)}", expected t3s5`);
+  if (T.reachKey(5, 25) !== 't5s20') fails.push(`a twenty fifth season is "${T.reachKey(5, 25)}", expected t5s20, twenty or more`);
+  if (T.titleKey(5) !== 'w5') fails.push(`winning the top division is "${T.titleKey(5)}", expected w5`);
+  for (const [t, sn] of [[0, 1], [6, 1], [3, 0], [3, -2], [NaN, 1], [3, NaN], [Infinity, 2]] as [number, number][]) {
+    if (T.reachKey(t, sn) !== null) fails.push(`reachKey(${t}, ${sn}) is "${T.reachKey(t, sn)}", it is not a division in a season`);
+  }
+  if (T.titleKey(0) !== null || T.titleKey(6) !== null) fails.push('a title in a division that does not exist is reported');
+  // every real one is accepted, and the near misses are not
+  let valid = 0;
+  for (let t = 1; t <= 5; t++) for (let sn = 1; sn <= 20; sn++) if (T.isMilestone(T.reachKey(t, sn))) valid++;
+  if (valid !== 100) fails.push(`${valid} of the 100 division and season keys pass the pattern`);
+  for (const bad of ['t6s1', 't0s1', 't3s21', 't3s0', 't3s05', 'w0', 'w6', 't3', 's5', 'title', 'season', 'round_1', 't3s5 ', 'x t3s5', '']) {
+    if (T.isMilestone(bad)) fails.push(`"${bad}" passes as a milestone`);
+  }
+  if (T.STEP_ORDER['t3s5' as never] !== undefined) fails.push('a milestone is in the step order, which would backfill it');
+
+  // the worker holds the same pattern, and runs the same questions over real rows
+  const wsrc = readFileSync('worker/src/index.ts', 'utf8');
+  const theirs = /const MILESTONE = (\/.+\/);/.exec(wsrc)?.[1] ?? '';
+  if (theirs !== String(T.MILESTONE)) fails.push(`the worker's pattern is ${theirs} and the game's is ${T.MILESTONE}`);
+
+  const worker = (await import('../worker/src/index.ts')) as {
+    default: { fetch: (r: Request, e: unknown) => Promise<Response> };
+    REACH_SQL: Record<'grid' | 'ever' | 'best' | 'seasons' | 'titles', string>;
+  };
+  const { DatabaseSync } = await import('node:sqlite');
+  const db = new DatabaseSync(':memory:');
+  db.exec('CREATE TABLE steps (aid TEXT NOT NULL, step TEXT NOT NULL, ts INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (aid, step))');
+  const put = (aid: string, ...steps: string[]) => { for (const st of steps) db.prepare('INSERT INTO steps VALUES (?, ?, 0, ?)').run(aid, st, '2026-10-01'); };
+  put('A', 'open', 'title', 'season', 'round_1', 'season_2', 't1s1', 't1s2', 't2s3', 't3s4', 'w1', 'w2');
+  put('B', 'open', 'season_2', 't1s1', 't1s2');
+  put('C', 'open', 't1s1', 't2s2', 't3s3', 't4s4', 't5s5', 'w5');
+  put('D', 'open', 't3s2', 't3s12');
+  const q = (sql: string) => db.prepare(sql).all() as Record<string, number>[];
+  const flat = (rows: Record<string, number>[], ...keys: string[]) => rows.map(r => keys.map(k => r[k]).join(':')).join(' ');
+  const R = worker.REACH_SQL;
+  const grid = flat(q(R.grid), 'tier', 'season', 'n');
+  if (grid !== '1:1:3 1:2:2 2:2:1 2:3:1 3:2:1 3:3:1 3:4:1 3:12:1 4:4:1 5:5:1') fails.push(`who was where, by division and season: ${grid}`);
+  const ever = flat(q(R.ever), 'tier', 'n');
+  if (ever !== '1:3 2:2 3:3 4:1 5:1') fails.push(`who has ever been in each division: ${ever}`);
+  const best = flat(q(R.best), 'tier', 'n');
+  if (best !== '1:1 3:2 5:1') fails.push(`the highest division each person reached: ${best}`);
+  // twelve is bigger than four, which a text sort would not say
+  const seasons = flat(q(R.seasons), 'season', 'n');
+  if (seasons !== '2:1 4:1 5:1 12:1') fails.push(`the furthest season each person reached: ${seasons}`);
+  const titles = flat(q(R.titles), 'tier', 'n');
+  if (titles !== '1:1 2:1 5:1') fails.push(`who has won each division: ${titles}`);
+
+  // and the door lets the milestones in, and nothing that only looks like one
+  const written: unknown[][] = [];
+  const env = {
+    ADMIN_KEY: 'k',
+    DB: { prepare: (sql: string) => ({ bind: (...v: unknown[]) => ({ sql, v }) }), batch: async (stmts: { sql: string; v: unknown[] }[]) => { for (const x of stmts) if (/INTO steps/.test(x.sql)) written.push(x.v); } },
+  };
+  const post = (keys: string[]) => worker.default.fetch(
+    new Request('https://w.example/', { method: 'POST', body: JSON.stringify({ e: keys.map(k => ({ a: 'dev1', s: 'sit1', k, t: Date.now() })) }) }), env);
+  await post(['t3s5', 'w5', 't6s1', 't3s21', 'w9', 'bogus', 't3s05', 'season_2']);
+  const kept = written.map(v => v[1]).join(',');
+  if (kept !== 't3s5,w5,season_2') fails.push(`the worker kept [${kept}] out of a batch of eight, expected t3s5, w5 and season_2`);
+  console.log('  where careers get to: a division in a season and a title, the worker keeps only those, and five questions give the right answers');
+}
+
+/* 3h. THE GAME REPORTS THEM, AND ONLY FROM A REAL CAREER ON A REAL PAGE. */
+{
+  checked += 11;
+  const tele = readFileSync('src/game/telemetry.ts', 'utf8');
+  const app = readFileSync('src/ui/App.tsx', 'utf8');
+  const admin = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
+  // handed numbers, never a career
+  if (!/export function reached\(tier: number, season: number\): void/.test(tele)) fails.push('reached() takes something wider than two numbers');
+  if (!/export function wonLeague\(tier: number\): void/.test(tele)) fails.push('wonLeague() takes something wider than a number');
+  if (!/function trackMilestone\(k: Milestone\): void \{\s*\n\s*if \(!endpoint\(\)/.test(tele)) fails.push('with no endpoint a milestone is still queued');
+  // the App asks, from a career that is out in the league, and never for the dashboard's own visits
+  if (!app.includes('reached(G.club(gs).tier, gs.season)')) fails.push('nothing in the App reports the division and the season');
+  if (!app.includes('wonLeague(G.club(gs).tier)') || !app.includes('G.wonTheLeague(gs)')) fails.push('nothing in the App reports a title');
+  if (!/if \(!booted \|\| adminKey \|\| !gs\.clubId\) return;\s*\n\s*const at = stepFor\(gs\);/.test(app)) fails.push('a visit to the dashboard, or a career with no club, is counted as a division');
+  if (!app.includes('STEP_ORDER[at] >= STEP_ORDER.season')) fails.push('a manager still picking a colour is counted as having arrived in a division');
+  if (!admin.includes('לאן מגיעים')) fails.push('the dashboard has no place for where careers get to');
+
+  // a title is the season being over and the club first, nothing else
+  const base = G.pickCity(G.setProfile(G.newGame(777), { name: 'בודק', face: 0 }), 'חיפה');
+  const withPts = (mine: number, theirs: number, phase: string) => {
+    const table = Object.fromEntries(Object.entries(base.league.table).map(([id, row]) =>
+      [id, { ...row, pts: id === base.clubId ? mine : theirs, gf: 0, ga: 0 }]));
+    return { ...base, phase, league: { ...base.league, table } } as unknown as G.GameState;
+  };
+  const won = G.wonTheLeague(withPts(90, 10, 'season-end'));
+  const lost = G.wonTheLeague(withPts(10, 90, 'season-end'));
+  const midSeason = G.wonTheLeague(withPts(90, 10, 'hub'));
+  if (!won) fails.push('a club that finished first is not reported as having won');
+  if (lost) fails.push('a club that finished below the others is reported as having won');
+  if (midSeason) fails.push('leading the table in the middle of a season is reported as a title');
+  console.log('  the App reports a division in a season from a career that is out in the league, and a title only at the end');
+}
+
+/* 3i. ON A REAL PAGE THE MILESTONES QUEUE, ONCE A SITTING; ON A MACHINE THEY DO NOT. */
+{
+  checked += 5;
+  const globals = globalThis as { location?: unknown; localStorage?: unknown; fetch?: unknown };
+  const hadLocation = 'location' in globals;
+  const realLocation = globals.location, realStorage = globals.localStorage, realFetch = globals.fetch;
+  const store = new Map<string, string>();
+  globals.localStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => { store.set(k, v); },
+    removeItem: (k: string) => { store.delete(k); },
+  };
+  globals.fetch = async () => ({ ok: false });
+  const kinds = () => T.readQueue().map(e => e.k).join(',');
+
+  globals.location = { hostname: 'beapromanager.github.io' };
+  T.reached(3, 5); T.reached(3, 5); T.reached(3, 5);
+  T.wonLeague(5);
+  if (kinds() !== 't3s5,w5') fails.push(`a real page queued [${kinds()}] for the same division three times and a title, expected t3s5 once and w5`);
+  T.reached(9, 1); T.reached(3, 0); T.wonLeague(7);
+  if (kinds() !== 't3s5,w5') fails.push('something that is not a division in a season was queued');
+  await new Promise(r => setTimeout(r, 0));
+
+  store.clear();
+  globals.location = { hostname: 'localhost' };
+  T.reached(4, 6); T.wonLeague(4);
+  if (T.readQueue().length !== 0) fails.push('the dev server queues milestones into the real numbers');
+  // the event is only ever the four values
+  globals.location = { hostname: 'beapromanager.github.io' };
+  T.reached(2, 7);
+  const e = T.readQueue()[0];
+  if (!e || Object.keys(e).sort().join() !== 'a,k,s,t') fails.push(`a milestone carries more than the device, the sitting, the key and the time: ${e ? Object.keys(e) : 'none'}`);
+  if (e && e.k !== 't2s7') fails.push(`a milestone is queued as "${e.k}", expected t2s7`);
+  // let the post in the air settle, or the next section finds the in flight latch still held
+  await new Promise(r => setTimeout(r, 0));
+
+  globals.fetch = realFetch;
+  if (realStorage === undefined) delete globals.localStorage; else globals.localStorage = realStorage;
+  if (!hadLocation) delete globals.location; else globals.location = realLocation;
+  console.log('  a real page queues each division once a sitting and a title, a machine queues nothing');
+}
+
 /* 4. AND WITH NOWHERE TO SEND IT, IT SENDS NOTHING.
       The state the game ships in until the worker is up. */
 {
