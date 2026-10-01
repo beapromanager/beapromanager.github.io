@@ -307,6 +307,12 @@ export function PreSeasonScreen({ gs, onStart }: { gs: G.GameState; onStart: () 
         <div className="hint" style={{ margin: '9px 0 0', textAlign: 'center' }}>
           השכר יורד כל מחזור, יחד עם תחזוקת המגרש והאבטחה.
         </div>
+        {/* DRAFT WORDING, Itzik's to correct */}
+        {(r.purseEarlier ?? 0) > 0 && (
+          <div className="hint" style={{ margin: '5px 0 0', textAlign: 'center' }}>
+            ועוד {formatMoney(r.purseEarlier!)} מפרס העונה נכנסו כבר במהלך העונה.
+          </div>
+        )}
       </div>
 
       <div className="label-cap">מה שהשנה עשתה לסגל</div>

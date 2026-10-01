@@ -78,7 +78,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
           <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} />
         </div>
 
-        {books.level !== 'clear' && <DebtStrip d={books} onClick={onTransfers} />}
+        {books.level !== 'clear' && <DebtStrip d={books} outlook={G.purseOutlook(gs)} onClick={onTransfers} />}
 
         {gs.inbox.length > 0 && <InboxStrip count={gs.inbox.length} onClick={onInbox} />}
 
@@ -288,7 +288,7 @@ function Cell({ i, icon, glyph, label, onClick, dot, badge, count, blink }: {
  * never be sacked by a figure he had not seen. Tapping it goes to the market,
  * which is the only way out.
  */
-function DebtStrip({ d, onClick }: { d: G.DebtState; onClick: () => void }) {
+function DebtStrip({ d, outlook, onClick }: { d: G.DebtState; outlook: { expected: number } | null; onClick: () => void }) {
   const hot = d.level === 'final';
   const tone = hot ? 'var(--loss)' : d.level === 'warned' ? 'var(--gold)' : 'var(--ink-dim)';
   return (
@@ -301,6 +301,10 @@ function DebtStrip({ d, onClick }: { d: G.DebtState; onClick: () => void }) {
         <span style={{ width: `${Math.min(100, d.ratio * 100)}%` }} />
       </div>
       <div className="debt-line">{G.debtLine(d)}</div>
+      {/* DRAFT WORDING, Itzik's to correct */}
+      {outlook && outlook.expected > 0 && (
+        <div className="debt-line">בסוף העונה ייכנסו עוד ₪{Math.round(outlook.expected).toLocaleString('en-US')}, לפי המקום שלכם היום.</div>
+      )}
     </button>
   );
 }

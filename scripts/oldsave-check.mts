@@ -39,6 +39,7 @@ Object.defineProperty(globalThis, 'localStorage', {
  * before any of it wrote none of these, so an old save has them all missing.
  */
 const ADDED_SINCE = [
+  'purseEarlier',                   // the purse paid round by round
   'wardrobe', 'kitReveal',          // season kits
   'invite', 'inviteFrom',           // bringing a friend in
   'summerMark',                     // the untouched-summer warning

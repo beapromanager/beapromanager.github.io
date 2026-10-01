@@ -32,7 +32,10 @@ export interface SeasonReport {
   position: number;
   result: SeasonResult;
   newTier: number;
+  /** what the summer pays now: the position money less what already came in round by round */
   purse: number;
+  /** what came in round by round during the season, see purseInstalment. Absent on a report saved before that */
+  purseEarlier?: number;
   /** the wage bill charged for the coming season */
   wages: number;
   retired: { name: string; age: number }[];
@@ -379,6 +382,22 @@ export function fillWithYouth(squad: Squad, rng: Rng, tier: number, minSquad: nu
  */
 export function purseBase(tier: number): number {
   return [0, 150_000, 200_000, 930_000, 1_800_000, 4_500_000][Math.min(Math.max(1, Math.round(tier)), TOP_TIER)];
+}
+
+/**
+ * How much of the division's guaranteed purse comes in round by round, as a share of purseBase. 1 is all of it.
+ *
+ * The whole purse used to arrive in the summer, while the wages left every week. A club could be level over the
+ * year and still sit below zero for most of the season, and from ליגה א׳ up the dip is bigger than the line the
+ * owner draws: measured over 100 careers, 36 percent of ליגה א׳ seasons and 29 percent of ליגה ג׳ seasons crossed
+ * zero on the way to a purse that was coming anyway. The base is what a last place club gets, so paying it out
+ * weekly can never overpay: the summer keeps the position money, and the promotion bonus.
+ */
+export const PURSE_SPREAD = 1;
+
+/** One round's share of the guaranteed purse, in clean hundreds. */
+export function purseInstalment(tier: number, rounds: number): number {
+  return Math.round((PURSE_SPREAD * purseBase(tier)) / Math.max(1, rounds) / 100) * 100;
 }
 
 /** Season payout, it has to grow with the division or promotion bankrupts you. */

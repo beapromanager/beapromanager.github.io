@@ -81,6 +81,7 @@ import type { SeasonReport } from './career.ts';
 import {
   buildNextSeason, matchPrize, roundCosts, fillWithYouth, TOP_TIER, playerWage, potentialOf,
   STADIUM_START, FANS_START, requiredCapacity, stadiumImageTier, gateIncome, crowdDemand, signageRound, expansionOptions,
+  purseInstalment, seasonPurse,
 } from './career.ts';
 import type { RoundCosts, ExpansionOption } from './career.ts';
 import type { Coach } from './coach.ts';
@@ -158,7 +159,11 @@ export interface Stadium { capacity: number; project: StadiumProject | null; }
 export interface StadiumReveal { image: number; capacity: number; addSeats: number; upgraded: boolean; }
 
 /** What the round earned and what it cost to run. */
-export interface RoundLedger extends RoundCosts { prize: number; gate: number; sponsor: number; signage: number; net: number; }
+export interface RoundLedger extends RoundCosts {
+  prize: number; gate: number; sponsor: number; signage: number; net: number;
+  /** this round's share of the season's guaranteed purse. Absent on a ledger saved before the purse was paid in rounds */
+  purse?: number;
+}
 export interface Tactic { approach: Approach; press: Press; formation: FormationId; }
 
 /** Something the manager must be told on the way back to the hub. */
@@ -300,6 +305,8 @@ export interface GameState {
   inbox: RolledDilemma[];
   /** the money in and out of the round just played, shown on the result screen */
   lastLedger: RoundLedger | null;
+  /** what the season's purse has already paid round by round, so the summer pays only the rest */
+  purseEarlier: number;
   /** the conversation waiting on the phone after a week worth talking about */
   chat: RolledChat | null;
   /** when the phone is his, the three things you can write back */
@@ -499,6 +506,7 @@ export function newGame(seed = 12345): GameState {
     queued: null,
     inbox: [],
     lastLedger: null,
+    purseEarlier: 0,
     chat: null,
     chatAnswers: null,
     chatHistory: [],
@@ -813,6 +821,7 @@ export function takeRescue(gs: GameState): GameState {
     stadium: { capacity: STADIUM_START, project: null },
     stadiumReveal: null,
     lastLedger: null,
+    purseEarlier: 0,
     lastPlayerMatch: null,
     lastRound: [],
     form: [],
@@ -1743,6 +1752,19 @@ function maybeCrisis(gs: GameState): GameState {
     crisisReason: reason,
     meters: { ...gs.meters, money: cash(Math.min(gs.meters.money, hole)) },
   };
+}
+
+/**
+ * What the summer will pay at the whistle if the table stayed as it is today: the money for the place he is in
+ * less what has already come in round by round. The promotion bonus is not counted, it is for a manager to earn.
+ * Null once the season is over, when the summer screen says it with the real number.
+ */
+export function purseOutlook(gs: GameState): { expected: number; position: number } | null {
+  if (gs.phase === 'season-end' || gs.week > gs.league.rounds) return null;
+  const table = sortedTable(gs.league);
+  const position = Math.max(1, table.findIndex(s => s.clubId === gs.clubId) + 1);
+  const total = seasonPurse(club(gs).tier, position, gs.league.clubs.length);
+  return { expected: Math.max(0, total - gs.purseEarlier), position };
 }
 
 /** The books as the owner sees them, and how close he is to acting. */
@@ -3770,13 +3792,17 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
   const boards = gs.sponsor ? signageRound(club(gs).tier, gs.stadium.capacity) : 0;
   // any build in progress moves a round closer to opening
   const built = advanceStadium(gs);
+  // and a share of the season's guaranteed purse arrives with every round, so the books do not run dry for the
+  // months before the summer pays it
+  const instalment = purseInstalment(club(gs).tier, gs.league.rounds);
 
   const nextBase: GameState = {
     ...gs,
     phase: 'result',
-    lastLedger: { prize, gate, sponsor: shirt, signage: boards, ...costs, net: prize + gate + shirt + boards - costs.total },
+    lastLedger: { prize, gate, sponsor: shirt, signage: boards, purse: instalment, ...costs, net: prize + gate + shirt + boards + instalment - costs.total },
+    purseEarlier: gs.purseEarlier + instalment,
     meters: {
-      money: cash(gs.meters.money + prize + gate + shirt + boards - costs.total),
+      money: cash(gs.meters.money + prize + gate + shirt + boards + instalment - costs.total),
       morale: moraleShift(gs.meters.morale, moraleDelta),
       prestige: meter(gs.meters.prestige + (won ? 2 : draw ? 0 : -1)),
       fans: fansTonight,
@@ -4583,7 +4609,9 @@ export function startNextSeason(gs: GameState): GameState {
   const takenNames = new Set([...mine.starters, ...mine.bench].map(p => p.name));
   const academy = summerAcademy(gs, r.newTier, next.seed, takenNames);
 
-  const report: SeasonReport = { ...r, season: gs.season };
+  // what came in round by round is not paid twice. Never a claw back: the base is the least any finish pays
+  const earlier = Math.max(0, Math.min(gs.purseEarlier, r.purse));
+  const report: SeasonReport = { ...r, season: gs.season, purse: r.purse - earlier, purseEarlier: earlier };
   const prestigeDelta = r.result === 'champion' ? +9 : r.result === 'promoted' ? +6 : r.result === 'relegated' ? -8 : 0;
 
   // file the season away on each player's record before the slate is wiped.
@@ -4613,7 +4641,7 @@ export function startNextSeason(gs: GameState): GameState {
   // the results deal pays its lump the summer you actually go up
   const wentUp = r.result === 'champion' || r.result === 'promoted';
   const shirtBonus = wentUp ? (gs.sponsor?.promotionBonus ?? 0) : 0;
-  const rawMoney = gs.meters.money + r.purse + shirtBonus;
+  const rawMoney = gs.meters.money + report.purse + shirtBonus;
   // the sponsor's lump is a moment, not a line lost in the summer's sums
   const bonusNotice = shirtBonus > 0 && gs.sponsor
     ? [{ kind: 'story' as const, title: `${sponsorName(gs.sponsor)} משלמים את המענק`, body: `עליתם ליגה, וחוזה ההישגים מכבד את המילה: ${formatShekels(shirtBonus)} נכנסו לקופה. ${brandById(gs.sponsor.brand).name} ירצו לדבר על העונה הבאה.` }]
@@ -4628,6 +4656,7 @@ export function startNextSeason(gs: GameState): GameState {
     phase: 'preseason',
     season: gs.season + 1,
     lastReport: report,
+    purseEarlier: 0,
     week: 1,
     league,
     market: makeMarket(r.newTier, rng, 12, takenNames),

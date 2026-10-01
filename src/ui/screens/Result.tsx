@@ -60,7 +60,7 @@ export function ResultScreen({ gs, onContinue }: { gs: G.GameState; onContinue: 
           )}
         </div>
 
-        {gs.lastLedger && <Ledger l={gs.lastLedger} />}
+        {gs.lastLedger && <Ledger l={gs.lastLedger} outlook={G.purseOutlook(gs)} />}
 
         <div className="tile">
           <div className="sub" style={{ marginBottom: 8 }}>רגעים מהמשחק</div>
@@ -106,7 +106,7 @@ const shekel = (n: number) => `${n < 0 ? '-' : ''}₪${Math.abs(n).toLocaleStrin
  * bleeds, and that is the point: it turns every result into a financial event
  * instead of a number that only ever grows.
  */
-function Ledger({ l }: { l: G.RoundLedger }) {
+function Ledger({ l, outlook }: { l: G.RoundLedger; outlook: { expected: number } | null }) {
   const up = l.net >= 0;
   const rows: { label: string; value: number }[] = [
     { label: 'פרס מהמשחק', value: l.prize },
@@ -114,6 +114,8 @@ function Ledger({ l }: { l: G.RoundLedger }) {
   if (l.gate > 0) rows.push({ label: 'הכנסות שער', value: l.gate });
   if (l.sponsor > 0) rows.push({ label: 'חסות', value: l.sponsor });
   if (l.signage > 0) rows.push({ label: 'שילוט באצטדיון', value: l.signage });
+  // DRAFT WORDING, Itzik's to correct
+  if ((l.purse ?? 0) > 0) rows.push({ label: 'מקדמה מפרס העונה', value: l.purse! });
   rows.push({ label: 'שכר שחקנים', value: -l.wages });
   rows.push({ label: 'תחזוקת מגרש', value: -l.pitch });
   if (l.security > 0) rows.push({ label: 'אבטחה במשחק בית', value: -l.security });
@@ -136,6 +138,12 @@ function Ledger({ l }: { l: G.RoundLedger }) {
           </div>
         ))}
       </div>
+      {/* DRAFT WORDING, Itzik's to correct */}
+      {outlook && outlook.expected > 0 && (
+        <div className="hint" style={{ margin: '9px 0 0' }}>
+          בסוף העונה ייכנסו עוד {shekel(outlook.expected)}, לפי המקום שלכם היום.
+        </div>
+      )}
     </div>
   );
 }
