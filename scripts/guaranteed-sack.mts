@@ -1,11 +1,17 @@
 /**
- * Every manager gets sacked, once, in ליגה א׳ or the לאומית.
+ * The crisis: hard, never impossible.
  *
- * Itzik wants this at 100%: not a punishment some careers avoid, a chapter all
- * of them have. So the money collapses under the club at that level, the owner
- * says it to his face, and the next defeat ends it. This proves the whole thing
- * actually lands for everybody, and lands in the right order: the warning first,
- * never on the same week the money went.
+ * This used to hold the opposite promise, "every manager gets sacked once, at
+ * 100%", and the money collapsed to one and a half times the owner's line so
+ * there was no trading out of it. Measured over 100 careers that reached
+ * ליגה א׳, every one was sacked that season, selling or not, and on 3.10 Itzik
+ * changed the rule: the collapse lands at NINE TENTHS of the line. What must
+ * hold now, and what this proves:
+ *   the crisis still finds everyone who arrives (once, round four, א׳ or לאומית)
+ *   it lands as the FINAL WARNING at a neutral terrace, never the axe on the spot
+ *   the warning still comes before any sack, never on the week the money went
+ *   a manager can climb out: one sale puts real air under him
+ *   and the one who does nothing still meets the letter most of the time
  *
  *   node --experimental-strip-types scripts/guaranteed-sack.mts
  */
@@ -13,6 +19,8 @@
 import * as G from '../src/game/state.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
+import { debtState } from '../src/game/finance.ts';
+import { FANS_MIDDLE } from '../src/game/fans.ts';
 
 const CITIES = ['חולון', 'ראש העין', 'אזור', 'נתניה', 'רחובות', 'כפר סבא', 'לוד', 'חדרה'];
 
@@ -20,6 +28,9 @@ interface Run {
   sacked: boolean;
   tier: number;
   season: number;
+  crisisCame: boolean;
+  /** the purse the moment the money went */
+  holeMoney: number;
   warnedFirst: boolean;
   warnedSameWeekAsCrisis: boolean;
   rescued: boolean;
@@ -37,7 +48,8 @@ function career(seed: number, city: string): Run {
   gs = { ...gs, league: { ...gs.league, clubs: gs.league.clubs.map(c => c.id === gs.clubId ? { ...c, tier: 3 } : c) } };
 
   const out: Run = {
-    sacked: false, tier: 0, season: 0, warnedFirst: false, warnedSameWeekAsCrisis: false,
+    sacked: false, tier: 0, season: 0, crisisCame: false, holeMoney: 0,
+    warnedFirst: false, warnedSameWeekAsCrisis: false,
     rescued: false, welcomed: false, reunion: false, finalTier: 0,
   };
   let sawUltimatum = false;
@@ -61,7 +73,7 @@ function career(seed: number, city: string): Run {
           tactic: { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' }, chemistry: 0.7, isHome: false },
         inp.seed + w);
       gs = G.commitRound(gs, res);
-      if (!hadCrisis && gs.crisisDone) crisisAt = `${season}:${w}`;
+      if (!hadCrisis && gs.crisisDone) { crisisAt = `${season}:${w}`; out.crisisCame = true; out.holeMoney = gs.meters.money; }
 
       if (gs.sacking && !out.sacked) {
         out.sacked = true;
@@ -161,18 +173,40 @@ console.log(`rescued by the club in town   ${runs.filter(r => r.rescued).length}
 console.log(`welcomed at the new club      ${runs.filter(r => r.welcomed).length}/${n}`);
 console.log(`met them again on the way up  ${runs.filter(r => r.reunion).length}/${n}`);
 
-if (sacked.length !== n) bad.push(`only ${sacked.length} of ${n} careers were sacked, it has to be all of them`);
-if (sacked.some(r => r.tier !== 3 && r.tier !== 4)) bad.push('somebody was sacked outside ליגה א׳ and the לאומית');
+/* The crisis finds everyone who arrives, and lands exactly where agreed: 720,000 below zero
+   in ליגה א׳ (nine tenths of the 800,000 line, the agreed figures, not read from src), which
+   at a neutral terrace is the FINAL warning with 80,000 of air left, never the axe itself. */
+if (runs.some(r => !r.crisisCame)) bad.push(`the money never went for ${runs.filter(r => !r.crisisCame).length} careers, the chapter has to find everyone`);
+if (runs.some(r => r.crisisCame && r.holeMoney !== -720_000)) {
+  const w = runs.find(r => r.crisisCame && r.holeMoney !== -720_000)!;
+  bad.push(`the collapse put the purse at ${w.holeMoney}, the agreed landing is -720,000 (nine tenths of the 800,000 line)`);
+}
+{
+  const atNeutral = debtState(-720_000, 3, FANS_MIDDLE);
+  if (atNeutral.level !== 'final') bad.push(`the crisis at a neutral terrace is ${atNeutral.level}, it has to be the final warning`);
+  if (atNeutral.headroom !== 80_000) bad.push(`the air under the manager is ${atNeutral.headroom}, the agreed 80,000 is what makes it survivable`);
+  // and the way out is real: one decent sale puts him a whole band lower
+  const afterSale = debtState(-720_000 + 150_000, 3, FANS_MIDDLE);
+  if (afterSale.level === 'final' || afterSale.level === 'sacked') bad.push('a 150K sale changes nothing, the way out is shut');
+}
+
+/* The axe still exists: a manager who never sells and never reacts is still sacked in the
+   vast majority of careers (measured 47 of 48 on 3.10), warned first, never on the crisis
+   week, and only where the money story lives, or one division below it when he is relegated
+   carrying the debt. A sack in ליגה ג׳ would mean the floor broke. */
+if (sacked.length < Math.round(n * 0.75)) bad.push(`only ${sacked.length} of ${n} passive careers were sacked, the axe has gone blunt`);
+if (sacked.length === n) bad.push('every single passive career was still sacked, so the escape the 0.9 landing promises does not exist');
+if (sacked.some(r => r.tier < 2)) bad.push('somebody was sacked in ליגה ג׳, where there is not enough money to lose');
 if (sacked.some(r => !r.warnedFirst)) bad.push('somebody was sacked without the owner warning him first');
 if (sacked.some(r => r.warnedSameWeekAsCrisis)) bad.push('somebody was sacked the same week the money went, with no chance to react');
-if (runs.some(r => !r.rescued)) bad.push('somebody was left with no club to go to');
-if (runs.some(r => !r.welcomed)) bad.push('somebody joined a new club with no welcome');
-if (runs.some(r => !r.reunion)) bad.push('somebody climbed back and the club that sacked him was not there');
+if (sacked.some(r => !r.rescued)) bad.push('somebody sacked was left with no club to go to');
+if (sacked.some(r => !r.welcomed)) bad.push('somebody sacked joined a new club with no welcome');
+if (sacked.some(r => !r.reunion)) bad.push('somebody sacked climbed back and the club that sacked him was not there');
 
 const low = lowerDivisionsStaySafe();
 console.log(`
 ליגה ג׳ and ב׳ untouched         ${low.length === 0 ? 'yes' : 'NO'}`);
 bad.push(...low);
 
-console.log(bad.length ? `\nFAIL\n - ${bad.join('\n - ')}` : '\nOK, every career is sacked once, warned first, and given the way back');
+console.log(bad.length ? `\nFAIL\n - ${bad.join('\n - ')}` : '\nOK, the crisis finds everyone, warns first, and leaves a real way out');
 process.exit(bad.length ? 1 : 0);

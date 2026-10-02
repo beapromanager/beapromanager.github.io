@@ -229,11 +229,14 @@ const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
   checked++;
   if (gap <= 0) fails.push(`a full ground buys ${gap} of headroom`);
 
-  // the scripted collapse is still past the line at the most loving terrace
-  // there is, or the story beat would land on a manager who is fine
-  checked++;
-  const hole = -Math.round(debtLimit(3) * 1.5);
-  if (debtState(hole, 3, 100).level !== 'sacked') fails.push('the crisis no longer lands past the line when the terrace adores him');
+  // The scripted collapse lands at nine tenths of the rope, agreed with Itzik on
+  // 3.10: a FINAL warning at a neutral terrace, never the axe on the spot, and a
+  // loving terrace (longer rope) softens it to a step below that. The axe stayed
+  // only for the manager who keeps losing afterwards.
+  checked += 2;
+  const hole = -Math.round(debtLimit(3) * 0.9);
+  if (debtState(hole, 3, FANS_MIDDLE).level !== 'final') fails.push(`the crisis at a neutral terrace lands as ${debtState(hole, 3, FANS_MIDDLE).level}, not as the final warning`);
+  if (debtState(hole, 3, 100).level === 'sacked') fails.push('the crisis is the axe on the spot even when the terrace adores him');
 
   // and the owner says which it is, but only when it is worth saying
   checked += 3;

@@ -1719,14 +1719,18 @@ export function seasonGoal(gs: GameState): SeasonGoal {
 /**
  * The season the money goes.
  *
- * Every manager gets sacked once, and it happens in ליגה א׳ or the לאומית,
- * because that is where the wage bill outgrows the club. It is not a punishment
- * for playing badly: the club's money collapses under him, the way it does at
- * that level in Israel every other year. The owner explains it to his face, and
+ * Once in a career, in ליגה א׳ or the לאומית, the club's money collapses under
+ * the manager, the way it does at that level in Israel every other year. It is
+ * not a punishment for playing badly: the owner explains it to his face, and
  * then the ordinary rules take over: a warning, and the next defeat.
  *
- * The debt is imposed past the line rather than near it, because a manager who
- * could sell his way out of it would never see the rest of the story.
+ * The debt used to be imposed PAST the line (1.5x), which read as a story but
+ * played as a sentence: measured over 100 careers that reached ליגה א׳, every
+ * single one was sacked that season, selling or not, because a sale raises
+ * ~170K against a 400K hole beyond the line. Itzik's standing rule is "hard,
+ * never impossible", so now it lands at nine tenths of the rope: a final
+ * warning, selling unlocked, and the manager who wins and sells climbs out,
+ * while the one who keeps losing still meets the letter.
  */
 const CRISIS_TIERS = [3, 4];
 const CRISIS_WEEK = 4;
@@ -1744,8 +1748,8 @@ function maybeCrisis(gs: GameState): GameState {
   const t = club(gs).tier;
   if (!CRISIS_TIERS.includes(t) || gs.week < CRISIS_WEEK) return gs;
   const reason = CRISIS_REASONS[Math.abs(gs.seasonSeed + gs.season) % CRISIS_REASONS.length];
-  // straight past what the owner will carry, so there is no trading out of it
-  const hole = -Math.round(debtLimit(t) * 1.5);
+  // nine tenths of what the owner will carry: the final warning, not the axe
+  const hole = -Math.round(debtLimit(t) * 0.9);
   return {
     ...gs,
     crisisDone: true,
