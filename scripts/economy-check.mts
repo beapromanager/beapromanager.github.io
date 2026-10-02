@@ -26,6 +26,7 @@ import { debtLimit } from '../src/game/finance.ts';
 import { makeSquad } from '../src/data/squadGen.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 import { LEAGUE_NAMES } from '../src/data/clubs.ts';
+import { sponsorOffers } from '../src/game/sponsor.ts';
 
 const SEEDS = [4242, 777, 31, 9091, 555, 12007, 88, 4004, 6161, 2222, 3131, 9];
 const k = (v: number) => `${Math.round(v / 1000)}k`.padStart(8);
@@ -113,6 +114,24 @@ for (const t of [1, 2, 3, 4, 5]) {
   console.log(`  ${LEAGUE_NAMES[t].padEnd(13)} mean${k(mean(ends))}  worst${k(Math.min(...lows))}  limit${k(-debtLimit(t))}  sacked ${sacked}/10`);
   if (sacked > 0) bad.push(`${LEAGUE_NAMES[t]}: ${sacked} of 10 mid table seasons ended in the sack`);
   if (mean(ends) < 0) bad.push(`${LEAGUE_NAMES[t]}: a mid table season loses money on average (${Math.round(mean(ends))})`);
+}
+
+/* ---- the agreed figures, pinned as literals so a slipped constant cannot pass
+        (the canon rule, Itzik, 3.10). The shirt from ליגה א׳ up is 2.5x the old
+        money, and the top wage band is 20K-55K: both measured to leave א׳ about
+        even and a ליגת העל champion ~2.2M up. A check that compares these to the
+        constants they come from moves with the mistake it should catch. */
+{
+  if (WAGE_BAND[5][0] !== 20_000 || WAGE_BAND[5][1] !== 55_000) {
+    bad.push(`the ליגת העל wage band is ${WAGE_BAND[5]}, the agreed band is 20,000-55,000`);
+  }
+  // the base shirt deal at prestige 50 over 14 rounds, straight from the agreed season values
+  const base = (tier: number) => sponsorOffers(tier, 50, 14).find(o => o.id === 'base' && o.raise === 0)!.perRound;
+  const want: [number, number][] = [[1, 3_200], [2, 6_100], [3, 50_000], [4, 102_900], [5, 241_100]];
+  for (const [t, per] of want) {
+    if (base(t) !== per) bad.push(`${LEAGUE_NAMES[t]}: the base shirt pays ${base(t)} a round at prestige 50, the agreed figure is ${per}`);
+  }
+  console.log('\nthe agreed figures hold: shirt 3.2K/6.1K/50K/102.9K/241.1K a round, top wages 20K-55K');
 }
 
 console.log(bad.length ? `\nFAIL\n - ${bad.join('\n - ')}` : '\nOK, the club can pay its way in every division');

@@ -431,8 +431,13 @@ export function matchPrize(tier: number, result: 'W' | 'D' | 'L'): number {
  *   ג׳ / ב׳   up to ~5K
  *   א׳        7–12K
  *   לאומית    12–15K
- *   על        25–100K, the star tax
+ *   על        20–55K
  */
+// The top band was 25K-100K, a star tax that outran everything the division
+// paid: 966K a week against a 91K shirt, so every win in ליגת העל ended the
+// week in the red and even a champion lost millions over a year. 20K-55K,
+// agreed with Itzik on 3.10 together with the richer shirt deals, leaves a
+// champion ~2.2M up and a drawn week still painful.
 // The ליגה ג׳ ceiling was five thousand, sized against a squad averaging 52
 // from the old pickClub path. The path a player actually takes, pickCity, hands
 // a big town a squad averaging 58, and that squad sat near the top of the band:
@@ -444,7 +449,7 @@ export const WAGE_BAND: Record<number, [number, number]> = {
   2: [400, 5_000],
   3: [7_000, 12_000],
   4: [12_000, 15_000],
-  5: [25_000, 100_000],
+  5: [20_000, 55_000],
 };
 
 export function playerWage(p: Player, tier: number): number {

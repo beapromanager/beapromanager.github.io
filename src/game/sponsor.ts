@@ -60,7 +60,15 @@ export interface Sponsor {
 }
 
 /** What the brand will spend on a club in this division, across a season. */
-const SEASON_VALUE = [0, 45_000, 85_000, 280_000, 575_000, 1_350_000];
+// From ליגה א׳ up this is two and a half times what it was, agreed with Itzik on
+// 3.10. The old figures made the shirt WEAKER as the club climbed (21% of the
+// wage bill in ליגה ב׳, 11% in א׳, 9.4% in ליגת העל), so a manager won matches
+// and watched the purse fall: 51% of ליגה א׳ wins ended the week in the red, and
+// in ליגת העל every win did, with even a champion 4.9M down over a year. In real
+// football the shirt is what carries a big club. Measured after the change:
+// a ליגה א׳ season closes around even, a ליגת העל champion clears ~2.2M, and
+// losing still bleeds.
+const SEASON_VALUE = [0, 45_000, 85_000, 700_000, 1_440_000, 3_375_000];
 
 /** The crowd a division expects, which the crowd deal is measured against. */
 // kept in step with career.ts DEMAND, so the crowd deal pays 1.0 for a normal
