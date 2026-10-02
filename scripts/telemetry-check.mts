@@ -75,6 +75,13 @@ let checked = 0;
 
   // in the order the GAME walks, which is not the order the screens are named
   gs = G.setProfile(gs, { name: 'בודק', face: 0 }); note(gs, 'named');
+  checked++;
+  {
+    const kicked = T.stepFor({ phase: 'match', season: 1, week: 1 });
+    if (kicked !== 'match1_start') fails.push(`the first live match reports "${kicked}", not match1_start`);
+    const second = T.stepFor({ phase: 'match', season: 1, week: 2 });
+    if (second === 'match1_start') fails.push('the second week of matches still reports match1_start');
+  }
   gs = G.pickCity(gs, 'חיפה'); note(gs, 'club picked');
   gs = G.setArchetype(gs, MANAGERS[0].id); note(gs, 'archetype picked');
   gs = G.afterSigning(gs, {}); note(gs, 'signed');
@@ -111,7 +118,10 @@ let checked = 0;
   // open, title and career_new are the three the SCREENS report, not the state:
   // the app mounting, the title screen coming up behind the cold open, and the
   // tap. stepFor reads a career, and none of the three is one yet.
-  const fromScreens = ['open', 'title', 'career_new'];
+  // match1_start comes from the state (phase 'match'), match1_half from the match
+  // screen's half time, through the App's onHalfTime, so the walk below, which
+  // plays rounds without the screen, never hits them
+  const fromScreens = ['open', 'title', 'career_new', 'match1_start', 'match1_half'];
   const missing = T.STEPS.filter(s => !fromScreens.includes(s) && !far.includes(s as never) && !reached.has(s));
   if (missing.length) fails.push(`a real career never reaches: ${missing.join(', ')}`);
 
@@ -119,9 +129,18 @@ let checked = 0;
      A step nobody fires is a bar that is always empty, and an empty bar reads
      as people leaving rather than as a line of code nobody wrote. */
   const appSrc = readFileSync('src/ui/App.tsx', 'utf8');
-  for (const s of fromScreens) {
+  for (const s of ['open', 'title', 'career_new', 'match1_half']) {
     checked++;
     if (!appSrc.includes(`track('${s}')`)) fails.push(`nothing in the App ever reports "${s}", so its bar can only ever be empty`);
+  }
+  // and the half is only counted for the FIRST match, and never on a dashboard visit
+  checked += 2;
+  if (!appSrc.includes("onHalfTime={gs.season === 1 && gs.week === 1 && !adminKey ? () => track('match1_half') : undefined}")) {
+    fails.push('the half of every match would be counted as the first, or the dashboard visit counts one');
+  }
+  const matchSrc = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  if (!matchSrc.includes("if (!halfSaid.current && st.phase === 'halftime') { halfSaid.current = true; onHalfTime?.(); }")) {
+    fails.push('the match screen never fires the half time callback once');
   }
   checked++;
   if (T.STEP_ORDER['title'] !== T.STEP_ORDER['open'] + 1) {
@@ -450,6 +469,19 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const kept = written.map(v => v[1]).join(',');
   if (kept !== 't3s5,w5,season_2') fails.push(`the worker kept [${kept}] out of a batch of eight, expected t3s5, w5 and season_2`);
   console.log('  where careers get to: a division in a season and a title, the worker keeps only those, and five questions give the right answers');
+}
+
+/* 3g2. THE MONEY MARKS: a career that fell below zero, and one the owner ended
+       over debt. Closed names, counted like milestones, nothing typed near them. */
+{
+  checked += 5;
+  if (!T.isMilestone('money_red') || !T.isMilestone('money_sack')) fails.push('the money marks are not accepted by the game pattern');
+  if (T.isMilestone('money_')) fails.push('a half-written money mark passes');
+  const wsrc2 = readFileSync('worker/src/index.ts', 'utf8');
+  if (!/money_red\|money_sack/.test(wsrc2)) fails.push('the worker refuses the money marks, they would be dropped at the door');
+  const app2 = readFileSync('src/ui/App.tsx', 'utf8');
+  if (!app2.includes("if (gs.meters.money < 0) moneyMark('money_red');")) fails.push('nothing reports a purse below zero');
+  if (!app2.includes("if (G.sackedOverDebt(gs)) moneyMark('money_sack');")) fails.push('nothing reports a debt sacking');
 }
 
 /* 3h. THE GAME REPORTS THEM, AND ONLY FROM A REAL CAREER ON A REAL PAGE. */

@@ -50,7 +50,7 @@ export interface Env {
  */
 const STEPS = [
   'open', 'title', 'career_new', 'manager', 'club', 'archetype', 'signing', 'friends',
-  'squad', 'market', 'season', 'round_1', 'round_3', 'round_7', 'season_end', 'season_2',
+  'squad', 'market', 'season', 'match1_start', 'match1_half', 'round_1', 'round_3', 'round_7', 'season_end', 'season_2',
 ] as const;
 type Step = typeof STEPS[number];
 const KNOWN = new Set<string>(STEPS);
@@ -60,7 +60,7 @@ const KNOWN = new Set<string>(STEPS);
  * career that won the top division. The same pattern as MILESTONE in src/game/telemetry.ts, and telemetry-check
  * compares the two, because a copy nobody compares is a copy that drifts.
  */
-const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5])$/;
+const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack)$/;
 
 /**
  * What the dashboard asks of the milestones. Plain SQL over the same table as the funnel, one row per device per

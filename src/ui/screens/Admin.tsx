@@ -197,6 +197,8 @@ const LABEL: Record<string, string> = {
   squad: 'ראו את הסגל',
   market: 'ראו את השוק',
   season: 'יצאו לליגה',
+  match1_start: 'פתחו משחק ראשון',
+  match1_half: 'הגיעו למחצית בו',
   round_1: 'שיחקו מחזור',
   round_3: 'שיחקו שלושה',
   round_7: 'חצי עונה',

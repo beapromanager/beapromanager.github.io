@@ -4797,6 +4797,11 @@ function seasonChronicle(gs: GameState, r: SeasonReport, clubShort: string): Chr
   return [];
 }
 
+/** The owner ended it over debt. Read by the App for the money counting, numbers only. */
+export function sackedOverDebt(gs: GameState): boolean {
+  return gs.sacking?.reason === 'debt';
+}
+
 /** The season is over and this club finished first. */
 export function wonTheLeague(gs: GameState): boolean {
   if (gs.phase !== 'season-end') return false;

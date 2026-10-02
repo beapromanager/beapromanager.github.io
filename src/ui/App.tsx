@@ -43,7 +43,7 @@ import { setInviteHandler, setInstallHandler, setReportHandler } from './compone
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, STEP_ORDER } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, STEP_ORDER } from '../game/telemetry.ts';
 import { AdminScreen } from './screens/Admin.tsx';
 import type { Stats as AdminStats } from './screens/Admin.tsx';
 import { TELEMETRY_URL } from '../data/telemetry.ts';
@@ -220,6 +220,11 @@ export function App() {
     if (!booted || adminKey || !gs.clubId) return;
     if (G.wonTheLeague(gs)) wonLeague(G.club(gs).tier);
   }, [booted, adminKey, gs.phase, gs.clubId]);
+  useEffect(() => {
+    if (!booted || adminKey || !gs.clubId) return;
+    if (gs.meters.money < 0) moneyMark('money_red');
+    if (G.sackedOverDebt(gs)) moneyMark('money_sack');
+  }, [booted, adminKey, gs.clubId, gs.meters.money < 0, gs.sacking]);
 
   function startNew() {
     track('career_new');
@@ -402,7 +407,8 @@ export function App() {
           onMove={(a, b) => setGs(g => G.movePlayers(g, a, b))} />
       )}
       {gs.phase === 'match' && (
-        <MatchBroadcast gs={gs} onDone={result => setGs(G.commitRound(gs, result))} />
+        <MatchBroadcast gs={gs} onDone={result => setGs(G.commitRound(gs, result))}
+          onHalfTime={gs.season === 1 && gs.week === 1 && !adminKey ? () => track('match1_half') : undefined} />
       )}
       {gs.phase === 'result' && <ResultScreen gs={gs} onContinue={() => setGs(G.continueFromResult(gs))} />}
       {gs.phase === 'press' && <PressScreen key={gs.press?.q.text} gs={gs} onPick={i => setGs(g => G.pickPressAnswer(g, i))} onNext={() => setGs(g => G.continuePress(g))} />}

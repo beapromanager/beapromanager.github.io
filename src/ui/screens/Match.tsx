@@ -143,7 +143,11 @@ function preloadMoments() {
   })();
 }
 
-export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: MatchResult) => void }) {
+export function MatchBroadcast({ gs, onDone, onHalfTime }: {
+  gs: G.GameState; onDone: (r: MatchResult) => void;
+  /** fired once when the first half ends, so the App can count how far first matches get */
+  onHalfTime?: () => void;
+}) {
   const liveRef = useRef<LiveState | null>(null);
   if (!liveRef.current) liveRef.current = L.createLive(G.liveMatchInput(gs));
   const st = liveRef.current;
@@ -272,6 +276,13 @@ export function MatchBroadcast({ gs, onDone }: { gs: G.GameState; onDone: (r: Ma
       setSubOpen(true);
     }
   }, [myReds.length]);
+
+  // half time of the first match, said once: the funnel needs to know whether a
+  // man who never finished his first match left before the whistle or during it
+  const halfSaid = useRef(false);
+  useEffect(() => {
+    if (!halfSaid.current && st.phase === 'halftime') { halfSaid.current = true; onHalfTime?.(); }
+  });
 
   const pending = st.pending;
   // the same two strips the pitch paints its dots with

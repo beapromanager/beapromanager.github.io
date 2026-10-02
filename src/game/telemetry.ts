@@ -51,6 +51,16 @@ export const STEPS = [
   'squad',           // met the squad
   'market',          // saw the summer market
   'season',          // walked out into the league
+  /**
+   * The first LIVE match, started and half played.
+   *
+   * 21% of devices that walked out into the league never report a played round
+   * (463 to 366 on 2.10), and that one number cannot say whether they left on
+   * the sheet before kick off or in the middle of the match, which want two
+   * different fixes. These two split it: before the whistle, first half, rest.
+   */
+  'match1_start',    // kicked off his first live match
+  'match1_half',     // reached half time in it
   'round_1',         // played one
   'round_3',         // played three
   'round_7',         // half a season
@@ -80,11 +90,17 @@ export const QUEUE_CAP = 60;
  * and reaching the top does not mean having sat in every season on the way. So they are never backfilled, each is
  * reported when it happens, and the server keeps one of each per device like every other step.
  */
-export type Milestone = `t${number}s${number}` | `w${number}`;
+export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number];
+/**
+ * The two money facts worth counting, agreed with Itzik on 3.10: a career that
+ * fell below zero, and a career the owner ended over debt. The bot simulations
+ * cannot say how REAL managers, who buy players, feel the economy; these can.
+ */
+export const MONEY_MARKS = ['money_red', 'money_sack'] as const;
 /** a career older than this is counted in its twentieth season, "twenty or more" */
 export const MAX_SEASON = 20;
 /** the only shapes the game sends and the worker keeps. The worker holds the same pattern, telemetry-check compares them */
-export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5])$/;
+export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack)$/;
 
 export function isMilestone(k: unknown): k is Milestone {
   return typeof k === 'string' && MILESTONE.test(k);
@@ -316,6 +332,11 @@ export function wonLeague(tier: number): void {
   if (k) trackMilestone(k);
 }
 
+/** Note that the purse fell below zero, or that the owner ended it over debt. */
+export function moneyMark(k: typeof MONEY_MARKS[number]): void {
+  trackMilestone(k);
+}
+
 function trackMilestone(k: Milestone): void {
   if (!endpoint() || milestonesThisSitting.has(k)) return;
   milestonesThisSitting.add(k);
@@ -398,6 +419,8 @@ export function stepFor(g: { phase: string; season: number; week: number }): Ste
   if (g.week - 1 >= 7) return 'round_7';
   if (g.week - 1 >= 3) return 'round_3';
   if (g.week - 1 >= 1) return 'round_1';
+  // his first live match: the whistle has gone but no round is on the books yet
+  if (g.phase === 'match' && g.week === 1) return 'match1_start';
   // The order below is the order the game walks, which is not the order the
   // screens are named in: a manager names himself, THEN picks a town, THEN
   // picks who he is, and only then signs. It was written the other way round
