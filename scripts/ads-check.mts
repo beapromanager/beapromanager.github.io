@@ -96,9 +96,12 @@ function settle(gs: G.GameState, s: A.AdSession): G.GameState {
   checked++;
   if (!A.completed(s)) fails.push(`a clip watched straight through is not complete (status ${s.status}, frontier ${s.frontier.toFixed(2)} of ${s.seconds})`);
   const gs = settle(gs0, s);
-  checked += 2;
-  if (gs.gems !== gs0.gems + GEMS_PER_AD) fails.push(`a full sitting paid ${gs.gems - gs0.gems} gems, not ${GEMS_PER_AD}`);
-  if (G.adsLeft(gs) !== ADS_PER_SEASON - 1) fails.push(`a full sitting left ${G.adsLeft(gs)} sittings, not ${ADS_PER_SEASON - 1}`);
+  // one gem a clip, three clips a season: the canon, Itzik 3.10, as literals
+  checked += 4;
+  if (GEMS_PER_AD !== 1) fails.push(`a clip pays ${GEMS_PER_AD} gems, the agreed figure is one`);
+  if (ADS_PER_SEASON !== 3) fails.push(`a season holds ${ADS_PER_SEASON} sittings, the agreed figure is three`);
+  if (gs.gems !== gs0.gems + 1) fails.push(`a full sitting paid ${gs.gems - gs0.gems} gems, not one`);
+  if (G.adsLeft(gs) !== 2) fails.push(`a full sitting left ${G.adsLeft(gs)} sittings, not two of three`);
   console.log("  a clip watched through pays one gem and uses one of the season's sittings");
 }
 

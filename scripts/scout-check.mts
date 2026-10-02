@@ -134,7 +134,10 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
   const gs = hubAt(SCOUT_TIER);
   ok(G.scoutBlockedReason(gs, 'keen') === null, `a tier ${SCOUT_TIER} club with money in round one was blocked: ${G.scoutBlockedReason(gs, 'keen')}`);
   const after = G.hireScout(gs, 'keen');
-  ok(gs.meters.money - after.meters.money === SCOUT_FEE, `hiring cost ${gs.meters.money - after.meters.money}, not ${SCOUT_FEE}`);
+  // 150,000 is the canon (Itzik 3.10), written as the number and not as SCOUT_FEE,
+  // which is the constant this claim exists to catch a slip in
+  ok(SCOUT_FEE === 150_000, `the scout's fee is ${SCOUT_FEE}, the agreed figure is 150,000`);
+  ok(gs.meters.money - after.meters.money === 150_000, `hiring cost ${gs.meters.money - after.meters.money}, not 150,000`);
   ok(after.scout.job?.startWeek === gs.week && after.scout.job?.style === 'keen' && after.scout.job?.season === gs.season, 'the job did not record who, when and which season');
   ok(after.scout.hiredSeason === gs.season, 'the season was not marked as spent');
   ok(after.pendingOutcome === SCOUT_TEXT.signed, 'hiring did not say the signing sentence');

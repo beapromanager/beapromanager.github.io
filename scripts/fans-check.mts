@@ -54,11 +54,18 @@ const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
     const fx = G.playerFixture({ ...base, week: w })!;
     if (!isDerby(fx.homeId, fx.awayId)) { plain = { ...base, week: w }; break; }
   }
+  // the canon, Itzik 3.10: +2, -2, +1 on a big win, doubled in a derby. Written
+  // as the agreed numbers, not as the constants, so a slipped constant fails here
+  checked += 4;
+  if (FANS_WIN !== 2) fails.push(`a win moves the terrace by ${FANS_WIN}, the agreed figure is +2`);
+  if (FANS_LOSS !== -2) fails.push(`a loss moves the terrace by ${FANS_LOSS}, the agreed figure is -2`);
+  if (FANS_BIG_WIN !== 1) fails.push(`a big win adds ${FANS_BIG_WIN}, the agreed figure is +1`);
+  if (FANS_DERBY !== 2) fails.push(`a derby multiplies by ${FANS_DERBY}, the agreed figure is 2`);
   const cases: Array<[string, number, number, number]> = [
-    ['a win', 1, 0, FANS_WIN],
+    ['a win', 1, 0, 2],
     ['a draw', 1, 1, 0],
-    ['a loss', 0, 1, FANS_LOSS],
-    ['a big win', 3, 0, FANS_WIN + FANS_BIG_WIN],
+    ['a loss', 0, 1, -2],
+    ['a big win', 3, 0, 3],
     ['a thrashing', 0, 3, FANS_LOSS + FANS_THRASHING],
   ];
   for (const [name, m, t, want] of cases) {
