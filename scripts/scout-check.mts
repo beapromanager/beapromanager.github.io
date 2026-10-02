@@ -439,15 +439,20 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
   const pick2 = pickSafe(pool([off, keeperKid]));
   ok(pick2?.player.id === off.id, 'with nobody in the band the picker did not fall back to the man with the highest ceiling');
 
-  // the board: fourteen points between every pair worth caring about
+  // The board, built to the division the climb actually produced rather than to a
+  // club count: the day the seeds learned the season, seed 31 arrived in a SIX club
+  // division and a board that assumed eight crashed. Thirty points between every
+  // pair, so nobody changes places in three rounds, and me third from the top.
   const ids = t3.league.clubs.filter(c => c.id !== t3.clubId).map(c => c.id);
-  const pts = [90, 88, 86, /* me */ 50, 10, 8, 6];
-  const order = [...ids.slice(0, 3), t3.clubId, ...ids.slice(3)];
-  const table = Object.fromEntries(order.map((id, i) => [id, { ...t3.league.table[id], pts: pts[i] }]));
-  const near = [order[2], order[4], order[1]];        // one either side, then the next above
-  const far = order[6];                                // furthest below
+  ok(ids.length >= 5, `the climb produced a league of ${ids.length + 1} clubs, too small to tell near from far; rebuild the fixture`);
+  const order = [...ids.slice(0, 2), t3.clubId, ...ids.slice(2)];
+  const table = Object.fromEntries(order.map((id, i) => [id, { ...t3.league.table[id], pts: 300 - 30 * i }]));
+  // nearest three by places in the table, ties to the club higher up: one above,
+  // one below, and the tie between two-above and two-below goes above
+  const near = [order[1], order[3], order[0]];
+  const far = order[order.length - 1];
   const board = (derbyIsFar: boolean): G.GameState => {
-    const clubs = t3.league.clubs.map(c => c.id === t3.clubId ? { ...c, rivalId: derbyIsFar ? far : order[5] } : c);
+    const clubs = t3.league.clubs.map(c => c.id === t3.clubId ? { ...c, rivalId: derbyIsFar ? far : order[4] } : c);
     const squads = { ...t3.league.squads };
     for (const id of ids) {
       const sq = squads[id];
