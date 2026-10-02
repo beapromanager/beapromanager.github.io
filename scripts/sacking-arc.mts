@@ -45,44 +45,39 @@ function start(tier: number, money: number): G.GameState {
   return { ...gs, meters: { ...gs.meters, money } };
 }
 
-/* ---- 1. past the line, but you keep winning: the job survives */
+/* ---- 1. past the line, but you keep winning: the job survives.
+        Each try starts a FRESH career already past the line, so the claim is
+        about the rule and not about whether one particular seed's first round
+        happened to be won. The old shape walked one career and died with its
+        first defeat, and the day the seeds learned the season, that first
+        round changed and 0 results survived a claim that was really true. */
 {
-  let gs = start(3, -debtLimit(3) * 1.4);
-  check('past the line to begin with', G.debt(gs).level === 'sacked');
+  check('past the line to begin with', G.debt(start(3, -debtLimit(3) * 1.4)).level === 'sacked');
   let survived = 0;
-  for (let i = 0; i < 40 && !gs.sacking; i++) {
-    const before = gs.meters.money;
-    // hand the club a win by feeding the opponent our own weakest eleven
+  for (let i = 0; i < 40 && survived < 5; i++) {
+    const gs = start(3, -debtLimit(3) * 1.4);
     const inp = G.liveMatchInput(gs);
-    const mine = inp.playerStarters, theirs = inp.oppStarters;
     const res = simulateMatch(
-      { id: inp.homeId, name: 'h', players: inp.iAmHome ? mine : theirs,
+      { id: inp.homeId, name: inp.homeName, players: inp.iAmHome ? inp.playerStarters : inp.oppStarters,
         tactic: { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' }, chemistry: 0.7, isHome: true },
-      { id: inp.awayId, name: 'a', players: inp.iAmHome ? theirs : mine,
+      { id: inp.awayId, name: inp.awayName, players: inp.iAmHome ? inp.oppStarters : inp.playerStarters,
         tactic: { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' }, chemistry: 0.7, isHome: false },
       inp.seed + i);
-    const iAmHome = inp.iAmHome;
-    const my = iAmHome ? res.score[0] : res.score[1], opp = iAmHome ? res.score[1] : res.score[0];
+    const my = inp.iAmHome ? res.score[0] : res.score[1], opp = inp.iAmHome ? res.score[1] : res.score[0];
     const next = G.commitRound(gs, res);
     if (my >= opp) {
       survived++;
-      if (next.sacking) { bad.push(`sacked after a ${my}-${opp}, which is not a defeat`); break; }
+      if (next.sacking) bad.push(`sacked after a ${my}-${opp}, which is not a defeat`);
     }
-    gs = next;
-    if (gs.phase !== 'result') break;
-    gs = G.continueFromResult(gs);
-    if (gs.phase === 'ultimatum') gs = G.advancePastPress(gs);
-    while (gs.phase === 'press') gs = G.answerPress(gs, 0);
-    if (gs.phase === 'chat') gs = G.closeChat(gs);
-    if (gs.phase === 'season-end') break;
-    void before;
   }
-  check('a win or a draw past the line never ends it', survived > 0, `${survived} results survived`);
+  check('a win or a draw past the line never ends it', survived >= 3, `${survived} results survived`);
 }
 
 /* ---- 2. the warning arrives before the axe, once */
 {
-  let gs = start(3, -debtLimit(3) * 0.8);
+  // 0.9 is where the real crisis lands; 0.8 stopped being deep enough the day a
+  // won round started bringing in ~63K and lifted the club out of the band
+  let gs = start(3, -debtLimit(3) * 0.9 - 60_000);
   check('deep enough for the final warning', G.debt(gs).level === 'final');
   gs = play(gs, 1);
   gs = G.continueFromResult(gs);

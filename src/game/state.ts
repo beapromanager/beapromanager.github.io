@@ -593,6 +593,22 @@ export function transferWindow(gs: GameState) {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /**
+ * The seed every in-season draw is made from: the career, the SEASON, the week
+ * and a salt that keeps two draws in the same week apart.
+ *
+ * Every one of these used to mix only the career seed and the week, each with a
+ * home-made formula, and seasonSeed never changes for the life of a career. So
+ * round N of season one and round N of season fifteen drew the same lottery:
+ * the same penalty in the same minute, the same red card for the same line, the
+ * same question from the same reporter. A player who stayed twenty two seasons
+ * wrote the script out from memory. One function, with the season in it, makes
+ * every future draw right by default and findable by grep.
+ */
+export function drawSeed(gs: Pick<GameState, 'seasonSeed' | 'season' | 'week'>, salt: number): number {
+  return gs.seasonSeed * 1009 + gs.season * 524287 + gs.week * 131 + salt;
+}
+
+/**
  * The three meters the manager reads are whole numbers, always.
  *
  * Morale drifted fractional because the coach's motivation is worth a fraction
@@ -2299,7 +2315,7 @@ const LINE: Record<string, 'GK' | 'DEF' | 'MID' | 'FWD'> = {
 export function moveToLeagueClub(
   gs: GameState, p: Player, preferId?: string | null,
 ): { gs: GameState; clubId: string } {
-  const rng = createRng(gs.seasonSeed * 53 + gs.week * 7 + hashId(p.id));
+  const rng = createRng(drawSeed(gs, 10_000 + hashId(p.id)));
   const line = LINE[p.position] ?? 'MID';
   const others = gs.league.clubs.filter(c => c.id !== gs.clubId && gs.league.squads[c.id]);
   // the club whose weakest starter on his line is weakest of all wants him most
@@ -2864,7 +2880,7 @@ export function assistantEcho(gs: GameState, options: string[], salt = 0): strin
     `יש לי הרגשה ממש טובה על ${a}. או ${b}. הרגשה זה הכל.`,
     `וואי איזו התלבטות. ${a}? ${b}? שתיהן אש. תבחר אתה.`,
   ];
-  const rng = createRng(gs.seasonSeed * 131 + gs.week * 7 + salt);
+  const rng = createRng(drawSeed(gs, 20_000 + salt));
   return lines[Math.floor(rng() * lines.length)];
 }
 
@@ -3002,12 +3018,12 @@ export function clubFeed(gs: GameState): Post[] {
     marketTarget: gs.market.length ? gs.market[0].player : null,
     rival: rivalId ? shortOf(rivalId) : null,
   };
-  return buildFeed(ctx, createRng(gs.seasonSeed * 31 + gs.week * 7 + 3));
+  return buildFeed(ctx, createRng(drawSeed(gs, 30_000)));
 }
 
 /** The message shown this week, stable for a given week and timing. */
 export function fanNote(gs: GameState, timing: FanTiming): FanMessage {
-  const seed = gs.seasonSeed * 977 + gs.week * 41 + (timing === 'pre' ? 1 : 2);
+  const seed = drawSeed(gs, 40_000 + (timing === 'pre' ? 1 : 2));
   return fanMessage(fanContext(gs, timing), createRng(seed), gs.fanHistory);
 }
 
@@ -3311,7 +3327,7 @@ export function startWeek(gs: GameState): GameState {
   const rival = gs.league.clubs.find(c => c.id === rivalId)!;
   const myClub = club(gs);
   const star = topPlayerName(mySquad(gs));
-  const rng = createRng(gs.seasonSeed * 100 + gs.week * 7 + 3);
+  const rng = createRng(drawSeed(gs, 50_000));
 
   // only templates that fit the live save, then a long cooldown so a season
   // of rounds keeps surfacing something you have not seen yet
@@ -3422,7 +3438,7 @@ function startHim(gs: GameState, id: string): GameState {
 /** A signing the agent or the owner brings, built to the pitch that sold him. */
 function agentSigning(gs: GameState, profile: 'dropped' | 'brazilian' | 'veteran' | 'striker'): Player {
   const tier = club(gs).tier;
-  const rng = createRng(gs.seasonSeed * 19 + gs.week * 3 + 77);
+  const rng = createRng(drawSeed(gs, 60_000));
   const used = new Set([...mySquad(gs).starters, ...mySquad(gs).bench].map(p => p.name));
   const ceiling = leagueCeiling(tier);
   const p = profile === 'striker' ? makePlayer('ST', ceiling + 3, rng, undefined, used)
@@ -3491,7 +3507,7 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
       case 'gate': gs = { ...gs, matchMods: { ...gs.matchMods, gate: (gs.matchMods.gate ?? 1) * a.mult } }; break;
       case 'promiseWin': gs = { ...gs, matchMods: { ...gs.matchMods, promiseWin: true } }; break;
       case 'guest': {
-        const rng = createRng(gs.seasonSeed * 11 + gs.week * 5 + 9);
+        const rng = createRng(drawSeed(gs, 70_000));
         const used = new Set([...mySquad(gs).starters, ...mySquad(gs).bench].map(p => p.name));
         const boy = makePlayer('CM', leagueCeiling(club(gs).tier) - 14, rng, undefined, used);
         boy.age = 19;
@@ -3658,7 +3674,7 @@ function teamInput(gs: GameState, clubId: string, isHome: boolean, tactic?: Tact
 
 export function simulatePlayerMatch(gs: GameState, momentPick: number | null): MatchResult {
   const fx = playerFixture(gs)!;
-  const seedBase = gs.seasonSeed * 1000 + gs.week * 17 + (momentPick ?? 0) * 3;
+  const seedBase = drawSeed(gs, (momentPick ?? 0) * 3);
   const home = fx.homeId === gs.clubId ? teamInput(gs, fx.homeId, true, gs.tactic) : teamInput(gs, fx.homeId, true);
   const away = fx.awayId === gs.clubId ? teamInput(gs, fx.awayId, false, gs.tactic) : teamInput(gs, fx.awayId, false);
   return simulateMatch(home, away, seedBase);
@@ -3700,7 +3716,7 @@ export function liveMatchInput(gs: GameState) {
   const homeClub = gs.league.clubs.find(c => c.id === fx.homeId)!;
   const awayClub = gs.league.clubs.find(c => c.id === fx.awayId)!;
   return {
-    seed: gs.seasonSeed * 1000 + gs.week * 17,
+    seed: drawSeed(gs, 0),
     homeId: fx.homeId, homeName: homeClub.name,
     awayId: fx.awayId, awayName: awayClub.name,
     iAmHome,
@@ -3761,7 +3777,7 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
   for (const f of others) {
     const r = simulateMatch(
       teamInput(gs, f.homeId, true), teamInput(gs, f.awayId, false),
-      gs.seasonSeed * 1000 + gs.week * 17 + hashPair(f.homeId, f.awayId),
+      drawSeed(gs, 200_000 + hashPair(f.homeId, f.awayId)),
     );
     applyResult(table, f.homeId, f.awayId, r.score[0], r.score[1]);
     roundResults.push({ homeId: f.homeId, awayId: f.awayId, hg: r.score[0], ag: r.score[1] });
@@ -3916,7 +3932,7 @@ export function continueFromResult(gs: GameState): GameState {
   const fx = playerFixture(gs);
   if (!r || !fx) return advancePastPress(gs);
   const ctx = pressContext(gs)!;
-  const rng = createRng(gs.seasonSeed * 100 + gs.week * 31 + 5);
+  const rng = createRng(drawSeed(gs, 80_000));
   // what the reporter actually watched, so his first question is about the
   // match and not about the scoreline in the abstract
   const facts = matchFacts(r, gs.clubId, mySquad(gs), new Set(gs.exits.map(e => e.id)));
@@ -4327,7 +4343,7 @@ export function advancePastPress(gs: GameState): GameState {
   const rival = gs.league.clubs.find(c => c.id === oppId);
   const my = iAmHome ? r.score[0] : r.score[1];
   const opp = iAmHome ? r.score[1] : r.score[0];
-  const rng = createRng(gs.seasonSeed * 31 + gs.week * 977 + 11);
+  const rng = createRng(drawSeed(gs, 90_000));
   const chat = rollChat(picked.trigger, {
     club: club(gs).short,
     rival: rival?.short ?? 'היריבה',
@@ -4833,7 +4849,7 @@ export { sortedTable };
 function settleInjuries(gs: GameState): Record<string, string> {
   const out = { ...gs.sitOutNext };
   const risks = gs.matchMods.injury ?? {};
-  const rng = createRng(gs.seasonSeed * 7 + gs.week * 131 + 3);
+  const rng = createRng(drawSeed(gs, 100_000));
   for (const [id, p] of Object.entries(risks)) if (rng() < p) out[id] = 'פצוע';
   return out;
 }

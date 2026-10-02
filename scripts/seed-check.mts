@@ -112,6 +112,53 @@ const cast = (gs: G.GameState) => [...G.mySquad(gs).starters, ...G.mySquad(gs).b
   console.log(`  a save with ${stripped} seeds stripped loads and plays a round`);
 }
 
+/* 5. A SEASON IS NOT A RERUN OF THE LAST ONE.
+      Every in-season draw used to mix only the career seed and the week, and the
+      career seed never changes, so round N of every season drew the same lottery:
+      the same penalty in the same minute, the same red card, the same question,
+      season after season. A player who stayed twenty two seasons wrote the script
+      out from memory (3.10). Now every draw goes through drawSeed, which has the
+      SEASON in it, and this is what keeps it there. */
+{
+  let gs = G.newGame(20261003);
+  gs = G.setProfile(gs, { name: 'בודק', nickname: '', age: 40, type: 'mental' } as never);
+  gs = G.pickCity(gs, 'חולון');
+  gs = G.afterSigning(gs, {});
+  gs = G.enterSeason({ ...gs, crisisDone: true });
+  if (gs.phase === 'sponsor') gs = G.takeSponsor(gs, 'base');
+
+  // the raw seed: season and week both move it, salts keep two draws apart
+  checked += 4;
+  const base = { seasonSeed: 4242, season: 1, week: 6 };
+  if (G.drawSeed(base, 0) === G.drawSeed({ ...base, season: 2 }, 0)) fails.push('two seasons draw from the same seed, the rerun is back');
+  if (G.drawSeed(base, 0) === G.drawSeed({ ...base, week: 7 }, 0)) fails.push('two weeks draw from the same seed');
+  if (G.drawSeed(base, 30_000) === G.drawSeed(base, 80_000)) fails.push('two different draws in the same week share a seed');
+  if (G.drawSeed(base, 0) !== G.drawSeed({ ...base }, 0)) fails.push('the same place and salt no longer draw the same seed, replays are broken');
+
+  // and the game actually walks through it: the match of week N and the question of
+  // week N change between seasons, across every week of the season
+  let matchDiff = 0, weeks = 0;
+  for (let w = 1; w <= 14; w++) {
+    const now = { ...gs, week: w };
+    const later = { ...now, season: 7 };
+    weeks++;
+    if (G.liveMatchInput(now).seed !== G.liveMatchInput(later).seed) matchDiff++;
+  }
+  checked += 2;
+  if (matchDiff !== weeks) fails.push(`only ${matchDiff} of ${weeks} weeks play a different match in a different season`);
+  // the dilemma rolled for the same week in two far-apart seasons: with a pool of a
+  // dozen templates two seasons can land the same id by chance in a few weeks, but
+  // never in all of them, which is exactly what the old seed did
+  let dilemmaDiff = 0;
+  for (let w = 1; w <= 14; w++) {
+    const a = G.startWeek({ ...gs, week: w }).dilemma?.id ?? '';
+    const b = G.startWeek({ ...gs, week: w, season: 9 }).dilemma?.id ?? '';
+    if (a !== b) dilemmaDiff++;
+  }
+  if (dilemmaDiff < 5) fails.push(`the question before the match repeats across seasons in ${14 - dilemmaDiff} of 14 weeks`);
+  console.log(`  a different season draws a different lottery: 14/14 matches, ${dilemmaDiff}/14 questions moved`);
+}
+
 console.log('');
 if (fails.length) {
   console.log(`FAIL (${fails.length} of ${checked})`);
