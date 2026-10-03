@@ -359,6 +359,26 @@ function chroma(h: string): number {
   return Math.max(...c) - Math.min(...c);
 }
 
+/* THE CHAMPION'S PICTURE EXISTS, FOR EVERY STAGE THE SCREEN CAN ASK FOR.
+   The biggest moment in the game, the ליגת העל title, celebrated against a black
+   screen for a week: championImg asked for champion-tier2.webp, the file was never
+   made, and onerror quietly hid the picture. Found by the player-voice audit on
+   2.10, the file (Itzik chose the squad-hug frame) landed on 3.10. The screen's
+   own mapping is read here, so a new band in the code demands its file. */
+{
+  const screenSrc = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');
+  const bands = [...screenSrc.matchAll(/'(tier\d)'/g)].map(m => m[1]);
+  checked += 2;
+  if (new Set(bands).size < 2) fails.push(`championImg maps ${new Set(bands).size} bands, the top flight no longer has its own picture`);
+  for (const band of new Set(bands)) {
+    checked++;
+    const p = `public/celebration/champion-${band}.webp`;
+    if (band !== 'tier3' && !existsSync(p)) fails.push(`the screen can ask for ${p} and it does not exist, the title celebrates a black screen`);
+  }
+  // tier3 is Europe's slot, allowed to be missing until Europe exists; say so out loud
+  if (!existsSync('public/celebration/champion-tier3.webp')) console.log('  champion art: tier1 and tier2 exist; tier3 (Europe) is still to come');
+}
+
 console.log(`\n${checked} checks`);
 console.log(`${KIT_COLORS.length} colours dressed for a career each, ${PATTERNS.length} patterns in rotation`);
 if (fails.length) console.log('\n  ' + fails.slice(0, 10).join('\n  '));
