@@ -307,6 +307,8 @@ export interface GameState {
   inbox: RolledDilemma[];
   /** questions already asked THIS season, for the ones allowed only once in it */
   seasonDilemmas: string[];
+  /** the season nights the phone already rang for: clinched, crowned, sealed */
+  seasonChatEvents: string[];
   /** the money in and out of the round just played, shown on the result screen */
   lastLedger: RoundLedger | null;
   /** what the season's purse has already paid round by round, so the summer pays only the rest */
@@ -510,6 +512,7 @@ export function newGame(seed = 12345): GameState {
     queued: null,
     inbox: [],
     seasonDilemmas: [],
+    seasonChatEvents: [],
     lastLedger: null,
     purseEarlier: 0,
     chat: null,
@@ -1290,7 +1293,7 @@ function finishPreseason(gs: GameState): GameState {
 export function enterSeason(gs: GameState): GameState {
   // the summer is over, so its warnings and its star are over too, and the
   // questions allowed once a season may be asked again
-  gs = { ...gs, market: settleMarket(gs.market), scout: { ...gs.scout, offer: null }, seasonDilemmas: [] };
+  gs = { ...gs, market: settleMarket(gs.market), scout: { ...gs.scout, offer: null }, seasonDilemmas: [], seasonChatEvents: [] };
   gs = seasonWithLegend(gs);
   gs = dressForTheSeason(gs);
   // the new shirt is unveiled before anything else, because it is the first
@@ -4425,6 +4428,18 @@ export function advancePastPress(gs: GameState): GameState {
     : pickTrigger({
       margin, isDerby: isDerby(fx.homeId, fx.awayId), form: gs.form,
       facts: matchFacts(r, gs.clubId, mySquad(gs), new Set(gs.exits.map(e => e.id))),
+      seasonEvent: seasonChatEvent(gs) ?? undefined,
+      keeper: (() => { const k = mySquad(gs).starters.find(p => p.position === 'GK'); return k ? surnameOf(k.name) : undefined; })(),
+      youthGoal: (() => {
+        const sq = mySquad(gs);
+        const all = [...sq.starters, ...sq.bench];
+        for (const e of r.events) {
+          if ((e.type !== 'goal' && e.type !== 'penalty_goal') || e.teamId !== gs.clubId) continue;
+          const p = all.find(x => x.id === e.playerId);
+          if (p && p.age <= 18 && (gs.seasonStats[p.id]?.apps ?? 0) === 1) return surnameOf(p.name);
+        }
+        return undefined;
+      })(),
     });
   if (!picked) return endOfWeek(gs);
 
@@ -4443,7 +4458,35 @@ export function advancePastPress(gs: GameState): GameState {
   }, rng, gs.chatHistory.slice(-CHAT_MEMORY));
   if (!chat) return endOfWeek(gs);
 
-  return { ...gs, phase: 'chat', press: null, chat, chatHistory: [...gs.chatHistory, chat.id].slice(-CHAT_MEMORY) };
+  const SEASON_RINGS = ['title_won', 'promotion_clinched', 'relegation_sealed', 'season_over_good'];
+  const seasonChatEvents = SEASON_RINGS.includes(picked.trigger)
+    ? [...gs.seasonChatEvents, picked.trigger] : gs.seasonChatEvents;
+  return { ...gs, phase: 'chat', press: null, chat, seasonChatEvents, chatHistory: [...gs.chatHistory, chat.id].slice(-CHAT_MEMORY) };
+}
+
+/**
+ * The season night tonight certified, if any, each rung once a season: the
+ * title or the promotion locked with the rounds left unable to change it, the
+ * drop sealed the same way, or a season that ended in the top half without a
+ * trophy to ring about. Three points a round is the most the table can move.
+ */
+function seasonChatEvent(gs: GameState): 'title_won' | 'promotion_clinched' | 'relegation_sealed' | 'season_over_good' | null {
+  const table = sortedTable(gs.league);
+  const i = table.findIndex(s => s.clubId === gs.clubId);
+  if (i < 0) return null;
+  const pos = i + 1, teams = table.length, me = table[i];
+  const left = Math.max(0, gs.league.rounds - me.played);
+  const tier = club(gs).tier;
+  const heard = new Set(gs.seasonChatEvents);
+  const locked = (ahead: number) => ahead > 3 * left;
+
+  if (!heard.has('title_won') && pos === 1 && (left === 0 || locked(me.pts - (table[1]?.pts ?? 0)))) return 'title_won';
+  if (!heard.has('promotion_clinched') && !heard.has('title_won') && tier < TOP_TIER && pos <= 2
+    && (left === 0 || locked(me.pts - (table[2]?.pts ?? 0)))) return 'promotion_clinched';
+  if (!heard.has('relegation_sealed') && tier > 1 && pos === teams
+    && (left === 0 || locked((table[teams - 2]?.pts ?? 0) - me.pts))) return 'relegation_sealed';
+  if (!heard.has('season_over_good') && left === 0 && pos > 2 && pos <= teams / 2) return 'season_over_good';
+  return null;
 }
 
 /**

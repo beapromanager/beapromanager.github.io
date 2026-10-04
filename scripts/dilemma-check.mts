@@ -23,6 +23,7 @@ import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { CITIES } from '../src/data/cities.ts';
 import { isDerby } from '../src/data/clubs.ts';
+import { THREADS } from '../src/data/chats.ts';
 import { readFileSync } from 'node:fs';
 
 const fails: string[] = [];
@@ -433,15 +434,18 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   const home = G.playerFixture(gs)!.homeId === gs.clubId;
   const win = drive(gs, home ? [3, 0] : [0, 3]);
   const loss = drive(gs, home ? [0, 3] : [3, 0]);
-  if (win.phase !== 'chat' || win.chat?.id !== 'fans_backed_win') fails.push(`a win after backing the squad brought ${win.phase === 'chat' ? win.chat?.id : 'no chat'}, not the fans on the back you gave`);
-  if (loss.phase === 'chat' && loss.chat?.id === 'fans_backed_win') fails.push('the fans thanked the manager for a defeat');
+  // since 4.10 each of these triggers owns several threads, so the claim is on
+  // the trigger the phone rang for, not on one favourite conversation
+  const trigOf = (g: G.GameState) => g.phase === 'chat' ? THREADS.find(t => t.id === g.chat?.id)?.trigger : null;
+  if (trigOf(win) !== 'backed_win') fails.push(`a win after backing the squad brought ${win.phase === 'chat' ? win.chat?.id : 'no chat'}, not the back you gave`);
+  if (trigOf(loss) === 'backed_win') fails.push('the fans thanked the manager for a defeat');
   if (win.phase === 'chat' && G.closeChat(win).matchMods.chatAfter) fails.push('the buzz outlived the week');
   let g2 = career(62);
   ({ gs: g2 } = answer(g2, 'owner_son', 1));
   const home2 = G.playerFixture(g2)!.homeId === g2.clubId;
   const talked = drive(g2, home2 ? [0, 1] : [1, 0]);
   checked++;
-  if (talked.phase !== 'chat' || talked.chat?.id !== 'fans_stood_up') fails.push(`refusing the owner's boy brought ${talked.phase === 'chat' ? talked.chat?.id : 'no chat'}, not the fans on standing up to him`);
+  if (trigOf(talked) !== 'stood_up_owner') fails.push(`refusing the owner's boy brought ${talked.phase === 'chat' ? talked.chat?.id : 'no chat'}, not the word on standing up to him`);
   console.log('  the phone: legs for the squad and a word from the terrace when it pays, and one for standing up to the owner');
 }
 
