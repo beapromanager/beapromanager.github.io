@@ -23,6 +23,7 @@ import { SeasonEnd, PreSeasonScreen } from './screens/SeasonEnd.tsx';
 import { SackedScreen } from './screens/Sacked.tsx';
 import { SponsorScreen } from './screens/Sponsor.tsx';
 import { KitReveal } from './screens/KitReveal.tsx';
+import { FriendlyScreen } from './screens/Friendly.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
 import { ScoutScreen } from './screens/Scout.tsx';
 import { YouthDecisionScreen } from './screens/YouthDecision.tsx';
@@ -402,7 +403,7 @@ export function App() {
       )}
       {gs.phase === 'teamsheet' && (
         <TeamsheetScreen gs={gs}
-          onGo={() => setGs({ ...gs, phase: 'match' })}
+          onGo={() => setGs(g => G.sendTeamsheet(g))}
           onSwap={(a, b) => setGs(g => G.swapPlayers(g, a, b))}
           onMove={(a, b) => setGs(g => G.movePlayers(g, a, b))} />
       )}
@@ -410,6 +411,7 @@ export function App() {
         <MatchBroadcast gs={gs} onDone={result => setGs(G.commitRound(gs, result))}
           onHalfTime={gs.season === 1 && gs.week === 1 && !adminKey ? () => track('match1_half') : undefined} />
       )}
+      {gs.phase === 'friendly' && <FriendlyScreen gs={gs} onDone={() => setGs(g => G.finishFriendly(g))} />}
       {gs.phase === 'result' && <ResultScreen gs={gs} onContinue={() => setGs(G.continueFromResult(gs))} />}
       {gs.phase === 'press' && <PressScreen key={gs.press?.q.text} gs={gs} onPick={i => setGs(g => G.pickPressAnswer(g, i))} onNext={() => setGs(g => G.continuePress(g))} />}
       {gs.phase === 'chat' && <ChatScreen gs={gs} onDone={() => setGs(G.closeChat(gs))} onAnswer={i => setGs(g => G.answerMateChat(g, i))} />}

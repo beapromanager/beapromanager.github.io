@@ -239,7 +239,8 @@ if (roleFit('GK', 'ST') !== 'out') fails.push('a keeper up front reads as fine')
   if (!/patched\.phase === 'vs'/.test(readFileSync('src/game/save.ts', 'utf8'))) {
     fails.push('a save left standing on the old crest card would open on nothing');
   }
-  if (!/phase === 'teamsheet'[^]{0,200}phase: 'match'/.test(app)) fails.push('the dressing room board does not lead to the match');
+  // the board leads to the match, through the door that plays the works friendly first when one was agreed
+  if (!/phase === 'teamsheet'[^]{0,200}G\.sendTeamsheet/.test(app)) fails.push('the dressing room board does not lead to the match');
   if (!/G\.lineup\(gs\)/.test(sheet)) fails.push('the chalkboard does not draw the real eleven');
   if (!/formation\(gs\.tactic\?\.formation\)/.test(sheet)) fails.push('the chalkboard is not drawn in the shape being played');
   // and it is where the sheet is last changed. A manager who sees his side and

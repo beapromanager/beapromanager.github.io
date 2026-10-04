@@ -570,10 +570,10 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
    never read back from the code under test. */
 {
   // the batch landed whole: 30 originals plus 69 of the 70 drafts, with the
-  // midweek friendly held back until the real friendly exists
+  // the midweek friendly came in with its own mechanism (friendly-check holds that)
   checked += 3;
-  if (TEMPLATES.length !== 102) fails.push(`${TEMPLATES.length} templates, the agreed count is 102 (30 + 69 + the reporter's three columns)`);
-  if (TEMPLATES.some(t => t.id === 'midweek_friendly')) fails.push('the midweek friendly is in before the real friendly match exists');
+  if (TEMPLATES.length !== 103) fails.push(`${TEMPLATES.length} templates, the agreed count is 103 (30 + 69 + the reporter's three columns + the works friendly)`);
+  if (!TEMPLATES.some(t => t.id === 'midweek_friendly')) fails.push('the midweek friendly is missing');
   if (!TEMPLATES.some(t => t.id === 'team_dog') || !TEMPLATES.some(t => t.id === 'derby_police_cut')) fails.push('the batch is missing members');
 
   // what blocks the week and what can wait
@@ -726,7 +726,7 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
     });
     if (dash.length) fails.push(`long dashes in: ${dash.map(t => t.id).join(', ')}`);
   }
-  console.log("  Itzik's batch: 69 in, the friendly held back, eleven gates hold, the loan, the bonus and the poisoning behave");
+  console.log("  Itzik's batch: 69 in, the friendly with them, eleven gates hold, the loan, the bonus and the poisoning behave");
 }
 
 console.log('');

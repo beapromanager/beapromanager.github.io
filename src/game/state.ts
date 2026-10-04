@@ -3,7 +3,9 @@ import { surnameOf } from '../data/names.ts';
 import type { ManagerId, ManagerType } from '../data/managers.ts';
 import { getManager } from '../data/managers.ts';
 import type { Squad } from '../data/squadGen.ts';
-import { playerValue, squadAvgOvr, nextPlayerId, makePlayer } from '../data/squadGen.ts';
+import { playerValue, squadAvgOvr, nextPlayerId, makePlayer, makeSquad } from '../data/squadGen.ts';
+import { FACTORIES, describeFriendly } from '../data/friendly.ts';
+import type { FriendlyReport, FriendlyEvent } from '../data/friendly.ts';
 import type { MatchResult, TeamInput, Approach, Press, Player, Position, Rng } from '../engine/matchEngine.ts';
 import { simulateMatch, overall, createRng } from '../engine/matchEngine.ts';
 import type { LeagueState, Fixture, Standing } from './league.ts';
@@ -100,7 +102,9 @@ export type Phase =
   | 'onboard-archetype' | 'onboard-manager' | 'onboard-club' | 'signing' | 'friends' | 'squad' | 'hub' | 'transfers' | 'invite'
   | 'dilemma' | 'tactic' | 'vs' | 'teamsheet' | 'match' | 'result' | 'press' | 'season-end' | 'chronicle'
   | 'captain' | 'assistant' | 'coach' | 'preseason' | 'preseason-market' | 'inbox' | 'chat' | 'table' | 'stadium'
-  | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit' | 'scout' | 'youth-decision';
+  | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit' | 'scout' | 'youth-decision'
+  /* the midweek match with the works team, told after the sheet is sent */
+  | 'friendly';
 
 export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
 
@@ -206,6 +210,8 @@ export interface MatchMods {
   chatAfter?: { trigger: ChatTrigger; onlyIfWon?: boolean };
   /** a bonus promised to the squad, paid out of the purse only on a win */
   winBonus?: number;
+  /** the works team's friendly: agreed this week, played when the sheet goes in, paid when the popup closes */
+  friendly?: { factory: string; fee: number; report?: FriendlyReport };
 }
 
 /** What breaking a promise to a player costs the dressing room. */
@@ -256,6 +262,8 @@ export interface PlayerSeason {
   goals: number;
   assists: number;
   lastGoalWeek: number;   // 0 = never scored this season
+  /** minutes in a friendly: they quiet the forgotten man's complaint but are no league appearance */
+  friendlyApps?: number;
 }
 
 /** One finished season on a player's record, so a card can show a history. */
@@ -3280,11 +3288,13 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
   // are things that happen TO him rather than demands he makes.
   const all = [...sq.starters, ...sq.bench].filter(p => !isLegend(p));
   const apps = (p: Player) => gs.seasonStats[p.id]?.apps ?? 0;
+  // a friendly's minutes quiet the forgotten man, though they are no league appearance
+  const minutes = (p: Player) => apps(p) + (gs.seasonStats[p.id]?.friendlyApps ?? 0);
   const goals = (p: Player) => gs.seasonStats[p.id]?.goals ?? 0;
 
   // the forgotten man: fewest appearances, bench first, oldest as the tie break
   const forgotten = [...sq.bench, ...sq.starters].filter(p => !isLegend(p))
-    .sort((a, b) => apps(a) - apps(b) || b.age - a.age)[0];
+    .sort((a, b) => minutes(a) - minutes(b) || b.age - a.age)[0];
   const kid = all.filter(p => p.age <= 20).sort((a, b) => overall(b) - overall(a))[0];
   const old = all.filter(p => p.age >= 32).sort((a, b) => b.age - a.age)[0];
   const scorer = [...all].sort((a, b) => goals(b) - goals(a))[0];
@@ -3297,8 +3307,8 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
 
   return {
     star, rival: rivalShort, club: club(gs).short, money: cash(gs.meters.money),
-    benched: forgotten && apps(forgotten) <= 1 ? surname(forgotten.name) : '',
-    benchedApps: forgotten ? apps(forgotten) : 0,
+    benched: forgotten && minutes(forgotten) <= 1 ? surname(forgotten.name) : '',
+    benchedApps: forgotten ? minutes(forgotten) : 0,
     youngster: kid ? surname(kid.name) : '',
     veteranName: old ? surname(old.name) : '',
     scorer: scorer && goals(scorer) > 0 ? surname(scorer.name) : '',
@@ -3529,6 +3539,13 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
         break;
       }
       case 'winBonus': gs = { ...gs, matchMods: { ...gs.matchMods, winBonus: a.amount } }; break;
+      case 'friendly': {
+        // the works team that turns seventy gets a name now, so a reload names the same one
+        const rng = createRng(drawSeed(gs, 130_000));
+        const factory = FACTORIES[Math.floor(rng() * FACTORIES.length)];
+        gs = { ...gs, matchMods: { ...gs.matchMods, friendly: { factory, fee: a.fee } } };
+        break;
+      }
       case 'fitnessAll': {
         const sq = mySquad(gs);
         const fitness = { ...(gs.matchMods.fitness ?? {}) };
@@ -3655,6 +3672,111 @@ export function chooseDilemma(gs: GameState, optionIndex: number): GameState {
 
 export function toTactic(gs: GameState): GameState {
   return { ...gs, phase: 'tactic', dilemma: null, pendingOutcome: null };
+}
+
+/* ------------------------------------------------ the factory friendly */
+
+/** "ירידה קלה" in Itzik's draft: a few points of condition, for the men who played. */
+const FRIENDLY_TIRED = -6;
+
+/** The works team is rated this far under the eleven who face it: a friendly, not a final. */
+const FRIENDLY_WORKS_BELOW = 5;
+
+/**
+ * The eleven who play the friendly: everyone the sheet left out, best first,
+ * and when that is short of eleven the weakest of the sheet fill the rest, so
+ * the stars rest. A keeper always goes in. Null when the squad cannot field
+ * eleven available men, and then there is simply no friendly.
+ */
+function friendlyEleven(gs: GameState): Player[] | null {
+  const sheet = lineup(gs);
+  const onSheet = new Set(sheet.map(p => p.id));
+  const sq = mySquad(gs);
+  const all = [...sq.starters, ...sq.bench].filter(p => !isUnavailable(gs, p.id));
+  const best = (a: Player, b: Player) => overall(b) - overall(a);
+  const eleven = all.filter(p => !onSheet.has(p.id)).sort(best).slice(0, 11);
+  for (const p of all.filter(x => onSheet.has(x.id)).sort((a, b) => overall(a) - overall(b))) {
+    if (eleven.length >= 11) break;
+    eleven.push(p);
+  }
+  if (eleven.length < 11) return null;
+  if (!eleven.some(p => p.position === 'GK')) {
+    const gk = all.filter(p => p.position === 'GK').sort(best)[0];
+    if (!gk) return null;
+    const weakest = [...eleven].sort((a, b) => overall(a) - overall(b))[0];
+    eleven[eleven.indexOf(weakest)] = gk;
+  }
+  return eleven;
+}
+
+/** Play the works team in an instant, seeded by the week, and tell it. */
+function playFriendly(gs: GameState, f: { factory: string; fee: number }): FriendlyReport | null {
+  const mine = friendlyEleven(gs);
+  if (!mine) return null;
+  const avg = mine.reduce((s, p) => s + overall(p), 0) / mine.length;
+  const works = makeSquad(Math.round(avg) - FRIENDLY_WORKS_BELOW, createRng(drawSeed(gs, 130_001)));
+  const tactic: TeamInput['tactic'] = { formation: DEFAULT_FORMATION, approach: 'balanced', press: 'mid' };
+  const shape = formation(DEFAULT_FORMATION);
+  const res = simulateMatch(
+    { id: 'friendly-works', name: f.factory, players: fillFormation(works.starters, shape), tactic, chemistry: 0.6, isHome: true },
+    { id: gs.clubId, name: club(gs).short, players: fillFormation(mine, shape), tactic, chemistry: 0.6, isHome: false },
+    drawSeed(gs, 130_002));
+  const score: [number, number] = [res.score[1], res.score[0]];
+
+  const events: FriendlyEvent[] = [];
+  for (const e of res.events) {
+    if (e.type === 'goal' || e.type === 'penalty_goal' || e.type === 'own_goal' || e.type === 'red') {
+      events.push({ minute: e.minute, type: e.type, mine: e.teamId === gs.clubId, who: surnameOf(e.playerName) });
+    }
+  }
+  const top = [...mine].sort((a, b) => (res.ratings[b.id] ?? 0) - (res.ratings[a.id] ?? 0))[0];
+  const star = top && (res.ratings[top.id] ?? 0) >= 7 ? surnameOf(top.name) : undefined;
+  const lines = describeFriendly(
+    { factory: f.factory, club: club(gs).short, score, events, star }, createRng(drawSeed(gs, 130_003)));
+  return { factory: f.factory, club: club(gs).short, score, fee: f.fee, played: mine.map(p => p.id), lines };
+}
+
+/**
+ * The sheet goes in. When the works team's friendly was agreed this week it is
+ * played now, in an instant, and the popup tells it before the league match.
+ */
+export function sendTeamsheet(gs: GameState): GameState {
+  const f = gs.matchMods.friendly;
+  if (!f) return { ...gs, phase: 'match' };
+  if (f.report) return { ...gs, phase: 'friendly' };
+  const report = playFriendly(gs, f);
+  if (!report) {
+    const { friendly: _gone, ...rest } = gs.matchMods;
+    return { ...gs, matchMods: rest, phase: 'match' };
+  }
+  return { ...gs, matchMods: { ...gs.matchMods, friendly: { ...f, report } }, phase: 'friendly' };
+}
+
+/**
+ * The popup is read and closed: the fee lands once, the men who played carry
+ * the tiredness into the league match and a minute on their sheet, and the
+ * round goes on. Closing it twice does nothing, the friendly is gone.
+ */
+export function finishFriendly(gs: GameState): GameState {
+  const f = gs.matchMods.friendly;
+  const report = f?.report;
+  if (!f || !report) return { ...gs, phase: 'match' };
+  const roster = new Map([...mySquad(gs).starters, ...mySquad(gs).bench].map(p => [p.id, p] as const));
+  const fitness = { ...(gs.matchMods.fitness ?? {}) };
+  const seasonStats = { ...gs.seasonStats };
+  for (const id of report.played) {
+    const p = roster.get(id);
+    if (!p) continue;
+    fitness[id] = (fitness[id] ?? 0) + FRIENDLY_TIRED;
+    const rec = seasonStats[id] ?? blankSeason(p.name, gs.clubId);
+    seasonStats[id] = { ...rec, friendlyApps: (rec.friendlyApps ?? 0) + 1 };
+  }
+  const { friendly: _paid, ...rest } = gs.matchMods;
+  return {
+    ...gs, phase: 'match', seasonStats,
+    meters: { ...gs.meters, money: cash(gs.meters.money + f.fee) },
+    matchMods: { ...rest, fitness },
+  };
 }
 
 /* ------------------------------------------------------------- the inbox */

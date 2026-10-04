@@ -63,7 +63,8 @@
     "check:scout": "node --experimental-strip-types scripts/scout-check.mts",
     "check:traits": "node --experimental-strip-types scripts/traits-check.mts",
     "check:purse": "node --experimental-strip-types scripts/purse-check.mts",
-    "check:chats": "node --experimental-strip-types scripts/chats-check.mts"
+    "check:chats": "node --experimental-strip-types scripts/chats-check.mts",
+    "check:friendly": "node --experimental-strip-types scripts/friendly-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

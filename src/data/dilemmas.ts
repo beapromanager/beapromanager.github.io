@@ -50,6 +50,7 @@ export type Act =
   | { kind: 'fitnessSome'; count: number; delta: number }          // a few of the likely eleven, drawn by the week's seed, starred in the match
   | { kind: 'loanOut'; who: Who }                                  // the text says he returns next season; in fact he leaves, and a floor squad pulls a boy up (Itzik, 3.10)
   | { kind: 'winBonus'; amount: number }                           // paid out of the purse only if this match is won
+  | { kind: 'friendly'; fee: number }                              // the works team's midweek friendly, played when the sheet goes in, paid after (Itzik, 4.10)
   | { kind: 'chatAfter'; trigger: ChatTrigger; onlyIfWon?: boolean } // the phone buzzes about this after the match
   | { kind: 'queue'; id: string; weeks: number }                   // another talk, this one, opens a week or so on
   | { kind: 'injury'; who: Who; risk: number }                     // may sit the round after, "פצוע"
@@ -1658,6 +1659,20 @@ export const TEMPLATES: DilemmaTemplate[] = [
       { label: 'מצמצמים. הכסף הזה הוא משכורת של שחקן', effect: { money: +0, fans: -5 },
         outcome: 'הדרבי ישוחק מול יציע מדולל. מי שלא ייכנס יעמוד בחוץ וישמע את השאגות.',
         act: [{ kind: 'gate', mult: 0.6 }] },
+    ],
+  },
+  {
+    id: 'midweek_friendly',
+    speaker: 'director',
+    slots: {},
+    oncePerSeason: true,
+    text: 'קיבלנו הצעה למשחק ידידות באמצע שבוע מול קבוצת פועלים מהאזור, הם חוגגים שבעים שנה למפעל. משלמים 15,000 על ההופעה. זה כסף טוב, וזה גם עייפות לפני {rival}.',
+    options: () => [
+      { label: 'משחקים, עם כל הספסל. הצעירים יקבלו דקות והקופה תרוויח', effect: {},
+        outcome: 'סגרתם. הצעירים יקבלו 90 דקות אמיתיות, הוותיקים ינוחו. כולם מרוויחים, חוץ מהרגליים.',
+        act: [{ kind: 'friendly', fee: 15000 }] },
+      { label: 'לא נוגעים בשחקנים לפני שבת. תסרב בנימוס', effect: { prestige: +1 },
+        outcome: 'הם יחגגו שבעים בלעדיכם. הסגל שלך יגיע לשבת רענן.' },
     ],
   },
 ];
