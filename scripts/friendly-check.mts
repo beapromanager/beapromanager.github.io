@@ -276,6 +276,35 @@ const all = (gs: G.GameState) => [...G.mySquad(gs).starters, ...G.mySquad(gs).be
   if (!ownGoal.some(l => l.includes('רוזן') && l.includes('לשער שלו'))) fails.push('an own goal by the works team is not told as theirs');
 }
 
+/* --------------------- 5c. Itzik's own corrections, pinned word for word */
+{
+  const factory = 'מפעל הקרטונים מקריית גת';
+  const ev = (minute: number, type: FriendlyEvent['type'], mine: boolean, who: string): FriendlyEvent => ({ minute, type, mine, who });
+  // every wording rotation, on evenings that call for each of the four lines
+  const seen = new Set<string>();
+  for (let k = 0; k < 24; k++) {
+    const rng = () => (k + 0.5) / 24;
+    const evenings: Array<[[number, number], FriendlyEvent[]]> = [
+      [[1, 2], [ev(45, 'goal', true, 'חן'), ev(83, 'goal', false, 'טולדנו')]],
+      [[0, 1], [ev(30, 'goal', false, 'לוין')]],
+      [[2, 0], [ev(10, 'goal', true, 'חן'), ev(20, 'goal', true, 'לוי')]],
+    ];
+    for (const [score, events] of evenings) {
+      for (const l of describeFriendly({ factory, club: 'רה', score, events, star: undefined }, rng)) seen.add(l);
+    }
+  }
+  const must = [
+    `המגרש של ${factory} מלא בורות והיה מסוכן לשחק שם. העובדים שלהם הביאו תופים, ולא כולם יודעים לתופף.`,
+    'בדקה 45 חן שולח כדור פנימה, והספסל קופץ.',
+    'בדקה 83 העובדים עונים, וטולדנו חוגג מול החברה.',
+    'הפסד לעובדים. כדאי שזה יישאר בינינו ובין המפעל.',
+  ];
+  const gone = ['מלא עובדים בחולצות עבודה', 'שולח אותה פנימה', 'חוגג מול הקנטינה', 'ובין הקנטינה'];
+  checked += must.length + gone.length;
+  for (const m of must) if (!seen.has(m)) fails.push(`Itzik's line is gone: "${m}"`);
+  for (const g of gone) if ([...seen].some(l => l.includes(g))) fails.push(`the line he corrected is back: "${g}"`);
+}
+
 /* ------------------------------------------------ 6. wired in, and drawn */
 {
   const app = readFileSync('src/ui/App.tsx', 'utf8');
