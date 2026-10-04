@@ -264,6 +264,13 @@ const all = (gs: G.GameState) => [...G.mySquad(gs).starters, ...G.mySquad(gs).be
   ], [4, 2]), rng);
   const minutesTold = many.map(l => /בדקה (\d+)|בדקה\s*(\d+)|(\d+)/.exec(l)?.[0]).filter(Boolean).length;
   if (!many.some(l => l.includes('עוד 2 שערים'))) fails.push('six goals were told one by one instead of four and the rest counted');
+  // one goal over the four is "one goal", not "1 goals"
+  checked += 2;
+  const five = describeFriendly(facts([
+    ev(5, 'goal', true, 'א'), ev(15, 'goal', false, 'ב'), ev(25, 'goal', true, 'ג'), ev(35, 'goal', false, 'ד'), ev(45, 'goal', true, 'ה'),
+  ], [3, 2]), rng);
+  if (!five.some(l => l.includes('עוד שער אחד נרשם'))) fails.push('five goals did not end with "one more goal"');
+  if (five.some(l => /\d+ שערים/.test(l) && l.includes('ועוד 1'))) fails.push('one extra goal was told as "1 goals"');
   if (minutesTold < 4) fails.push('the first four goals of six were not told');
 
   // two goals of ours in a row never read the same
@@ -314,7 +321,7 @@ const all = (gs: G.GameState) => [...G.mySquad(gs).starters, ...G.mySquad(gs).be
   if (!/<TeamsheetScreen[\s\S]*?G\.sendTeamsheet/.test(app)) fails.push('the team sheet does not go through the friendly');
   if (!/gs\.phase === 'friendly'[^\n]*FriendlyScreen[^\n]*G\.finishFriendly/.test(app)) fails.push('the friendly popup is not routed, or does not close through finishFriendly');
   if (!screen.includes('fr-board') || !screen.includes('report.score')) fails.push('the popup has no scoreboard of the real score');
-  if (!screen.includes('report.lines') || !screen.includes('formatMoney(report.fee)')) fails.push('the popup does not tell the evening and the fee');
+  if (!screen.includes('report.lines') || !screen.includes('report.fee.toLocaleString')) fails.push('the popup does not tell the evening and the fee');
   if (!css.includes('.fr-board') || !css.includes('.fr-digits')) fails.push('the scoreboard has no styling');
   if (!screen.includes('disabled={!done}')) fails.push('the way on is open before the story is read');
 }

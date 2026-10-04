@@ -148,9 +148,9 @@ export function describeFriendly(facts: FriendlyFacts, rng: Rng): string[] {
     }
     if (ours) weScored = true;
   }
-  if (goals.length > MAX_GOALS_TOLD) {
-    lines.push(`ועוד ${goals.length - MAX_GOALS_TOLD} שערים נרשמו עד השריקה, ואף אחד לא הצליח לספור אותם.`);
-  }
+  const extra = goals.length - MAX_GOALS_TOLD;
+  if (extra === 1) lines.push('ועוד שער אחד נרשם עד השריקה, ואף אחד לא הצליח לספור אותו.');
+  else if (extra > 1) lines.push(`ועוד ${extra} שערים נרשמו עד השריקה, ואף אחד לא הצליח לספור אותם.`);
 
   if (star) lines.push(`הכי טוב אצלנו היה ${star}.`);
 

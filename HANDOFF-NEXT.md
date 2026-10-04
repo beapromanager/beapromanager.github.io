@@ -3,7 +3,7 @@
 אני איציק. אנחנו ממשיכים עבודה על המשחק שלי BE A PRO, משחק מנג'ר כדורגל ישראלי בעברית (RTL),
 Vite + React + TypeScript, ב-`C:\Users\itzik\Desktop\CLAUDE\be-a-pro`. תשתמש בסקיל `be-a-pro-skill`.
 הצ'אט הקודם נגמר. ההודעה הזו מתארת בדיוק איפה עצרנו. **תקרא הכל לפני שאתה נוגע במשהו.**
-כל עובדה כאן נבדקה מול הקוד, הריפו והמסד החי בסוף הסשן הקודם (3.10.2026 בלילה).
+כל עובדה כאן נבדקה מול הקוד, הריפו והמסד החי בסוף הסשן הקודם (4.10.2026).
 
 **המשחק באוויר ואנשים אמיתיים משחקים בו.** כל שינוי שאתה דוחף מגיע לאנשים תוך שלוש דקות.
 
@@ -18,7 +18,7 @@ Vite + React + TypeScript, ב-`C:\Users\itzik\Desktop\CLAUDE\be-a-pro`. תשתמ
 `gh` מחובר בתור itzik200592-byte.
 
 **הכל דחוף, אפס קומיטים מקומיים.** `git log --oneline game/main..main` צריך להיות ריק. הדחיפות האחרונות
-(4.10): `c429598` (69 הדילמות), `229b4eb` (63 שאלות העיתונאים), `e512be3` (60 הצ'אטים), וקומיטי ההאנדאוף. ה-Worker החי בגרסה
+(4.10): `c429598` (69 הדילמות), `229b4eb` (63 שאלות העיתונאים), `e512be3` (60 הצ'אטים), `382aab9` + `3dd369c` (משחק המפעל ותיקוני הניסוח של איציק), וקומיטי ההאנדאוף. ה-Worker החי בגרסה
 `74c9f084` (נפרס 3.10 אחרי ההוספות, לא השתנה מאז).
 
 **הצעד הראשון שלך:** `git status`. הוא אמור להראות **שני** דברים, לא יותר:
@@ -86,8 +86,8 @@ Vite + React + TypeScript, ב-`C:\Users\itzik\Desktop\CLAUDE\be-a-pro`. תשתמ
 - **מכירה כפויה** (פריט 44): רק בשבוע האחרון של חלון החורף (`winterLast`).
 - **רק ליגת העל** (פריט 26, anthem_girl): `tier === 5`.
 - **רק שחקן התקפה** (פריט 42, star_bored_middle): Ctx חדש `starIsForward`.
-- **משחק המפעל** (פריט 53, midweek_friendly): **לא נכנס**, פיצ'ר נפרד (משחק קצר אמיתי עם הרכב ספסל ופופאפ),
-  לתכנן עם איציק. לכן 69 ולא 70.
+- **משחק המפעל** (פריט 53, midweek_friendly): לא נכנס בשלב א' כי הוא דרש פיצ'ר נפרד. נבנה בהמשך אותו יום, אחרי
+  שתכננו אותו יחד עם איציק (פסקה "משחק המפעל" למטה). לכן שלב א' היה 69 ולא 70.
 
 בונוס דרבי (winBonus 40K) יורד מהקופה רק בניצחון. דוברים חדשים captain/mother עם אייקונים ב-Dilemma.tsx.
 סעיף באץ' ב-`dilemma-check` (509 בדיקות): ספירה 99, שערים, הרעלה, השאלה, בונוס, ✶, בלי קו מפריד ארוך.
@@ -126,7 +126,7 @@ backed_win/stood_up הישנות ב-dilemma-check הורחבו מ-id לטריג�
 **ה-200 של איציק בפנים במלואם** (70 דילמות כולל משחק המפעל + 63 שאלות + 60 צ'אטים). בחוץ נשארו רק 4 שאלות
 עיתונאים שהמנוע לא יכול לאמת (101/106/119/137).
 
-**משחק המפעל (פריט 53, 4.10, נבנה ועדיין לא נדחף עד אישור הניסוחים):** איציק אישר: סימולציה מיידית בפופאפ
+**משחק המפעל (פריט 53, 4.10, נדחף עם `382aab9` + `3dd369c`):** איציק אישר: סימולציה מיידית בפופאפ
 אחרי שליחת ההרכב (לא משחק חי), לוח תוצאה מצויר, תיאור משחק, פעם בעונה, ספירה כהופעה. האדריכלות:
 Act חדש `friendly {fee}` בדילמה `midweek_friendly` (oncePerSeason, ללא when) שם `matchMods.friendly
 {factory, fee}`; `sendTeamsheet` (במקום `phase:'match'` ישיר ב-App) מריץ `playFriendly`: הרכב = כל מי שמחוץ
@@ -135,12 +135,25 @@ Act חדש `friendly {fee}` בדילמה `midweek_friendly` (oncePerSeason, לל
 התוצאה נשמרת ב-`matchMods.friendly.report` ופאזה חדשה `friendly` (מסך `Friendly.tsx`, לוח LED ב-CSS);
 `finishFriendly` משלם 15,000 פעם אחת, מוריד 6 כושר לשחקנים ששיחקו (✶ במשחק), ורושם `friendlyApps` (לא
 `apps`, אז אין השפעה על טבלת כובשים/סיפורי בכורה; משפיע רק על ה"נשכח" ב-dilemmaCtx). המילים ב-
-`src/data/friendly.ts` (12 שמות מפעל + תיאורים) **טיוטה לתיקון איציק**. בדיקה חדשה `check:friendly` (66
-בדיקות, הסוויטה 57), 22 חבלות נתפסו. תיקון קשור: lineup-check ציפה ל-`phase:'match'` ישיר מהלוח.
+`src/data/friendly.ts` (12 שמות מפעל + תיאורים). **איציק אישר את 12 השמות ותיקן 4 שורות מילה במילה** (פתיחת
+"מלא בורות והיה מסוכן", "שולח כדור פנימה", "חוגג מול החברה", "ובין המפעל"), והן מוצמדות בבדיקה (סעיף 5c) עם
+ארבע חבלות. שאר הניסוחים (פתיחות, שאר ניסוחי שער, סיומי ניצחון/תיקו/הפסד, אדום, שער עצמי) הם טיוטה שלי שהוא
+לא תיקן: **המילה "קנטינה" נשארה בשתי שורות שהוא לא נגע בהן (שער אפס-אפס ואדום ליריב), ועוד לא ענה אם להחליף.**
+בדיקה חדשה `check:friendly` (76 בדיקות, הסוויטה 57), 22 חבלות נתפסו.
+שני תיקונים קטנים אחרי הדחיפה (בקומיט נפרד): "ועוד שער אחד נרשם" במקום "ועוד 1 שערים", ושורת התשלום בפופאפ היא
+"שילם 15,000 שקל" בלי הסימן ₪ (בתוך משפט בעברית הסימן קופץ לצד הלא נכון, צריך לאמת בעין לפני שמחזירים). תיקון קשור: lineup-check ציפה ל-
+`phase:'match'` ישיר מהלוח.
+
+**תמונת הפוסט השלישית (4.10):** `PIC/update3-post/beapro-update3-post.png` (1080x1350), נבנתה מ-`post.html` +
+שלושה צילומי מסך אמיתיים של המשחק (`shot-chat/friendly/press.png`, 1170x2532) שצולמו דרך כרום headless ו-CDP
+באמולציית טלפון 390x844 ב-3x (הסקריפט `cdp-shot.mjs` ב-scratchpad של הסשן: מזריק סייב ל-localStorage, מדלג על
+מסך הפתיחה "דלג", לוחץ "המשך קריירה", מצלם). המספרים בתמונה אמיתיים: 70 דילמות + 63 שאלות + 60 צ'אטים =
+193, לכן "כמעט 200" ולא "200+". הפוסט הקודם הוא `PIC/update2-post/`. הטקסט לפוסט נמסר לאיציק בצ'אט.
 
 ### פתוח עכשיו, לפי סדר
 
-1. **ה-200 הושלמו.** נשארו מהם רק משחק המפעל (53) לתכנון משותף ו-4 שאלות שהמנוע לא נושא (למעלה).
+1. **ה-200 הושלמו במלואם, כולל משחק המפעל.** נשארו בחוץ רק 4 שאלות עיתונאים שהמנוע לא נושא (101/106/119/137,
+   אם איציק רוצה אחת מהן צריך קודם לבנות את המנגנון) והשאלה על "קנטינה" (למעלה).
 2. **שיחת האדום האמיתית**: לתכנן יחד (עדיין לא נגענו).
 3. **גבול ל-check:gems** (למעלה).
 4. **אירופה**: פסק המועצה בזיכרון (`memory/europe-council-verdict.md`), מחכה לנתוני "לאן מגיעים" נקיים (3-4 ימים
@@ -160,6 +173,9 @@ Act חדש `friendly {fee}` בדילמה `midweek_friendly` (oncePerSeason, לל
   משובש. אם קרה, להריץ מחדש את הבדיקות שהתחילו בחלון.
 - **DOCX בלי python**: שלושה חלקי OOXML (Content_Types, rels, document.xml עם bidi/rtl/cs בכל רמה) ו-zip דרך
   PowerShell `ZipFileExtensions::CreateEntryFromFile` עם שמות נתיב בסלאש קדמי. פתיחה רק בוורד אמיתי.
+- **חבלה אמינה:** שרשור `sab ... && run; sab-revert ... &&` נשבר באמצע כשעוגן אחד לא מתאים ומשאיר מצב לא ברור.
+  כותבים רשימת הוכחות לקובץ ומריץ שמחיל, מריץ ומחזיר ב-`finally` (גם כשהבדיקה קורסת), ומדפיס "caught / NOT
+  CAUGHT" לכל אחת. הוכחה שלא נתפסה כמעט תמיד אומרת שהטענה חלשה: מוסיפים לה טענה שלילית, לא מחלישים את החבלה.
 - **ולידציה של מפתח חדש ב-Worker**: לבדוק עם POST אמיתי (`aid: zz-deploycheck`) ולמחוק את השורה מיד.
 
 ---
@@ -224,10 +240,10 @@ Act חדש `friendly {fee}` בדילמה `midweek_friendly` (oncePerSeason, לל
 
 ---
 
-## הסוויטה, 55 בדיקות (פקודה אחת)
+## הסוויטה, 57 בדיקות (פקודה אחת)
 
 ```
-for s in pitch formations sync goals numbers debt economy climb sacking guaranteed league youth kits palette names market lineup press invite gems coach install scroll summer legends seasonkit penalty discipline back breakout voice shape oldsave repeat suspension keeper part dilemma sub tutorial pack feed seed ads sponsor report fans friends telemetry flares gk reshuffle scout traits purse; do npm run -s check:$s >/dev/null 2>&1 && echo "OK   $s" || echo "FAIL $s"; done
+for s in pitch formations sync goals numbers debt economy climb sacking guaranteed league youth kits palette names market lineup press invite gems coach install scroll summer legends seasonkit penalty discipline back breakout voice shape oldsave repeat suspension keeper part dilemma sub tutorial pack feed seed ads sponsor report fans friends telemetry flares gk reshuffle scout traits purse chats friendly; do npm run -s check:$s >/dev/null 2>&1 && echo "OK   $s" || echo "FAIL $s"; done
 ```
 
 לוקחת בערך 20-30 דקות. **חשוב: את הלולאה מריצים כפקודת ה-background עצמה** (`run_in_background: true`), עם
@@ -235,7 +251,9 @@ for s in pitch formations sync goals numbers debt economy climb sacking guarante
 נהרג או ממשיך לכתוב לאותו קובץ במקביל, והתוצאה ריקה או מעורבבת ("Binary file matches", שורות עם NUL). זה קרה לי
 פעמיים. מחכים בלולאות `sleep 10` עד 56 איטרציות. **בזמן שהסוויטה רצה אל תערוך קבצי מקור או בדיקה.**
 
-**חדש בסשנים האחרונים:** `scout` (124 טענות), `traits` (עבודה ביום לפי ליגה), `purse` (המענק בחלקים).
+**חדש בסשנים האחרונים:** `scout` (124 טענות), `traits` (עבודה ביום לפי ליגה), `purse` (המענק בחלקים),
+`chats` (34, הטלפון וליל העונה), `friendly` (74, משחק המפעל). כשרצים בשני חלקים (מגבלת 10 דקות), `chats` ו-`friendly`
+יושבים בסוף חלק 2.
 הורחבו: `formations`, `lineup`, `youth`, `shape` (כולל הבעיטות), `press`, `reshuffle` (כולל כרטיס ההרחקה), `dilemma`,
 `back`, `debt`, `sponsor`, `telemetry` (96 טענות, כולל "לאן מגיעים").
 

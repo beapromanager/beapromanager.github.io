@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { Crest } from '../components/Crest.tsx';
-import { formatMoney } from '../components/bits.tsx';
 
 /**
  * The works team's friendly, told after the sheet is sent.
@@ -72,7 +71,7 @@ export function FriendlyScreen({ gs, onDone }: { gs: G.GameState; onDone: () => 
           <p key={i} className="fr-line" data-in={step >= i + 2 ? '1' : '0'}>{line}</p>
         ))}
         <p className="fr-fee" data-in={done ? '1' : '0'}>
-          {report.factory} שילם <bdi dir="ltr" className="num">{formatMoney(report.fee)}</bdi> על ההופעה.
+          {report.factory} שילם <span className="num">{report.fee.toLocaleString('en-US')}</span> שקל על ההופעה.
         </p>
       </div>
 
