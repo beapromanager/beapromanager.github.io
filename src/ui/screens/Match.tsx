@@ -284,6 +284,10 @@ export function MatchBroadcast({ gs, onDone, onHalfTime }: {
     if (!halfSaid.current && st.phase === 'halftime') { halfSaid.current = true; onHalfTime?.(); }
   });
 
+  // the men this week's story left short of sleep or food: they carry a mark
+  // wherever the match shows them, which is Itzik's note on the poisoning dilemma
+  const tired = new Set(Object.entries(gs.matchMods.fitness ?? {}).filter(([, d]) => d < 0).map(([id]) => id));
+
   const pending = st.pending;
   // the same two strips the pitch paints its dots with
   const hdrKits = matchKits(homeClub, awayClub);
@@ -408,7 +412,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime }: {
 
       {/* the bench, opened on demand so it never buries the action */}
       {subOpen && (
-        <SubSheet st={st} focusId={subFocus} benchKit={st.iAmHome ? hdrKits.home : hdrKits.away} red={redStop}
+        <SubSheet st={st} focusId={subFocus} benchKit={st.iAmHome ? hdrKits.home : hdrKits.away} red={redStop} tired={tired}
           onSub={(off, on) => { L.makeSub(st, off, on); force(); }}
           onSwap={(a, b) => { L.swapOnPitch(st, a, b); force(); }}
           onFill={(id, slot) => { L.fillVacancy(st, id, slot); force(); }}
@@ -468,8 +472,9 @@ function fitColor(f: number): string {
  * rating sits in the shirt, the fitness bar under the name, and a tap on a
  * shirt opens who can come on for that man.
  */
-function SubBoard({ st, kit, picked, onPick, onVacant }: {
+function SubBoard({ st, kit, picked, onPick, onVacant, tired }: {
   st: LiveState; kit: KitStrip; picked: string | null; onPick: (p: Player) => void;
+  tired?: Set<string>;
   /** the shirt a sent off man left, tapped while somebody is held */
   onVacant?: (slot: number) => void;
 }) {
@@ -487,7 +492,7 @@ function SubBoard({ st, kit, picked, onPick, onVacant }: {
         const slot = form.slots[L.seatOf(side, i)];
         if (!slot) return null;
         return (
-          <BoardMan key={p.id} p={p} role={roles.get(p.id)} kit={kit}
+          <BoardMan key={p.id} p={p} role={roles.get(p.id)} kit={kit} tired={tired?.has(p.id)}
             top={slot.line === 'GK' ? 88 : 80 - slot.d * 68} left={slot.y * 100}
             label={label.get(p.id) ?? p.name} on={picked === p.id} onTap={() => onPick(p)} />
         );
@@ -522,9 +527,9 @@ function SubBoard({ st, kit, picked, onPick, onVacant }: {
 }
 
 /** One shirt on the board, tappable, with the man's fitness under his name. */
-function BoardMan({ p, role, kit, top, left, label, on, onTap }: {
+function BoardMan({ p, role, kit, top, left, label, on, onTap, tired }: {
   p: Player; role?: string; kit: KitStrip; top: number; left: number; label: string;
-  on: boolean; onTap: () => void;
+  on: boolean; onTap: () => void; tired?: boolean;
 }) {
   const o = overall(p);
   const f = Math.round(p.fitness);
@@ -536,7 +541,7 @@ function BoardMan({ p, role, kit, top, left, label, on, onTap }: {
         <span className="lineup-ovr num" style={{ color: ovrColor(o) }}>{o}</span>
       </span>
       {role && <span className="lineup-role">{role}</span>}
-      <span className="lineup-name">{label}</span>
+      <span className="lineup-name">{tired ? '✶ ' : ''}{label}</span>
       <span className="lineup-fit"><i style={{ width: `${f}%`, background: fitColor(f) }} /></span>
     </button>
   );
@@ -722,8 +727,10 @@ function BenchBar({ st, onOpen, onQuickSub }: {
  * live fitness and the two tap substitution flow, so the action screen behind
  * it stays clean.
  */
-function SubSheet({ st, onSub, onSwap, onFill, onCover, onClose, focusId, benchKit, red }: {
+function SubSheet({ st, onSub, onSwap, onFill, onCover, onClose, focusId, benchKit, red, tired }: {
   st: LiveState; onSub: (offId: string, onId: string) => void; onClose: () => void;
+  /** men marked tired by the week's story, starred wherever they appear */
+  tired?: Set<string>;
   /** a defender from the bench for a forward, into the shirt a sent off defender left */
   onCover: (forwardId: string, defenderId: string) => void;
   /** two of the eleven trading shirts, which costs nothing */
@@ -792,7 +799,7 @@ function SubSheet({ st, onSub, onSwap, onFill, onCover, onClose, focusId, benchK
                   <Kit kit={benchKit} size={26} />
                   <span className="bench-pos">{p.position}</span>
                   <span className="bench-ovr num" style={{ color: ovrColor(overall(p)) }}>{overall(p)}</span>
-                  <span className="bench-name">{p.name.split(' ')[0]}</span>
+                  <span className="bench-name">{tired?.has(p.id) ? '✶ ' : ''}{p.name.split(' ')[0]}</span>
                   <span className="bench-fit"><span style={{ width: `${Math.round(p.fitness)}%`, background: fitColor(Math.round(p.fitness)) }} /></span>
                 </div>
               ))}
@@ -807,7 +814,7 @@ function SubSheet({ st, onSub, onSwap, onFill, onCover, onClose, focusId, benchK
           {/* Picking is NOT gated on having a substitution left any more. Moving
               a man costs nothing, so a manager who has used all three must still
               be able to reorganise: that is the whole point of this. */}
-          <SubBoard st={st} kit={benchKit} picked={picked}
+          <SubBoard st={st} kit={benchKit} picked={picked} tired={tired}
             onPick={p => {
               if (!picked) { setPicked(p.id); return; }
               if (picked === p.id) { setPicked(null); return; }

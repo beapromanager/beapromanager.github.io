@@ -122,6 +122,7 @@ export function loadCareer(): GameState | null {
     ultimatumSeason: s.ultimatumSeason ?? null,
     crisisDone: s.crisisDone ?? false,
     purseEarlier: s.purseEarlier ?? 0,
+    seasonDilemmas: s.seasonDilemmas ?? [],
     crisisReason: s.crisisReason ?? null,
     youth: s.youth ?? { players: [], graduated: [], ready: [] },
     chronicle: s.chronicle ?? [],

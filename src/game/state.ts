@@ -204,6 +204,8 @@ export interface MatchMods {
   promised?: { id: string; name: string };
   /** the phone will buzz about what he said this week, after the match */
   chatAfter?: { trigger: ChatTrigger; onlyIfWon?: boolean };
+  /** a bonus promised to the squad, paid out of the purse only on a win */
+  winBonus?: number;
 }
 
 /** What breaking a promise to a player costs the dressing room. */
@@ -303,6 +305,8 @@ export interface GameState {
   queued: { id: string; week: number } | null;
   /** messages that can wait, read from the hub whenever you like */
   inbox: RolledDilemma[];
+  /** questions already asked THIS season, for the ones allowed only once in it */
+  seasonDilemmas: string[];
   /** the money in and out of the round just played, shown on the result screen */
   lastLedger: RoundLedger | null;
   /** what the season's purse has already paid round by round, so the summer pays only the rest */
@@ -505,6 +509,7 @@ export function newGame(seed = 12345): GameState {
     dilemmaHistory: [],
     queued: null,
     inbox: [],
+    seasonDilemmas: [],
     lastLedger: null,
     purseEarlier: 0,
     chat: null,
@@ -1283,8 +1288,9 @@ function finishPreseason(gs: GameState): GameState {
 }
 
 export function enterSeason(gs: GameState): GameState {
-  // the summer is over, so its warnings and its star are over too
-  gs = { ...gs, market: settleMarket(gs.market), scout: { ...gs.scout, offer: null } };
+  // the summer is over, so its warnings and its star are over too, and the
+  // questions allowed once a season may be asked again
+  gs = { ...gs, market: settleMarket(gs.market), scout: { ...gs.scout, offer: null }, seasonDilemmas: [] };
   gs = seasonWithLegend(gs);
   gs = dressForTheSeason(gs);
   // the new shirt is unveiled before anything else, because it is the first
@@ -3308,6 +3314,18 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
     queued: gs.queued && gs.queued.week <= gs.week ? gs.queued.id : '',
     sponsor: sponsorName(gs.sponsor),
     sponsorWants: gs.sponsor ? brandById(gs.sponsor.brand).wants : [],
+    city: club(gs).city,
+    tier: club(gs).tier,
+    isHome: (() => { const f = playerFixture(gs); return !!f && f.homeId === gs.clubId; })(),
+    lostLast: gs.form[gs.form.length - 1] === 'L',
+    winStreak: (() => { let n = 0; for (let i = gs.form.length - 1; i >= 0 && gs.form[i] === 'W'; i--) n++; return n; })(),
+    lead: table[0]?.clubId === gs.clubId ? (table[0]?.pts ?? 0) - (table[1]?.pts ?? 0) : 0,
+    gap: Math.max(0, (table[0]?.pts ?? 0) - (table.find(s => s.clubId === gs.clubId)?.pts ?? 0)),
+    winterOpen: windowState(gs.week, gs.league.rounds).open,
+    winterLast: windowState(gs.week, gs.league.rounds).open && !windowState(gs.week + 1, gs.league.rounds).open,
+    starFee: (() => { const all = [...mySquad(gs).starters, ...mySquad(gs).bench]; const best = [...all].sort((a, b) => overall(b) - overall(a))[0]; return best ? sellPrice(best, club(gs).tier) : 0; })(),
+    gk: (() => { const k = [...mySquad(gs).starters, ...mySquad(gs).bench].find(p => p.position === 'GK'); return k ? surnameOf(k.name) : ''; })(),
+    starIsForward: (() => { const best = [...mySquad(gs).starters].sort((a, b) => overall(b) - overall(a))[0]; return !!best && FORWARD.has(best.position); })(),
   };
 }
 
@@ -3333,8 +3351,9 @@ export function startWeek(gs: GameState): GameState {
   // of rounds keeps surfacing something you have not seen yet
   const ctx = dilemmaCtx(gs, star, rival.short, rivalId);
   const recent = new Set(gs.dilemmaHistory.slice(-8));
+  const asked = new Set(gs.seasonDilemmas);
   const pick = (kind: 'now' | 'inbox'): RolledDilemma | null => {
-    const fits = eligible(ctx, kind);
+    const fits = eligible(ctx, kind).filter(t => !t.oncePerSeason || !asked.has(t.id));
     if (!fits.length) return null;
     const fresh = fits.filter(t => !recent.has(t.id));
     const source = fresh.length ? fresh : fits;
@@ -3472,6 +3491,41 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
         gs = startHim(gs, him.id);
         break;
       }
+      case 'fitnessSome': {
+        // a few of the likely eleven, drawn by the week's seed so a reload names
+        // the same tired men, each carrying the mark the match screen shows
+        const rng = createRng(drawSeed(gs, 110_000));
+        const pool = [...lineup(gs)];
+        const fit: Record<string, number> = { ...(gs.matchMods.fitness ?? {}) };
+        for (let k = 0; k < a.count && pool.length; k++) {
+          const i = Math.floor(rng() * pool.length);
+          const man = pool.splice(i, 1)[0];
+          fit[man.id] = (fit[man.id] ?? 0) + a.delta;
+        }
+        gs = { ...gs, matchMods: { ...gs.matchMods, fitness: fit } };
+        break;
+      }
+      case 'loanOut': {
+        // Itzik, 3.10: the text promises a return next season; in fact he leaves
+        // the squad for good, and a squad on the floor pulls a boy up so the
+        // sixteen never becomes fifteen
+        const him = whoIs(gs, rolled, a.who);
+        if (!him) break;
+        let next = removePlayer(gs, him.id);
+        next = { ...next, preResolved: [...next.preResolved, `renew-${him.id}`] };
+        if (squadSize(next) < MIN_SQUAD) {
+          const rng = createRng(drawSeed(gs, 120_000));
+          const filled = fillWithYouth(mySquad(next), rng, club(next).tier, MIN_SQUAD);
+          next = writeSquad(next, filled.squad);
+          const contracts = { ...next.contracts };
+          for (const p of [...filled.squad.starters, ...filled.squad.bench]) if (!(p.id in contracts)) contracts[p.id] = 3;
+          next = { ...next, contracts };
+          note += ' נער מהאקדמיה צורף לסגל במקומו.';
+        }
+        gs = next;
+        break;
+      }
+      case 'winBonus': gs = { ...gs, matchMods: { ...gs.matchMods, winBonus: a.amount } }; break;
       case 'fitnessAll': {
         const sq = mySquad(gs);
         const fitness = { ...(gs.matchMods.fitness ?? {}) };
@@ -3592,6 +3646,7 @@ export function chooseDilemma(gs: GameState, optionIndex: number): GameState {
     pendingOutcome: finishOutcome(opt.outcome, kept.note),
     style: scoreStyle(gs.style, e),
     dilemmaHistory: [...gs.dilemmaHistory, rolled.id],
+    seasonDilemmas: [...gs.seasonDilemmas, rolled.id],
   };
 }
 
@@ -3822,7 +3877,8 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
     lastLedger: { prize, gate, sponsor: shirt, signage: boards, purse: instalment, ...costs, net: prize + gate + shirt + boards + instalment - costs.total },
     purseEarlier: gs.purseEarlier + instalment,
     meters: {
-      money: cash(gs.meters.money + prize + gate + shirt + boards + instalment - costs.total),
+      // a bonus promised before kick off is paid the moment it is earned
+      money: cash(gs.meters.money + prize + gate + shirt + boards + instalment - costs.total - (won ? (gs.matchMods.winBonus ?? 0) : 0)),
       morale: moraleShift(gs.meters.morale, moraleDelta),
       prestige: meter(gs.meters.prestige + (won ? 2 : draw ? 0 : -1)),
       fans: fansTonight,

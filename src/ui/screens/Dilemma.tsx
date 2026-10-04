@@ -18,6 +18,8 @@ export const SPEAKER_META: Record<Speaker, { icon: IconName; color: string }> = 
   physio: { icon: 'injury', color: 'var(--loss)' },
   youth: { icon: 'star', color: '#8ce8b4' },
   sponsor: { icon: 'flag', color: '#d9c27a' },
+  captain: { icon: 'shirt', color: 'var(--gold)' },
+  mother: { icon: 'star', color: '#e88ca8' },
   squad: { icon: 'crowd', color: 'var(--win)' },
 };
 

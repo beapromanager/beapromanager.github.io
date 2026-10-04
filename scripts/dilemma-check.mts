@@ -15,13 +15,14 @@
 import * as G from '../src/game/state.ts';
 import { MIN_SQUAD } from '../src/game/transfers.ts';
 import * as L from '../src/game/liveMatch.ts';
-import { TEMPLATES } from '../src/data/dilemmas.ts';
+import { TEMPLATES, eligible, urgencyOf } from '../src/data/dilemmas.ts';
 import type { RolledDilemma } from '../src/data/dilemmas.ts';
 import { simulateMatch, overall } from '../src/engine/matchEngine.ts';
 import type { MatchResult } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { CITIES } from '../src/data/cities.ts';
+import { readFileSync } from 'node:fs';
 
 const fails: string[] = [];
 let checked = 0;
@@ -553,6 +554,160 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   if (G.squadSize(full) !== MAX) fails.push(`the full fixture squad has ${G.squadSize(full)}, not ${MAX}`);
   if (G.rollNamedDilemma(full, 'youth_talent', 1)) fails.push('the youth talent question is asked with a full squad, so the answer can only be a lie');
   console.log('  promote: the kid comes up when there is room, is not offered when there is none, and the answer never claims what did not happen');
+}
+
+/* ITZIK'S BATCH OF 3.10: sixty nine new dilemmas, his wording, with the gates
+   and the three mechanisms his notes asked for. The numbers are the agreed ones,
+   never read back from the code under test. */
+{
+  // the batch landed whole: 30 originals plus 69 of the 70 drafts, with the
+  // midweek friendly held back until the real friendly exists
+  checked += 3;
+  if (TEMPLATES.length !== 99) fails.push(`${TEMPLATES.length} templates, the agreed count is 99`);
+  if (TEMPLATES.some(t => t.id === 'midweek_friendly')) fails.push('the midweek friendly is in before the real friendly match exists');
+  if (!TEMPLATES.some(t => t.id === 'team_dog') || !TEMPLATES.some(t => t.id === 'derby_police_cut')) fails.push('the batch is missing members');
+
+  // what blocks the week and what can wait
+  checked += 3;
+  if (urgencyOf('team_dog') !== 'inbox') fails.push('the camp dog blocks a match week');
+  if (urgencyOf('agent_loan_offer') !== 'now') fails.push('the loan offer can rot in the inbox past the window');
+  if (urgencyOf('director_bottom_sell') !== 'now') fails.push('the forced sale can rot in the inbox past the window');
+
+  // the gates, on a hand-built context where only one fact moves at a time
+  const base: Parameters<typeof eligible>[0] = {
+    star: 'כהן', rival: 'יהוד', club: 'בדיקה', money: 100_000,
+    benched: 'לוי', benchedApps: 1, youngster: '', veteranName: 'אזולאי', scorer: '', dry: '',
+    newcomer: 'מזרחי', academy: 'בניון', kids3: '', squadSize: 18, room: 2,
+    pos: 4, teams: 8, week: 5, isDerby: false, queued: '', sponsor: 'מותג', sponsorWants: [],
+    city: 'חולון', tier: 3, isHome: true, lostLast: false, winStreak: 0,
+    lead: 0, gap: 6, winterOpen: false, winterLast: false, starFee: 150_000, gk: 'בן שימול',
+    starIsForward: true,
+  };
+  const inPool = (ctx: typeof base, id: string) => eligible(ctx, urgencyOf(id)).some(t => t.id === id);
+  const gate = (id: string, yes: Partial<typeof base>, no: Partial<typeof base>, what: string) => {
+    checked += 2;
+    if (!inPool({ ...base, ...yes }, id)) fails.push(`${id}: not offered when ${what}`);
+    if (inPool({ ...base, ...no }, id)) fails.push(`${id}: offered although ${what} does not hold`);
+  };
+  gate('anthem_girl', { tier: 5 }, { tier: 4 }, 'the club is in ליגת העל');
+  gate('director_bottom_sell', { pos: 7, money: -50_000, winterOpen: true, winterLast: true },
+       { pos: 7, money: -50_000, winterOpen: true, winterLast: false }, 'the winter window is in its last week');
+  gate('agent_loan_offer', { winterOpen: true }, { winterOpen: false }, 'the winter window is open');
+  gate('owner_big_lead', { pos: 1, lead: 5, week: 8 }, { pos: 1, lead: 4, week: 8 }, 'first with a cushion of five');
+  gate('city_pitch_closed', { isHome: true }, { isHome: false }, 'the fixture is at home');
+  gate('broken_bus', { isHome: false }, { isHome: true }, 'the fixture is away');
+  gate('owner_derby_bonus', { isDerby: true }, { isDerby: false }, 'it is the derby');
+  gate('derby_police_cut', { isDerby: true, isHome: true }, { isDerby: true, isHome: false }, 'the derby is at home');
+  gate('referee_apology', { lostLast: true }, { lostLast: false }, 'the previous round was lost');
+  gate('reporter_win_streak_pre', { winStreak: 3 }, { winStreak: 2 }, 'three straight wins');
+  gate('ultras_bottom_march', { pos: 7, week: 6 }, { pos: 5, week: 6 }, 'the club is in the bottom two');
+  gate('star_bored_middle', { pos: 4, week: 9, starIsForward: true }, { pos: 4, week: 9, starIsForward: false },
+       'the star plays up front (Itzik: רק שחקן התקפה)');
+
+  // the poisoning: exactly three of the likely eleven, marked for the match, the
+  // same three on a replay (the star in the match reads these entries)
+  {
+    const gs0 = career(31);
+    const a1 = answer(gs0, 'food_poisoning', 1).gs;
+    const a2 = answer(gs0, 'food_poisoning', 1).gs;
+    const tired = Object.entries(a1.matchMods.fitness ?? {}).filter(([, d]) => (d as number) < 0).map(([id]) => id);
+    const xi = new Set(G.lineup(gs0).map(p => p.id));
+    checked += 3;
+    if (tired.length !== 3) fails.push(`the poisoning marked ${tired.length} men, the note says three`);
+    if (!tired.every(id => xi.has(id))) fails.push('a poisoned man is not from the likely eleven');
+    if (JSON.stringify(tired) !== JSON.stringify(Object.entries(a2.matchMods.fitness ?? {}).filter(([, d]) => (d as number) < 0).map(([id]) => id))) {
+      fails.push('a reload would name different poisoned men');
+    }
+  }
+
+  // the loan: he leaves for real, and a floor squad pulls a boy up so sixteen
+  // never becomes fifteen (Itzik's note, word for word)
+  {
+    let gs0 = career(777);
+    for (let w = 1; w <= 7; w++) gs0 = playRound(gs0, w);
+    gs0 = { ...gs0, week: 8, phase: 'hub' as const };
+    const floor = atFloor(gs0);
+    const who = G.mySquad(floor); const all0 = [...who.starters, ...who.bench].map(p => p.id);
+    const done = answer(floor, 'agent_loan_offer', 0);
+    const sq1 = G.mySquad(done.gs); const all1 = [...sq1.starters, ...sq1.bench];
+    const goneId = all0.find(id => !all1.some(p => p.id === id));
+    checked += 3;
+    if (all1.length !== MIN_SQUAD) fails.push(`the loan left ${all1.length} men on a floor squad, sixteen must stay sixteen`);
+    if (!goneId) fails.push('nobody actually left on the loan, although the note says he does');
+    const newKid = all1.find(p => !all0.includes(p.id));
+    if (!newKid || done.gs.contracts[newKid.id] !== 3) fails.push('the boy pulled up did not arrive on a three year deal');
+    // and above the floor the squad simply shrinks by one
+    const roomy = answer(gs0, 'agent_loan_offer', 0);
+    checked++;
+    const n0 = G.squadSize(gs0), n1 = G.squadSize(roomy.gs);
+    if (n1 !== n0 - 1) fails.push(`above the floor the loan moved the squad ${n0} -> ${n1}`);
+  }
+
+  // the derby bonus: forty thousand leaves the purse on a win and only on a win
+  {
+    let gs0 = career(555);
+    let derbyWeek = 0;
+    for (let w = 1; w <= gs0.league.rounds; w++) {
+      if (G.rollNamedDilemma({ ...gs0, week: w }, 'owner_derby_bonus')) { derbyWeek = w; break; }
+    }
+    checked++;
+    if (!derbyWeek) fails.push('no derby week found to test the bonus on');
+    if (derbyWeek) {
+      const at = { ...gs0, week: derbyWeek, phase: 'hub' as const };
+      const promised = answer(at, 'owner_derby_bonus', 0).gs;
+      const declined = answer(at, 'owner_derby_bonus', 1).gs;
+      checked += 3;
+      if (promised.matchMods.winBonus !== 40_000) fails.push(`the promised bonus is ${promised.matchMods.winBonus}, the agreed figure is 40,000`);
+      if (declined.matchMods.winBonus) fails.push('the declined bonus still sits on the match');
+      // the SAME save with and without the bonus entry, so the only difference
+      // the purse can show is the bonus itself
+      const bare = { ...promised, matchMods: { ...promised.matchMods, winBonus: undefined } };
+      const win = (g: G.GameState) => playRound(g, 9, [3, 0]).meters.money;
+      const loss = (g: G.GameState) => playRound(g, 9, [0, 2]).meters.money;
+      if (win(bare) - win(promised) !== 40_000) fails.push(`a won derby moved the purses ${win(bare) - win(promised)} apart, the bonus is 40,000`);
+      if (loss(promised) - loss(bare) !== 0) fails.push('a lost derby still paid the bonus');
+    }
+  }
+
+  // the referee's apology at most once a season (Itzik's note): the answer is
+  // remembered, the weekly pick filters on that memory, a new season forgets it
+  {
+    let gs0 = career(31);
+    for (let w = 1; w <= 2; w++) {
+      const lossFor = G.liveMatchInput(gs0).iAmHome ? [0, 1] : [1, 0];
+      gs0 = playRound(gs0, w, lossFor as [number, number]);
+    }
+    gs0 = { ...gs0, week: 3, phase: 'hub' as const };
+    const done = answer(gs0, 'referee_apology', 0).gs;
+    const stateSrc = readFileSync('src/game/state.ts', 'utf8');
+    checked += 3;
+    if (!done.seasonDilemmas.includes('referee_apology')) fails.push('the answered apology is not remembered for the season');
+    if (!stateSrc.includes('.filter(t => !t.oncePerSeason || !asked.has(t.id))')) fails.push('the weekly pick no longer filters the once-a-season questions');
+    const tpl = TEMPLATES.find(t => t.id === 'referee_apology');
+    if (!tpl?.oncePerSeason) fails.push('the apology template forgot it is once a season');
+  }
+
+  // the match shows the mark, and the new voices have faces
+  {
+    const match = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+    const dScreen = readFileSync('src/ui/screens/Dilemma.tsx', 'utf8');
+    checked += 4;
+    if (!match.includes("Object.entries(gs.matchMods.fitness ?? {}).filter(([, d]) => d < 0)")) fails.push('the match no longer collects the tired men');
+    if (!match.includes("{tired ? '✶ ' : ''}")) fails.push('a tired man on the board carries no mark');
+    if (!match.includes("{tired?.has(p.id) ? '✶ ' : ''}")) fails.push('a tired man on the bench carries no mark');
+    if (!dScreen.includes('captain:') || !dScreen.includes('mother:')) fails.push('the captain or mother speaks with no face');
+  }
+
+  // and none of the batch carries a long dash anywhere a player reads
+  {
+    checked++;
+    const dash = TEMPLATES.filter(t => {
+      const o = t.options({ ...base } as never, {});
+      return [t.text, ...o.flatMap(x => [x.label, x.outcome])].some(x => x.includes('—') || x.includes('–'));
+    });
+    if (dash.length) fails.push(`long dashes in: ${dash.map(t => t.id).join(', ')}`);
+  }
+  console.log("  Itzik's batch: 69 in, the friendly held back, eleven gates hold, the loan, the bonus and the poisoning behave");
 }
 
 console.log('');
