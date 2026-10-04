@@ -30,6 +30,8 @@ export interface MatchFact {
   minute?: number;
   /** goals, or whatever the fact counts */
   n?: number;
+  /** the man's position, when the question hangs on it (the defender's red) */
+  pos?: string;
 }
 
 /** Anything past this is late enough that the crowd was already leaving. */
@@ -117,7 +119,10 @@ export function matchFacts(
 
   /* cards, penalties, own goals */
   for (const e of ev) {
-    if (e.type === 'red' && e.teamId === myId) facts.push({ kind: 'red_card', who: family(e.playerName), minute: e.minute });
+    if (e.type === 'red' && e.teamId === myId) {
+      const pos = squad ? [...squad.starters, ...squad.bench].find(p => p.id === e.playerId)?.position : undefined;
+      facts.push({ kind: 'red_card', who: family(e.playerName), minute: e.minute, pos });
+    }
     else if (e.type === 'red') facts.push({ kind: 'their_red', who: family(e.playerName), minute: e.minute });
     else if (e.type === 'penalty_miss' && e.teamId === myId) facts.push({ kind: 'penalty_miss', who: family(e.playerName), minute: e.minute });
     // theirs that did not go in. In a live match that is always a save, the

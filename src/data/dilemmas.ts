@@ -637,6 +637,7 @@ export const TEMPLATES: DilemmaTemplate[] = [
   {
     id: 'ultras_boycott',
     speaker: 'ultras',
+    when: c => c.isDerby,
     slots: { demand: ['תורידו מחירי מנויים', 'תחזירו את הקפטן הוותיק', 'תתחילו לשחק התקפי'] },
     text: 'תקשיב טוב. אם לא {demand}, היציע לא בא לדרבי מול {rival}. ברור?',
     options: (ctx) => [
@@ -692,6 +693,7 @@ export const TEMPLATES: DilemmaTemplate[] = [
   {
     id: 'player_social_media',
     speaker: 'reporter',
+    when: c => c.isDerby,
     slots: { post: ['ביקורת על השופטים', 'סטורי מהמסיבה של אתמול', 'לייק לפוסט של היריבה'] },
     text: 'שחקן שלך העלה {post} לפני הדרבי מול {rival}, וזה מתחיל להתפוצץ ברשת. רוצה שאני אעזור לך בזה?',
     options: () => [
@@ -702,10 +704,50 @@ export const TEMPLATES: DilemmaTemplate[] = [
     ],
   },
   {
+    id: 'reporter_prediction_top',
+    speaker: 'reporter',
+    slots: {},
+    when: c => c.pos === 1,
+    text: 'הוצאתי טור שאתם לוקחים את הליגה בהליכה. אתה רוצה להודות לי או שאני הרסתי לך את העונה?',
+    options: () => [
+      { label: 'הרסת יא מנחוס. מחר אני תולה את הטור שלך בחדר ומזהיר מפניו', effect: { morale: +4, prestige: +1 },
+        outcome: 'הטור ייתלה מחר בחדר ויהפוך לתרגיל מוטיבציה. הכתב גאה בעצמו, בטעות.' },
+      { label: 'תודה. תכין טור גם על החגיגות בסוף העונה', effect: { morale: +2, prestige: -2, fans: +3 },
+        outcome: 'ביטחון מוחלט. כל הליגה קראה ומחכה לך בסיבוב.' },
+    ],
+  },
+  {
+    id: 'reporter_prediction_chase',
+    speaker: 'reporter',
+    slots: {},
+    when: c => c.pos === 2 || c.pos === 3,
+    text: 'הוצאתי טור שאתם הקבוצה היחידה שיכולה לעקוף את המוביל. עכשיו כולם מסתכלים עליכם. סליחה?',
+    options: () => [
+      { label: 'אל תתנצל, תמשיך לכתוב. לחץ זה דלק', effect: { morale: +3, prestige: +1 },
+        outcome: 'אימצת את הציפיות בקול. כשזה יתפרסם, השחקנים יישרו גב.' },
+      { label: 'אנחנו לא עוקפים אף אחד בעיתון. רק על הדשא', effect: { prestige: +3 },
+        outcome: 'הורדת אוויר מהבלון בעדינות. מקצועי.' },
+    ],
+  },
+  {
+    id: 'reporter_prediction_mid',
+    speaker: 'reporter',
+    slots: {},
+    when: c => c.pos > 3 && c.pos <= c.teams - 3,
+    text: 'הוצאתי טור שאתם קבוצת האמצע הכי טיפוסית שראיתי. לא חלום, לא סיוט, סתם אמצע. מעליב או מדויק?',
+    options: () => [
+      { label: 'מעליב. ואני אדאג שתאכל את הכובע עד מאי', effect: { morale: +4, prestige: -1, fans: +2 },
+        outcome: 'זרקת כפפה לעצמך. היציע יאהב את העצבים.' },
+      { label: 'מדויק להיום. תשמור את הטור, נשווה בסוף העונה', effect: { prestige: +2 },
+        outcome: 'קור רוח. הכתב שמר את הטור, אתה את התוכנית.' },
+    ],
+  },
+  {
     id: 'reporter_prediction',
     speaker: 'reporter',
+    when: c => c.pos >= c.teams - 2,
     slots: { rank: ['אחרונים', 'בתחתית', 'קבוצת סף ירידה'] },
-    text: 'הוצאתי טור שאתם תסיימו {rank} העונה. רוצה לענות לי לפני הדרבי מול {rival}?',
+    text: 'הוצאתי טור שאתם תסיימו {rank} העונה. רוצה לענות לי לפני המשחק מול {rival}?',
     options: () => [
       { label: 'תכתוב מה שבא לך, לא מעניין עיתונים', effect: { morale: +4, prestige: -2 },
         outcome: 'התעלמת בגדול. השחקנים ייקחו את זה אישית, לטובה.' },

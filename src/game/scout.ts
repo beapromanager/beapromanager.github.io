@@ -58,13 +58,15 @@ export interface ScoutState {
    * scoutWindowKey writes it. The red dot on the hub is on until it matches.
    */
   seenKey: string;
+  /** the men he brought who actually signed, so the press can ask about them */
+  signedIds: string[];
 }
 
 /** `fromClubId` is the club he is being taken from, when he is somebody's already. */
 export interface ScoutOffer { player: Player; fee: number; style: ScoutStyle; fromClubId?: string }
 
 export function emptyScout(): ScoutState {
-  return { hiredSeason: 0, job: null, found: null, offer: null, seenKey: '' };
+  return { hiredSeason: 0, job: null, found: null, offer: null, seenKey: '', signedIds: [] };
 }
 
 /**

@@ -22,6 +22,7 @@ import type { MatchResult } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { CITIES } from '../src/data/cities.ts';
+import { isDerby } from '../src/data/clubs.ts';
 import { readFileSync } from 'node:fs';
 
 const fails: string[] = [];
@@ -187,11 +188,11 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
 
 /* GATE: an emptied terrace pays less at the turnstile */
 {
-  // a home fixture, so there is a gate to shrink
+  // a HOME DERBY fixture: a gate to shrink, and a boycott that may be asked
   let gs = career(19);
   for (let w = 1; w <= gs.league.rounds; w++) {
     const fx = G.playerFixture({ ...gs, week: w })!;
-    if (fx.homeId === gs.clubId) { gs = { ...gs, week: w }; break; }
+    if (fx.homeId === gs.clubId && isDerby(fx.homeId, fx.awayId)) { gs = { ...gs, week: w }; break; }
   }
   const full = playRound(gs, 5).lastLedger!.gate;
   // the answer also costs prestige, which thins the crowd on its own, so the
@@ -493,7 +494,11 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
 
 /* THE TERRACE: an answer the crowd heard about moves the fans meter, by the card's figure */
 {
-  const gs = career(23);
+  let gs = career(23);
+  for (let w = 1; w <= gs.league.rounds; w++) {
+    const fx = G.playerFixture({ ...gs, week: w })!;
+    if (isDerby(fx.homeId, fx.awayId)) { gs = { ...gs, week: w }; break; }
+  }
   const before = gs.meters.fans;
   const gave = answer(gs, 'ultras_boycott', 0).gs;    // "אין צורך באיומים, אני אתכם": +5
   const stood = answer(gs, 'ultras_boycott', 1).gs;   // "אני לא נכנע לאיומים": -6
@@ -563,7 +568,7 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   // the batch landed whole: 30 originals plus 69 of the 70 drafts, with the
   // midweek friendly held back until the real friendly exists
   checked += 3;
-  if (TEMPLATES.length !== 99) fails.push(`${TEMPLATES.length} templates, the agreed count is 99`);
+  if (TEMPLATES.length !== 102) fails.push(`${TEMPLATES.length} templates, the agreed count is 102 (30 + 69 + the reporter's three columns)`);
   if (TEMPLATES.some(t => t.id === 'midweek_friendly')) fails.push('the midweek friendly is in before the real friendly match exists');
   if (!TEMPLATES.some(t => t.id === 'team_dog') || !TEMPLATES.some(t => t.id === 'derby_police_cut')) fails.push('the batch is missing members');
 
@@ -603,6 +608,16 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   gate('ultras_bottom_march', { pos: 7, week: 6 }, { pos: 5, week: 6 }, 'the club is in the bottom two');
   gate('star_bored_middle', { pos: 4, week: 9, starIsForward: true }, { pos: 4, week: 9, starIsForward: false },
        'the star plays up front (Itzik: רק שחקן התקפה)');
+
+  // the reporter's column fits the table it writes about, instead of promising
+  // relegation to the leader (items 85-87 plus the approved fix to the old one)
+  gate('reporter_prediction_top', { pos: 1 }, { pos: 2 }, 'the column calls a walkover for the leader');
+  gate('reporter_prediction_chase', { pos: 2 }, { pos: 4 }, 'the column names the one chaser');
+  gate('reporter_prediction_mid', { pos: 4 }, { pos: 2 }, 'the column mocks the middle');
+  gate('reporter_prediction', { pos: 7 }, { pos: 4 }, 'the relegation column waits for the bottom');
+  // and the two derby stories wait for a derby (the approved when fix)
+  gate('ultras_boycott', { isDerby: true }, { isDerby: false }, 'the boycott threatens the derby');
+  gate('player_social_media', { isDerby: true }, { isDerby: false }, 'the post blew up before the derby');
 
   // the poisoning: exactly three of the likely eleven, marked for the match, the
   // same three on a replay (the star in the match reads these entries)

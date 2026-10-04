@@ -15,12 +15,12 @@
  *   7. the terrace has eight questions of its own, each on its own night only
  */
 import * as G from '../src/game/state.ts';
-import { pickPressQuestion } from '../src/data/press.ts';
+import { pickPressQuestion, everyWideQuestion } from '../src/data/press.ts';
 import type { PressContext } from '../src/data/press.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 import { isDerby } from '../src/data/clubs.ts';
 import { matchFacts } from '../src/data/matchFacts.ts';
-import { pickPressQuestions, askableFacts } from '../src/data/pressFacts.ts';
+import { pickPressQuestions, askableFacts, everyFactQuestion } from '../src/data/pressFacts.ts';
 import type { MatchResult, MatchEvent } from '../src/engine/matchEngine.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
@@ -115,6 +115,11 @@ const kinds = (r: MatchResult) => matchFacts(r, 'ME').map(f => f.kind);
   checked += 2;
   if (!mine.includes('red_card') || mine.includes('their_red')) fails.push('my red card was read as theirs');
   if (!theirs.includes('their_red') || theirs.includes('red_card')) fails.push('their red card was read as mine');
+  // and the fact knows the man's position, so the defender questions can hang on it
+  const sq = { starters: [{ id: 'x40', name: 'א ב', position: 'CB' }], bench: [] } as never;
+  const f = matchFacts(fake([ev(40, 'red', 'ME', 'א ב')], [0, 0]), 'ME', sq).find(x => x.kind === 'red_card');
+  checked++;
+  if (f?.pos !== 'CB') fails.push(`the red card fact reads the position as ${f?.pos}, the squad says CB`);
 }
 
 // nothing is invented out of an empty match
@@ -153,12 +158,16 @@ const kinds = (r: MatchResult) => matchFacts(r, 'ME').map(f => f.kind);
   const ctx: PressContext = {
     result: 'win', isDerby: false, lowMorale: false, highPrestige: false, tablePos: 5, totalTeams: 10,
     star: '', rival: '', city: '', isHome: true, fans: 50, lossRun: 0, gate: 0.7, justUp: false,
+    week: 5, season: 1, rounds: 14, tier: 3, firstSeasonAtTier: false, lead: 0,
+    margin: 2, gf: 2, ga: 0, oppPos: 6, nextIsDerby: false, unbeatenBefore: 0, winRun: 1,
+    scoutHired: false, scoutManPlayed: false, youthInSquad: false, youthDebut: false,
+    youthStar: false, injuryTonight: false, allGoalsFirstHalf: false,
   };
   const withShape = (score: [number, number], atChange: [number, number], minute = 45): MatchResult =>
     ({ ...fake([], score), shape: { to: '5-4-1', atChange, minute } });
   const ask = (r: MatchResult) => {
     const fact = matchFacts(r, 'ME').find(x => x.kind === 'shape_worked' || x.kind === 'shape_failed');
-    return fact ? pickPressQuestions(ctx, createRng(1), [fact]).qs[0].text : '';
+    return fact ? pickPressQuestions(ctx, createRng(1), [fact], ['shape_change_players', 'shape_change_won', 'shape_change_lost']).qs[0].text : '';
   };
   checked += 6;
   // level at the change, a goal after it: the change worked, whatever the score was at half time
@@ -380,6 +389,10 @@ if (seen.size < 12) fails.push(`only ${seen.size} distinct questions across ${ro
   const base: PressContext = {
     result: 'loss', isDerby: false, lowMorale: false, highPrestige: false, tablePos: 5, totalTeams: 10,
     star: 'כהן', rival: 'הפועל', city: 'חיפה', isHome: true, fans: 50, lossRun: 1, gate: 0.8, justUp: false,
+    week: 5, season: 1, rounds: 14, tier: 3, firstSeasonAtTier: false, lead: 0,
+    margin: 2, gf: 2, ga: 0, oppPos: 6, nextIsDerby: false, unbeatenBefore: 0, winRun: 1,
+    scoutHired: false, scoutManPlayed: false, youthInSquad: false, youthDebut: false,
+    youthStar: false, injuryTonight: false, allGoalsFirstHalf: false,
   };
   const asked = (c: PressContext, n = 300) => {
     const s = new Set<string>();
@@ -461,6 +474,229 @@ if (seen.size < 12) fails.push(`only ${seen.size} distinct questions across ${ro
     if (at(home, up).justUp) fails.push('the ticket question is still live weeks after the promotion');
   }
   console.log(`  8 terrace questions, each only on its own night; the whistling and the ultras came for real`);
+}
+
+
+/* ------------------------- 8. ITZIK'S BATCH OF 4.10: sixty three questions,
+   each asked only on the night the save says it had. The texts are his, the
+   gates are the save's own facts, and four drafts stayed out because no fact
+   can honestly carry them (the youth mistake, the double shape change, the
+   ex club, the broken fortress). */
+{
+  const base8: PressContext = {
+    result: 'win', isDerby: false, lowMorale: false, highPrestige: false, tablePos: 5, totalTeams: 10,
+    star: 'כהן', rival: 'הפועל', city: 'חיפה', isHome: true, fans: 50, lossRun: 0, gate: 0.7, justUp: false,
+    week: 5, season: 1, rounds: 14, tier: 3, firstSeasonAtTier: false, lead: 0,
+    margin: 2, gf: 2, ga: 0, oppPos: 6, nextIsDerby: false, unbeatenBefore: 0, winRun: 1,
+    scoutHired: false, scoutManPlayed: false, youthInSquad: false, youthDebut: false,
+    youthStar: false, injuryTonight: false, allGoalsFirstHalf: false,
+  };
+  const asked8 = (over: Partial<PressContext>, recent: string[] = [], n = 400) => {
+    const s = new Set<string>();
+    for (let i = 0; i < n; i++) s.add(pickPressQuestion({ ...base8, ...over }, createRng(i + 1), recent).q.id);
+    return s;
+  };
+  const gate8 = (id: string, on: Partial<PressContext>, off: Partial<PressContext>, what: string, recent: string[] = []) => {
+    checked += 2;
+    if (!asked8(on, recent).has(id)) fails.push(`${id}: never asked when ${what}`);
+    if (asked8(off, recent).has(id)) fails.push(`${id}: asked although ${what} does not hold`);
+  };
+
+  // the top of the table, now fifteen questions with their own nights
+  const top = { tablePos: 1, result: 'win' as const };
+  checked++;
+  for (const id of ['top_say_it', 'top_fall_watch', 'top_enjoy', 'top_who_stops', 'top_rotation', 'top_city_fever']) {
+    if (!asked8(top).has(id)) { fails.push(`${id} is not in the first place pool`); break; }
+  }
+  gate8('top_bus_parade', { ...top, week: 10 }, { ...top, week: 9 }, 'round ten has come');
+  gate8('top_remember_bottom', { ...top, season: 2 }, { ...top, season: 1 }, 'a second season looks back');
+  gate8('top_style_or_points', top, { ...top, result: 'big_win' }, 'the win was plain, not big');
+  gate8('top_lonely', { ...top, lead: 5 }, { ...top, lead: 4 }, 'the lead is five points');
+  gate8('top_message_chasers', { ...top, result: 'big_win' }, top, 'the win was big');
+
+  // the derby pool knows how the derby ended
+  const derby = { isDerby: true };
+  gate8('derby_city_tomorrow', { ...derby, result: 'win' }, { ...derby, result: 'loss' }, 'the derby was won');
+  gate8('derby_lost_captain_face', { ...derby, result: 'loss' }, { ...derby, result: 'win' }, 'the derby was lost', ['fans_ultras']);
+  gate8('derby_draw_streets', { ...derby, result: 'draw' }, { ...derby, result: 'win' }, 'the derby was drawn');
+  gate8('derby_next_year_kids', { ...derby, result: 'big_win' }, { ...derby, result: 'draw' }, 'the derby was won');
+
+  // the league above
+  gate8('top_league_arrival', { tier: 5, firstSeasonAtTier: true }, { tier: 5 }, 'the first season in ליגת העל');
+  gate8('top_league_tv', { tier: 4 }, { tier: 3 }, 'the games are televised from לאומית up');
+  gate8('national_league_budget', { tier: 4, firstSeasonAtTier: true }, { tier: 4 }, 'a fresh club up in לאומית');
+  gate8('top_league_crowds', { tier: 5, isHome: true }, { tier: 5, isHome: false }, 'a home night in ליגת העל');
+  gate8('national_derby_level', { tier: 4 }, { tier: 4, result: 'draw' }, 'a win at the level');
+  gate8('top_league_media_pressure', { tier: 5, result: 'loss' }, { tier: 4, result: 'loss' }, 'a loss under the big lights');
+  gate8('national_promotion_race', { tier: 4, week: 8 }, { tier: 4, week: 7 }, 'the race from round eight');
+  gate8('top_league_survive_party', { tier: 5, week: 12 }, { tier: 5, week: 12, tablePos: 9 }, 'survival is in the pocket');
+
+  // the scout and the boy from the academy
+  gate8('scout_money_question', { scoutHired: true }, {}, 'a scout was hired this season');
+  gate8('scout_find_debut', { scoutManPlayed: true }, { scoutHired: true }, 'his find got minutes tonight');
+  gate8('scout_methods', { scoutHired: true }, { scoutHired: true, result: 'loss' }, 'the scout jokes wait for a decent night');
+  gate8('scout_poach_fear', { scoutHired: true }, { scoutHired: true, tablePos: 6 }, 'the scout question of the upper half');
+  gate8('youth_debut_night', { youthDebut: true }, { youthInSquad: true }, 'the boy played his first game tonight');
+  gate8('youth_debut_star', { youthStar: true }, { youthDebut: true }, 'the boy was the best man out there');
+  gate8('youth_academy_pride', { youthInSquad: true }, {}, 'a boy sits in the senior squad');
+
+  // the draws, each with the table it talks about, and the top no longer lied to
+  const draw = { result: 'draw' as const, margin: 0, gf: 1, ga: 1 };
+  gate8('draw_top_dropped', { ...draw, tablePos: 1 }, { ...draw, tablePos: 2 }, 'a draw at the very top');
+  gate8('draw_bottom_point', { ...draw, tablePos: 9 }, { ...draw, tablePos: 8 }, 'a draw in the bottom two', ['relegation_believe']);
+  gate8('draw_zero_zero', { ...draw, gf: 0, ga: 0 }, draw, 'a goalless draw');
+  gate8('draw_promotion_race', { ...draw, tablePos: 2, week: 8 }, { ...draw, tablePos: 2, week: 7 }, 'a chaser draw from round eight');
+  gate8('draw_respect_point', { ...draw, isHome: false, oppPos: 3 }, { ...draw, isHome: false, oppPos: 7 }, 'a point away at a better side');
+  gate8('draw_wasting', draw, { ...draw, tablePos: 2 }, 'the wasted season question stays off the promotion spots');
+  gate8('draw_wasting', draw, { ...draw, tier: 5 }, 'no league above to climb to', []);
+
+  // the wins and the losses with a story attached
+  gate8('win_ugly_three', { margin: 1, gf: 1, ga: 0 }, {}, 'a one goal win');
+  gate8('win_but_injury', { injuryTonight: true }, {}, 'a man went off hurt');
+  gate8('win_first_half_show', { allGoalsFirstHalf: true }, {}, 'every goal fell before the break');
+  const loss = { result: 'loss' as const, margin: -1, gf: 0, ga: 1 };
+  gate8('loss_first_after_run', { ...loss, unbeatenBefore: 4 }, { ...loss, unbeatenBefore: 3 }, 'the run died tonight');
+  gate8('loss_crowd_left', { ...loss, margin: -2, ga: 2 }, loss, 'a home beating the crowd walked out of');
+  gate8('loss_next_week_derby', { ...loss, nextIsDerby: true }, loss, 'the derby waits next week');
+  checked++;
+  if (!asked8(loss).has('loss_tactics_blame')) fails.push('the pundits question is not in the loss pool');
+  const thrash = { result: 'thrashing' as const, margin: -3, gf: 0, ga: 3 };
+  gate8('thrash_apology', { ...thrash, isHome: false }, thrash, 'a beating away');
+  gate8('thrash_youth_watching', thrash, { ...thrash, isHome: false }, 'a beating at home');
+  checked++;
+  if (!asked8(thrash).has('thrash_tape')) fails.push('the tape question is not in the thrashing pool');
+
+  // the gate and the streaks
+  gate8('gate_record', { gate: 0.9 }, { gate: 0.89 }, 'a nearly full house');
+  gate8('home_empty_win', { gate: 0.49 }, { gate: 0.5 }, 'a thin crowd for a home win');
+  gate8('streak_build_or_luck', { winRun: 3 }, { winRun: 2 }, 'a third straight win');
+  gate8('streak_losing_door', { ...loss, lossRun: 3 }, { ...loss, lossRun: 2 }, 'a third straight loss', ['fans_boo']);
+
+  // the follow-ups that join a fact only on its night
+  const lead8 = (fact: Parameters<typeof pickPressQuestions>[2][number], over: Partial<PressContext>, recent: string[] = []) => {
+    const s = new Set<string>();
+    for (let i = 0; i < 200; i++) s.add(pickPressQuestions({ ...base8, ...over }, createRng(i + 1), [fact], recent).qs[0].id);
+    return s;
+  };
+  const fgate = (id: string, fact: Parameters<typeof pickPressQuestions>[2][number],
+                 on: Partial<PressContext>, off: Partial<PressContext>, what: string) => {
+    checked += 2;
+    if (!lead8(fact, on).has(id)) fails.push(`${id}: never led when ${what}`);
+    if (lead8(fact, off).has(id)) fails.push(`${id}: led although ${what} does not hold`);
+  };
+  fgate('shape_change_won', { kind: 'shape_worked', who: '4-4-2', minute: 60 }, {}, { result: 'loss' }, 'the change was followed by a win');
+  fgate('shape_change_lost', { kind: 'shape_failed', who: '5-4-1', minute: 60 }, { result: 'loss' }, {}, 'the change was followed by a loss');
+  checked += 2;
+  if (!lead8({ kind: 'shape_worked', who: '4-4-2', minute: 60 }, {}).has('shape_change_players')) fails.push('the shouted numbers question missed a change that worked');
+  if (!lead8({ kind: 'shape_failed', who: '5-4-1', minute: 60 }, { result: 'loss' }).has('shape_change_players')) fails.push('the shouted numbers question missed a change that failed');
+  checked++;
+  if (!lead8({ kind: 'red_card', who: 'לוי', minute: 40, pos: 'CB' }, {}).has('def_red_cover')) fails.push('a defender sent off never asked the cover question');
+  checked++;
+  if (lead8({ kind: 'red_card', who: 'לוי', minute: 40, pos: 'ST' }, {}).has('def_red_cover')) fails.push('a striker sent off still asked the defender cover question');
+  fgate('def_red_discipline', { kind: 'red_card', who: 'לוי', minute: 40, pos: 'LB' }, { result: 'loss' }, {}, 'a defender red in a loss');
+  fgate('def_red_ten_men', { kind: 'red_card', who: 'לוי', minute: 40, pos: 'RB' }, { result: 'draw' }, { result: 'loss' }, 'a defender red survived');
+  fgate('draw_late_concede', { kind: 'late_concede', minute: 85 }, { result: 'draw' }, { result: 'loss' }, 'the late goal only levelled it');
+  fgate('win_keeper_saved', { kind: 'keeper_hero', who: 'מילר', n: 8 }, {}, { result: 'draw' }, 'the keeper saved a win');
+  checked++;
+  if (!lead8({ kind: 'comeback' }, {}).has('win_comeback_mentality')) fails.push('a comeback never asked where the mentality comes from');
+  fgate('loss_own_goal', { kind: 'own_goal', who: 'לוי', minute: 70 }, { result: 'loss', margin: -1 }, { result: 'loss', margin: -2 }, 'the own goal decided it');
+  fgate('loss_no_shots', { kind: 'toothless' }, { result: 'loss' }, { result: 'draw' }, 'a toothless loss');
+
+  // the away apology buys forty tickets: the line carries the agreed figure
+  // and a press answer that names money moves the purse
+  {
+    const q = everyWideQuestion(base8).find(x => x.id === 'thrash_apology')!;
+    checked += 2;
+    if (q.answers[0].effect.money !== -5_000) fails.push(`the apology costs ${q.answers[0].effect.money}, the agreed figure is -5,000`);
+    let gs = G.newGame(5110);
+    gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+    gs = G.pickCity(gs, 'רחובות');
+    gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+    while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
+    let w = 0;
+    while (gs.phase !== 'press' && w < 14) gs = play(gs, w++ * 7);
+    if (gs.phase !== 'press') fails.push('never reached a press room for the money line');
+    else {
+      const room = { ...gs, press: { ...gs.press!, q: { ...gs.press!.q, answers: q.answers } } };
+      const after = G.pickPressAnswer(room, 0);
+      if (after.meters.money !== gs.meters.money - 5_000) fails.push(`the apology moved the purse ${after.meters.money - gs.meters.money}`);
+    }
+  }
+
+  // and the four drafts the save cannot verify stayed out
+  checked++;
+  const allIds = new Set([...everyWideQuestion(base8), ...everyFactQuestion(base8)].map(q => q.id));
+  for (const held of ['youth_debut_mistake', 'shape_change_brave', 'win_against_ex', 'away_fortress_broken']) {
+    if (allIds.has(held)) fails.push(`${held} is in although no save fact can carry it`);
+  }
+  // and the context is read off the save, not assumed: the score, the runs,
+  // the derby round ahead, the hurt man, the scout's find, the boy's night
+  {
+    let gs = G.newGame(5111);
+    gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+    gs = G.pickCity(gs, 'נתניה');
+    gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+    while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
+    const home = gs.league.fixtures.find(f => f.round > gs.week && f.homeId === gs.clubId)!;
+    const ctxOf = (events: MatchEvent[], score: [number, number], over: Partial<G.GameState> = {}) => {
+      const r = fake(events, score);
+      r.home.id = home.homeId; r.away.id = home.awayId;
+      return G.pressContext(G.commitRound({ ...gs, week: home.round, ...over }, r))!;
+    };
+    const star = G.mySquad(gs).starters[3];
+    const drew = ctxOf([ev(20, 'goal', home.homeId, 'א ב'), ev(30, 'goal', home.awayId, 'ג ד')], [1, 1], { form: ['L', 'W', 'W', 'W', 'W'] });
+    checked += 7;
+    if (drew.gf !== 1 || drew.ga !== 1 || drew.margin !== 0) fails.push(`a 1-1 reads gf ${drew.gf} ga ${drew.ga} margin ${drew.margin}`);
+    if (!drew.allGoalsFirstHalf) fails.push('two goals before the break do not read as a first half show');
+    if (ctxOf([ev(20, 'goal', home.homeId, 'א ב'), ev(80, 'goal', home.awayId, 'ג ד')], [1, 1]).allGoalsFirstHalf) fails.push('an 80th minute goal still reads as a first half show');
+    if (drew.winRun !== 0) fails.push(`a draw tonight reads as a win run of ${drew.winRun}`);
+    if (drew.unbeatenBefore !== 4) fails.push(`four unbeaten walking in read as ${drew.unbeatenBefore}`);
+    if (drew.week !== home.round || drew.rounds !== gs.league.rounds || drew.tier !== 1) fails.push('the context misreads the calendar or the league');
+    if (!ctxOf([ev(50, 'injury', home.homeId, star.name)], [0, 0]).injuryTonight
+      || ctxOf([ev(50, 'injury', home.awayId, 'ג ד')], [0, 0]).injuryTonight) fails.push('the hurt man is not read off my side of the events');
+    // the win run counts tonight when tonight was won
+    checked++;
+    const won2 = ctxOf([ev(20, 'goal', home.homeId, 'א ב')], [1, 0], { form: ['W'] });
+    if (won2.winRun !== 2) fails.push(`a win onto a win reads as a run of ${won2.winRun}`);
+    // the derby round ahead is seen one round before it, and only then
+    const derby2 = gs.league.fixtures.find(f => (f.homeId === gs.clubId || f.awayId === gs.clubId) && isDerby(f.homeId, f.awayId));
+    checked++;
+    if (!derby2) fails.push('no derby in the fixture list to look ahead to');
+    else {
+      const before = gs.league.fixtures.find(f => f.round === derby2.round - 1 && (f.homeId === gs.clubId || f.awayId === gs.clubId));
+      if (before) {
+        const r2 = fake([], [1, 1]); r2.home.id = before.homeId; r2.away.id = before.awayId;
+        const c2 = G.pressContext(G.commitRound({ ...gs, week: before.round }, r2))!;
+        if (!c2.nextIsDerby) fails.push('the round before the derby does not see it coming');
+      }
+      if (drew.nextIsDerby && home.round + 1 !== derby2.round) fails.push('a plain round claims the derby is next');
+    }
+    // the scout's find and the boy from the academy are read off the night's ratings
+    {
+      // the boy STARTS, because an appearance is only logged for the eleven
+      const kid = { ...star, id: 'kid-press', name: 'נער בדיקה', age: 17 };
+      const sq = G.mySquad(gs);
+      const other = sq.starters.find((p, i) => i !== 3 && p.age >= 23)!;
+      const squads = { ...gs.league.squads, [gs.clubId]: { starters: sq.starters.map((p, i) => i === 3 ? kid : p), bench: sq.bench } };
+      const r3 = fake([], [1, 0]); r3.home.id = home.homeId; r3.away.id = home.awayId;
+      r3.ratings = { [kid.id]: 8.6, [other.id]: 7.0 };
+      const base3 = { ...gs, week: home.round, league: { ...gs.league, squads }, seasonStats: { ...gs.seasonStats, [kid.id]: { name: kid.name, clubId: gs.clubId, apps: 0, goals: 0, assists: 0, lastGoalWeek: 0 } } };
+      const c3 = G.pressContext(G.commitRound(base3, r3))!;
+      checked += 4;
+      if (!c3.youthInSquad) fails.push('a seventeen year old in the squad goes unseen');
+      if (!c3.youthDebut) fails.push(`the boy's first night does not read as a debut`);
+      if (!c3.youthStar) fails.push('the boy with the best rating does not read as the star of the night');
+      const c4 = G.pressContext(G.commitRound({ ...base3, scout: { ...gs.scout, signedIds: [other.id] } }, r3))!;
+      if (!c4.scoutManPlayed || c3.scoutManPlayed) fails.push(`the scout's man is not read off the signings and the ratings`);
+      // a boy with a season behind him is no debutant, and an adult's big night is no youth story
+      checked += 2;
+      const veteranKid = { ...base3, seasonStats: { ...base3.seasonStats, [kid.id]: { ...base3.seasonStats[kid.id], apps: 5 } } };
+      if (G.pressContext(G.commitRound(veteranKid, r3))!.youthDebut) fails.push('a boy with five games behind him still reads as a debut');
+      const adultBest = { ...r3, ratings: { [kid.id]: 6.0, [other.id]: 9.0 } };
+      if (G.pressContext(G.commitRound(base3, adultBest))!.youthStar) fails.push(`an adult's big night reads as the boy's`);
+    }
+  }
+  console.log('  the 4.10 batch: sixty three new questions, every gate on its own night, the apology pays');
 }
 
 console.log(`${checked} checks`);

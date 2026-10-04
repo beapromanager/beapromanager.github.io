@@ -4034,6 +4034,39 @@ export function pressContext(gs: GameState): PressContext | null {
     lossRun: lossRun(gs.form),
     gate: homeAttendance(gs, isDerby(fx.homeId, fx.awayId)) / Math.max(1, gs.stadium.capacity),
     justUp: gs.week <= 3 && gs.chronicle.some(e => e.id === `season-${gs.season - 1}-promoted` || e.id === `season-${gs.season - 1}-champion`),
+    week: gs.week,
+    season: gs.season,
+    rounds: gs.league.rounds,
+    tier: club(gs).tier,
+    firstSeasonAtTier: gs.chronicle.some(e => e.id === `season-${gs.season - 1}-promoted` || e.id === `season-${gs.season - 1}-champion`),
+    lead: tablePos === 1 && table.length > 1 ? table[0].pts - table[1].pts : 0,
+    margin, gf: myGoals, ga: oppGoals,
+    oppPos: table.findIndex(s => s.clubId === oppId) + 1,
+    nextIsDerby: gs.league.fixtures.some(f => f.round === gs.week + 1
+      && (f.homeId === gs.clubId || f.awayId === gs.clubId) && isDerby(f.homeId, f.awayId)),
+    // the form already carries tonight, so the runs walking IN drop the last entry
+    unbeatenBefore: (() => { const before = gs.form.slice(0, -1); let n = 0;
+      for (let i = before.length - 1; i >= 0 && before[i] !== 'L'; i--) n++; return n; })(),
+    winRun: (() => { let n = 0; for (let i = gs.form.length - 1; i >= 0 && gs.form[i] === 'W'; i--) n++; return n; })(),
+    scoutHired: gs.scout.hiredSeason === gs.season,
+    scoutManPlayed: (gs.scout.signedIds ?? []).some(id => (r.ratings?.[id] ?? 0) > 0),
+    ...(() => {
+      const squad = mySquad(gs);
+      const all = [...squad.starters, ...squad.bench];
+      const kids = all.filter(p => p.age <= 18);
+      const rated = all.filter(p => (r.ratings?.[p.id] ?? 0) > 0);
+      const best = [...rated].sort((a, b) => (r.ratings![b.id]) - (r.ratings![a.id]))[0];
+      return {
+        youthInSquad: kids.length > 0,
+        youthDebut: kids.some(p => (r.ratings?.[p.id] ?? 0) > 0 && (gs.seasonStats[p.id]?.apps ?? 0) === 1),
+        youthStar: !!best && best.age <= 18,
+      };
+    })(),
+    injuryTonight: (r.events ?? []).some(e => e.type === 'injury' && e.teamId === gs.clubId),
+    allGoalsFirstHalf: (() => {
+      const goals = (r.events ?? []).filter(e => e.type === 'goal' || e.type === 'penalty_goal' || e.type === 'own_goal');
+      return goals.length > 0 && goals.every(e => e.minute <= 45);
+    })(),
   };
 }
 
@@ -4049,7 +4082,7 @@ export function pickPressAnswer(gs: GameState, index: number): GameState {
   const ans = p?.q.answers[index];
   if (!p || !ans || p.answered != null) return gs;
   const meters = {
-    money: cash(gs.meters.money),
+    money: cash(gs.meters.money + (ans.effect.money ?? 0)),
     morale: moraleShift(gs.meters.morale, (ans.effect.morale ?? 0)),
     prestige: meter(gs.meters.prestige + (ans.effect.prestige ?? 0)),
     fans: meter(gs.meters.fans + (ans.effect.fans ?? 0)),
@@ -4298,7 +4331,7 @@ export function signScoutOffer(gs: GameState): GameState {
   const league = from && next.league.squads[from]
     ? { ...next.league, squads: { ...next.league.squads, [from]: dropFromSquad(next.league.squads[from], o.player.id) } }
     : next.league;
-  return { ...next, league, scout: { ...next.scout, offer: null } };
+  return { ...next, league, scout: { ...next.scout, offer: null, signedIds: [...(next.scout.signedIds ?? []), o.player.id] } };
 }
 
 /**

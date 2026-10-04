@@ -301,6 +301,155 @@ const BY_FACT: Partial<Record<FactKind, FactQ[]>> = {
   })],
 };
 
+/* the room's read of the night, for the gated follow-ups */
+const won = (c: PressContext) => c.result === 'win' || c.result === 'big_win';
+const lost = (c: PressContext) => c.result === 'loss' || c.result === 'thrashing';
+const DEF = (f: MatchFact) => f.pos === 'CB' || f.pos === 'LB' || f.pos === 'RB';
+
+/**
+ * Follow-ups that fit only some of the nights a fact can have: the defender's
+ * red, the keeper who saved a WIN, the own goal that decided a LOSS. They join
+ * the fact's own pool only when the room's context says their night happened.
+ */
+const FACT_EXTRA: Partial<Record<FactKind, Array<{ when?: (c: PressContext, f: MatchFact) => boolean; gen: FactQ }>>> = {
+  shape_worked: [
+    { when: (c, f) => won(c), gen:
+      () => ({
+        id: 'shape_change_won',
+        tone: 'serious',
+        text: `שינית מערך באמצע המשחק וזה הפך את התמונה. ראית משהו שכולנו פספסנו?`,
+        answers: [
+          { label: `ראיתי אותו דבר, רק מהדשא זה נראה אחרת מהיציע`, effect: { prestige: +3 }, reply: `עקיצה צנועה. גם מחמאה לעצמך, מוסתרת היטב.` },
+          { label: `השחקנים ביצעו. אני רק הזזתי אותם`, effect: { morale: +4 }, reply: `קרדיט למבצעים. החדר קיבל חיבוק פומבי.` },
+        ],
+      }), },
+    { gen:
+      () => ({
+        id: 'shape_change_players',
+        tone: 'funny',
+        text: `השחקנים שלך מספרים שאתה צועק מספרים מהקו באמצע משחק, 4-4-2, 3-5-2. הם בכלל שומעים אותך שם?`,
+        answers: [
+          { label: `שומעים. ומי שלא שומע רואה אותי מנופף, אי אפשר לפספס`, effect: { morale: +2, fans: +2 }, reply: `האולם צייר את התמונה וצחק.` },
+          { label: `בשביל זה יש קפטן. אני צועק לו והוא מתרגם לשפת בני אדם`, effect: { morale: +3 }, reply: `הקפטן קיבל קרדיט בשידור. שווה זהב בחדר.` },
+        ],
+      }), },
+  ],
+  shape_failed: [
+    { when: (c, f) => lost(c), gen:
+      () => ({
+        id: 'shape_change_lost',
+        tone: 'brutal',
+        text: `שינית מערך באמצע וזה רק החמיר. לא היה עדיף להשאיר ולסמוך על השחקנים?`,
+        answers: [
+          { label: `העדפתי לטעות בניסיון מאשר לצפות בהפסד בשקט`, effect: { prestige: +2, morale: +1 }, reply: `אומץ בהפסד. חלק מהאולם כיבד.` },
+          { label: `בדיעבד כולם חכמים. בזמן אמת היו לי 30 שניות להחליט`, effect: { prestige: +2 }, reply: `אמת של קו המגרש. הכתב בלע את השאלה הבאה.` },
+        ],
+      }), },
+    { gen:
+      () => ({
+        id: 'shape_change_players',
+        tone: 'funny',
+        text: `השחקנים שלך מספרים שאתה צועק מספרים מהקו באמצע משחק, 4-4-2, 3-5-2. הם בכלל שומעים אותך שם?`,
+        answers: [
+          { label: `שומעים. ומי שלא שומע רואה אותי מנופף, אי אפשר לפספס`, effect: { morale: +2, fans: +2 }, reply: `האולם צייר את התמונה וצחק.` },
+          { label: `בשביל זה יש קפטן. אני צועק לו והוא מתרגם לשפת בני אדם`, effect: { morale: +3 }, reply: `הקפטן קיבל קרדיט בשידור. שווה זהב בחדר.` },
+        ],
+      }), },
+  ],
+  red_card: [
+    { when: (c, f) => DEF(f), gen:
+      () => ({
+        id: 'def_red_cover',
+        tone: 'serious',
+        text: `נשארתם בלי בלם באמצע משחק. ראינו אותך מכניס מגן מהספסל ישר לעמדה. זה תרגול או אלתור?`,
+        answers: [
+          { label: `אנחנו מתרגלים את זה כל שבוע. הרחקה היא לא הפתעה, היא תרחיש`, effect: { prestige: +3 }, reply: `מקצוענות שקטה. מאמנים אחרים רשמו לעצמם.` },
+          { label: `אלתור מלא. בכדורגל מי שלא יודע לאלתר הולך הביתה`, effect: { prestige: +1, morale: +2 }, reply: `כנות מרעננת. גם מפחידה קצת.` },
+        ],
+      }), },
+    { when: (c, f) => DEF(f) && lost(c), gen:
+      () => ({
+        id: 'def_red_discipline',
+        tone: 'brutal',
+        text: `ההרחקה הזאת הייתה מיותרת לחלוטין. כמה זה יעלה לו אצלך?`,
+        answers: [
+          { label: `מה שקורה בחדר נשאר בחדר. אבל זה לא יעבור בשתיקה`, effect: { prestige: +2, morale: -1 }, reply: `איום עטוף היטב. השחקן הבין.` },
+          { label: `הוא נלחם על כדור בשביל הקבוצה. אני לא קונס אותו, גם כשהוא טועה`, effect: { morale: +4, prestige: -1 }, reply: `גב מלא. ההגנה שלך תקפוץ לכל כדור בשבילך.` },
+        ],
+      }), },
+    { when: (c, f) => DEF(f) && !lost(c), gen:
+      () => ({
+        id: 'def_red_ten_men',
+        tone: 'serious',
+        text: `לשחק בעשרה בלי בלם ולצאת עם תוצאה כזאת. זה המשחק הכי טוב שלכם העונה?`,
+        answers: [
+          { label: `אחד מהם. קבוצות נבחנות כשחסר להן, לא כשיש הכל`, effect: { prestige: +3, morale: +2 }, reply: `פילוסופיה של דשא. הציטוט נצבע בצהוב במערכת.` },
+          { label: `אל תתרגל, אני מעדיף משעמם עם אחד עשר`, effect: { prestige: +2 }, reply: `רגליים על הקרקע. אף אחד לא יבקש הרחקות.` },
+        ],
+      }), },
+  ],
+  late_concede: [
+    { when: (c, f) => c.result === 'draw', gen:
+      () => ({
+        id: 'draw_late_concede',
+        tone: 'brutal',
+        text: `הובלתם עד הדקות האחרונות ושוב איבדתם את זה בסוף. למה הקבוצה שלך לא יודעת לסגור משחק?`,
+        answers: [
+          { label: `שאלה הוגנת. התשובה תהיה באימונים השבוע, לא פה`, effect: { prestige: +2 }, reply: `הודאה בעבודה שיש לעשות. מכובד.` },
+          { label: `היא יודעת. היום זה לא קרה. אל תבנה תיאוריה מערב אחד`, effect: { morale: +2, prestige: -1 }, reply: `הגנה על החדר. הכתב בכל זאת בנה תיאוריה.` },
+        ],
+      }), },
+  ],
+  keeper_hero: [
+    { when: (c, f) => won(c), gen:
+      () => ({
+        id: 'win_keeper_saved',
+        tone: 'serious',
+        text: `בוא נהיה כנים, השוער שלך הציל את המשחק הזה. כמה שווה שוער כזה?`,
+        answers: [
+          { label: `אין לו מחיר. ותפסיק לעשות לו שיווק, הוא שלנו`, effect: { morale: +3, prestige: +1 }, reply: `חצי צחוק, חצי אזהרה לסוכנים.` },
+          { label: `שוער טוב זה חצי קבוצה. היום הוא היה שלושת רבעי`, effect: { morale: +3 }, reply: `חשבון יפה. השוער עוד ימסגר את הציטוט.` },
+        ],
+      }), },
+  ],
+  comeback: [
+    { gen:
+      () => ({
+        id: 'win_comeback_mentality',
+        tone: 'serious',
+        text: `פיגרתם וחזרתם לנצח. מאיפה הקבוצה הזאת מביאה את זה?`,
+        answers: [
+          { label: `מהאימונים של יום שלישי בגשם. שם נבנים מהפכים`, effect: { morale: +3, prestige: +2 }, reply: `רומנטיקה של עבודה. הכותרת כתבה את עצמה.` },
+          { label: `מהיציע. שמעת אותם? אי אפשר להרים ידיים מולם`, effect: { fans: +6, morale: +1 }, reply: `הקרדיט עף למעלה. היציע קיבל את הערב שלו.` },
+        ],
+      }), },
+  ],
+  own_goal: [
+    { when: (c, f) => lost(c) && c.margin === -1, gen:
+      () => ({
+        id: 'loss_own_goal',
+        tone: 'funny',
+        text: `הפסד בשער עצמי. מה בכלל אומרים לשחקן במצב כזה?`,
+        answers: [
+          { label: `שהוא כבש יותר שערים בשבילנו משזה. אחד הפוך לא מוחק אותם`, effect: { morale: +4 }, reply: `חשבון הוגן. השחקן יישן קצת יותר טוב הלילה.` },
+          { label: `כלום. מה שהוא אומר לעצמו במקלחת גרוע מכל מה שאגיד`, effect: { prestige: +2, morale: -1 }, reply: `אמת פסיכולוגית. האולם שתק רגע.` },
+        ],
+      }), },
+  ],
+  toothless: [
+    { when: (c, f) => lost(c), gen:
+      () => ({
+        id: 'loss_no_shots',
+        tone: 'brutal',
+        text: `כמעט ולא בעטתם לשער. איך קבוצה שלמה לא מייצרת אפילו איום אחד אמיתי?`,
+        answers: [
+          { label: `שאלה מצוינת, והיא תישאל השבוע בחדר, בקול פחות נעים`, effect: { prestige: +2, morale: -2 }, reply: `רמז לסערה פנימית. השחקנים כבר מתכוננים ליום ראשון.` },
+          { label: `הם סגרו טוב ואנחנו לא מצאנו פתרון. היום הם היו חכמים מאיתנו`, effect: { prestige: +3 }, reply: `קרדיט ליריב במקום תירוץ. מקצועי.` },
+        ],
+      }), },
+  ],
+};
+
 /** Which facts we actually have a question for. */
 export function askableFacts(facts: MatchFact[]): MatchFact[] {
   return facts.filter(f => BY_FACT[f.kind]?.length);
@@ -327,7 +476,10 @@ export function pickPressQuestions(
   // similar nights do not produce the identical press conference. And when
   // everything we have on the lead story was asked lately, a smaller story
   // with something fresh to ask beats hearing the big one again
-  const pools = (f: MatchFact): QGen[] => BY_FACT[f.kind]!.map(g => cc => g(cc, f));
+  const pools = (f: MatchFact): QGen[] => [
+    ...BY_FACT[f.kind]!.map(g => (cc: PressContext) => g(cc, f)),
+    ...(FACT_EXTRA[f.kind] ?? []).filter(x => !x.when || x.when(c, f)).map(x => (cc: PressContext) => x.gen(cc, f)),
+  ];
   const unheard = (f: MatchFact) => pools(f).some(g => !recent.includes(g(c).id));
   let pick = usable[rng() > 0.72 && usable.length > 1 ? 1 : 0];
   if (!unheard(pick)) pick = usable.find(unheard) ?? pick;
@@ -338,15 +490,20 @@ const BARE: PressContext = {
   result: 'win', isDerby: false, lowMorale: false, highPrestige: false,
   tablePos: 5, totalTeams: 10, star: '', rival: '', city: '',
   isHome: true, fans: 50, lossRun: 0, gate: 0.7, justUp: false,
+  week: 5, season: 1, rounds: 14, tier: 3, firstSeasonAtTier: false, lead: 0,
+  margin: 2, gf: 2, ga: 0, oppPos: 6, nextIsDerby: false, unbeatenBefore: 0, winRun: 1,
+  scoutHired: false, scoutManPlayed: false, youthInSquad: false, youthDebut: false,
+  youthStar: false, injuryTonight: false, allGoalsFirstHalf: false,
 };
 
 /** The ids each fact can lead with, for the checks. */
 export function factPool(kind: FactKind): string[] {
-  return (BY_FACT[kind] ?? []).map(g => g(BARE, { kind }).id);
+  return [...(BY_FACT[kind] ?? []), ...(FACT_EXTRA[kind] ?? []).map(x => x.gen)].map(g => g(BARE, { kind }).id);
 }
 
 /** Every match question there is, filled with a bare fact, for the checks. */
 export function everyFactQuestion(c: PressContext = BARE): PressQuestion[] {
-  return (Object.keys(BY_FACT) as FactKind[]).flatMap(kind =>
-    BY_FACT[kind]!.map(g => g(c, { kind, who: 'x', minute: 1, n: 1 } as MatchFact)));
+  const kinds = new Set([...Object.keys(BY_FACT), ...Object.keys(FACT_EXTRA)] as FactKind[]);
+  return [...kinds].flatMap(kind =>
+    [...(BY_FACT[kind] ?? []), ...(FACT_EXTRA[kind] ?? []).map(x => x.gen)].map(g => g(c, { kind, who: 'x', minute: 1, n: 1 } as MatchFact)));
 }

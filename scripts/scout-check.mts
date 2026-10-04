@@ -269,6 +269,8 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
     ok(G.mySquad(signed).bench.some(p => p.id === offer.player.id), 'he did not land on the senior bench');
     ok(signed.scout.offer === null, 'the offer stayed on the table after signing');
     ok(G.signScoutOffer(signed).meters.money === signed.meters.money, 'a second signing took money');
+    // and the signing is remembered, so the press can ask about the scout's man
+    ok((signed.scout.signedIds ?? []).includes(offer.player.id), 'the signing was not remembered as the scout\'s man');
 
     // the rules of signing are the market's own
     const poor = { ...open, meters: { ...open.meters, money: offer.fee - 1 } };
