@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
+import { ROUND_NAMES } from '../../game/euro.ts';
+import type { EuroNight } from '../../game/euro.ts';
+import { euroClub, asClub } from '../../data/europeClubs.ts';
 import { LEAGUE_NAMES, isDerby } from '../../data/clubs.ts';
 import type { Club } from '../../data/clubs.ts';
 import { Meters } from '../components/bits.tsx';
@@ -53,6 +56,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
   const cheapest = Math.min(...PACKS.map(p => p.cost));
   const books = G.debt(gs);
   const hero = useRef<HTMLDivElement>(null);
+  const night = G.euroNight(gs);
 
   return (
     <>
@@ -75,6 +79,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
         <GoalStrip gs={gs} goal={goal} onPress={onTable} />
 
         <div ref={hero}>
+          {night && <EuroHero night={night} />}
           <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} />
         </div>
 
@@ -249,6 +254,39 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart }: {
           <Icon name="whistle" size={18} /> יוצאים למחזור
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * A European night this week. It sits above the league card because it is
+ * played first, on the Wednesday, and the league round waits for it. Blue and
+ * silver, so the eye knows at once this is not the league.
+ */
+function EuroHero({ night }: { night: EuroNight }) {
+  const opp = euroClub(night.oppId);
+  if (!opp) return null;
+  const legLine = night.host === null ? 'הגמר, מגרש ניטרלי'
+    : night.leg === 0 ? (night.host ? 'משחק ראשון, בבית' : 'משחק ראשון, בחוץ')
+    : (night.host ? 'המשחק החוזר, בבית' : 'המשחק החוזר, בחוץ');
+  const [a, b] = night.tie.legs[0] ?? [];
+  const firstLeg = night.leg === 1 && night.tie.legs[0]
+    ? (night.tie.a === opp.id ? `${b}:${a}` : `${a}:${b}`) : null;
+  return (
+    <div className="match-hero" data-euro="1">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
+        <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>ערב אירופי</span>
+        <span className="chip chip-euro">{ROUND_NAMES[night.round]}</span>
+      </div>
+      <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+        <Crest club={asClub(opp)} size={52} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <b style={{ fontSize: 15.5, lineHeight: 1.2 }}>{opp.name}</b>
+          <div className="sub" style={{ fontSize: 13 }}>{opp.city}, {opp.country} · {legLine}</div>
+          {firstLeg && <div className="sub" style={{ fontSize: 13 }}>במשחק הראשון <span className="num">{firstLeg}</span></div>}
+        </div>
+      </div>
+      <p className="hint" style={{ margin: '12px 0 0' }}>משחק הליגה של השבוע אחרי הערב הזה.</p>
     </div>
   );
 }

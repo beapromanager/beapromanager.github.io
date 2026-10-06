@@ -18,7 +18,7 @@ import {
   EURO_LIVE, EURO_POOL, EURO_FIELD, EURO_ROUNDS, ROUND_NAMES, STAGE_TARGET, PRIZE,
   GATE_SHARE, TRAVEL, SECURITY, legsIn, euroWeeks, drawEuro, playAiRound, recordMyLeg, advanceRound,
   roundDone, shootout, settleTie, aggregate, strengthOf, myTie, iHost, banFor, serveBans, allWinners, aiLeg, prizeFor,
-  playOutWithoutMe, champion, euroEntry,
+  playOutWithoutMe, champion, euroEntry, nightFor,
 } from '../src/game/euro.ts';
 import * as G from '../src/game/state.ts';
 import { readFileSync } from 'node:fs';
@@ -237,6 +237,47 @@ const ME = 'me';
   if (!readFileSync('src/game/save.ts', 'utf8').includes('euro: s.euro ?? null,')) fails.push('an old save would load without the euro field');
 }
 
+/* ----------------------------------- 8. the calendar: which week, which leg */
+{
+  // a fresh draw: the first leg is due before league round 2 and nowhere else
+  const e = drawEuro(41, ME, 1);
+  const t = myTie(e, ME)!;
+  const opp = t.a === ME ? t.b : t.a;
+  checked += 6;
+  const n2 = nightFor(e, ME, 14, 2);
+  if (!n2 || n2.round !== 0 || n2.leg !== 0 || n2.oppId !== opp) fails.push('the first leg is not due before league round 2');
+  if (n2 && n2.host !== (t.a === ME)) fails.push('the first leg host is not the first named side');
+  if (nightFor(e, ME, 14, 1) || nightFor(e, ME, 14, 3) || nightFor(e, ME, 14, 4)) fails.push('a leg is due in a week the calendar does not name');
+  if (nightFor(e, ME, 10, 2)) fails.push('a ten round league still has a European night');
+  // the first leg played, the return is due before round 3 and the first is never due again
+  const after1 = recordMyLeg(e, ME, [1, 0], 5);
+  if (nightFor(after1, ME, 14, 2)) fails.push('a leg already played is due again');
+  const n3 = nightFor(after1, ME, 14, 3);
+  if (!n3 || n3.leg !== 1 || n3.host !== !(t.a === ME)) fails.push('the return leg is not due before round 3 at the other ground');
+  // both legs in: nothing is due until the next round, which is before round 5
+  checked += 3;
+  const after2 = recordMyLeg(after1, ME, [2, 0], 6);
+  if (nightFor(after2, ME, 14, 3) || nightFor(after2, ME, 14, 4)) fails.push('a side with its legs played is still asked to play');
+  const q = advanceRound(playAiRound(after2, ME, 7), ME);
+  if (q.status !== 'on' || !nightFor(q, ME, 14, 5) || nightFor(q, ME, 14, 4)) fails.push('the quarter is not due before round 5');
+  // out of it, nothing is ever due; the final is one night, neutral, before round 13
+  if (nightFor({ ...q, status: 'out' }, ME, 14, 5)) fails.push('a side that is out is asked to play');
+  checked += 2;
+  // the quarter is drawn (two rounds exist), so the semi is an empty third and the final the fourth
+  const fin = { ...q, round: 3, leg: 0, ties: [...q.ties, [], [{ a: ME, b: opp, legs: [] }]], status: 'on' as const };
+  const nf = nightFor(fin, ME, 14, 13);
+  if (!nf || nf.host !== null || nf.leg !== 0) fails.push('the final is not one neutral night before round 13');
+  if (nightFor(fin, ME, 14, 14)) fails.push('a second final night is due');
+
+  // through the save: the door shut means no night even with a competition drawn
+  checked += 3;
+  const gs = G.newGame(7);
+  const drawn = { ...gs, week: 2, euro: drawEuro(9, gs.clubId, 1) };
+  if (G.euroNight(drawn) !== null) fails.push('the Hub would announce a European night with the door shut');
+  if (G.euroNight(gs) !== null) fails.push('a career with no competition has a night');
+  const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
+  if (!hub.includes('const night = G.euroNight(gs);') || !hub.includes('{night && <EuroHero night={night} />}')) fails.push('the Hub does not announce the night off euroNight');
+}
 console.log(`${checked} checks`);
 if (fails.length) {
   console.log('\n  ' + fails.slice(0, 10).join('\n  '));

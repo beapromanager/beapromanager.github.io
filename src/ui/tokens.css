@@ -1805,3 +1805,10 @@ a.btn{text-decoration:none;}
   opacity:0; transform:translateY(7px); transition:opacity .4s var(--ease-out), transform .4s var(--ease-out);}
 .fr-line[data-in="1"],.fr-fee[data-in="1"]{opacity:1; transform:none;}
 .fr-fee{color:var(--gold-hi); padding-top:7px; border-top:1px solid var(--line-2);}
+
+/* ------------------------------------------------------- a European night */
+.match-hero[data-euro="1"]{
+  background:linear-gradient(165deg,#111E33,#0C1524 62%,#070D18);
+  border-color:rgba(111,168,255,.35);
+}
+.chip-euro{background:rgba(111,168,255,.14); color:#CFE0FF; border:1px solid rgba(111,168,255,.35);}

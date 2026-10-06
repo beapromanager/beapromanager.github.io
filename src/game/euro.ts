@@ -250,6 +250,36 @@ export function euroEntry(live: boolean, report: { result: string; tier: number 
   return live && !!report && report.result === 'champion' && report.tier === topTier;
 }
 
+/** A European night the manager has to play this week, before the league round. */
+export interface EuroNight {
+  round: number;
+  /** 0 the first leg, 1 the return; the final is leg 0 of one */
+  leg: number;
+  tie: EuroTie;
+  oppId: string;
+  /** true at home, false away, null for the final's neutral ground */
+  host: boolean | null;
+}
+
+/**
+ * Is there a European night this week? Only while he is still in, only in a
+ * week the calendar puts a leg on, and only while that leg is unplayed: a
+ * manager who already played the week's leg is waiting for the others.
+ */
+export function nightFor(e: EuroState, myId: string, leagueRounds: number, week: number): EuroNight | null {
+  if (e.status !== 'on') return null;
+  const weeks = euroWeeks(leagueRounds);
+  const legWeeks = weeks?.[e.round];
+  if (!legWeeks) return null;
+  const tie = myTie(e, myId);
+  if (!tie) return null;
+  const leg = tie.legs.length;
+  if (leg >= legsIn(e.round) || legWeeks[leg] !== week) return null;
+  const oppId = tie.a === myId ? tie.b : tie.a;
+  const host = legsIn(e.round) === 1 ? null : (leg === 0) === (tie.a === myId);
+  return { round: e.round, leg, tie, oppId, host };
+}
+
 /** Does the manager host this leg? The final has no host. */
 export function iHost(e: EuroState, myId: string): boolean | null {
   const t = myTie(e, myId);

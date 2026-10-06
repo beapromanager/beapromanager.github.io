@@ -6,8 +6,8 @@ import type { Squad } from '../data/squadGen.ts';
 import { playerValue, squadAvgOvr, nextPlayerId, makePlayer, makeSquad } from '../data/squadGen.ts';
 import { FACTORIES, describeFriendly } from '../data/friendly.ts';
 import { moneyShort } from '../data/money.ts';
-import { EURO_LIVE, euroEntry, drawEuro } from './euro.ts';
-import type { EuroState } from './euro.ts';
+import { EURO_LIVE, euroEntry, drawEuro, nightFor } from './euro.ts';
+import type { EuroState, EuroNight } from './euro.ts';
 import type { FriendlyReport, FriendlyEvent } from '../data/friendly.ts';
 import type { MatchResult, TeamInput, Approach, Press, Player, Position, Rng } from '../engine/matchEngine.ts';
 import { simulateMatch, overall, createRng } from '../engine/matchEngine.ts';
@@ -3344,6 +3344,15 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
     gk: (() => { const k = [...mySquad(gs).starters, ...mySquad(gs).bench].find(p => p.position === 'GK'); return k ? surnameOf(k.name) : ''; })(),
     starIsForward: (() => { const best = [...mySquad(gs).starters].sort((a, b) => overall(b) - overall(a))[0]; return !!best && FORWARD.has(best.position); })(),
   };
+}
+
+/**
+ * The European night due this week, before the league round, or null. Read
+ * off the save, never stored: the door shut means there is never one.
+ */
+export function euroNight(gs: GameState): EuroNight | null {
+  if (!EURO_LIVE || !gs.euro) return null;
+  return nightFor(gs.euro, gs.clubId, gs.league.rounds, gs.week);
 }
 
 export function startWeek(gs: GameState): GameState {
