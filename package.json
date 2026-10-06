@@ -65,7 +65,8 @@
     "check:purse": "node --experimental-strip-types scripts/purse-check.mts",
     "check:chats": "node --experimental-strip-types scripts/chats-check.mts",
     "check:friendly": "node --experimental-strip-types scripts/friendly-check.mts",
-    "check:money": "node --experimental-strip-types scripts/money-check.mts"
+    "check:money": "node --experimental-strip-types scripts/money-check.mts",
+    "check:euro": "node --experimental-strip-types scripts/euro-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

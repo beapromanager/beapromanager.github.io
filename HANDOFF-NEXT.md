@@ -163,6 +163,25 @@ Act חדש `friendly {fee}` בדילמה `midweek_friendly` (oncePerSeason, לל
 `formatShekels` ב-state.ts (שורות "נכנסו ₪150K לקופה" אחרי מכירה/שחרור) וההודעה הקצרה ב-Squad.tsx ("עזב. ₪150K
 לקופה"). אם איציק מבקש, מחליפים אותם באותה דרך: `${moneyShort(n)} שקל`.
 
+**ליגת אירופה (6.10, החלטות של איציק, עוד לא נבנה כלום):** התוכנית המלאה ב-`PIC/europe/europe-league-plan.pdf` (ו-.docx), ההערות שלו
+ב-`PIC/europe/itzik-decisions-6-10.txt` (קאנון), והסיכום בזיכרון `memory/europe-spec-itzik-6-10.md`. בקצרה: 16 קבוצות, שמינית/רבע/חצי
+בשני משחקים וגמר במשחק אחד (7 מקס'), במקביל לליגת העל (לא במקום), כניסה לאלוף בלבד, **משחקים חיים במנוע האמיתי** (לא מיידיים),
+חוויית פנדלים חדשה ב-POV משני הצדדים (הסרטונים ב-`public/moments/penalty/`), הגרלה כמשחק POV עם "פליי", רמת יריבים עולה
+לפי שלב (שמינית = ליגת העל, רבע +10%, חצי +15%, גמר +25%; נמדד לפני קיבוע), אדומים נשארים באירופה בלבד, פציעות עוברות לליגה,
+כסף 300K/700K/1.3M/2.2M + 75% גבייה. הדגל `EURO_LIVE=false` עד שאיציק מדליק.
+**תשובותיו הנוספות (6.10 בערב):** (1) כל 20 הקבוצות (8 שלו + 12 שלנו) במאגר, 15 מוגרלות לצד המנהל בכל עונה, 5 נחות ומועדפות
+בעונה הבאה; (2) הגמר ברמה 83-85 ("ריאלי"), אחרי שהכלכלן מדד שהמספרים המילוליים (+25% = יעד 92.5) נותנים לאלוף טרי זכייה 1 ל-63
+וסגל בנוי במשחק הזה לא עובר 85-86 (מרקי אחד בקיץ, פוטנציאל חסום ב-90); נקבע **74 / 78 / 82 / 84**; (3) "תמונות אחרות בזמן המשחק"
+= גם אווירה (רקע/לוח) וגם סרטוני רגעים חדשים.
+**קומיט 1 נבנה (ליבה טהורה, בלי נגיעה ב-state או במסך):** `src/game/euro.ts` (EURO_LIVE=false, STAGE_TARGET, PRIZE, GATE_SHARE 0.75,
+TRAVEL 150K, SECURITY 175K, euroWeeks(14)=[[2,3],[5,6],[9,10],[13]] ו-null מתחת ל-14, drawEuro מזורע, playAiRound (פואסון לפי
+חוזק, לא נוגע בצמד של המנהל), recordMyLeg, settleTie בלי שערי חוץ, shootout 5+פתאומי שמחזיר את הבעיטות למסך, advanceRound
+(הבראקט ממשיך גם כשהמנהל בחוץ), playOutWithoutMe, bans שנשארים באירופה) ו-`src/data/europeClubs.ts` (20 מועדונים עם ערים
+ומדינות, צבעים לסמל הפרוצדורלי, `asClub` ל-Crest). בדיקה `check:euro` (51 בדיקות, 17 חבלות נתפסו; מודל פשוט: סגל 81 גמר 23%,
+גביע 1 ל-11, הכיול האמיתי מול המנוע כשהמשחקים החיים יחוברו). **הסוויטה 59, `euro` בסוף חלק 2.** הבאים בתור: קומיט 2 שדה
+`euro` בשמירה + יצירה אחרי אליפות; 3 הלוח ב-Hub; 4 ערב אירופי חי (הפרדת MatchBroadcast מטבלת הליגה, פנדלים POV עם
+`public/moments/penalty/`, שמות שחקנים אירופיים נדרשים ל-makeSquad); 5 מסכים (הגרלת POV, עץ, לילה); 6 סוף עונה; 7 כסף; 8 טלמטריה.
+
 ### פתוח עכשיו, לפי סדר
 
 1. **ה-200 הושלמו במלואם, כולל משחק המפעל.** נשארו בחוץ רק 4 שאלות עיתונאים שהמנוע לא נושא (101/106/119/137,
@@ -253,10 +272,10 @@ Act חדש `friendly {fee}` בדילמה `midweek_friendly` (oncePerSeason, לל
 
 ---
 
-## הסוויטה, 58 בדיקות (פקודה אחת)
+## הסוויטה, 59 בדיקות (פקודה אחת)
 
 ```
-for s in pitch formations sync goals numbers debt economy climb sacking guaranteed league youth kits palette names market lineup press invite gems coach install scroll summer legends seasonkit penalty discipline back breakout voice shape oldsave repeat suspension keeper part dilemma sub tutorial pack feed seed ads sponsor report fans friends telemetry flares gk reshuffle scout traits purse chats friendly money; do npm run -s check:$s >/dev/null 2>&1 && echo "OK   $s" || echo "FAIL $s"; done
+for s in pitch formations sync goals numbers debt economy climb sacking guaranteed league youth kits palette names market lineup press invite gems coach install scroll summer legends seasonkit penalty discipline back breakout voice shape oldsave repeat suspension keeper part dilemma sub tutorial pack feed seed ads sponsor report fans friends telemetry flares gk reshuffle scout traits purse chats friendly money euro; do npm run -s check:$s >/dev/null 2>&1 && echo "OK   $s" || echo "FAIL $s"; done
 ```
 
 לוקחת בערך 20-30 דקות. **חשוב: את הלולאה מריצים כפקודת ה-background עצמה** (`run_in_background: true`), עם
