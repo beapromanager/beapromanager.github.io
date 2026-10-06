@@ -143,13 +143,21 @@ function preloadMoments() {
   })();
 }
 
-export function MatchBroadcast({ gs, onDone, onHalfTime }: {
-  gs: G.GameState; onDone: (r: MatchResult) => void;
+export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, flare, doneLabel }: {
+  gs: G.GameState;
+  /** the result, and the ids of his men on the grass or sent off at the whistle (the European night needs who played) */
+  onDone: (r: MatchResult, onPitchIds: string[]) => void;
   /** fired once when the first half ends, so the App can count how far first matches get */
   onHalfTime?: () => void;
+  /** a match that is not the week's league fixture: the European night hands its own engine input and two clubs */
+  live?: Parameters<typeof L.createLive>[0];
+  clubs?: { home: Club; away: Club };
+  /** null to light no flares: the flare reasons are the league's nights, not Europe's */
+  flare?: G.FlareReason | null;
+  doneLabel?: string;
 }) {
   const liveRef = useRef<LiveState | null>(null);
-  if (!liveRef.current) liveRef.current = L.createLive(G.liveMatchInput(gs));
+  if (!liveRef.current) liveRef.current = L.createLive(live ?? G.liveMatchInput(gs));
   const st = liveRef.current;
   useEffect(preloadMoments, []);
 
@@ -161,7 +169,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime }: {
    * reason is a property of the fixture and cannot change while it is played, and
    * because asking again on every minute would relight the terrace every tick.
    */
-  const [flares, setFlares] = useState<G.FlareReason | null>(() => G.flareReason(gs));
+  const [flares, setFlares] = useState<G.FlareReason | null>(() => flare === undefined ? G.flareReason(gs) : flare);
   const [subOpen, setSubOpen] = useState(false);   // the substitution sheet
   const [shapeOpen, setShapeOpen] = useState(false);   // the change of shape sheet
   const [subFocus, setSubFocus] = useState<string | null>(null);   // a player tapped for a quick swap
@@ -207,9 +215,9 @@ export function MatchBroadcast({ gs, onDone, onHalfTime }: {
     return () => window.clearTimeout(t);
   }, [play]);
 
-  const fx = G.playerFixture(gs)!;
-  const homeClub = gs.league.clubs.find(c => c.id === fx.homeId)!;
-  const awayClub = gs.league.clubs.find(c => c.id === fx.awayId)!;
+  const fx = clubs ? null : G.playerFixture(gs)!;
+  const homeClub = clubs?.home ?? gs.league.clubs.find(c => c.id === fx!.homeId)!;
+  const awayClub = clubs?.away ?? gs.league.clubs.find(c => c.id === fx!.awayId)!;
   const myId = G.club(gs).id;
 
   // the clock also stops while the bench sheet is open, so managing a sub is not
@@ -383,8 +391,8 @@ export function MatchBroadcast({ gs, onDone, onHalfTime }: {
       {pending?.kind === 'tactic' && <MomentPopup m={pending} kind="tactic" imgOverride={tacticImg(G.club(gs).tier)} onPickOption={id => { L.resolveTactic(st, id); force(); }} />}
 
       {st.phase === 'done' ? (
-        <button className="btn" onClick={() => onDone(L.finalize(st))}>
-          לתוצאות <Icon name="chevron" size={17} />
+        <button className="btn" onClick={() => onDone(L.finalize(st), [...L.mySide(st).onPitch, ...L.mySide(st).sentOff.map(x => x.player)].map(p => p.id))}>
+          {doneLabel ?? 'לתוצאות'} <Icon name="chevron" size={17} />
         </button>
       ) : st.phase !== 'halftime' && (
         <div className="row" style={{ gap: 8 }}>

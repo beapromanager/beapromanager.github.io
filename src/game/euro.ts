@@ -198,21 +198,49 @@ export function playAiRound(e: EuroState, myId: string, seed: number): EuroState
   return { ...e, ties: next };
 }
 
-/** Write one of the manager's legs in, and settle his tie when the legs are all in. */
-export function recordMyLeg(e: EuroState, myId: string, goals: [number, number], seed: number): EuroState {
+/**
+ * Write one of the manager's legs in. When the legs are all in and the
+ * aggregate is not level the tie has its winner; level, it waits for the
+ * shootout, which he takes himself on the screen (needsPens / settleMyPens).
+ * Nothing is drawn here: his penalties are never rolled for him.
+ */
+export function recordMyLeg(e: EuroState, myId: string, goals: [number, number]): EuroState {
   const round = e.round;
   const ties = e.ties[round].map(t => {
     if (t.a !== myId && t.b !== myId) return t;
     // goals arrive as [mine, theirs]; the tie keeps [a, b]
     const leg: [number, number] = t.a === myId ? goals : [goals[1], goals[0]];
     const withLeg: EuroTie = { ...t, legs: [...t.legs, leg] };
-    return withLeg.legs.length >= legsIn(round) ? settleTie(withLeg, createRng(seed)) : withLeg;
+    if (withLeg.legs.length < legsIn(round)) return withLeg;
+    const [x, y] = aggregate(withLeg);
+    return x === y ? withLeg : { ...withLeg, winner: x > y ? withLeg.a : withLeg.b };
   });
   const next = e.ties.slice();
   next[round] = ties;
   const mine = ties.find(t => t.a === myId || t.b === myId);
   const legDone = mine ? mine.legs.length : 0;
   return { ...e, ties: next, leg: Math.min(legDone, legsIn(round) - 1), played: e.played + 1 };
+}
+
+/** His legs are all in, the aggregate is level, and nobody has won: the shootout is due. */
+export function needsPens(e: EuroState, myId: string): boolean {
+  const t = myTie(e, myId);
+  if (!t || t.winner || t.legs.length < legsIn(e.round)) return false;
+  const [x, y] = aggregate(t);
+  return x === y;
+}
+
+/** The shootout he took, as [mine, theirs]; the tie keeps [a, b] and gets its winner. */
+export function settleMyPens(e: EuroState, myId: string, score: [number, number]): EuroState {
+  const round = e.round;
+  const ties = e.ties[round].map(t => {
+    if (t.a !== myId && t.b !== myId) return t;
+    const pens: [number, number] = t.a === myId ? score : [score[1], score[0]];
+    return { ...t, pens, winner: pens[0] > pens[1] ? t.a : t.b };
+  });
+  const next = e.ties.slice();
+  next[round] = ties;
+  return { ...e, ties: next };
 }
 
 /** The round is over when every tie has a winner. */

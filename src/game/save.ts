@@ -254,6 +254,9 @@ export function loadCareer(): GameState | null {
   }
 
   if (patched.phase === 'match') return { ...patched, phase: 'hub' };
+  // a European night closed mid-match is not written: the hub asks for it again.
+  // a closed shootout is already paid for; the hub offers it again off euroPensDue
+  if (patched.phase === 'euro-match' || patched.phase === 'euro-pens') return { ...patched, phase: 'hub' };
   // the crest card between the tactics and the dressing room is gone; a save
   // that was left standing on it opens on the board that followed it
   if (patched.phase === 'vs') return { ...patched, phase: 'teamsheet' };

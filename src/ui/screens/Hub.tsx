@@ -39,8 +39,8 @@ import { SCOUT_LIVE, SCOUT_TEXT } from '../../game/scout.ts';
  * round is never more than one tap away.
  */
 
-export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth, onScout }: {
-  gs: G.GameState; onStart: () => void; onSquad: () => void; onTransfers: () => void;
+export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth, onScout, onEuro }: {
+  gs: G.GameState; onStart: () => void; onSquad: () => void; onTransfers: () => void; onEuro: () => void;
   onChronicle: () => void; onCaptain: () => void; onAssistant: () => void; onInbox: () => void;
   onStadium: () => void; onPacks: () => void; onCoach: () => void; onTable: () => void; onYouth: () => void; onScout: () => void;
 }) {
@@ -57,6 +57,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
   const books = G.debt(gs);
   const hero = useRef<HTMLDivElement>(null);
   const night = G.euroNight(gs);
+  const pensDue = G.euroPensDue(gs);
 
   return (
     <>
@@ -79,8 +80,9 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
         <GoalStrip gs={gs} goal={goal} onPress={onTable} />
 
         <div ref={hero}>
-          {night && <EuroHero night={night} />}
-          <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} />
+          {night && <EuroHero night={night} onGo={onEuro} />}
+          {!night && pensDue && <EuroPensCard gs={gs} onGo={onEuro} />}
+          <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} waiting={!!night || pensDue} />
         </div>
 
         {books.level !== 'clear' && <DebtStrip d={books} outlook={G.purseOutlook(gs)} onClick={onTransfers} />}
@@ -210,9 +212,11 @@ function Form({ form }: { form: ('W' | 'D' | 'L')[] }) {
  * The one thing the manager came here to do. It gets the space, the crests and
  * the button, and nothing above it competes for the eye.
  */
-function MatchHero({ club, rival, iAmHome, derby, gs, onStart }: {
+function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting }: {
   club: Club; rival: Club | undefined; iAmHome: boolean; derby: boolean;
   gs: G.GameState; onStart: () => void;
+  /** the European night is still to be played: the league waits for it */
+  waiting?: boolean;
 }) {
   if (!rival) {
     return (
@@ -249,6 +253,10 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart }: {
             <Icon name="whistle" size={18} /> יוצאים למחזור
           </button>
         </div>
+      ) : waiting ? (
+        <button className="btn dark" style={{ marginTop: 16, opacity: .6 }} disabled>
+          <Icon name="whistle" size={18} /> קודם הערב האירופי
+        </button>
       ) : (
         <button className="btn" style={{ marginTop: 16 }} onClick={onStart}>
           <Icon name="whistle" size={18} /> יוצאים למחזור
@@ -263,7 +271,7 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart }: {
  * played first, on the Wednesday, and the league round waits for it. Blue and
  * silver, so the eye knows at once this is not the league.
  */
-function EuroHero({ night }: { night: EuroNight }) {
+function EuroHero({ night, onGo }: { night: EuroNight; onGo: () => void }) {
   const opp = euroClub(night.oppId);
   if (!opp) return null;
   const legLine = night.host === null ? 'הגמר, מגרש ניטרלי'
@@ -287,6 +295,32 @@ function EuroHero({ night }: { night: EuroNight }) {
         </div>
       </div>
       <p className="hint" style={{ margin: '12px 0 0' }}>משחק הליגה של השבוע אחרי הערב הזה.</p>
+      <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>
+        <Icon name="whistle" size={18} /> יוצאים לערב האירופי
+      </button>
+    </div>
+  );
+}
+
+/** The legs are in and level: the shootout waits, and the league waits for it. */
+function EuroPensCard({ gs, onGo }: { gs: G.GameState; onGo: () => void }) {
+  const tie = gs.euro ? G.euroMyTie(gs) : null;
+  const opp = tie ? euroClub(tie.a === gs.clubId ? tie.b : tie.a) : null;
+  if (!opp) return null;
+  return (
+    <div className="match-hero" data-euro="1">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
+        <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>ערב אירופי</span>
+        <span className="chip chip-euro">{ROUND_NAMES[gs.euro?.round ?? 0]}</span>
+      </div>
+      <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+        <Crest club={asClub(opp)} size={52} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <b style={{ fontSize: 15.5, lineHeight: 1.2 }}>{opp.name}</b>
+          <div className="sub" style={{ fontSize: 13 }}>שוויון אחרי המשחקים. הפנדלים יכריעו.</div>
+        </div>
+      </div>
+      <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>לפנדלים</button>
     </div>
   );
 }

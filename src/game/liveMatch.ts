@@ -227,6 +227,8 @@ export function createLive(input: {
   friends?: Friend[];
   /** the division, so a trait that only fits the lower leagues is not handed out above them */
   tier?: number;
+  /** a neutral ground (the European final): nobody gets the home edge */
+  neutral?: boolean;
 }): LiveState {
   const clone = (p: Player): Player => ({ ...p, attrs: { ...p.attrs } });
   const pStarters = input.playerStarters.map(clone);
@@ -249,7 +251,7 @@ export function createLive(input: {
   const playerSideObj: Side = {
     id: input.iAmHome ? input.homeId : input.awayId,
     name: input.iAmHome ? input.homeName : input.awayName,
-    isHome: input.iAmHome, isPlayer: true,
+    isHome: input.iAmHome && !input.neutral, isPlayer: true,
     // slot order from here on: a caller that hands over a plain list gets it seated by fit
     onPitch: input.seated ? pStarters : fillFormation(pStarters, formation(input.playerTactic.formation ?? DEFAULT_FORMATION)),
     bench: pBench, tactic: input.playerTactic, sentOff: [],
@@ -258,7 +260,7 @@ export function createLive(input: {
   const oppSideObj: Side = {
     id: input.iAmHome ? input.awayId : input.homeId,
     name: input.iAmHome ? input.awayName : input.homeName,
-    isHome: !input.iAmHome, isPlayer: false,
+    isHome: !input.iAmHome && !input.neutral, isPlayer: false,
     onPitch: oStarters, bench: oBench, sentOff: [],
     tactic: { approach: 'balanced', press: 'mid', formation: formationForClub(input.iAmHome ? input.awayId : input.homeId) },
   };

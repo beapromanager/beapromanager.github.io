@@ -6,8 +6,14 @@ import type { Squad } from '../data/squadGen.ts';
 import { playerValue, squadAvgOvr, nextPlayerId, makePlayer, makeSquad } from '../data/squadGen.ts';
 import { FACTORIES, describeFriendly } from '../data/friendly.ts';
 import { moneyShort } from '../data/money.ts';
-import { EURO_LIVE, euroEntry, drawEuro, nightFor } from './euro.ts';
-import type { EuroState, EuroNight } from './euro.ts';
+import {
+  EURO_LIVE, euroEntry, drawEuro, nightFor, ROUND_NAMES, legsIn, strengthOf, recordMyLeg, needsPens, settleMyPens,
+  serveBans, banFor, playAiRound, advanceRound, playOutWithoutMe, prizeFor, aggregate, myTie,
+  GATE_SHARE, TRAVEL, SECURITY,
+} from './euro.ts';
+import type { EuroState, EuroNight, EuroTie } from './euro.ts';
+import { euroClub, asClub } from '../data/europeClubs.ts';
+import { makeEuroName } from '../data/europeNames.ts';
 import type { FriendlyReport, FriendlyEvent } from '../data/friendly.ts';
 import type { MatchResult, TeamInput, Approach, Press, Player, Position, Rng } from '../engine/matchEngine.ts';
 import { simulateMatch, overall, createRng } from '../engine/matchEngine.ts';
@@ -107,7 +113,9 @@ export type Phase =
   | 'captain' | 'assistant' | 'coach' | 'preseason' | 'preseason-market' | 'inbox' | 'chat' | 'table' | 'stadium'
   | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit' | 'scout' | 'youth-decision'
   /* the midweek match with the works team, told after the sheet is sent */
-  | 'friendly';
+  | 'friendly'
+  /* the European night, played live before the week's league round, and its shootout when the tie is level */
+  | 'euro-match' | 'euro-pens';
 
 export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
 
@@ -3350,9 +3358,230 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
  * The European night due this week, before the league round, or null. Read
  * off the save, never stored: the door shut means there is never one.
  */
-export function euroNight(gs: GameState): EuroNight | null {
-  if (!EURO_LIVE || !gs.euro) return null;
+/** `live` is the flag; a check opens the door by parameter, the way euroEntry takes it. */
+export function euroNight(gs: GameState, live: boolean = EURO_LIVE): EuroNight | null {
+  if (!live || !gs.euro) return null;
   return nightFor(gs.euro, gs.clubId, gs.league.rounds, gs.week);
+}
+
+/* ------------------------------------------------------- the European night */
+
+/** What a European night takes out of the legs of every man who played, for the week's league match. */
+export const EURO_TIRED = -12;
+/** The chance a man who played the European night is hurt for the week's league match. Itzik's to set. */
+export const EURO_INJURY_RISK = 0.06;
+
+/** His shootout is due: the legs are in, the aggregate is level, and he has not taken it yet. */
+export function euroPensDue(gs: GameState, live: boolean = EURO_LIVE): boolean {
+  return live && !!gs.euro && gs.euro.status === 'on' && needsPens(gs.euro, gs.clubId);
+}
+
+/** The men banned from this European match: a red here costs the next match here, nowhere else. */
+export function euroBanned(gs: GameState): Set<string> {
+  return new Set(Object.entries(gs.euro?.bans ?? {}).filter(([, n]) => n > 0).map(([id]) => id));
+}
+
+/**
+ * The other side, born for this leg: a squad at the round's strength, every
+ * man renamed for his country so a Belgrade side does not score through a
+ * Cohen. Seeded on the leg, so a reload meets the same men.
+ */
+function euroOpponent(gs: GameState, night: EuroNight): Squad {
+  const rng = createRng(drawSeed(gs, 150_010 + night.round * 10 + night.leg));
+  const sq = makeSquad(strengthOf(gs.euro!, night.oppId, night.round), rng);
+  const country = euroClub(night.oppId)?.country ?? '';
+  const used = new Set<string>();
+  // ids of their own, off the club: the generator's running counter would hand out different ids on every reload
+  const named = (p: Player, i: number): Player => ({ ...p, id: `${night.oppId}-${i}`, name: makeEuroName(rng, country, used) });
+  return { starters: sq.starters.map(named), bench: sq.bench.map((p, i) => named(p, i + 11)) };
+}
+
+/**
+ * The live engine's input for the European night. The same shape as the
+ * league's, so the broadcast does not know the difference: his eleven less
+ * the unavailable and the European-banned, the other side at the round's
+ * strength, the final on neutral ground. This week's story has not been
+ * asked yet, so no mods of the week touch it.
+ */
+export function euroMatchInput(gs: GameState, live: boolean = EURO_LIVE) {
+  const night = euroNight(gs, live);
+  if (!night) throw new Error('no European night this week');
+  const banned = euroBanned(gs);
+  const ok = (p: Player) => !isUnavailable(gs, p.id) && !banned.has(p.id);
+  const sq = mySquad(gs);
+  let starters = lineup(gs).filter(ok);
+  let bench = sq.bench.filter(ok);
+  if (starters.length < 11) {
+    starters = fillFormation([...starters, ...bench], formation(gs.tactic.formation)).slice(0, 11);
+    bench = bench.filter(p => !starters.includes(p));
+  }
+  const opp = euroOpponent(gs, night);
+  const me = club(gs);
+  const them = euroClub(night.oppId)!;
+  const iAmHome = night.host !== false;        // the final sits him at home for the indexes; the ground is neutral
+  return {
+    seed: drawSeed(gs, 150_000 + night.round * 10 + night.leg),
+    homeId: iAmHome ? me.id : them.id, homeName: iAmHome ? me.name : them.name,
+    awayId: iAmHome ? them.id : me.id, awayName: iAmHome ? them.name : me.name,
+    iAmHome,
+    neutral: night.host === null,
+    playerStarters: starters, playerBench: bench, playerTactic: gs.tactic, seated: true,
+    oppStarters: opp.starters, oppBench: opp.bench,
+    guestId: null,
+    moraleBias: (gs.meters.morale - 65) / 100,
+    friends: gs.friends, tier: me.tier,
+    captainId: currentCaptainId(gs),
+    coach: {
+      chemistry: coachChemistry(gs.coach),
+      att: coachAttBias(gs.coach),
+      def: coachDefBias(gs.coach),
+      cards: coachCardBias(gs.coach),
+    },
+  };
+}
+
+/** The two clubs on the broadcast bar: his own and the European side, home first; the final seats him home on neutral ground. */
+export function euroMatchClubs(gs: GameState, live: boolean = EURO_LIVE): { home: Club; away: Club } {
+  const night = euroNight(gs, live);
+  const me = club(gs);
+  if (!night) return { home: me, away: me };
+  const them = asClub(euroClub(night.oppId)!);
+  return night.host === false ? { home: them, away: me } : { home: me, away: them };
+}
+
+/** His tie this round, for the screens. */
+export function euroMyTie(gs: GameState) {
+  return gs.euro ? myTie(gs.euro, gs.clubId) : null;
+}
+
+/** From the hub to the European night (or its shootout), only when one is due. */
+export function startEuroNight(gs: GameState, live: boolean = EURO_LIVE): GameState {
+  if (gs.phase !== 'hub') return gs;
+  if (euroPensDue(gs, live)) return { ...gs, phase: 'euro-pens' };
+  if (!euroNight(gs, live)) return gs;
+  return { ...gs, phase: 'euro-match' };
+}
+
+/**
+ * His tie is settled: the other ties of the round are played, the round
+ * moves on, the prize for reaching the next round is paid, and when he is
+ * out the rest of the competition plays itself to a champion.
+ */
+function euroAfterTie(gs: GameState, euro: EuroState, money: number): { euro: EuroState; money: number; line: string } {
+  const me = gs.clubId;
+  const mine = myTie(euro, me);
+  if (!mine?.winner) return { euro, money, line: '' };
+  let e = playAiRound(euro, me, drawSeed(gs, 150_100 + euro.round));
+  e = advanceRound(e, me);
+  let line = '';
+  if (e.status === 'won') {
+    money += prizeFor(4);
+    line = 'הגביע שלך. הפרס על הזכייה נכנס לקופה.';
+  } else if (e.status === 'on') {
+    money += prizeFor(e.round);
+    line = `עלית ל${ROUND_NAMES[e.round]}. הפרס על ההעפלה נכנס לקופה.`;
+  } else {
+    e = playOutWithoutMe(e, me, drawSeed(gs, 150_200));
+    line = 'הדרך באירופה נגמרה העונה.';
+  }
+  return { euro: e, money, line };
+}
+
+/** The night's score as the manager reads it, [mine, theirs], from the engine's [home, away]. */
+function myGoals(gs: GameState, r: MatchResult): [number, number] {
+  return r.home.id === gs.clubId ? [r.score[0], r.score[1]] : [r.score[1], r.score[0]];
+}
+
+/**
+ * The European night is over. Nothing of the league is touched: no table, no
+ * season record, no form, no ledger. What it leaves behind is the leg in the
+ * tie, the men's legs for the week's league match (EURO_TIRED), anyone hurt
+ * out of that league match (sitOut, this week, one match), a red card as a
+ * European ban only, and the money straight to the purse: the gate share
+ * less security at home, the trip away, nothing on neutral ground. A level
+ * tie after the legs goes to the shootout, which he takes on the next screen;
+ * everything else is written before that, so a closed tab loses nothing.
+ */
+export function commitEuroLeg(gs: GameState, r: MatchResult, onPitchIds: string[], live: boolean = EURO_LIVE): GameState {
+  const night = euroNight(gs, live);
+  if (!night || !gs.euro) return gs;
+  const me = gs.clubId;
+  const goals = myGoals(gs, r);
+  // the ban served tonight is spent, and tonight's red is the next ban
+  let euro = serveBans(gs.euro).next;
+  for (const e of r.events ?? []) if (e.type === 'red' && e.teamId === me && e.playerId) euro = banFor(euro, e.playerId);
+  euro = recordMyLeg(euro, me, goals);
+  // everyone who played: the eleven that kicked off, and whoever was on the grass or sent off at the end
+  const starters = euroMatchInput(gs, live).playerStarters.map(p => p.id);
+  const played = [...new Set([...starters, ...onPitchIds])];
+  const fitness = { ...(gs.matchMods.fitness ?? {}) };
+  for (const id of played) fitness[id] = (fitness[id] ?? 0) + EURO_TIRED;
+  const sitOut = { ...gs.sitOut };
+  const hurt = euroInjuries(gs, night, played);
+  for (const id of hurt) sitOut[id] = 'פצוע';
+  // the money, straight to the purse
+  let money = gs.meters.money;
+  if (night.host === true) money += Math.round(gateIncome(homeAttendance(gs, false), club(gs).tier) * GATE_SHARE) - SECURITY;
+  else if (night.host === false) money -= TRAVEL;
+  const pensDue = needsPens(euro, me);
+  const after = pensDue ? { euro, money, line: '' } : euroAfterTie(gs, euro, money);
+  const notice = euroNightNotice(gs, night, goals, myTie(euro, me), after.line, hurt);
+  return {
+    ...gs,
+    euro: after.euro,
+    meters: { ...gs.meters, money: after.money },
+    matchMods: { ...gs.matchMods, fitness },
+    sitOut,
+    notices: pensDue ? gs.notices : [...gs.notices, notice],
+    phase: pensDue ? 'euro-pens' : 'hub',
+  };
+}
+
+/** Who the night hurt, for this week's league match: seeded on the leg, one roll a man. */
+export function euroInjuries(gs: GameState, night: EuroNight, played: string[]): string[] {
+  const rng = createRng(drawSeed(gs, 150_030 + night.round * 10 + night.leg));
+  return played.filter(() => rng() < EURO_INJURY_RISK);
+}
+
+/** The shootout he took is in: the tie has its winner and the round moves on. */
+export function finishEuroPens(gs: GameState, score: [number, number]): GameState {
+  if (!gs.euro || !needsPens(gs.euro, gs.clubId)) return { ...gs, phase: 'hub' };
+  const euro = settleMyPens(gs.euro, gs.clubId, score);
+  const after = euroAfterTie(gs, euro, gs.meters.money);
+  const tie = myTie(euro, gs.clubId)!;
+  const opp = euroClub(tie.a === gs.clubId ? tie.b : tie.a);
+  const won = tie.winner === gs.clubId;
+  const title = won ? 'עברת בפנדלים' : 'הודחת בפנדלים';
+  const body = `${score[0]}:${score[1]} בפנדלים מול ${opp?.name ?? ''}. ${after.line}`.trim();
+  return {
+    ...gs,
+    euro: after.euro,
+    meters: { ...gs.meters, money: after.money },
+    notices: [...gs.notices, { kind: 'story', title, body }],
+    phase: 'hub',
+  };
+}
+
+/** The word on the hub after the night: the score, where it leaves the tie, and who is hurt. */
+function euroNightNotice(gs: GameState, night: EuroNight, goals: [number, number], tie: EuroTie | undefined, line: string, hurt: string[]): SquadNotice {
+  const opp = euroClub(night.oppId);
+  // Itzik's rule for the ground: at home it is Israel and his own town; away it is their club, their city and their country
+  const where = night.host === null ? 'במגרש ניטרלי' : night.host ? `בבית, ב${club(gs).city}` : `בחוץ, אצל ${opp?.name ?? ''} ב${opp?.city ?? ''}, ${opp?.country ?? ''}`;
+  const title = `${ROUND_NAMES[night.round]}: ${goals[0]}:${goals[1]} מול ${opp?.name ?? ''}`;
+  const parts: string[] = [`${where}.`];
+  if (tie && legsIn(night.round) === 2 && night.leg === 0) {
+    parts.push('המשחק החוזר בשבוע הבא.');
+  } else if (tie) {
+    const [a, b] = aggregate(tie);
+    const mine = tie.a === gs.clubId ? a : b, theirs = tie.a === gs.clubId ? b : a;
+    if (legsIn(night.round) === 2) parts.push(`סך הכל ${mine}:${theirs}.`);
+  }
+  if (line) parts.push(line);
+  const names = hurt.map(id => [...mySquad(gs).starters, ...mySquad(gs).bench].find(p => p.id === id)?.name).filter(Boolean);
+  if (names.length === 1) parts.push(`${names[0]} נפצע ויחמיץ את משחק הליגה השבוע.`);
+  else if (names.length > 1) parts.push(`${names.join(', ')} נפצעו ויחמיצו את משחק הליגה השבוע.`);
+  parts.push('מי ששיחק הערב יגיע עייף למחזור.');
+  return { kind: 'story', title, body: parts.join(' ') };
 }
 
 export function startWeek(gs: GameState): GameState {

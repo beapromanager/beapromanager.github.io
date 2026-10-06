@@ -13,14 +13,26 @@
  *   5. the manager's own tie is never played for him, and a red card here
  *      costs one European match only
  *   6. hard but possible: a champion-level side lifts the cup in a sane share
+ *   7. the save and the entry, 8. the calendar, 9. the names
+ *  10. the night itself, played in the real engine with the door opened by
+ *      parameter: nothing of the league moves, the men tire, a red is a
+ *      European ban, an injury costs this week's league match, the money is
+ *      the agreed money, and a level tie waits for his own shootout
  */
 import {
   EURO_LIVE, EURO_POOL, EURO_FIELD, EURO_ROUNDS, ROUND_NAMES, STAGE_TARGET, PRIZE,
-  GATE_SHARE, TRAVEL, SECURITY, legsIn, euroWeeks, drawEuro, playAiRound, recordMyLeg, advanceRound,
+  GATE_SHARE, TRAVEL, SECURITY, legsIn, euroWeeks, drawEuro, playAiRound, recordMyLeg, advanceRound, needsPens, settleMyPens,
   roundDone, shootout, settleTie, aggregate, strengthOf, myTie, iHost, banFor, serveBans, allWinners, aiLeg, prizeFor,
   playOutWithoutMe, champion, euroEntry, nightFor,
 } from '../src/game/euro.ts';
 import * as G from '../src/game/state.ts';
+import * as L from '../src/game/liveMatch.ts';
+import type { MatchResult } from '../src/engine/matchEngine.ts';
+import { overall } from '../src/engine/matchEngine.ts';
+import { gateIncome } from '../src/game/career.ts';
+import { LEGEND_TOWN } from '../src/data/legends.ts';
+import { saveCareer, loadCareer } from '../src/game/save.ts';
+import { euroClub } from '../src/data/europeClubs.ts';
 import { readFileSync } from 'node:fs';
 import { EURO_CLUBS } from '../src/data/europeClubs.ts';
 import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
@@ -29,6 +41,19 @@ import { createRng } from '../src/engine/matchEngine.ts';
 const fails: string[] = [];
 let checked = 0;
 const ME = 'me';
+
+/* localStorage, which node does not have and the loader insists on */
+const store = new Map<string, string>();
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true, writable: true,
+  value: {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => { store.set(k, v); },
+    removeItem: (k: string) => { store.delete(k); },
+  },
+});
+/** a check stands in for the screen: when the tie is level after his legs, a seeded shootout settles it */
+const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e, ME) ? settleMyPens(e, ME, shootout(createRng(seed)).score) : e;
 
 /* ------------------------------------------- 1. the door and the numbers */
 {
@@ -143,7 +168,8 @@ const ME = 'me';
       const mine = myTie(e, ME)!;
       checked++;
       if (mine.legs.length) fails.push('the AI round played the manager\'s own tie for him');
-      for (let l = 0; l < legsIn(e.round); l++) e = recordMyLeg(e, ME, myGoals(), seed * 11 + e.round * 3 + l);
+      for (let l = 0; l < legsIn(e.round); l++) e = recordMyLeg(e, ME, myGoals());
+      e = pensIfDue(e, seed * 11 + e.round * 3);
       if (!roundDone(e)) { fails.push('a round with every leg played is not done'); break; }
       e = advanceRound(e, ME);
     }
@@ -200,8 +226,9 @@ const ME = 'me';
         const neutral = legsIn(e.round) === 1;
         const host = neutral ? true : iHost(e, ME)!;
         const [h, a] = host ? aiLeg(81, theirs, rng, neutral) : aiLeg(theirs, 81, rng, neutral);
-        e = recordMyLeg(e, ME, host ? [h, a] : [a, h], 60_000 + i * 19 + e.round * 3 + l);
+        e = recordMyLeg(e, ME, host ? [h, a] : [a, h]);
       }
+      e = pensIfDue(e, 60_000 + i * 19 + e.round * 3);
       if (e.round === 3 && roundDone(e)) finals++;
       e = advanceRound(e, ME);
     }
@@ -238,6 +265,32 @@ const ME = 'me';
   if (!readFileSync('src/game/save.ts', 'utf8').includes('euro: s.euro ?? null,')) fails.push('an old save would load without the euro field');
 }
 
+/* ------------------------- 7b. his own shootout is his, never rolled for him */
+{
+  checked += 6;
+  const e0 = drawEuro(43, ME, 1);
+  const t0 = myTie(e0, ME)!;
+  const opp = t0.a === ME ? t0.b : t0.a;
+  // a level aggregate leaves the tie open and asks for the shootout
+  const level = recordMyLeg(recordMyLeg(e0, ME, [1, 0]), ME, [0, 1]);
+  const lt = myTie(level, ME)!;
+  if (lt.winner || lt.pens || !needsPens(level, ME)) fails.push('a level tie after his legs settled itself without his shootout');
+  if (roundDone({ ...level, ties: [level.ties[0].map(t => t === lt ? t : { ...t, winner: t.a })] })) fails.push('a round is done while his shootout is still due');
+  // a decided aggregate never asks for it, and the winner is the right side
+  const won = recordMyLeg(recordMyLeg(e0, ME, [2, 0]), ME, [0, 1]);
+  if (needsPens(won, ME) || myTie(won, ME)!.winner !== ME) fails.push('a tie won on aggregate asks for penalties or names the wrong winner');
+  const lost = recordMyLeg(recordMyLeg(e0, ME, [0, 1]), ME, [1, 1]);
+  if (needsPens(lost, ME) || myTie(lost, ME)!.winner !== opp) fails.push('a tie lost on aggregate asks for penalties or names the wrong winner');
+  if (needsPens(recordMyLeg(e0, ME, [1, 1]), ME)) fails.push('penalties are due after one leg of two');
+  // the shootout he took is written in his order and names the winner; pens keep the tie's [a, b]
+  const mineWon = settleMyPens(level, ME, [4, 3]);
+  const mt = myTie(mineWon, ME)!;
+  const expectPens = mt.a === ME ? '[4,3]' : '[3,4]';
+  if (mt.winner !== ME || JSON.stringify(mt.pens) !== expectPens || needsPens(mineWon, ME)) fails.push('a shootout he won is not written as his win in the tie\'s order');
+  const theirsWon = settleMyPens(level, ME, [2, 4]);
+  if (myTie(theirsWon, ME)!.winner !== opp) fails.push('a shootout he lost does not put the other side through');
+}
+
 /* ----------------------------------- 8. the calendar: which week, which leg */
 {
   // a fresh draw: the first leg is due before league round 2 and nowhere else
@@ -251,13 +304,13 @@ const ME = 'me';
   if (nightFor(e, ME, 14, 1) || nightFor(e, ME, 14, 3) || nightFor(e, ME, 14, 4)) fails.push('a leg is due in a week the calendar does not name');
   if (nightFor(e, ME, 10, 2)) fails.push('a ten round league still has a European night');
   // the first leg played, the return is due before round 3 and the first is never due again
-  const after1 = recordMyLeg(e, ME, [1, 0], 5);
+  const after1 = recordMyLeg(e, ME, [1, 0]);
   if (nightFor(after1, ME, 14, 2)) fails.push('a leg already played is due again');
   const n3 = nightFor(after1, ME, 14, 3);
   if (!n3 || n3.leg !== 1 || n3.host !== !(t.a === ME)) fails.push('the return leg is not due before round 3 at the other ground');
   // both legs in: nothing is due until the next round, which is before round 5
   checked += 3;
-  const after2 = recordMyLeg(after1, ME, [2, 0], 6);
+  const after2 = recordMyLeg(after1, ME, [2, 0]);
   if (nightFor(after2, ME, 14, 3) || nightFor(after2, ME, 14, 4)) fails.push('a side with its legs played is still asked to play');
   const q = advanceRound(playAiRound(after2, ME, 7), ME);
   if (q.status !== 'on' || !nightFor(q, ME, 14, 5) || nightFor(q, ME, 14, 4)) fails.push('the quarter is not due before round 5');
@@ -277,7 +330,7 @@ const ME = 'me';
   if (G.euroNight(drawn) !== null) fails.push('the Hub would announce a European night with the door shut');
   if (G.euroNight(gs) !== null) fails.push('a career with no competition has a night');
   const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
-  if (!hub.includes('const night = G.euroNight(gs);') || !hub.includes('{night && <EuroHero night={night} />}')) fails.push('the Hub does not announce the night off euroNight');
+  if (!hub.includes('const night = G.euroNight(gs);') || !hub.includes('{night && <EuroHero night={night} onGo={onEuro} />}')) fails.push('the Hub does not announce the night off euroNight');
 }
 /* ----------------------------------- 9. the men have names of their country */
 {
@@ -298,6 +351,171 @@ const ME = 'me';
   // a country the bank does not know still gets a name rather than a crash
   checked++;
   if (!makeEuroName(createRng(1), 'אטלנטיס', new Set())) fails.push('an unknown country gives no name at all');
+}
+/* ------------------------ 10. the European night, played in the real engine */
+{
+  // a career at the hub in week 2 with a competition drawn. The door is opened
+  // for the check only, by parameter, the way euroEntry takes it
+  const career = (seed: number): G.GameState => {
+    let gs = G.newGame(seed);
+    gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+    gs = G.pickCity(gs, LEGEND_TOWN);
+    gs = G.afterSigning(gs, {});
+    gs = G.enterPreseason({ ...gs, phase: 'preseason-market' } as never);
+    while (gs.phase === 'preseason-market') gs = G.advancePreseason(gs);
+    const hub = { ...gs, phase: 'hub' as const, week: 2 };
+    return { ...hub, euro: drawEuro(seed, hub.clubId, hub.season) };
+  };
+  const playNight = (gs: G.GameState) => {
+    const input = G.euroMatchInput(gs, true);
+    const st = L.createLive(input);
+    let guard = 0;
+    while (st.phase !== 'done' && guard++ < 4000) {
+      if (st.phase === 'halftime') { L.resumeFromHalfTime(st); continue; }
+      if (st.phase === 'moment' && st.pending) {
+        const m = st.pending;
+        switch (m.kind) {
+          case 'penalty': L.resolvePenalty(st, 'left'); break;
+          case 'def_penalty': L.resolveDefPenalty(st, 'left'); break;
+          case 'shot': L.resolveShot(st, 'left'); break;
+          case 'free_kick': L.resolveFreeKick(st, 'left'); break;
+          case 'one_on_one': L.resolveOneOnOne(st, 'finish'); break;
+          case 'def_keeper': L.resolveDefKeeper(st, 'stay'); break;
+          case 'def_tackle': L.resolveDefTackle(st, 'contain'); break;
+          case 'tactic': L.resolveTactic(st, m.options?.[0]?.id ?? ''); break;
+        }
+        if (st.phase === 'moment') st.phase = 'play';
+        continue;
+      }
+      L.step(st);
+    }
+    const ids = [...L.mySide(st).onPitch, ...L.mySide(st).sentOff.map(x => x.player)].map(p => p.id);
+    return { input, result: L.finalize(st), ids };
+  };
+  const frozen = (gs: G.GameState) => JSON.stringify([gs.league.table, gs.seasonStats, gs.form, gs.lastLedger, gs.lastPlayerMatch, gs.pressHistory, gs.chatHistory, gs.suspensions, gs.sitOutNext, gs.week, gs.purseEarlier, gs.season]);
+  const asMine = (gs: G.GameState, t: { a: string; legs: Array<[number, number]> }, i: number): [number, number] =>
+    t.a === gs.clubId ? t.legs[i] : [t.legs[i][1], t.legs[i][0]];
+
+  const gs = career(21);
+  const night = G.euroNight(gs, true)!;
+  checked += 5;
+  if (!night) fails.push('a drawn competition in week 2 has no night for the check');
+  // the door shut: no night, the hub button does nothing; a closed match or shootout reloads at the hub
+  if (G.euroNight(gs) !== null || G.startEuroNight(gs).phase !== 'hub' || G.euroPensDue(gs)) fails.push('with the door shut the night still exists for the state');
+  if (G.startEuroNight(gs, true).phase !== 'euro-match') fails.push('with the door open the hub does not start the night');
+  saveCareer({ ...gs, phase: 'euro-match' });
+  if (loadCareer()?.phase !== 'hub') fails.push('a career closed inside the European night does not reload at the hub');
+  saveCareer({ ...gs, phase: 'euro-pens' });
+  if (loadCareer()?.phase !== 'hub') fails.push('a career closed inside the shootout does not reload at the hub');
+
+  // the input: the same men twice, the other side named from its country at the round's strength, the final neutral
+  checked += 8;
+  const i1 = G.euroMatchInput(gs, true), i2 = G.euroMatchInput(gs, true);
+  if (JSON.stringify(i1) !== JSON.stringify(i2)) fails.push('the same week gives two different European nights');
+  const country = euroClub(night.oppId)!.country;
+  const bank = EURO_NAMES[country];
+  const theirs = [...i1.oppStarters, ...i1.oppBench];
+  if (!theirs.every(p => bank.first.includes(p.name.split(' ')[0]) && bank.last.includes(p.name.split(' ').slice(1).join(' ')))) fails.push(`the ${country} side has men not named from its bank`);
+  if (new Set(theirs.map(p => p.name)).size !== theirs.length) fails.push('two men of the European side share a name');
+  if (i1.seed !== G.drawSeed(gs, 150_000 + night.round * 10 + night.leg)) fails.push('the night is not seeded through drawSeed on the round and leg');
+  const target = strengthOf(gs.euro!, night.oppId, night.round);
+  const avg = theirs.slice(0, 11).reduce((s, p) => s + overall(p), 0) / 11;
+  if (Math.abs(avg - target) > 6) fails.push(`the other side's eleven average ${avg.toFixed(1)} against a target of ${target}`);
+  if ((i1.homeId === gs.clubId) !== (night.host !== false)) fails.push('the host is not the home side of the engine input');
+  if (i1.neutral) fails.push('a two legged tie is played on neutral ground');
+  const fin = { ...gs, week: 13, euro: { ...gs.euro!, round: 3, ties: [...gs.euro!.ties, [], [], [{ a: gs.clubId, b: night.oppId, legs: [] }]] } };
+  const fi = G.euroMatchInput(fin, true);
+  if (!fi.neutral || !fi.iAmHome) fails.push('the final is not neutral with him seated home for the indexes');
+  const fst = L.createLive(fi);
+  if (fst.home.isHome || fst.away.isHome) fails.push('the final gives a side the home edge');
+  const lst = L.createLive(i1);
+  if (!(lst.home.isHome && !lst.away.isHome)) fails.push('a two legged leg gives nobody the home edge');
+
+  // the night played: nothing of the league moves, the men are tired, the leg is in, the money moves by the agreed sums
+  checked += 9;
+  const { result, ids } = playNight(gs);
+  const before = frozen(gs);
+  const after = G.commitEuroLeg(gs, result, ids, true);
+  if (frozen(after) !== before) fails.push('the European night wrote into the league (table, stats, form, ledger, history, suspensions, sitOutNext, week)');
+  const played = new Set([...i1.playerStarters.map(p => p.id), ...ids]);
+  const tired = after.matchMods.fitness ?? {};
+  if (![...played].every(id => tired[id] === G.EURO_TIRED)) fails.push(`a man who played is not ${G.EURO_TIRED} for the league match`);
+  if (Object.keys(tired).some(id => !played.has(id))) fails.push('a man who did not play is tired');
+  if (G.EURO_TIRED !== -12) fails.push('the European tiredness is not the agreed twelve');
+  const gate = Math.round(gateIncome(G.homeAttendance(gs, false), G.club(gs).tier) * GATE_SHARE);
+  const mine = G.euroMyTie(after)!;
+  if (mine.legs.length !== 1) fails.push('the leg was not written into the tie');
+  const myGoals = result.home.id === gs.clubId ? result.score : [result.score[1], result.score[0]];
+  const legMine = asMine(gs, mine, 0);
+  if (legMine[0] !== myGoals[0] || legMine[1] !== myGoals[1]) fails.push('the goals in the tie are not the goals of the night');
+  const expectMoney = gs.meters.money + (night.host === true ? gate - SECURITY : -TRAVEL);
+  if (after.meters.money !== expectMoney) fails.push(`the first leg moved the money by ${after.meters.money - gs.meters.money}, expected ${expectMoney - gs.meters.money}`);
+  if (after.phase !== 'hub' || G.euroNight(after, true) !== null) fails.push('after the first leg the hub still asks for it');
+  if (after.notices.at(-1)?.kind !== 'story') fails.push('the night leaves no word on the hub');
+  if (G.euroMatchInput({ ...after, week: 3 }, true).seed === i1.seed) fails.push('the return leg replays the first leg seed');
+
+  // a red card tonight is a European ban only: not on the league sheet, off the next European sheet, served by it
+  checked += 5;
+  const culprit = i1.playerStarters[3].id;
+  const withRed = { ...result, events: [...result.events, { minute: 70, type: 'red' as const, teamId: gs.clubId, playerId: culprit, playerName: 'x', text: '' }] };
+  const banned = G.commitEuroLeg(gs, withRed, ids, true);
+  if (banned.euro!.bans[culprit] !== 1) fails.push('a European red is not a European ban');
+  if (JSON.stringify(banned.suspensions) !== JSON.stringify(gs.suspensions)) fails.push('a European red reached the league suspensions');
+  const ret = { ...banned, week: 3 };
+  if (G.euroMatchInput(ret, true).playerStarters.some(p => p.id === culprit)) fails.push('a European banned man is on the next European sheet');
+  if (!G.liveMatchInput(ret).playerStarters.some(p => p.id === culprit)) fails.push('a European ban keeps a man out of the league');
+  const retPlayed = playNight(ret);
+  const served = G.commitEuroLeg(ret, retPlayed.result, retPlayed.ids, true);
+  if ((served.euro!.bans[culprit] ?? 0) !== 0) fails.push('a European ban is not served by the next European match');
+
+  // an injury tonight: out of this week's league match, not next week's; the league sheet refills without him
+  checked += 4;
+  let hurtCase: G.GameState | null = null;
+  for (let s = 1; s < 60 && !hurtCase; s++) {
+    const g = career(s);
+    const n = G.euroNight(g, true);
+    if (!n) continue;
+    if (G.euroInjuries(g, n, G.euroMatchInput(g, true).playerStarters.map(p => p.id)).length) hurtCase = g;
+  }
+  if (!hurtCase) fails.push('no seed in sixty hurts a man on a European night');
+  else {
+    const p = playNight(hurtCase);
+    const a = G.commitEuroLeg(hurtCase, p.result, p.ids, true);
+    const hurt = Object.keys(a.sitOut).filter(id => a.sitOut[id] === 'פצוע');
+    if (!hurt.length) fails.push('the injury rolled on the night is not written into sitOut');
+    if (Object.keys(a.sitOutNext).length !== Object.keys(hurtCase.sitOutNext).length) fails.push('the injury was written for next week, not this one');
+    if (hurt.some(id => G.liveMatchInput(a).playerStarters.some(q => q.id === id))) fails.push('a man hurt in Europe starts the league match');
+    if (hurt.some(id => G.lineup(a).some(q => q.id === id)) && !G.weekBlockedReason(a)) fails.push('a hurt man in the eleven does not block the round');
+  }
+  if (G.EURO_INJURY_RISK <= 0 || G.EURO_INJURY_RISK > 0.15) fails.push('the injury risk is off, or above one in seven');
+
+  // a level tie waits for his shootout, pays nothing until it is taken, and the shootout settles it and pays the round's prize
+  checked += 7;
+  const second = { ...after, week: 3 };
+  const fixed = (g: G.GameState, mineGoals: [number, number]): MatchResult => {
+    const inp = G.euroMatchInput(g, true);
+    const stats = { possession: .5, chances: 0, goals: 0, xg: 0 };
+    return { seed: 1, home: { id: inp.homeId, name: '', stats }, away: { id: inp.awayId, name: '', stats }, score: inp.iAmHome ? mineGoals : [mineGoals[1], mineGoals[0]], events: [], ratings: {} };
+  };
+  const firstMine = asMine(gs, mine, 0);
+  const lvl = G.commitEuroLeg(second, fixed(second, [firstMine[1], firstMine[0]]), [], true);
+  if (lvl.phase !== 'euro-pens' || !G.euroPensDue(lvl, true)) fails.push('a level tie after the legs does not go to the shootout');
+  if (G.euroPensDue(lvl)) fails.push('the shootout is due with the door shut');
+  if (G.startEuroNight({ ...lvl, phase: 'hub' }, true).phase !== 'euro-pens') fails.push('the hub does not offer the shootout again after a reload');
+  if (lvl.meters.money !== second.meters.money + (night.host === true ? -TRAVEL : gate - SECURITY)) fails.push('a level return leg did not charge the ground and nothing else');
+  const won = G.finishEuroPens(lvl, [4, 3]);
+  const settled = won.euro!.ties[0].find(t => t.a === gs.clubId || t.b === gs.clubId)!;
+  if (settled.winner !== gs.clubId || !settled.pens || won.euro!.round !== 1 || won.euro!.status !== 'on' || won.phase !== 'hub') fails.push('a shootout won does not take him into the quarter');
+  if (won.notices.at(-1)?.kind !== 'story' || !JSON.stringify(won.notices.at(-1)).includes('4:3')) fails.push('the shootout leaves no word with its score on the hub');
+  if (won.meters.money !== lvl.meters.money + PRIZE[1]) fails.push('reaching the quarter did not pay the quarter prize, and only it');
+  const lost = G.finishEuroPens(lvl, [2, 4]);
+  if (lost.euro!.status !== 'out' || !champion(lost.euro!) || lost.meters.money !== lvl.meters.money) fails.push('a shootout lost does not put him out, with the competition played to its champion and no prize');
+  // a win on aggregate goes straight through with the prize, no shootout
+  checked += 2;
+  // whatever the first leg was, two more than they have on aggregate wins it
+  const thru = G.commitEuroLeg(second, fixed(second, [firstMine[1] + 2, firstMine[0]]), [], true);
+  if (thru.phase !== 'hub' || thru.euro!.round !== 1 || thru.euro!.status !== 'on') fails.push('a tie won on aggregate does not move him to the quarter');
+  if (thru.meters.money !== lvl.meters.money + PRIZE[1]) fails.push('the return leg and the quarter prize do not add up');
 }
 console.log(`${checked} checks`);
 if (fails.length) {

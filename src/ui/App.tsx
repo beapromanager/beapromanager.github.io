@@ -24,6 +24,7 @@ import { SackedScreen } from './screens/Sacked.tsx';
 import { SponsorScreen } from './screens/Sponsor.tsx';
 import { KitReveal } from './screens/KitReveal.tsx';
 import { FriendlyScreen } from './screens/Friendly.tsx';
+import { ShootoutScreen } from './screens/Shootout.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
 import { ScoutScreen } from './screens/Scout.tsx';
 import { YouthDecisionScreen } from './screens/YouthDecision.tsx';
@@ -335,6 +336,7 @@ export function App() {
           onCoach={() => setGs(G.openCoach(gs))}
           onYouth={() => setGs(G.openYouth(gs))}
           onScout={() => setGs(G.openScout(gs))}
+          onEuro={() => setGs(G.startEuroNight(gs))}
           onTable={() => setGs(G.openTable(gs))} />
       )}
       {gs.phase === 'youth-decision' && (
@@ -412,6 +414,11 @@ export function App() {
           onHalfTime={gs.season === 1 && gs.week === 1 && !adminKey ? () => track('match1_half') : undefined} />
       )}
       {gs.phase === 'friendly' && <FriendlyScreen gs={gs} onDone={() => setGs(g => G.finishFriendly(g))} />}
+      {gs.phase === 'euro-match' && (
+        <MatchBroadcast gs={gs} live={G.euroMatchInput(gs)} clubs={G.euroMatchClubs(gs)} flare={null} doneLabel="סיום הערב"
+          onDone={(result, ids) => setGs(G.commitEuroLeg(gs, result, ids))} />
+      )}
+      {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} onDone={score => setGs(g => G.finishEuroPens(g, score))} />}
       {gs.phase === 'result' && <ResultScreen gs={gs} onContinue={() => setGs(G.continueFromResult(gs))} />}
       {gs.phase === 'press' && <PressScreen key={gs.press?.q.text} gs={gs} onPick={i => setGs(g => G.pickPressAnswer(g, i))} onNext={() => setGs(g => G.continuePress(g))} />}
       {gs.phase === 'chat' && <ChatScreen gs={gs} onDone={() => setGs(G.closeChat(gs))} onAnswer={i => setGs(g => G.answerMateChat(g, i))} />}
