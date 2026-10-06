@@ -65,7 +65,7 @@ let checked = 0;
   checked += 5;
   if (!/export \{[^}]*formatMoney[^}]*\} from '..\/..\/data\/money\.ts'/.test(read('src/ui/components/bits.tsx'))) fails.push('the money bar and cards no longer take their money from the one formatter');
   if (!/moneyShort\(n\)/.test(read('src/game/state.ts'))) fails.push('the sentences in the game no longer take their money from the one formatter');
-  if (!/formatMoney\(Math\.abs\(n\)\)/.test(read('src/ui/screens/Notice.tsx'))) fails.push('the winter window card no longer uses the one formatter');
+  if (!/`\$\{moneyShort\(Math\.abs\(n\)\)\} שקל`/.test(read('src/ui/screens/Notice.tsx'))) fails.push('the winter window card no longer says the sum in words, from the one formatter');
   if (!/formatMoney\(n\)/.test(read('src/ui/screens/Squad.tsx'))) fails.push('the squad screen no longer uses the one formatter');
   if (/toFixed\(1\)\}M/.test(read('src/ui/components/bits.tsx'))) fails.push('the bar has its own million format again');
 }

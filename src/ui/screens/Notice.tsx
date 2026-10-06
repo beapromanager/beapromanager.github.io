@@ -16,6 +16,7 @@ import { Meters, formatMoney, formatMoneyExact } from '../components/bits.tsx';
 import { Kit } from '../components/Kit.tsx';
 import { homeKit } from '../../data/kits.ts';
 import { asset } from '../asset.ts';
+import { moneyShort } from '../../data/money.ts';
 
 export function NoticeScreen({ gs, onDismiss, onSquad, onYouth, onTransfers }: {
   gs: G.GameState;
@@ -134,7 +135,8 @@ function WindowNotice({ gs, weeks, onDismiss, onTransfers }: {
   gs: G.GameState; weeks: number; onDismiss: () => void; onTransfers: () => void;
 }) {
   const money = gs.meters.money;
-  const fmt = (n: number) => formatMoney(Math.abs(n));
+  // in words: a shekel sign inside a Hebrew sentence lands on the wrong side of the number
+  const fmt = (n: number) => `${moneyShort(Math.abs(n))} שקל`;
   return (
     <>
       <Meters {...gs.meters} gems={gs.gems} />
