@@ -11,7 +11,7 @@ import { Crest } from '../components/Crest.tsx';
 import { Kit } from '../components/Kit.tsx';
 import { homeKit } from '../../data/kits.ts';
 import { Icon } from '../components/Icon.tsx';
-import { Meters } from '../components/bits.tsx';
+import { Meters, formatMoney } from '../components/bits.tsx';
 import { TopBack } from '../components/TopBack.tsx';
 import { Stepper } from '../components/Stepper.tsx';
 import { CoachGuide } from '../components/CoachGuide.tsx';
@@ -576,7 +576,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
             onPart: kind => {
               const o = G.partOptions(gs, card.id).find(x => x.kind === kind);
               const who = card.name; onPart(card.id, kind); setCard(null); setSheet(null);
-              const k = (n: number) => `₪${Math.round(n / 1000)}K`;
+              const k = (n: number) => formatMoney(n);
               setFlash(o
                 ? `${who} עזב. ${k(o.fee)} לקופה${kind === 'friends' ? `, ${k(o.wage)} לשבוע ירדו מההוצאות` : ''}.`
                 : `${who} עזב.`);

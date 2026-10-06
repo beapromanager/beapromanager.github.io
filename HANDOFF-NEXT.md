@@ -152,6 +152,15 @@ Act חדש `friendly {fee}` בדילמה `midweek_friendly` (oncePerSeason, לל
 196 מתוך 200, לכן "כמעט 200" ולא "200" (4 פריטים לא נכנסו). בגרסה הראשונה של התמונה כתבתי בטעות 70 ו-193, כי לא ספרתי את
 שלוש דילמות הטור. הפוסט הקודם הוא `PIC/update2-post/`. הטקסט לפוסט נמסר לאיציק בצ'אט.
 
+**כלל הכסף (6.10, דיווח של משתמש: "בקופה ₪3739K"):** שום סכום לא נכתב באלפים מעל 999K. הכלל של איציק: 999,500 ומעלה
+הוא מיליון, וכל מה שמעל נכתב ב-M (3,739,000 הוא ₪3.7M, מיליון עגול הוא ₪1M ולא ₪1.0M). **מעצב אחד בלבד:**
+`src/data/money.ts` (`moneyShort`, `formatMoney`, `formatMoneyExact`); `bits.tsx` רק מייצא אותם מחדש, `formatK` ו-
+`formatShekels` ב-state.ts קוראים ל-`moneyShort`. לפני התיקון היו שישה מעצבים וחמישה מהם עצרו ב-K. העיגול הוא
+במספרים שלמים (עשיריות מיליון), כי `toFixed` נתן 1.4 במקום 1.5 על 1,450,000. `check:money` כולל סוויפ על כל
+קבצי `src` שנכשל על כל `Math.round(x / 1000)}K` ידני מחוץ ל-money.ts. **כל קיצור כסף חדש חייב לעבור שם.**
+שים לב: סימן ₪ בתוך משפט בעברית עלול לקפוץ לצד הלא נכון של המספר (ראה את שורת התשלום של משחק המפעל, שם
+הוחלף ל"15,000 שקל"), ובמשפט כמו "בקופה ₪3.7M" לא בדקנו את זה בעין.
+
 ### פתוח עכשיו, לפי סדר
 
 1. **ה-200 הושלמו במלואם, כולל משחק המפעל.** נשארו בחוץ רק 4 שאלות עיתונאים שהמנוע לא נושא (101/106/119/137,
@@ -242,10 +251,10 @@ Act חדש `friendly {fee}` בדילמה `midweek_friendly` (oncePerSeason, לל
 
 ---
 
-## הסוויטה, 57 בדיקות (פקודה אחת)
+## הסוויטה, 58 בדיקות (פקודה אחת)
 
 ```
-for s in pitch formations sync goals numbers debt economy climb sacking guaranteed league youth kits palette names market lineup press invite gems coach install scroll summer legends seasonkit penalty discipline back breakout voice shape oldsave repeat suspension keeper part dilemma sub tutorial pack feed seed ads sponsor report fans friends telemetry flares gk reshuffle scout traits purse chats friendly; do npm run -s check:$s >/dev/null 2>&1 && echo "OK   $s" || echo "FAIL $s"; done
+for s in pitch formations sync goals numbers debt economy climb sacking guaranteed league youth kits palette names market lineup press invite gems coach install scroll summer legends seasonkit penalty discipline back breakout voice shape oldsave repeat suspension keeper part dilemma sub tutorial pack feed seed ads sponsor report fans friends telemetry flares gk reshuffle scout traits purse chats friendly money; do npm run -s check:$s >/dev/null 2>&1 && echo "OK   $s" || echo "FAIL $s"; done
 ```
 
 לוקחת בערך 20-30 דקות. **חשוב: את הלולאה מריצים כפקודת ה-background עצמה** (`run_in_background: true`), עם
@@ -254,8 +263,8 @@ for s in pitch formations sync goals numbers debt economy climb sacking guarante
 פעמיים. מחכים בלולאות `sleep 10` עד 56 איטרציות. **בזמן שהסוויטה רצה אל תערוך קבצי מקור או בדיקה.**
 
 **חדש בסשנים האחרונים:** `scout` (124 טענות), `traits` (עבודה ביום לפי ליגה), `purse` (המענק בחלקים),
-`chats` (34, הטלפון וליל העונה), `friendly` (74, משחק המפעל). כשרצים בשני חלקים (מגבלת 10 דקות), `chats` ו-`friendly`
-יושבים בסוף חלק 2.
+`chats` (34, הטלפון וליל העונה), `friendly` (76, משחק המפעל), `money` (30, איך כסף נכתב). כשרצים בשני חלקים (מגבלת 10
+דקות), `chats`, `friendly` ו-`money` יושבים בסוף חלק 2.
 הורחבו: `formations`, `lineup`, `youth`, `shape` (כולל הבעיטות), `press`, `reshuffle` (כולל כרטיס ההרחקה), `dilemma`,
 `back`, `debt`, `sponsor`, `telemetry` (96 טענות, כולל "לאן מגיעים").
 

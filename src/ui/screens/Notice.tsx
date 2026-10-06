@@ -134,7 +134,7 @@ function WindowNotice({ gs, weeks, onDismiss, onTransfers }: {
   gs: G.GameState; weeks: number; onDismiss: () => void; onTransfers: () => void;
 }) {
   const money = gs.meters.money;
-  const fmt = (n: number) => `₪${Math.round(Math.abs(n) / 1000)}K`;
+  const fmt = (n: number) => formatMoney(Math.abs(n));
   return (
     <>
       <Meters {...gs.meters} gems={gs.gems} />

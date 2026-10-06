@@ -5,6 +5,7 @@ import { getManager } from '../data/managers.ts';
 import type { Squad } from '../data/squadGen.ts';
 import { playerValue, squadAvgOvr, nextPlayerId, makePlayer, makeSquad } from '../data/squadGen.ts';
 import { FACTORIES, describeFriendly } from '../data/friendly.ts';
+import { moneyShort } from '../data/money.ts';
 import type { FriendlyReport, FriendlyEvent } from '../data/friendly.ts';
 import type { MatchResult, TeamInput, Approach, Press, Player, Position, Rng } from '../engine/matchEngine.ts';
 import { simulateMatch, overall, createRng } from '../engine/matchEngine.ts';
@@ -1616,10 +1617,7 @@ export function clearPreseasonOutcome(gs: GameState): GameState {
 
 /** Compact money label for the short outcome lines, e.g. 120K, 1.4M. */
 function formatK(n: number): string {
-  const a = Math.abs(n);
-  if (a >= 1_000_000) return `${(n / 1_000_000).toFixed(a % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (a >= 1000) return `${Math.round(n / 1000)}K`;
-  return String(n);
+  return moneyShort(n);
 }
 
 /* -------------------------------------------------------------- the ground */
@@ -2600,7 +2598,7 @@ export function partWays(gs: GameState, playerId: string, kind: PartKind): GameS
 }
 
 function formatShekels(n: number): string {
-  return n >= 1000 ? `₪${Math.round(n / 1000)}K` : `₪${n}`;
+  return `₪${moneyShort(n)}`;
 }
 
 export { playerValue, sellPrice, MIN_SQUAD, MAX_SQUAD, MIN_KEEPERS };
