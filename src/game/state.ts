@@ -3454,6 +3454,24 @@ export function euroMyTie(gs: GameState) {
   return gs.euro ? myTie(gs.euro, gs.clubId) : null;
 }
 
+/**
+ * Who stands where in his shootout: his takers (the outfield eleven, best
+ * first), his keeper, and the other side's names in their own language, drawn
+ * on the round so the same men walk up after a reload.
+ */
+export function euroPensSides(gs: GameState): { opp: ReturnType<typeof euroClub>; takers: Player[]; keeper: Player | undefined; theirNames: string[] } {
+  const tie = euroMyTie(gs);
+  const opp = tie ? euroClub(tie.a === gs.clubId ? tie.b : tie.a) : undefined;
+  const banned = euroBanned(gs);
+  const eleven = lineup(gs).filter(p => !isUnavailable(gs, p.id) && !banned.has(p.id));
+  const keeper = eleven.find(p => p.position === 'GK') ?? mySquad(gs).starters.find(p => p.position === 'GK');
+  const takers = eleven.filter(p => p.position !== 'GK').sort((a, b) => overall(b) - overall(a));
+  const rng = createRng(drawSeed(gs, 150_040 + (gs.euro?.round ?? 0)));
+  const used = new Set<string>();
+  const theirNames = Array.from({ length: 10 }, () => makeEuroName(rng, opp?.country ?? '', used));
+  return { opp, takers, keeper, theirNames };
+}
+
 /** From the hub to the European night (or its shootout), only when one is due. */
 export function startEuroNight(gs: GameState, live: boolean = EURO_LIVE): GameState {
   if (gs.phase !== 'hub') return gs;

@@ -18,12 +18,15 @@
  *      parameter: nothing of the league moves, the men tire, a red is a
  *      European ban, an injury costs this week's league match, the money is
  *      the agreed money, and a level tie waits for his own shootout
+ *  11. the shootout from inside it: five each then sudden death, the live
+ *      match's own odds, seeded on the round, the paid clips for his kick and
+ *      the goal mouth for theirs, and the phone buzzing on a goal
  */
 import {
   EURO_LIVE, EURO_POOL, EURO_FIELD, EURO_ROUNDS, ROUND_NAMES, STAGE_TARGET, PRIZE,
   GATE_SHARE, TRAVEL, SECURITY, legsIn, euroWeeks, drawEuro, playAiRound, recordMyLeg, advanceRound, needsPens, settleMyPens,
   roundDone, shootout, settleTie, aggregate, strengthOf, myTie, iHost, banFor, serveBans, allWinners, aiLeg, prizeFor,
-  playOutWithoutMe, champion, euroEntry, nightFor,
+  playOutWithoutMe, champion, euroEntry, nightFor, shootoutStatus, hintFor, diveFor, myKickScores, theirKickSaved,
 } from '../src/game/euro.ts';
 import * as G from '../src/game/state.ts';
 import * as L from '../src/game/liveMatch.ts';
@@ -516,6 +519,77 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const thru = G.commitEuroLeg(second, fixed(second, [firstMine[1] + 2, firstMine[0]]), [], true);
   if (thru.phase !== 'hub' || thru.euro!.round !== 1 || thru.euro!.status !== 'on') fails.push('a tie won on aggregate does not move him to the quarter');
   if (thru.meters.money !== lvl.meters.money + PRIZE[1]) fails.push('the return leg and the quarter prize do not add up');
+}
+/* ------------------------------ 11. his shootout, from the spot and from the goal */
+{
+  checked += 9;
+  // five each, over the moment a side cannot be caught, and he kicks first
+  const s0 = shootoutStatus([], []);
+  if (s0.next !== 'me' || s0.winner !== null) fails.push('the shootout does not start with his kick');
+  if (shootoutStatus([true], []).next !== 'them') fails.push('after his kick it is not their turn');
+  if (shootoutStatus([true, true, true], [false, false, false]).winner !== 'me') fails.push('three to nothing after three is not over');
+  if (shootoutStatus([true, true, true], [false, false]).winner !== null) fails.push('three to nothing after two and a half is called early');
+  if (shootoutStatus([false, false, false], [true, true, true]).winner !== 'them') fails.push('nothing to three after three is not over for them');
+  if (shootoutStatus([true, true, true, true, true], [true, true, true, true, false]).winner !== 'me') fails.push('five to four after five each is not his');
+  const level5 = shootoutStatus([true, true, true, true, true], [true, true, true, true, true]);
+  if (level5.winner !== null || level5.next !== 'me') fails.push('five all does not go to sudden death with his kick');
+  if (shootoutStatus([true, true, true, true, true, true], [true, true, true, true, true, false]).winner !== 'me') fails.push('sudden death is not decided pair by pair');
+  if (shootoutStatus([true, true, true, true, true, false], [true, true, true, true, true]).winner !== null) fails.push('a miss in sudden death is called before their reply');
+  checked += 3;
+  if (shootoutStatus([true, true, false], [true, false, false]).winner !== null) fails.push('two to one after three each is called early');
+  if (shootoutStatus([true, true, true, true, true, true], [true, true, true, true, true]).winner !== null) fails.push('a goal in sudden death is called before their reply');
+  if (shootoutStatus([true, true, true, true, true, false], [true, true, true, true, true, true]).winner !== 'them') fails.push('their reply in sudden death does not win it');
+  // the odds are the live match's own, and the keeper goes with the hint six times in ten
+  checked += 4;
+  let past = 0, into = 0, saveRight = 0, saveWrong = 0, hinted = 0;
+  const N = 20_000;
+  const r = createRng(99);
+  for (let i = 0; i < N; i++) {
+    if (myKickScores(r, 'left', 'right')) past++;
+    if (myKickScores(r, 'left', 'left')) into++;
+    if (theirKickSaved(r, 'left', 'left', 60)) saveRight++;
+    if (theirKickSaved(r, 'left', 'right', 60)) saveWrong++;
+    if (diveFor(r, 'center') === 'center') hinted++;
+  }
+  const near = (x: number, p: number) => Math.abs(x / N - p) < 0.02;
+  if (!near(past, 0.85) || !near(into, 0.25)) fails.push(`his kick scores ${(past / N * 100).toFixed(0)}% past the keeper and ${(into / N * 100).toFixed(0)}% into him, the match says 85 and 25`);
+  if (!near(saveRight, 0.55) || !near(saveWrong, 0.06)) fails.push(`his keeper saves ${(saveRight / N * 100).toFixed(0)}% on the right corner and ${(saveWrong / N * 100).toFixed(0)}% on the wrong one, the match says 55 and 6`);
+  if (!near(hinted, 0.6)) fails.push(`the keeper follows the hint ${(hinted / N * 100).toFixed(0)}% of the time, the match says 60`);
+  const h = createRng(5);
+  const hints = new Set(Array.from({ length: 200 }, () => hintFor(h)));
+  if (hints.size !== 3) fails.push('the hint never names one of the corners');
+  // the screen: his kick on the paid clips, theirs from inside the goal, every roll seeded on the round, the phone buzzes
+  checked += 6;
+  const scr = readFileSync('src/ui/screens/Shootout.tsx', 'utf8');
+  if (!scr.includes("asset('/moments/penalty/buildup.mp4')") || !scr.includes("asset('/moments/penalty/goal.mp4')") || !scr.includes("asset('/moments/penalty/save.mp4')")) fails.push('his kick is not the run-up and the goal or save clips');
+  if (!scr.includes("asset('/moments/def-penalty/buildup.webp')")) fails.push('their kick is not seen from inside the goal');
+  if (!scr.includes('createRng(G.drawSeed(gs, 150_020 + (gs.euro?.round ?? 0)))')) fails.push('the shootout is not seeded on the round through drawSeed');
+  if (scr.includes('Math.random')) fails.push('the shootout rolls off Math.random');
+  if (!scr.includes('buzz(BUZZ_GOAL)') && !scr.includes('buzz(stage.kick.scored ? BUZZ_GOAL : BUZZ_MISS)')) fails.push('a goal in the shootout does not buzz the phone');
+  if (!scr.includes('onDone(status.score)')) fails.push('the screen does not hand the state his score as [mine, theirs]');
+  // the match itself buzzes on a European goal, and only there
+  checked += 2;
+  const match = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  if (!match.includes("import { buzz, BUZZ_GOAL } from '../haptics.ts';") || !match.includes('if (euro && play?.scored) buzz(BUZZ_GOAL);')) fails.push('a European goal in the match does not buzz the phone');
+  const hap = readFileSync('src/ui/haptics.ts', 'utf8');
+  if (!hap.includes("typeof navigator.vibrate === 'function'") || !hap.includes('catch')) fails.push('the buzz is not guarded for a browser without it');
+  // who walks up: his outfield men best first, his keeper, their names in their language
+  checked += 3;
+  const g = (() => {
+    let s = G.newGame(31);
+    s = G.setProfile(s, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+    s = G.pickCity(s, LEGEND_TOWN);
+    s = G.afterSigning(s, {});
+    s = G.enterPreseason({ ...s, phase: 'preseason-market' } as never);
+    while (s.phase === 'preseason-market') s = G.advancePreseason(s);
+    return { ...s, phase: 'hub' as const, week: 3, euro: drawEuro(31, s.clubId, s.season) };
+  })();
+  const sides = G.euroPensSides(g);
+  if (!sides.opp || sides.takers.length !== 10 || sides.takers.some(p => p.position === 'GK') || !sides.keeper || sides.keeper.position !== 'GK') fails.push('the takers are not his ten outfield men with his keeper in goal');
+  if (sides.takers.some((p, i) => i > 0 && overall(p) > overall(sides.takers[i - 1]))) fails.push('the takers do not walk up best first');
+  const bank2 = EURO_NAMES[sides.opp!.country];
+  if (sides.theirNames.length !== 10 || new Set(sides.theirNames).size !== 10 || !sides.theirNames.every(n => bank2.first.includes(n.split(' ')[0]))) fails.push('their takers are not ten different men of their country');
+  if (JSON.stringify(G.euroPensSides(g)) !== JSON.stringify(sides)) fails.push('a reload walks different men up');
 }
 console.log(`${checked} checks`);
 if (fails.length) {

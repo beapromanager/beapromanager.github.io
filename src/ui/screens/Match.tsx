@@ -17,6 +17,7 @@ import { Portal } from '../components/Portal.tsx';
 import { FlareBeat } from '../components/FlareBeat.tsx';
 import { LivePitch } from '../components/LivePitch.tsx';
 import { PitchTurf, shortNames } from '../components/LineupPitch.tsx';
+import { buzz, BUZZ_GOAL } from '../haptics.ts';
 import type { PitchPlay } from '../components/LivePitch.tsx';
 import { eventToPlay } from '../../game/pitchSim.ts';
 import { ovrColor } from './Squad.tsx';
@@ -159,6 +160,8 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, flare, don
   const liveRef = useRef<LiveState | null>(null);
   if (!liveRef.current) liveRef.current = L.createLive(live ?? G.liveMatchInput(gs));
   const st = liveRef.current;
+  // a European night: Itzik wants a goal felt in the hand, not only seen
+  const euro = !!clubs;
   useEffect(preloadMoments, []);
 
   const [, force] = useReducer(x => x + 1, 0);
@@ -202,6 +205,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, flare, don
   const playSeq = useRef(0);
 
   const reveal = () => {
+    if (euro && play?.scored) buzz(BUZZ_GOAL);
     shown.current = st.events.length;
     shownScore.current = [st.score[0], st.score[1]];
     setPlay(null);

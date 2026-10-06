@@ -353,3 +353,48 @@ export const champion = (e: EuroState): string | undefined => e.ties[EURO_ROUNDS
 export function allWinners(e: EuroState): string[] {
   return e.ties.flat().map(t => t.winner).filter((w): w is string => !!w);
 }
+
+/* ------------------------------------------------- the shootout, kick by kick */
+
+export type PenCorner = 'left' | 'center' | 'right';
+export const PEN_CORNERS: PenCorner[] = ['left', 'center', 'right'];
+
+/** The keeper's tendency, drawn once a kick: the hint the screen shows. */
+export function hintFor(rng: () => number): PenCorner {
+  const r = rng();
+  return r < 0.34 ? 'left' : r < 0.67 ? 'center' : 'right';
+}
+
+/** Where the keeper actually goes: the hint six times in ten, elsewhere the rest, the live match's own odds. */
+export function diveFor(rng: () => number, hint: PenCorner): PenCorner {
+  if (rng() < 0.6) return hint;
+  const others = PEN_CORNERS.filter(c => c !== hint);
+  return others[Math.floor(rng() * others.length)];
+}
+
+/** His man kicks: past the keeper 85 times in 100, into him 25, the live match's own odds. */
+export function myKickScores(rng: () => number, pick: PenCorner, dive: PenCorner): boolean {
+  return pick !== dive ? rng() < 0.85 : rng() < 0.25;
+}
+
+/** Their man kicks at his keeper of quality gkq: the right corner keeps it out just over half the time. */
+export function theirKickSaved(rng: () => number, dive: PenCorner, aim: PenCorner, gkq: number): boolean {
+  return rng() < (dive === aim ? 0.55 + (gkq - 60) / 250 : 0.06 + (gkq - 60) / 500);
+}
+
+/**
+ * Who kicks next and who has won, from the kicks so far: five each, over the
+ * moment one side cannot be caught, then sudden death pair by pair. He kicks
+ * first.
+ */
+export function shootoutStatus(mine: boolean[], theirs: boolean[]): { score: [number, number]; next: 'me' | 'them'; winner: 'me' | 'them' | null } {
+  const m = mine.filter(Boolean).length, t = theirs.filter(Boolean).length;
+  // kicks still owed: the rest of the five, or in sudden death the one reply the side behind still has
+  const leftM = mine.length < 5 ? 5 - mine.length : (mine.length < theirs.length ? 1 : 0);
+  const leftT = theirs.length < 5 ? 5 - theirs.length : (theirs.length < mine.length ? 1 : 0);
+  let winner: 'me' | 'them' | null = null;
+  if (m > t + leftT) winner = 'me';
+  else if (t > m + leftM) winner = 'them';
+  else if (mine.length >= 5 && theirs.length >= 5 && mine.length === theirs.length && m !== t) winner = m > t ? 'me' : 'them';
+  return { score: [m, t], next: mine.length === theirs.length ? 'me' : 'them', winner };
+}
