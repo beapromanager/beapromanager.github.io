@@ -15,6 +15,8 @@ import { ScorePair } from '../components/bits.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { Portal } from '../components/Portal.tsx';
 import { FlareBeat } from '../components/FlareBeat.tsx';
+import { EuroEntrance } from '../components/EuroEntrance.tsx';
+import type { EntranceLines } from '../components/EuroEntrance.tsx';
 import { LivePitch } from '../components/LivePitch.tsx';
 import { PitchTurf, shortNames } from '../components/LineupPitch.tsx';
 import { buzz, BUZZ_GOAL } from '../haptics.ts';
@@ -144,7 +146,7 @@ function preloadMoments() {
   })();
 }
 
-export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, flare, doneLabel }: {
+export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines, flare, doneLabel }: {
   gs: G.GameState;
   /** the result, and the ids of his men on the grass or sent off at the whistle (the European night needs who played) */
   onDone: (r: MatchResult, onPitchIds: string[]) => void;
@@ -153,6 +155,8 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, flare, don
   /** a match that is not the week's league fixture: the European night hands its own engine input and two clubs */
   live?: Parameters<typeof L.createLive>[0];
   clubs?: { home: Club; away: Club };
+  /** the round, the two towns and the ground, for the entrance and the bar */
+  euroLines?: EntranceLines | null;
   /** null to light no flares: the flare reasons are the league's nights, not Europe's */
   flare?: G.FlareReason | null;
   doneLabel?: string;
@@ -173,6 +177,8 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, flare, don
    * because asking again on every minute would relight the terrace every tick.
    */
   const [flares, setFlares] = useState<G.FlareReason | null>(() => flare === undefined ? G.flareReason(gs) : flare);
+  // the two crests face to face before a European kickoff; the clock waits for it
+  const [entrance, setEntrance] = useState<boolean>(!!clubs);
   const [subOpen, setSubOpen] = useState(false);   // the substitution sheet
   const [shapeOpen, setShapeOpen] = useState(false);   // the change of shape sheet
   const [subFocus, setSubFocus] = useState<string | null>(null);   // a player tapped for a quick swap
@@ -227,8 +233,8 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, flare, don
   // the clock also stops while the bench sheet is open, so managing a sub is not
   // a race against the minute, and the sheet is not re-rendered out from under you
   // anything on the screen that is waiting for an answer: a shape is not changed under it
-  const shapeBusy = !!(flares || play?.scored || penOutcome || fkOutcome || shotOutcome || oneOnOneOutcome || defKeeperOutcome || defTackleOutcome || defPenOutcome);
-  const running = st.phase === 'play' && !flares && !paused && !st.pending && !play?.scored && !subOpen && !shapeOpen && !penOutcome && !fkOutcome && !shotOutcome && !oneOnOneOutcome && !defKeeperOutcome && !defTackleOutcome && !defPenOutcome;
+  const shapeBusy = !!(flares || entrance || play?.scored || penOutcome || fkOutcome || shotOutcome || oneOnOneOutcome || defKeeperOutcome || defTackleOutcome || defPenOutcome);
+  const running = st.phase === 'play' && !flares && !entrance && !paused && !st.pending && !play?.scored && !subOpen && !shapeOpen && !penOutcome && !fkOutcome && !shotOutcome && !oneOnOneOutcome && !defKeeperOutcome && !defTackleOutcome && !defPenOutcome;
   useEffect(() => {
     if (!running) return;
     const id = window.setInterval(() => {
@@ -309,11 +315,12 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, flare, don
   return (
     <div className="screen pad stack pad-b" style={{ gap: 12, minHeight: '100%' }}>
       {/* broadcast bar */}
-      <div className="tile-hero" style={{ padding: '14px 14px 12px' }}>
+      <div className="tile-hero" data-euro={euro ? '1' : undefined} style={{ padding: '14px 14px 12px' }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <TeamSide club={homeClub} kit={hdrKits.home} />
           <div style={{ textAlign: 'center', minWidth: 104 }}>
-            <ScorePair h={shownScore.current[0]} a={shownScore.current[1]} size={44} />
+            <div className={euro ? 'eu-glow' : undefined}><ScorePair h={shownScore.current[0]} a={shownScore.current[1]} size={44} /></div>
+            {euro && euroLines && <div className="eu-venue">{euroLines.venue}</div>}
             <div className="pill" style={{
               marginTop: 7,
               background: st.phase === 'done' ? 'rgba(255,255,255,.06)' : 'rgba(226,72,77,.16)',
@@ -441,6 +448,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, flare, don
       {/* the terrace, before a ball is kicked. Portalled for the same reason the
           moment cards are: .screen animates in with a transform, and a fixed
           layer inside it would pin itself to the screen instead of the viewport */}
+      {entrance && clubs && euroLines && <EuroEntrance home={clubs.home} away={clubs.away} lines={euroLines} onDone={() => setEntrance(false)} />}
       {flares && (
         <Portal>
           <FlareBeat reason={flares} onDone={() => setFlares(null)} />

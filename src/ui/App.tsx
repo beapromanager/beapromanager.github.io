@@ -267,7 +267,7 @@ export function App() {
   }
 
   return (
-    <div className="frame">
+    <div className="frame" data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' ? 'euro' : undefined}>
       {gs.phase === 'onboard-archetype' && (
         <ArchetypeScreen gs={gs} onPick={id => setGs(G.setArchetype(gs, id))} />
       )}
@@ -415,7 +415,7 @@ export function App() {
       )}
       {gs.phase === 'friendly' && <FriendlyScreen gs={gs} onDone={() => setGs(g => G.finishFriendly(g))} />}
       {gs.phase === 'euro-match' && (
-        <MatchBroadcast gs={gs} live={G.euroMatchInput(gs)} clubs={G.euroMatchClubs(gs)} flare={null} doneLabel="סיום הערב"
+        <MatchBroadcast gs={gs} live={G.euroMatchInput(gs)} clubs={G.euroMatchClubs(gs)} euroLines={G.euroEntranceLines(gs)} flare={null} doneLabel="סיום הערב"
           onDone={(result, ids) => setGs(G.commitEuroLeg(gs, result, ids))} />
       )}
       {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} onDone={score => setGs(g => G.finishEuroPens(g, score))} />}

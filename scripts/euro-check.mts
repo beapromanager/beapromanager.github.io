@@ -21,6 +21,8 @@
  *  11. the shootout from inside it: five each then sudden death, the live
  *      match's own odds, seeded on the round, the paid clips for his kick and
  *      the goal mouth for theirs, and the phone buzzing on a goal
+ *  12. the look of the night: the frame turns blue and silver, the two crests
+ *      face each other before kickoff, and the ground is named Itzik's way
  */
 import {
   EURO_LIVE, EURO_POOL, EURO_FIELD, EURO_ROUNDS, ROUND_NAMES, STAGE_TARGET, PRIZE,
@@ -590,6 +592,51 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const bank2 = EURO_NAMES[sides.opp!.country];
   if (sides.theirNames.length !== 10 || new Set(sides.theirNames).size !== 10 || !sides.theirNames.every(n => bank2.first.includes(n.split(' ')[0]))) fails.push('their takers are not ten different men of their country');
   if (JSON.stringify(G.euroPensSides(g)) !== JSON.stringify(sides)) fails.push('a reload walks different men up');
+}
+/* ------------------------------- 12. the look of the night: frame, entrance, venue */
+{
+  checked += 6;
+  const app = readFileSync('src/ui/App.tsx', 'utf8');
+  if (!app.includes("data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' ? 'euro' : undefined}")) fails.push('the frame does not turn European for the night and the shootout');
+  const css = readFileSync('src/ui/tokens.css', 'utf8');
+  if (!css.includes('.frame[data-stage="euro"]{') || !css.includes('.eu-entrance{') || !css.includes('.eu-entrance-vs{')) fails.push('the European frame or the entrance has no css');
+  if (!css.includes('.eu-entrance-light,.eu-entrance-round,.eu-entrance-home,.eu-entrance-away,.eu-entrance-vs,.eu-entrance-venue{animation:none;}')) fails.push('the entrance does not honour reduced motion');
+  const ent = readFileSync('src/ui/components/EuroEntrance.tsx', 'utf8');
+  if (!ent.includes('onClick={onDone}') || !ent.includes('window.setTimeout(onDone, ENTRANCE_BEAT)')) fails.push('the entrance is not a beat that leaves on its own and on a tap');
+  const match = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  if (!match.includes('{entrance && clubs && euroLines && <EuroEntrance') || !match.includes("&& !entrance && !paused")) fails.push('the match does not show the entrance before a European kickoff, or runs under it');
+  if (!match.includes('<div className="eu-venue">{euroLines.venue}</div>') || !match.includes('data-euro={euro ? \'1\' : undefined}')) fails.push('the broadcast bar does not carry the ground or the European look');
+  // the words: home is his town in Israel, away is their club, city and country, the final neutral
+  checked += 4;
+  const g0 = (() => {
+    let s = G.newGame(23);
+    s = G.setProfile(s, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+    s = G.pickCity(s, LEGEND_TOWN);
+    s = G.afterSigning(s, {});
+    s = G.enterPreseason({ ...s, phase: 'preseason-market' } as never);
+    while (s.phase === 'preseason-market') s = G.advancePreseason(s);
+    return { ...s, phase: 'hub' as const, week: 2, euro: drawEuro(23, s.clubId, s.season) };
+  })();
+  const n0 = G.euroNight(g0, true)!;
+  const them = euroClub(n0.oppId)!;
+  const l0 = G.euroEntranceLines(g0, true)!;
+  const mine = `${G.club(g0).city}, ישראל`;
+  const theirs0 = `${them.city}, ${them.country}`;
+  if (!l0 || l0.round !== 'שמינית הגמר' || l0.leg !== 'משחק ראשון') fails.push('the entrance does not name the round and the leg');
+  const groundWrong = (host: boolean | null, l: { venue: string; homePlace: string; awayPlace: string }) => host
+    ? (l.venue !== `בבית, ${mine}` || l.homePlace !== mine || l.awayPlace !== theirs0)
+    : (l.venue !== `בחוץ, אצל ${them.name}, ${theirs0}` || l.homePlace !== theirs0 || l.awayPlace !== mine);
+  if (groundWrong(n0.host, l0)) fails.push(`the ground is wrong: ${l0.venue} / ${l0.homePlace} / ${l0.awayPlace}`);
+  // the return leg is at the other ground, and the words follow it
+  checked++;
+  const g1 = { ...g0, week: 3, euro: recordMyLeg(g0.euro!, g0.clubId, [1, 0]) };
+  const n1 = G.euroNight(g1, true)!;
+  const l1 = G.euroEntranceLines(g1, true)!;
+  if (!n1 || n1.host === n0.host || l1.leg !== 'המשחק החוזר' || groundWrong(n1.host, l1)) fails.push(`the return leg's ground is wrong: ${l1?.venue}`);
+  const fin0 = { ...g0, week: 13, euro: { ...g0.euro!, round: 3, ties: [...g0.euro!.ties, [], [], [{ a: g0.clubId, b: n0.oppId, legs: [] }]] } };
+  const lf = G.euroEntranceLines(fin0, true)!;
+  if (lf.venue !== 'מגרש ניטרלי' || lf.leg !== 'הגמר, משחק אחד' || lf.round !== 'הגמר') fails.push('the final is not on neutral ground as one match');
+  if (G.euroEntranceLines(g0) !== null) fails.push('the entrance has words with the door shut');
 }
 console.log(`${checked} checks`);
 if (fails.length) {

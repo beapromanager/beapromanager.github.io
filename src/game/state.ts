@@ -3472,6 +3472,29 @@ export function euroPensSides(gs: GameState): { opp: ReturnType<typeof euroClub>
   return { opp, takers, keeper, theirNames };
 }
 
+/**
+ * The words on the entrance and the broadcast bar. Itzik's rule for the
+ * ground: at home it is Israel and his own town, away it is their club, their
+ * city and their country; the final is neutral ground.
+ */
+export function euroEntranceLines(gs: GameState, live: boolean = EURO_LIVE): { round: string; leg: string; homePlace: string; awayPlace: string; venue: string } | null {
+  const night = euroNight(gs, live);
+  if (!night) return null;
+  const them = euroClub(night.oppId);
+  const myPlace = `${club(gs).city}, ישראל`;
+  const theirPlace = `${them?.city ?? ''}, ${them?.country ?? ''}`;
+  const leg = legsIn(night.round) === 1 ? 'הגמר, משחק אחד' : night.leg === 0 ? 'משחק ראשון' : 'המשחק החוזר';
+  const venue = night.host === null ? 'מגרש ניטרלי'
+    : night.host ? `בבית, ${myPlace}` : `בחוץ, אצל ${them?.name ?? ''}, ${theirPlace}`;
+  const iAmHome = night.host !== false;
+  return {
+    round: ROUND_NAMES[night.round], leg,
+    homePlace: iAmHome ? myPlace : theirPlace,
+    awayPlace: iAmHome ? theirPlace : myPlace,
+    venue,
+  };
+}
+
 /** From the hub to the European night (or its shootout), only when one is due. */
 export function startEuroNight(gs: GameState, live: boolean = EURO_LIVE): GameState {
   if (gs.phase !== 'hub') return gs;
