@@ -23,6 +23,7 @@ import {
 import * as G from '../src/game/state.ts';
 import { readFileSync } from 'node:fs';
 import { EURO_CLUBS } from '../src/data/europeClubs.ts';
+import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 
 const fails: string[] = [];
@@ -277,6 +278,26 @@ const ME = 'me';
   if (G.euroNight(gs) !== null) fails.push('a career with no competition has a night');
   const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
   if (!hub.includes('const night = G.euroNight(gs);') || !hub.includes('{night && <EuroHero night={night} />}')) fails.push('the Hub does not announce the night off euroNight');
+}
+/* ----------------------------------- 9. the men have names of their country */
+{
+  checked += 5;
+  const countries = new Set(EURO_CLUBS.map(c => c.country));
+  const missing = [...countries].filter(c => !EURO_NAMES[c]);
+  if (missing.length) fails.push(`no names for ${missing.join(', ')}`);
+  const thin = Object.entries(EURO_NAMES).filter(([, b]) => b.first.length < 12 || b.last.length < 12).map(([c]) => c);
+  if (thin.length) fails.push(`fewer than twelve names in ${thin.join(', ')}`);
+  const doubled = Object.entries(EURO_NAMES).filter(([, b]) => new Set(b.first).size !== b.first.length || new Set(b.last).size !== b.last.length).map(([c]) => c);
+  if (doubled.length) fails.push(`a name repeats inside ${doubled.join(', ')}`);
+  const dashed = Object.values(EURO_NAMES).flatMap(b => [...b.first, ...b.last]).filter(n => /[—–]|\s[,.!?]/.test(n) || /[A-Za-z]/.test(n));
+  if (dashed.length) fails.push(`a name carries a dash, a stray space or Latin letters: ${dashed.slice(0, 3).join(', ')}`);
+  // eighteen men of one club are eighteen different names, and a reload names the same men
+  const draw = (seed: number) => { const used = new Set<string>(); const rng = createRng(seed); return Array.from({ length: 18 }, () => makeEuroName(rng, 'הולנד', used)); };
+  const a = draw(3), b = draw(3), c = draw(4);
+  if (new Set(a).size !== 18 || a.join() !== b.join() || a.join() === c.join()) fails.push('a squad of eighteen is not eighteen distinct, seeded names');
+  // a country the bank does not know still gets a name rather than a crash
+  checked++;
+  if (!makeEuroName(createRng(1), 'אטלנטיס', new Set())) fails.push('an unknown country gives no name at all');
 }
 console.log(`${checked} checks`);
 if (fails.length) {

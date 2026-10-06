@@ -185,7 +185,10 @@ TRAVEL 150K, SECURITY 175K, euroWeeks(14)=[[2,3],[5,6],[9,10],[13]] ו-null מת
 `euroNight(gs)` ב-state (null כשהדגל כבוי), וכרטיס `EuroHero` ב-Hub.tsx מעל כרטיס הליגה (כחול-כסף, `.match-hero[data-euro]` +
 `.chip-euro`), מידע בלבד: הכפתור והמשחק הם קומיט 4. **כל דיוויזיה היא תמיד 8 קבוצות** (`buildRegionLeague` חותך ל-8), כלומר
 ליגת העל תמיד 14 מחזורים והלוח חל תמיד. 7 חבלות נתפסו, euro-check 74. צילום הכרטיס (דגל הודלק זמנית בפיתוח בלבד דרך
-`scratchpad/with-flag.cjs`, שמחזיר אותו ב-finally): `PIC/europe/preview-hub-card.png`. הבאים בתור: 4 ערב אירופי חי (הפרדת MatchBroadcast מטבלת הליגה, פנדלים POV עם
+`scratchpad/with-flag.cjs`, שמחזיר אותו ב-finally): `PIC/europe/preview-hub-card.png`. **שמות השחקנים האירופיים (טיוטה, קומיט):** `src/data/europeNames.ts`, 20 מדינות × 12 פרטיים + 12
+משפחה בתעתיק עברי, `makeEuroName(rng, country, used)`; יוצא לאיציק כ-Word `PIC/europe/europe-player-names.docx` (הוא מתקן ומחזיר,
+התיקונים נכנסים מילה במילה; עד אז זו טיוטה). **תשובותיו לקומיט 4:** פציעה בערב אירופי = משחק ליגה אחד בחוץ (כמו "פצוע" מדילמה);
+ממשק המשחק האירופי חייב להרגיש שונה: תמונות ההזדמנויות והרגעים, הסרטונים והממשק (לעבוד על זה). הבאים בתור: 4 ערב אירופי חי (הפרדת MatchBroadcast מטבלת הליגה, פנדלים POV עם
 `public/moments/penalty/`, שמות שחקנים אירופיים נדרשים ל-makeSquad); 5 מסכים (הגרלת POV, עץ, לילה); 6 סוף עונה; 7 כסף; 8 טלמטריה.
 
 ### פתוח עכשיו, לפי סדר
