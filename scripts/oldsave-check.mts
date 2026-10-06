@@ -39,6 +39,7 @@ Object.defineProperty(globalThis, 'localStorage', {
  * before any of it wrote none of these, so an old save has them all missing.
  */
 const ADDED_SINCE = [
+  'euro',                           // ליגת אירופה, null until a title opens it
   'seasonChatEvents',               // the season nights the phone rang for
   'seasonDilemmas',                 // the once-a-season questions' memory
   'purseEarlier',                   // the purse paid round by round

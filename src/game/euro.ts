@@ -240,6 +240,16 @@ export function advanceRound(e: EuroState, myId: string): EuroState {
   };
 }
 
+/**
+ * Who gets in: the ליגת העל champion, and nobody else. The report's tier is the
+ * one the title was won in; a champion of a lower division is promoted, not
+ * invited. `live` is the flag, passed in so a check can prove the rule with the
+ * door still shut for players.
+ */
+export function euroEntry(live: boolean, report: { result: string; tier: number } | null, topTier: number): boolean {
+  return live && !!report && report.result === 'champion' && report.tier === topTier;
+}
+
 /** Does the manager host this leg? The final has no host. */
 export function iHost(e: EuroState, myId: string): boolean | null {
   const t = myTie(e, myId);

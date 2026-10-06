@@ -18,8 +18,10 @@ import {
   EURO_LIVE, EURO_POOL, EURO_FIELD, EURO_ROUNDS, ROUND_NAMES, STAGE_TARGET, PRIZE,
   GATE_SHARE, TRAVEL, SECURITY, legsIn, euroWeeks, drawEuro, playAiRound, recordMyLeg, advanceRound,
   roundDone, shootout, settleTie, aggregate, strengthOf, myTie, iHost, banFor, serveBans, allWinners, aiLeg, prizeFor,
-  playOutWithoutMe, champion,
+  playOutWithoutMe, champion, euroEntry,
 } from '../src/game/euro.ts';
+import * as G from '../src/game/state.ts';
+import { readFileSync } from 'node:fs';
 import { EURO_CLUBS } from '../src/data/europeClubs.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 
@@ -209,6 +211,30 @@ const ME = 'me';
   if (cupShare < 0.02 || cupShare > 0.12) fails.push(`a champion-level side lifts the cup ${(cupShare * 100).toFixed(1)}% of the time, wanted hard but possible (2% to 12%)`);
   if (finalShare < 0.06 || finalShare > 0.30) fails.push(`a champion-level side reaches the final ${(finalShare * 100).toFixed(1)}% of the time, wanted 6% to 30%`);
   console.log(`  model: a side of 81 reaches the final ${(finalShare * 100).toFixed(1)}% and lifts the cup ${(cupShare * 100).toFixed(1)}% (1 in ${(1 / cupShare).toFixed(0)})`);
+}
+
+/* ------------------------------------ 7. the save knows, the door decides */
+{
+  // the rule: a ליגת העל title and nothing else, and only once the door is open
+  checked += 5;
+  if (!euroEntry(true, { result: 'champion', tier: 5 }, 5)) fails.push('a ליגת העל champion is not let in with the door open');
+  if (euroEntry(false, { result: 'champion', tier: 5 }, 5)) fails.push('the shut door still lets a champion in');
+  if (euroEntry(true, { result: 'champion', tier: 4 }, 5)) fails.push('a champion of the division below is let in');
+  if (euroEntry(true, { result: 'promoted', tier: 5 }, 5) || euroEntry(true, { result: 'stayed', tier: 5 }, 5)) fails.push('a runner up or a mid table side is let in');
+  if (euroEntry(true, null, 5)) fails.push('a career with no season behind it is let in');
+
+  // a new career carries the field, empty; a sacked manager's new club starts without a European season
+  checked += 3;
+  if (G.newGame(1).euro !== null) fails.push('a new game does not start with euro null');
+  const src = readFileSync('src/game/state.ts', 'utf8');
+  const rescue = src.slice(src.indexOf('export function takeRescue'), src.indexOf('export function takeRescue') + 2500);
+  if (!rescue.includes('    sacking: null,\n    euro: null,')) fails.push('a rescued manager keeps the European season of the club that sacked him');
+  // the summer draws it through drawSeed with its own salt and carries the rested five forward
+  const summerLine = 'euro: euroEntry(EURO_LIVE, report, TOP_TIER)\n      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])';
+  if (!src.includes(summerLine)) fails.push('the summer does not draw the competition through the flag, the entry rule, drawSeed and the rested five');
+  // and the save gives an old career the field
+  checked++;
+  if (!readFileSync('src/game/save.ts', 'utf8').includes('euro: s.euro ?? null,')) fails.push('an old save would load without the euro field');
 }
 
 console.log(`${checked} checks`);

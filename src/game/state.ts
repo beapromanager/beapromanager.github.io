@@ -6,6 +6,8 @@ import type { Squad } from '../data/squadGen.ts';
 import { playerValue, squadAvgOvr, nextPlayerId, makePlayer, makeSquad } from '../data/squadGen.ts';
 import { FACTORIES, describeFriendly } from '../data/friendly.ts';
 import { moneyShort } from '../data/money.ts';
+import { EURO_LIVE, euroEntry, drawEuro } from './euro.ts';
+import type { EuroState } from './euro.ts';
 import type { FriendlyReport, FriendlyEvent } from '../data/friendly.ts';
 import type { MatchResult, TeamInput, Approach, Press, Player, Position, Rng } from '../engine/matchEngine.ts';
 import { simulateMatch, overall, createRng } from '../engine/matchEngine.ts';
@@ -318,6 +320,8 @@ export interface GameState {
   seasonDilemmas: string[];
   /** the season nights the phone already rang for: clinched, crowned, sealed */
   seasonChatEvents: string[];
+  /** ליגת אירופה this season, when the title opened the door; null otherwise */
+  euro: EuroState | null;
   /** the money in and out of the round just played, shown on the result screen */
   lastLedger: RoundLedger | null;
   /** what the season's purse has already paid round by round, so the summer pays only the rest */
@@ -522,6 +526,7 @@ export function newGame(seed = 12345): GameState {
     inbox: [],
     seasonDilemmas: [],
     seasonChatEvents: [],
+    euro: null,
     lastLedger: null,
     purseEarlier: 0,
     chat: null,
@@ -830,6 +835,7 @@ export function takeRescue(gs: GameState): GameState {
   return {
     ...gs,
     sacking: null,
+    euro: null,
     ultimatumSeason: null,
     // he does not move while you are away, and the day you get back he is there.
     // Already in the same division, the account is open on the pitch instead.
@@ -4928,6 +4934,11 @@ export function startNextSeason(gs: GameState): GameState {
     phase: 'preseason',
     season: gs.season + 1,
     lastReport: report,
+    // the door to Europe opens on a ליגת העל title and on nothing else. The five
+    // clubs rested last season come first in the new draw
+    euro: euroEntry(EURO_LIVE, report, TOP_TIER)
+      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])
+      : null,
     purseEarlier: 0,
     week: 1,
     league,
