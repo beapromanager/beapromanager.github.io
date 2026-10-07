@@ -79,6 +79,8 @@ export interface EuroState {
   bans: Record<string, number>;
   /** every leg the manager has played, for the records and the money */
   played: number;
+  /** the draw ceremony watched or skipped; absent on a competition drawn before the screen existed, so it is owed */
+  seen?: boolean;
 }
 
 /** The manager's own fixed edge: he is the real squad, the edge is for the others. */

@@ -25,6 +25,8 @@ import { SponsorScreen } from './screens/Sponsor.tsx';
 import { KitReveal } from './screens/KitReveal.tsx';
 import { FriendlyScreen } from './screens/Friendly.tsx';
 import { ShootoutScreen } from './screens/Shootout.tsx';
+import { EuroDrawScreen } from './screens/EuroDraw.tsx';
+import { EuroBracketScreen } from './screens/EuroBracket.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
 import { ScoutScreen } from './screens/Scout.tsx';
 import { YouthDecisionScreen } from './screens/YouthDecision.tsx';
@@ -64,7 +66,7 @@ import type { Ad } from '../data/ads.ts';
  * to answer, and letting a stray thumb walk out of them would lose the answer.
  */
 const BACK_TO_HUB = new Set<G.Phase>([
-  'squad', 'youth', 'stadium', 'coach', 'packs', 'captain', 'assistant', 'scout',
+  'squad', 'youth', 'stadium', 'coach', 'packs', 'captain', 'assistant', 'scout', 'euro-bracket',
 ]);
 
 export function App() {
@@ -267,7 +269,7 @@ export function App() {
   }
 
   return (
-    <div className="frame" data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' ? 'euro' : undefined}>
+    <div className="frame" data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : undefined}>
       {gs.phase === 'onboard-archetype' && (
         <ArchetypeScreen gs={gs} onPick={id => setGs(G.setArchetype(gs, id))} />
       )}
@@ -337,6 +339,8 @@ export function App() {
           onYouth={() => setGs(G.openYouth(gs))}
           onScout={() => setGs(G.openScout(gs))}
           onEuro={() => setGs(G.startEuroNight(gs))}
+          onEuroDraw={() => setGs(G.openEuroDraw(gs))}
+          onEuroBracket={() => setGs(G.openEuroBracket(gs))}
           onTable={() => setGs(G.openTable(gs))} />
       )}
       {gs.phase === 'youth-decision' && (
@@ -419,6 +423,8 @@ export function App() {
           onDone={(result, ids) => setGs(G.commitEuroLeg(gs, result, ids))} />
       )}
       {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} onDone={score => setGs(g => G.finishEuroPens(g, score))} />}
+      {gs.phase === 'euro-draw' && <EuroDrawScreen gs={gs} onDone={() => setGs(g => G.finishEuroDraw(g))} />}
+      {gs.phase === 'euro-bracket' && <EuroBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}
       {gs.phase === 'result' && <ResultScreen gs={gs} onContinue={() => setGs(G.continueFromResult(gs))} />}
       {gs.phase === 'press' && <PressScreen key={gs.press?.q.text} gs={gs} onPick={i => setGs(g => G.pickPressAnswer(g, i))} onNext={() => setGs(g => G.continuePress(g))} />}
       {gs.phase === 'chat' && <ChatScreen gs={gs} onDone={() => setGs(G.closeChat(gs))} onAnswer={i => setGs(g => G.answerMateChat(g, i))} />}

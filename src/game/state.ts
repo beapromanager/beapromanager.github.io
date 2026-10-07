@@ -115,7 +115,9 @@ export type Phase =
   /* the midweek match with the works team, told after the sheet is sent */
   | 'friendly'
   /* the European night, played live before the week's league round, and its shootout when the tie is level */
-  | 'euro-match' | 'euro-pens';
+  | 'euro-match' | 'euro-pens'
+  /* the draw from his seat, once a season, and the competition as it stands */
+  | 'euro-draw' | 'euro-bracket';
 
 export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
 
@@ -3493,6 +3495,25 @@ export function euroEntranceLines(gs: GameState, live: boolean = EURO_LIVE): { r
     awayPlace: iAmHome ? theirPlace : myPlace,
     venue,
   };
+}
+
+/** The draw was made in the summer; the ceremony is owed once, until he has watched it or skipped it. */
+export function euroDrawDue(gs: GameState, live: boolean = EURO_LIVE): boolean {
+  return live && !!gs.euro && !gs.euro.seen && gs.euro.status === 'on';
+}
+export function openEuroDraw(gs: GameState, live: boolean = EURO_LIVE): GameState {
+  if (gs.phase !== 'hub' || !euroDrawDue(gs, live)) return gs;
+  return { ...gs, phase: 'euro-draw' };
+}
+/** Watched or skipped, either way it is not owed again. */
+export function finishEuroDraw(gs: GameState): GameState {
+  if (!gs.euro) return { ...gs, phase: 'hub' };
+  return { ...gs, euro: { ...gs.euro, seen: true }, phase: 'hub' };
+}
+/** The competition as it stands, from the hub's room; shut with the door. */
+export function openEuroBracket(gs: GameState, live: boolean = EURO_LIVE): GameState {
+  if (gs.phase !== 'hub' || !live || !gs.euro) return gs;
+  return { ...gs, phase: 'euro-bracket' };
 }
 
 /** From the hub to the European night (or its shootout), only when one is due. */

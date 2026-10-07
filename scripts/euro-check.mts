@@ -23,6 +23,8 @@
  *      the goal mouth for theirs, and the phone buzzing on a goal
  *  12. the look of the night: the frame turns blue and silver, the two crests
  *      face each other before kickoff, and the ground is named Itzik's way
+ *  13. the draw from his seat, owed once and never rolled again, and the
+ *      bracket room that reads and never writes
  */
 import {
   EURO_LIVE, EURO_POOL, EURO_FIELD, EURO_ROUNDS, ROUND_NAMES, STAGE_TARGET, PRIZE,
@@ -597,7 +599,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
 {
   checked += 6;
   const app = readFileSync('src/ui/App.tsx', 'utf8');
-  if (!app.includes("data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' ? 'euro' : undefined}")) fails.push('the frame does not turn European for the night and the shootout');
+  if (!app.includes("data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : undefined}")) fails.push('the frame does not turn European for the night, the shootout, the draw and the bracket');
   const css = readFileSync('src/ui/tokens.css', 'utf8');
   if (!css.includes('.frame[data-stage="euro"]{') || !css.includes('.eu-entrance{') || !css.includes('.eu-entrance-vs{')) fails.push('the European frame or the entrance has no css');
   if (!css.includes('.eu-entrance-light,.eu-entrance-round,.eu-entrance-home,.eu-entrance-away,.eu-entrance-vs,.eu-entrance-venue{animation:none;}')) fails.push('the entrance does not honour reduced motion');
@@ -637,6 +639,46 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const lf = G.euroEntranceLines(fin0, true)!;
   if (lf.venue !== 'מגרש ניטרלי' || lf.leg !== 'הגמר, משחק אחד' || lf.round !== 'הגמר') fails.push('the final is not on neutral ground as one match');
   if (G.euroEntranceLines(g0) !== null) fails.push('the entrance has words with the door shut');
+}
+/* ------------------------------------ 13. the draw from his seat, and the bracket */
+{
+  const g0 = (() => {
+    let s = G.newGame(29);
+    s = G.setProfile(s, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+    s = G.pickCity(s, LEGEND_TOWN);
+    s = G.afterSigning(s, {});
+    s = G.enterPreseason({ ...s, phase: 'preseason-market' } as never);
+    while (s.phase === 'preseason-market') s = G.advancePreseason(s);
+    return { ...s, phase: 'hub' as const, week: 1, euro: drawEuro(29, s.clubId, s.season) };
+  })();
+  checked += 8;
+  // owed once with the door open, never with it shut, and not after it was watched or skipped
+  if (G.euroDrawDue(g0) || G.openEuroDraw(g0).phase !== 'hub' || G.openEuroBracket(g0).phase !== 'hub') fails.push('the draw or the bracket opens with the door shut');
+  if (!G.euroDrawDue(g0, true) || G.openEuroDraw(g0, true).phase !== 'euro-draw') fails.push('a fresh draw is not owed with the door open');
+  const seen = G.finishEuroDraw(G.openEuroDraw(g0, true));
+  if (seen.phase !== 'hub' || !seen.euro?.seen || G.euroDrawDue(seen, true) || G.openEuroDraw(seen, true).phase !== 'hub') fails.push('a watched draw is owed again');
+  if (JSON.stringify(seen.euro!.ties) !== JSON.stringify(g0.euro!.ties)) fails.push('watching the draw changed the draw');
+  if (G.euroDrawDue({ ...g0, euro: { ...g0.euro!, status: 'out' } }, true)) fails.push('a draw is owed to a side that is out');
+  if (G.openEuroBracket(g0, true).phase !== 'euro-bracket' || G.openEuroBracket({ ...g0, euro: null }, true).phase !== 'hub') fails.push('the bracket does not open off the room, or opens without a competition');
+  // the save: a closed draw or bracket comes back to the hub; an old competition without the field is owed the draw
+  saveCareer({ ...g0, phase: 'euro-draw' });
+  const b1 = loadCareer();
+  saveCareer({ ...g0, phase: 'euro-bracket' });
+  const b2 = loadCareer();
+  if (b1?.phase !== 'hub' || b2?.phase !== 'hub') fails.push('a career closed on the draw or the bracket does not reload at the hub');
+  if (!G.euroDrawDue({ ...g0, euro: { ...g0.euro!, seen: undefined } }, true)) fails.push('an older competition without the seen field is not owed its draw');
+  // the screens: the draw reveals the save's ties in order and never rolls, skippable; the bracket writes nothing
+  checked += 5;
+  const draw = readFileSync('src/ui/screens/EuroDraw.tsx', 'utf8');
+  if (!draw.includes('const ties = gs.euro?.ties[0] ?? [];') || draw.includes('Math.random') || draw.includes('drawEuro(')) fails.push('the draw screen rolls its own draw instead of revealing the save');
+  if (!draw.includes('דלג על ההגרלה') || !draw.includes('onClick={onDone}')) fails.push('the draw is not skippable');
+  const br = readFileSync('src/ui/screens/EuroBracket.tsx', 'utf8');
+  if (br.includes('setGs') || br.includes('G.commit') || br.includes('G.finish')) fails.push('the bracket writes into the state');
+  const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
+  if (!hub.includes('{drawDue && <EuroDrawCard onGo={onEuroDraw} />}') || !hub.includes('const drawDue = G.euroDrawDue(gs);')) fails.push('the hub does not offer the draw off euroDrawDue');
+  if (!hub.includes('label="אירופה" onClick={onEuroBracket}')) fails.push('the hub has no European room');
+  const app = readFileSync('src/ui/App.tsx', 'utf8');
+  if (!app.includes("{gs.phase === 'euro-draw' && <EuroDrawScreen gs={gs} onDone={() => setGs(g => G.finishEuroDraw(g))} />}") || !app.includes("{gs.phase === 'euro-bracket' && <EuroBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}")) fails.push('the app does not show the draw and the bracket');
 }
 console.log(`${checked} checks`);
 if (fails.length) {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
-import { ROUND_NAMES } from '../../game/euro.ts';
+import { ROUND_NAMES, EURO_LIVE } from '../../game/euro.ts';
 import type { EuroNight } from '../../game/euro.ts';
 import { euroClub, asClub } from '../../data/europeClubs.ts';
 import { LEAGUE_NAMES, isDerby } from '../../data/clubs.ts';
@@ -39,8 +39,9 @@ import { SCOUT_LIVE, SCOUT_TEXT } from '../../game/scout.ts';
  * round is never more than one tap away.
  */
 
-export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth, onScout, onEuro }: {
+export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth, onScout, onEuro, onEuroDraw, onEuroBracket }: {
   gs: G.GameState; onStart: () => void; onSquad: () => void; onTransfers: () => void; onEuro: () => void;
+  onEuroDraw: () => void; onEuroBracket: () => void;
   onChronicle: () => void; onCaptain: () => void; onAssistant: () => void; onInbox: () => void;
   onStadium: () => void; onPacks: () => void; onCoach: () => void; onTable: () => void; onYouth: () => void; onScout: () => void;
 }) {
@@ -58,6 +59,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
   const hero = useRef<HTMLDivElement>(null);
   const night = G.euroNight(gs);
   const pensDue = G.euroPensDue(gs);
+  const drawDue = G.euroDrawDue(gs);
 
   return (
     <>
@@ -80,6 +82,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
         <GoalStrip gs={gs} goal={goal} onPress={onTable} />
 
         <div ref={hero}>
+          {drawDue && <EuroDrawCard onGo={onEuroDraw} />}
           {night && <EuroHero night={night} onGo={onEuro} />}
           {!night && pensDue && <EuroPensCard gs={gs} onGo={onEuro} />}
           <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} waiting={!!night || pensDue} />
@@ -111,6 +114,9 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
           {SCOUT_LIVE && G.scoutAvailable(gs) && (
             <Cell i={9} icon="target" label={SCOUT_TEXT.door} onClick={onScout}
               dot={G.scoutDot(gs) ? 'var(--loss)' : gs.scout.offer ? 'var(--win)' : undefined} blink={G.scoutDot(gs)} />
+          )}
+          {EURO_LIVE && gs.euro && (
+            <Cell i={10} icon="trophy" label="אירופה" onClick={onEuroBracket} dot={gs.euro.status === 'on' ? 'var(--euro, #6FA8FF)' : undefined} />
           )}
         </div>
 
@@ -298,6 +304,20 @@ function EuroHero({ night, onGo }: { night: EuroNight; onGo: () => void }) {
       <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>
         <Icon name="whistle" size={18} /> יוצאים לערב האירופי
       </button>
+    </div>
+  );
+}
+
+/** The draw was made in the summer; the ceremony is owed once. */
+function EuroDrawCard({ onGo }: { onGo: () => void }) {
+  return (
+    <div className="match-hero" data-euro="1">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+        <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>ליגת אירופה</span>
+        <span className="chip chip-euro">ההגרלה</span>
+      </div>
+      <p className="hint" style={{ margin: 0 }}>האליפות פתחה את הדלת. שישה עשר כדורים בקערה, ואתם אחד מהם.</p>
+      <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>להגרלה</button>
     </div>
   );
 }

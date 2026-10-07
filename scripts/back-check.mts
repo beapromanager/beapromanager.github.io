@@ -140,7 +140,7 @@ const back = readFileSync('src/ui/back.ts', 'utf8');
   const FILE: Record<string, string> = {
     squad: 'Squad', youth: 'Youth', stadium: 'Stadium', coach: 'Coach', packs: 'Packs',
     captain: 'Captain', assistant: 'Assistant', transfers: 'Transfers', inbox: 'Inbox',
-    chronicle: 'Chronicle', table: 'Standings', scout: 'Scout',
+    chronicle: 'Chronicle', table: 'Standings', scout: 'Scout', 'euro-bracket': 'EuroBracket',
   };
   checked++;
   if (rooms.length < 6) fails.push(`only ${rooms.length} rooms lead back to the hub, this check is reading the wrong list`);
