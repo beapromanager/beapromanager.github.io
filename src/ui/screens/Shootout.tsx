@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { ROUND_NAMES, PEN_CORNERS, hintFor, diveFor, myKickScores, theirKickSaved, shootoutStatus } from '../../game/euro.ts';
 import type { PenCorner } from '../../game/euro.ts';
@@ -13,28 +13,43 @@ import { buzz, BUZZ_GOAL, BUZZ_SAVE, BUZZ_MISS } from '../haptics.ts';
  * The shootout after a level tie, from inside it. Itzik's rule: when his man
  * kicks you stand behind the ball, when theirs kicks you stand in the goal.
  *
- * His kick is the paid penalty clips (the run-up, then the goal or the save),
- * mirrored when he sends it to the other side. Their kick holds on the frame
- * from inside the goal and the outcome is the wash and the word over it, until
- * the keeper's own clips land. Every roll is seeded on the round, so a reload
- * mid-shootout replays the same kicks for the same choices.
+ * His kick is a clip made for this and approved frame by frame (7.10): from
+ * behind the spot, scored or saved, the word and the buzz when it ends.
+ * Their kick is three approved frames from inside the goal behind his keeper,
+ * cut by the code, not by a model: the keeper set, the ball in the air with
+ * the keeper in his dive (the frame shakes on the contact), then the ball in
+ * the net or in his gloves. The frames show the ball going to the right, so
+ * a kick to the left plays them mirrored. Every roll is seeded on the round,
+ * so a reload mid-shootout replays the same kicks for the same choices.
  */
 const CORNER_LABEL: Record<PenCorner, string> = { left: 'שמאל', center: 'מרכז', right: 'ימין' };
 const TEND_KEEPER: Record<PenCorner, string> = { left: 'נוטה לצלול שמאלה', center: 'בדרך כלל נשאר במרכז', right: 'נוטה לצלול ימינה' };
 const TEND_TAKER: Record<PenCorner, string> = { left: 'נוטה לבעוט שמאלה', center: 'בדרך כלל בועט למרכז', right: 'נוטה לבעוט ימינה' };
-const RUNUP = asset('/moments/penalty/buildup.mp4');
-const GOAL = asset('/moments/penalty/goal.mp4');
-const SAVE = asset('/moments/penalty/save.mp4');
-const POSTER = asset('/moments/penalty/poster.jpg');
-const IN_GOAL = asset('/moments/def-penalty/buildup.webp');
+const CLIP = {
+  goalBehind: asset('/moments/euro-penalty/goal-behind.mp4'),
+  saveBehind: asset('/moments/euro-penalty/save-behind.mp4'),
+};
+const POSTER = asset('/moments/euro-penalty/poster.jpg');
+/** the keeper's three frames: set, in the air (the wrong way or the right way), and how it ended */
+const KEEPER = {
+  set: asset('/moments/euro-penalty/keeper-set.webp'),
+  wrong: asset('/moments/euro-penalty/keeper-wrong.webp'),
+  right: asset('/moments/euro-penalty/keeper-right.webp'),
+  goal: asset('/moments/euro-penalty/keeper-goal.webp'),
+  save: asset('/moments/euro-penalty/keeper-save.webp'),
+};
+const ON_THE_SPOT = asset('/moments/euro/penalty.webp');
+const IN_GOAL = asset('/moments/euro/def-penalty.webp');
+/** the keeper sequence on the clock: the set frame holds, the contact comes, the end frame lands (ms) */
+export const KEEPER_BEATS = { contact: 1100, end: 2000 } as const;
 
 type Kick = { side: 'me' | 'them'; name: string; scored: boolean; pick: PenCorner; dive: PenCorner };
 type Stage =
   | { kind: 'intro' }
   | { kind: 'my-pick'; hint: PenCorner }
-  | { kind: 'my-play'; kick: Kick; clip: 'runup' | 'result' }
+  | { kind: 'my-play'; kick: Kick; ended: boolean }
   | { kind: 'their-pick'; hint: PenCorner }
-  | { kind: 'their-play'; kick: Kick }
+  | { kind: 'their-play'; kick: Kick; ended: boolean }
   | { kind: 'done' };
 
 export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score: [number, number]) => void }) {
@@ -48,6 +63,7 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
   const theirs = kicks.filter(k => k.side === 'them').map(k => k.scored);
   const status = shootoutStatus(mine, theirs);
   const gkq = sides.keeper ? overall(sides.keeper) : 55;
+  const keeperName = sides.keeper?.name ?? 'השוער';
   const takerName = (side: 'me' | 'them', n: number) => side === 'me'
     ? (sides.takers[n % Math.max(1, sides.takers.length)]?.name ?? 'הבועט')
     : (sides.theirNames[n % Math.max(1, sides.theirNames.length)] ?? 'הבועט');
@@ -64,14 +80,13 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
     const dive = diveFor(rng.current, hint);
     const scored = myKickScores(rng.current, pick, dive);
     const kick: Kick = { side: 'me', name: takerName('me', mine.length), scored, pick, dive };
-    setStage({ kind: 'my-play', kick, clip: 'runup' });
+    setStage({ kind: 'my-play', kick, ended: false });
   };
   const theirPick = (dive: PenCorner, hint: PenCorner) => {
     const aim = diveFor(rng.current, hint);          // where their man really sends it
     const saved = theirKickSaved(rng.current, dive, aim, gkq);
     const kick: Kick = { side: 'them', name: takerName('them', theirs.length), scored: !saved, pick: aim, dive };
-    buzz(saved ? BUZZ_SAVE : BUZZ_MISS);
-    setStage({ kind: 'their-play', kick });
+    setStage({ kind: 'their-play', kick, ended: false });
   };
   const settle = (kick: Kick) => {
     const after = [...kicks, kick];
@@ -114,20 +129,16 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
       )}
 
       {stage.kind === 'my-pick' && (
-        <PovCard img={POSTER} kicker={`בעיטה ${mine.length + 1}`} title={`${takerName('me', mine.length)} מול השוער`}
+        <PovCard img={ON_THE_SPOT} kicker={`בעיטה ${mine.length + 1}`} title={`${takerName('me', mine.length)} מול השוער`}
           sub={`המודיעין: השוער ${TEND_KEEPER[stage.hint]}.`} ask="לאן בועטים?" onPick={c => myPick(c, stage.hint)} />
       )}
 
       {stage.kind === 'my-play' && (
         <div className="eu-pov">
-          <video key={stage.clip} className="eu-clip" src={stage.clip === 'runup' ? RUNUP : stage.kick.scored ? GOAL : SAVE}
+          <video className="eu-clip" src={stage.kick.scored ? CLIP.goalBehind : CLIP.saveBehind}
             poster={POSTER} autoPlay muted playsInline preload="auto"
-            style={{ transform: stage.kick.pick === 'left' ? 'scaleX(-1)' : undefined }}
-            onEnded={() => {
-              if (stage.clip === 'runup') setStage({ ...stage, clip: 'result' });
-            }}
-            onPlay={() => { if (stage.clip === 'result') buzz(stage.kick.scored ? BUZZ_GOAL : BUZZ_MISS); }} />
-          {stage.clip === 'result' && (
+            onEnded={() => { buzz(stage.kick.scored ? BUZZ_GOAL : BUZZ_MISS); setStage({ ...stage, ended: true }); }} />
+          {stage.ended && (
             <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--win)' : 'var(--loss)' }}>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: stage.kick.scored ? 42 : 32, lineHeight: 1 }}>{stage.kick.scored ? 'גוווול!' : 'נעצר.'}</div>
               <div className="sub" style={{ marginTop: 6 }}>{stage.kick.scored ? `${stage.kick.name} לא מפספס מ-11 מטר` : `השוער קרא את ${stage.kick.name}`}</div>
@@ -139,25 +150,24 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
 
       {stage.kind === 'their-pick' && (
         <PovCard img={IN_GOAL} kicker={`בעיטה ${theirs.length + 1}`} title={`${takerName('them', theirs.length)} על הנקודה`}
-          sub={`המודיעין: ${takerName('them', theirs.length)} ${TEND_TAKER[stage.hint]}.`} ask={`לאן ${sides.keeper?.name ?? 'השוער'} קופץ?`} onPick={c => theirPick(c, stage.hint)} />
+          sub={`המודיעין: ${takerName('them', theirs.length)} ${TEND_TAKER[stage.hint]}.`} ask={`לאן ${keeperName} קופץ?`} onPick={c => theirPick(c, stage.hint)} />
       )}
 
       {stage.kind === 'their-play' && (
         <div className="eu-pov">
-          <div className="eu-still" style={{ backgroundImage: `url('${IN_GOAL}')` }}>
-            <div className="moment-wash" style={{ background: stage.kick.scored
-              ? 'linear-gradient(180deg, rgba(226,72,77,.12) 0%, rgba(226,72,77,.55) 100%)'
-              : 'linear-gradient(180deg, rgba(46,160,90,.10) 0%, rgba(46,160,90,.48) 100%)' }} />
-          </div>
-          <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--loss)' : 'var(--win)' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: stage.kick.scored ? 32 : 42, lineHeight: 1 }}>{stage.kick.scored ? 'ספגנו.' : 'עצר!'}</div>
-            <div className="sub" style={{ marginTop: 6 }}>
-              {stage.kick.scored
-                ? `${stage.kick.name} שלח ${CORNER_LABEL[stage.kick.pick] === 'מרכז' ? 'למרכז' : 'ל' + CORNER_LABEL[stage.kick.pick]}, ${sides.keeper?.name ?? 'השוער'} ${stage.kick.dive === stage.kick.pick ? 'הגיע ולא הספיק' : 'הלך לצד השני'}`
-                : `${sides.keeper?.name ?? 'השוער'} ${stage.kick.dive === stage.kick.pick ? 'הלך לפינה הנכונה' : 'הלך לצד השני והספיק להחזיר יד'}. איזו הצלה`}
+          <KeeperSequence scored={stage.kick.scored} mirrored={stage.kick.pick === 'left'}
+            onEnded={() => { buzz(stage.kick.scored ? BUZZ_MISS : BUZZ_SAVE); setStage({ ...stage, ended: true }); }} />
+          {stage.ended && (
+            <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--loss)' : 'var(--win)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: stage.kick.scored ? 32 : 42, lineHeight: 1 }}>{stage.kick.scored ? 'ספגנו.' : 'עצר!'}</div>
+              <div className="sub" style={{ marginTop: 6 }}>
+                {stage.kick.scored
+                  ? `${stage.kick.name} שלח ${stage.kick.pick === 'center' ? 'למרכז' : 'ל' + CORNER_LABEL[stage.kick.pick]}, ${keeperName} ${stage.kick.dive === stage.kick.pick ? 'הגיע ולא הספיק' : 'הלך לצד השני'}`
+                  : `${keeperName} ${stage.kick.dive === stage.kick.pick ? 'הלך לפינה הנכונה' : 'הלך לצד השני והספיק להחזיר יד'}. איזו הצלה`}
+              </div>
+              <button className="btn" style={{ marginTop: 14 }} onClick={() => settle(stage.kick)}>המשך <Icon name="chevron" size={17} /></button>
             </div>
-            <button className="btn" style={{ marginTop: 14 }} onClick={() => settle(stage.kick)}>המשך <Icon name="chevron" size={17} /></button>
-          </div>
+          )}
         </div>
       )}
 
@@ -173,6 +183,37 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
             המשך <Icon name="chevron" size={17} />
           </button>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Their kick from inside the goal, three frames cut by the clock: the keeper
+ * set (a slow push in), the contact (the ball in the air, the keeper already
+ * in his dive, the frame shakes), and the end (the net or the gloves). The
+ * timers are cleared if the screen leaves early, so nothing fires on a gone
+ * kick. Reduced motion keeps the cuts and drops the push and the shake.
+ */
+function KeeperSequence({ scored, mirrored, onEnded }: { scored: boolean; mirrored: boolean; onEnded: () => void }) {
+  const [step, setStep] = useState<'set' | 'contact' | 'end'>('set');
+  const ended = useRef(onEnded);
+  ended.current = onEnded;
+  useEffect(() => {
+    const t1 = setTimeout(() => setStep('contact'), KEEPER_BEATS.contact);
+    const t2 = setTimeout(() => { setStep('end'); ended.current(); }, KEEPER_BEATS.end);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+  // all three frames are in the box from the first beat, so a cut never waits on a picture still loading
+  const layers = [{ key: 'set', src: KEEPER.set }, { key: 'contact', src: scored ? KEEPER.wrong : KEEPER.right }, { key: 'end', src: scored ? KEEPER.goal : KEEPER.save }] as const;
+  return (
+    <div className="eu-seq" data-step={step} data-mirror={mirrored ? '1' : '0'} role="img"
+      aria-label={scored ? 'הכדור ברשת, השוער על הדשא' : 'השוער עם הכדור בידיים'}>
+      {layers.map(l => <img key={l.key} className="eu-seq-frame" data-on={step === l.key ? '1' : '0'} src={l.src} alt="" draggable={false} />)}
+      {step === 'end' && (
+        <div className="moment-wash" style={{ background: scored
+          ? 'linear-gradient(180deg, rgba(226,72,77,.10) 0%, rgba(226,72,77,.5) 100%)'
+          : 'linear-gradient(180deg, rgba(46,160,90,.08) 0%, rgba(46,160,90,.44) 100%)' }} />
       )}
     </div>
   );

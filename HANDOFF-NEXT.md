@@ -186,10 +186,43 @@ TRAVEL 150K, SECURITY 175K, euroWeeks(14)=[[2,3],[5,6],[9,10],[13]] ו-null מת
 `.chip-euro`), מידע בלבד: הכפתור והמשחק הם קומיט 4. **כל דיוויזיה היא תמיד 8 קבוצות** (`buildRegionLeague` חותך ל-8), כלומר
 ליגת העל תמיד 14 מחזורים והלוח חל תמיד. 7 חבלות נתפסו, euro-check 74. צילום הכרטיס (דגל הודלק זמנית בפיתוח בלבד דרך
 `scratchpad/with-flag.cjs`, שמחזיר אותו ב-finally): `PIC/europe/preview-hub-card.png`. **שמות השחקנים האירופיים (טיוטה, קומיט):** `src/data/europeNames.ts`, 20 מדינות × 12 פרטיים + 12
-משפחה בתעתיק עברי, `makeEuroName(rng, country, used)`; יוצא לאיציק כ-Word `PIC/europe/europe-player-names.docx` (הוא מתקן ומחזיר,
-התיקונים נכנסים מילה במילה; עד אז זו טיוטה). **תשובותיו לקומיט 4:** פציעה בערב אירופי = משחק ליגה אחד בחוץ (כמו "פצוע" מדילמה);
+משפחה בתעתיק עברי, `makeEuroName(rng, country, used)`; יוצא לאיציק כ-Word `PIC/europe/europe-player-names.docx` **איציק אישר את השמות כמו שהם (6.10 בערב).** **שחרור: לא היום. איציק רוצה לדחוף את אירופה ביום חמישי 9.10 לקראת הסופ"ש; עד אז הכל מקומי ומאחורי הדגל.** **תשובותיו לקומיט 4:** פציעה בערב אירופי = משחק ליגה אחד בחוץ (כמו "פצוע" מדילמה);
 ממשק המשחק האירופי חייב להרגיש שונה: תמונות ההזדמנויות והרגעים, הסרטונים והממשק (לעבוד על זה). הבאים בתור: 4 ערב אירופי חי (הפרדת MatchBroadcast מטבלת הליגה, פנדלים POV עם
 `public/moments/penalty/`, שמות שחקנים אירופיים נדרשים ל-makeSquad); 5 מסכים (הגרלת POV, עץ, לילה); 6 סוף עונה; 7 כסף; 8 טלמטריה.
+**קומיט 4 נבנה (d458349, מקומי):** הערב האירופי חי במנוע האמיתי. state.ts: `euroMatchInput(gs, live)` (אותו shape כמו liveMatchInput; היריבה
+מ-makeSquad ב-strengthOf, ids יציבים `${oppId}-${i}`, שמות מ-makeEuroName; הגמר `neutral:true` ומושב בבית לאינדקסים), `startEuroNight`,
+`commitEuroLeg(gs, r, onPitchIds, live)` (serveBans ואז banFor לאדום, recordMyLeg, EURO_TIRED=-12 לכל מי ששיחק דרך matchMods.fitness,
+`euroInjuries` EURO_INJURY_RISK=0.06 ישר ל-sitOut של השבוע, כסף ישר ל-meters: בית round(gate*0.75)-175K, חוץ -150K, גמר 0; שוויון → phase
+`euro-pens`, אחרת euroAfterTie: playAiRound+advanceRound+פרס/playOutWithoutMe, והודעת story ב-Hub עם המקום לפי חוק איציק: בבית "בבית, ב{עיר}",
+בחוץ "בחוץ, אצל {מועדון} ב{עיר}, {מדינה}"), `finishEuroPens(gs, [mine, theirs])`, `euroPensDue`, `euroMatchClubs`, `euroMyTie`. **הדלת בפרמטר:** כל
+פונקציה מקבלת `live = EURO_LIVE` כמו euroEntry, כך שה-check פותח אותה בלי להזיז את הדגל. euro.ts: `recordMyLeg` בלי seed (שוויון משאיר winner
+ריק), `needsPens`, `settleMyPens`. liveMatch.ts: `neutral` ב-createLive (isHome כבוי לשניהם). save.ts: `euro-match`/`euro-pens` נטענים ל-hub.
+Match.tsx: props אופציונליים `live`, `clubs`, `flare`, `doneLabel`, ו-`onDone(result, onPitchIds)`. Hub: כפתור "יוצאים לערב האירופי" ב-EuroHero,
+כרטיס `EuroPensCard`, כפתור הליגה מושבת "קודם הערב האירופי". סלטים: 150_000+round*10+leg המשחק, 150_010 היריבה, 150_020 פנדלים, 150_030
+פציעות, 150_040 שמות הבועטים שלהם, 150_100+round סיבוב AI, 150_200 play-out. euro-check 126 (סעיף 10 מריץ את הלילה במנוע האמיתי), 22 חבלות.
+**קומיט 5a נבנה (8fb3af3, מקומי):** `Shootout.tsx` POV: הבעיטה שלי = buildup.mp4 ואז goal/save.mp4 (scaleX(-1) כשבועטים שמאלה), שלהם =
+def-penalty/buildup.webp עם wash; `shootoutStatus/hintFor/diveFor/myKickScores/theirKickSaved` טהורים ב-euro.ts (הסתברויות המשחק החי, חמש ואז
+sudden death זוג-זוג), `euroPensSides(gs)` (10 שחקני שדה לפי overall, השוער, 10 שמות שלהם), `src/ui/haptics.ts` buzz (רטט בשער, גם ב-Match
+כש-clubs מועבר), `.eu-board` לוח נורות כסוף. euro-check 153, 11 חבלות. **איציק פסל את goal.mp4 הישן לפנדלים** (צבעים זרים, הכדור נכנס מאחור,
+חגיגה של מהלך): סטילס חדשים ב-Higgsfield אושרו ("מאשר סטילס"), 3 מ-4 יוצרו (`PIC/europe/pens-stills/`), הוא פסל שניים עם הערות (השוער עם
+הפנים לבועט; הכדור בתוך השער והראש לכיוון הנכון), הפרומפטים המתוקנים ב-`pens-stills/prompts-pending.txt`, **חסום במגבלה יומית של Higgsfield
+עד 7.10**. אחרי אישור 4 סטילס: 4 סרטונים × 35 קרדיט מהתמונות, ל-`public/moments/euro-penalty/`. **החלטות חזותיות נוספות שלו (6.10 לילה):**
+תמונות רגעים חדשות רק לאירופה (הגנה/התקפה/חופשיות), רקע וסגנון אחרים לכל המשחק, רטט בשער (נעשה), סמלים פנים מול פנים "כמו טייקן" בפתיחה,
+עוד תוכן לעיתונות/ווטסאפ/בעלים/אוהדים, והמקום תמיד נכון (נעשה בהודעה). תמחור האבטחה נשאר (רק אלופת ליגת העל נכנסת). **הבא: 5b** מראה
+המשחק האירופי (שכבת tokens `.frame[data-stage="euro"]`, פתיחת טייקן, לוח כסוף במשחק), 5c הגרלת POV + עץ + גביע, 6 סוף עונה, 7 כסף, 8 טלמטריה.
+צילומים עם הדגל: `scratchpad/cdp-euro.mjs <save> <prefix> click:TEXT wait:MS shot:NAME text:N`, שמירות מ-`mk-euro-saves.mts`.
+**7.10 בבוקר, נבנו מקומית:** **5b (628eeba)** מסגרת אירופית `.frame[data-stage="euro"]` (App מציב לפי phase: euro-match/pens/draw/bracket),
+`EuroEntrance.tsx` פתיחת "פנים מול פנים" (4.6 שניות, לחיצה מדלגת, השעון מחכה, reduced-motion), `euroEntranceLines(gs, live)` (סיבוב, משחק,
+עיר+מדינה לכל צד, המקום לפי חוק איציק), לוח כסוף `.eu-glow` ושורת המקום `.eu-venue` בפס השידור. **5c (f4810ff)** `EuroState.seen?`,
+`euroDrawDue/openEuroDraw/finishEuroDraw/openEuroBracket`, `EuroDraw.tsx` (קערה, משיכת כדור, זוג אחרי זוג, רק חושף את ההגרלה מהשמירה, "דלג"),
+`EuroBracket.tsx` (חדר "אירופה" ב-Hub, לשונית לסיבוב, TopBack+Meters כמו שבדיקת back דורשת, back-check FILE map), save: euro-draw/bracket → hub.
+euro-check 177, 6 חבלות. **5d (ממתין לסוויטה):** 14 תמונות רגעים רק לאירופה ב-`public/moments/euro/*.webp` (720 רוחב, ~85K כל אחת;
+מקור PNG ב-`PIC/europe/euro-moments/`), `EURO_MOMENT` ב-Match.tsx ו-`imgOverride={euro ? EURO_MOMENT.x : undefined}` על כל MomentPopup;
+euro-check 179, 3 חבלות. **5e נבנה (מקומי, 7.10 בבוקר):** הפנדלים מבפנים על המדיה המאושרת. **הבעיטה שלי = וידאו:** שני קליפים של Seedance 2.5 (60 קרדיט כל אחד; Kling נפסל כי הפיזיקה של הכדור זייפה בכל ניסיון) בין פריימי פתיחה/סיום שאיציק אישר, `public/moments/euro-penalty/{goal-behind,save-behind}.mp4` (540 רוחב, crf 27, 240K/308K; השער נחתך בשנייה 1.5 כי המודל החליף קנה מידה שם, איציק ראה ואישר את החיתוך; המקור ב-`PIC/europe/pens-clips-v3/`). **הבעיטה שלהם = שלושה פריימים בקוד, לא וידאו** (איציק בחר "1 לשוער" אחרי ששני קליפי מתוך-השער יצאו עם חיתוך קשה באמצע, שניהם ב-`pens-clips-v3/*REJECTED-cut.mp4`): `KeeperSequence` ב-Shootout.tsx, `KEEPER_BEATS={contact:1100,end:2000}`, שלושת הפריימים (`keeper-set`, ואז `keeper-wrong` לשער או `keeper-right` להצלה, ואז `keeper-goal`/`keeper-save`, webp 720 רוחב 86-125K, מקור ב-`PIC/europe/pens-keyframes/B*.png`) יושבים כולם בקופסה מהרגע הראשון (`data-on`), הפתיחה נדחפת פנימה, המגע מרעיד (`eu-seq-shake`), הסיום נוחת עם wash, רטט + המילה בסוף, reduced-motion משאיר רק חיתוכים, בעיטה שמאלה = `data-mirror` (הפריימים מצוירים ימינה). הטיימרים מתנקים ב-unmount. **מגבלה ידועה:** בשער כשהשוער ניחש נכון (dive===pick) הטקסט אומר "הגיע ולא הספיק" והתמונה מראה אותו לצד השני; אין פריים לזה. euro-check 185, 9 חבלות (`scratchpad/proofs-euro12.cjs`). צילומים: `scratchpad/pens-shots/` (הדגל הודלק זמנית ב-euro.ts והוחזר ל-false לפני הקומיט). ההוצאה על הפנדלים 7.10: כ-320 קרדיט, יתרה כ-700. **פתוח ב-5e:** הכרטיס של הבעיטה שלהם משתמש ב-`euro/def-penalty.webp` שיש בו דמות שלישית (שופט), נגד כלל העין של איציק, להחליף כשיהיו קרדיטים. **כללי העין של איציק לתמונות:** בפנדל רק הבועט והשוער; בלי קורה בפריים מתוך השער; השוער עם הפנים לבועט; כדור רגיל
+בלי כוכבים; בלי דמויות זרות; גביע מומצא (הראשון יצא כמו הגביע האירופי האמיתי ונפסל). Kling 3.0 Pro עם start+end frames = 8.75 קרדיט לקליף
+(Seedance 1080p = 60), בלי preset "IN THE DARK" (declined_preset_id). **טיוטת התוכן האירופי** אצל איציק: `PIC/europe/europe-content-draft.docx`
+(+.md), 14 עיתונות / 8 ווטסאפ / 6 בעלים / 10 אוהדים / 6 הודעות; כשיחזור ערוך: קומיט תוכן (press.ts/mateChats.ts/dilemmas/fanNote) עם gate
+"הלילה האירופי שוחק השבוע". ממיר md→docx: `scratchpad/md2docx.cjs <md> <build>` + `zip-names.ps1`.
 
 ### פתוח עכשיו, לפי סדר
 

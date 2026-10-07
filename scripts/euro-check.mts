@@ -40,7 +40,7 @@ import { gateIncome } from '../src/game/career.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
 import { euroClub } from '../src/data/europeClubs.ts';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { EURO_CLUBS } from '../src/data/europeClubs.ts';
 import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
@@ -562,14 +562,32 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const h = createRng(5);
   const hints = new Set(Array.from({ length: 200 }, () => hintFor(h)));
   if (hints.size !== 3) fails.push('the hint never names one of the corners');
-  // the screen: his kick on the paid clips, theirs from inside the goal, every roll seeded on the round, the phone buzzes
-  checked += 6;
+  // the screen: his kick on the two clips made for this, theirs as the keeper's three approved frames cut by the clock, every roll seeded on the round, the phone buzzes
+  checked += 12;
   const scr = readFileSync('src/ui/screens/Shootout.tsx', 'utf8');
-  if (!scr.includes("asset('/moments/penalty/buildup.mp4')") || !scr.includes("asset('/moments/penalty/goal.mp4')") || !scr.includes("asset('/moments/penalty/save.mp4')")) fails.push('his kick is not the run-up and the goal or save clips');
-  if (!scr.includes("asset('/moments/def-penalty/buildup.webp')")) fails.push('their kick is not seen from inside the goal');
+  const clips = ['goal-behind', 'save-behind'];
+  const missingClip = clips.filter(c => !scr.includes(`asset('/moments/euro-penalty/${c}.mp4')`) || !existsSync(`public/moments/euro-penalty/${c}.mp4`));
+  if (missingClip.length) fails.push(`his kick's clips missing or unwired: ${missingClip.join(', ')}`);
+  if (clips.some(c => existsSync(`public/moments/euro-penalty/${c}.mp4`) && statSync(`public/moments/euro-penalty/${c}.mp4`).size > 900_000)) fails.push('a shootout clip is heavier than the game allows (900K)');
+  if (!scr.includes('src={stage.kick.scored ? CLIP.goalBehind : CLIP.saveBehind}')) fails.push('his clip is not chosen by whether he scored');
+  if (scr.includes('/moments/penalty/')) fails.push('the shootout still reaches for the league penalty clips Itzik rejected');
+  if (['goal-ingoal', 'save-ingoal'].some(c => scr.includes(c) || existsSync(`public/moments/euro-penalty/${c}.mp4`))) fails.push('the in-goal clips Itzik rejected (the cut in the middle) are still wired or shipped');
+  // the keeper's frames: five approved pictures, each shipped and light, and the sequence cut by the clock in the right order
+  const frames = ['keeper-set', 'keeper-wrong', 'keeper-right', 'keeper-goal', 'keeper-save'];
+  const missingFrame = frames.filter(f => !scr.includes(`asset('/moments/euro-penalty/${f}.webp')`) || !existsSync(`public/moments/euro-penalty/${f}.webp`));
+  if (missingFrame.length) fails.push(`keeper frames missing or unwired: ${missingFrame.join(', ')}`);
+  if (frames.some(f => existsSync(`public/moments/euro-penalty/${f}.webp`) && statSync(`public/moments/euro-penalty/${f}.webp`).size > 160_000)) fails.push('a keeper frame is heavier than the game allows (160K)');
+  if (!scr.includes("const layers = [{ key: 'set', src: KEEPER.set }, { key: 'contact', src: scored ? KEEPER.wrong : KEEPER.right }, { key: 'end', src: scored ? KEEPER.goal : KEEPER.save }] as const;") || !scr.includes("data-on={step === l.key ? '1' : '0'}")) fails.push('the keeper sequence does not go set, then the dive the wrong way for a goal or the right way for a save, then the net or the gloves, with all three frames in the box from the first beat');
+  if (!scr.includes("setTimeout(() => setStep('contact'), KEEPER_BEATS.contact)") || !scr.includes("setTimeout(() => { setStep('end'); ended.current(); }, KEEPER_BEATS.end)") || !scr.includes('return () => { clearTimeout(t1); clearTimeout(t2); };')) fails.push('the keeper sequence is not cut by the clock, or its timers outlive the kick');
+  const beats = /KEEPER_BEATS = \{ contact: (\d+), end: (\d+) \}/.exec(scr);
+  if (!beats || !(Number(beats[1]) > 0 && Number(beats[2]) > Number(beats[1]) && Number(beats[2]) <= 3000)) fails.push('the keeper beats are missing, out of order or too slow');
+  if (!scr.includes("mirrored={stage.kick.pick === 'left'}") || !scr.includes('data-mirror={mirrored ? \'1\' : \'0\'}')) fails.push('a kick to the left does not mirror the keeper frames');
+  if (!scr.includes("asset('/moments/euro/def-penalty.webp')") || !scr.includes("asset('/moments/euro/penalty.webp')")) fails.push('the pick cards do not use the European night pictures');
+  const css = readFileSync('src/ui/tokens.css', 'utf8');
+  if (!css.includes('.eu-seq[data-step="contact"] .eu-seq-frame[data-on="1"]{animation:eu-seq-shake') || !css.includes('@media (prefers-reduced-motion:reduce){ .eu-seq .eu-seq-frame, .eu-seq .moment-wash{animation:none;} }')) fails.push('the contact frame does not shake, or reduced motion does not still it');
   if (!scr.includes('createRng(G.drawSeed(gs, 150_020 + (gs.euro?.round ?? 0)))')) fails.push('the shootout is not seeded on the round through drawSeed');
   if (scr.includes('Math.random')) fails.push('the shootout rolls off Math.random');
-  if (!scr.includes('buzz(BUZZ_GOAL)') && !scr.includes('buzz(stage.kick.scored ? BUZZ_GOAL : BUZZ_MISS)')) fails.push('a goal in the shootout does not buzz the phone');
+  if (!scr.includes('buzz(stage.kick.scored ? BUZZ_GOAL : BUZZ_MISS)') || !scr.includes('buzz(stage.kick.scored ? BUZZ_MISS : BUZZ_SAVE)')) fails.push('a kick in the shootout does not buzz the phone when its clip or sequence ends');
   if (!scr.includes('onDone(status.score)')) fails.push('the screen does not hand the state his score as [mine, theirs]');
   // the match itself buzzes on a European goal, and only there
   checked += 2;
