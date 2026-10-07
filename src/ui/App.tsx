@@ -47,7 +47,7 @@ import { setInviteHandler, setInstallHandler, setReportHandler } from './compone
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, STEP_ORDER } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, STEP_ORDER } from '../game/telemetry.ts';
 import { AdminScreen } from './screens/Admin.tsx';
 import type { Stats as AdminStats } from './screens/Admin.tsx';
 import { TELEMETRY_URL } from '../data/telemetry.ts';
@@ -229,6 +229,12 @@ export function App() {
     if (gs.meters.money < 0) moneyMark('money_red');
     if (G.sackedOverDebt(gs)) moneyMark('money_sack');
   }, [booted, adminKey, gs.clubId, gs.meters.money < 0, gs.sacking]);
+  // Europe: drawn in, in the final, lifted it. Nothing while there is no cup, and nothing outside the ליגת העל
+  const euroReports = G.euroMarksFor(gs).join(',');
+  useEffect(() => {
+    if (!booted || adminKey || !gs.clubId) return;
+    for (const k of euroReports ? euroReports.split(',') as Array<'eu_in' | 'eu_final' | 'eu_won'> : []) euroMark(k);
+  }, [booted, adminKey, gs.clubId, euroReports]);
 
   function startNew() {
     track('career_new');

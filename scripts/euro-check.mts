@@ -34,7 +34,7 @@ import {
   GATE_SHARE, TRAVEL, SECURITY, legsIn, euroWeeks, drawEuro, playAiRound, recordMyLeg, advanceRound, needsPens, settleMyPens,
   roundDone, shootout, settleTie, aggregate, strengthOf, myTie, iHost, banFor, serveBans, allWinners, aiLeg, prizeFor,
   playOutWithoutMe, champion, euroEntry, nightFor, shootoutStatus, hintFor, diveFor, myKickScores, theirKickSaved,
-  closeEuroSeason, euroVerdict, ROUND_IN,
+  closeEuroSeason, euroVerdict, ROUND_IN, euroMarks, EURO_MARKS,
 } from '../src/game/euro.ts';
 import * as G from '../src/game/state.ts';
 import * as L from '../src/game/liveMatch.ts';
@@ -807,6 +807,22 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   if (!low.euro || low.euro.status === 'on') fails.push('a cup on a lower division club was left open');
   if (G.euroSeasonVerdict({ ...g, euro: run(51, -1) }) !== null) fails.push('the season-end screen shows Europe to a club below the ליגת העל');
   if (G.euroSeasonVerdict({ ...gTop, euro: run(51, -1) })?.outcome !== 'won') fails.push('the season-end screen hides Europe from a ליגת העל club that won it');
+
+  // what the numbers are told: drawn in, in the final, markLifted it, from the top flight only
+  checked += 9;
+  const markDrawn = euroMarks(drawEuro(61, id, g.season), id);
+  const markSemi = euroMarks(run(53, 2), id);
+  const markFinal = euroMarks(run(54, 3), id);
+  const markLifted = euroMarks(run(51, -1), id);
+  if (markDrawn.join() !== 'eu_in' || markSemi.join() !== 'eu_in') fails.push(`a career drawn in, or out in the semi, reports [${markDrawn}] and [${markSemi}], wanted eu_in alone`);
+  if (markFinal.join() !== 'eu_in,eu_final') fails.push(`a lost final reports [${markFinal}], wanted eu_in and eu_final`);
+  if (markLifted.join() !== 'eu_in,eu_final,eu_won') fails.push(`a won cup reports [${markLifted}], wanted all three`);
+  if (euroMarks(null, id).length !== 0) fails.push('a career with no cup reports Europe');
+  if (G.euroMarksFor({ ...g, euro: run(51, -1) }).length !== 0) fails.push('a club below the ליגת העל reports Europe');
+  if (G.euroMarksFor({ ...gTop, euro: run(51, -1) }).join() !== 'eu_in,eu_final,eu_won') fails.push('a top flight club that markLifted the cup does not report all three');
+  if (G.euroMarksFor({ ...gTop, euro: null }).length !== 0) fails.push('a top flight club with no cup reports Europe');
+  if (JSON.stringify(EURO_MARKS) !== '["eu_in","eu_final","eu_won"]') fails.push('the names of the European marks changed, and the worker holds the same three');
+  if (!euroMarks(run(54, 3), id).includes('eu_final') || euroMarks(run(52, 0), id).includes('eu_final')) fails.push('the final is reported for a career that never stood in it');
 
   // the wiring: the cup is closed where the season ends, before the summer draws the next, and only on a calendar that can play it
   checked += 8;

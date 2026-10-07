@@ -390,6 +390,22 @@ export function euroVerdict(e: EuroState | null, myId: string): EuroVerdict | nu
   return { outcome: e.status === 'won' ? 'won' : e.cut ? 'cut' : 'out', round, prize, played: e.played };
 }
 
+/**
+ * What a career in the cup has earned a place in the numbers for, and nothing
+ * else about it: that it was drawn in, that it stood in the final, that it
+ * lifted the cup. Closed names, three of them, counted once a device.
+ */
+export const EURO_MARKS = ['eu_in', 'eu_final', 'eu_won'] as const;
+export type EuroMark = typeof EURO_MARKS[number];
+
+export function euroMarks(e: EuroState | null, myId: string): EuroMark[] {
+  if (!e) return [];
+  const marks: EuroMark[] = ['eu_in'];
+  if (e.ties[EURO_ROUNDS - 1]?.some(t => t.a === myId || t.b === myId)) marks.push('eu_final');
+  if (e.status === 'won') marks.push('eu_won');
+  return marks;
+}
+
 /** Who lifted the cup, once the final is settled. */
 export const champion = (e: EuroState): string | undefined => e.ties[EURO_ROUNDS - 1]?.[0]?.winner;
 

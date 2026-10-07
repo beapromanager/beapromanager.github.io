@@ -432,7 +432,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
 
   const worker = (await import('../worker/src/index.ts')) as {
     default: { fetch: (r: Request, e: unknown) => Promise<Response> };
-    REACH_SQL: Record<'grid' | 'ever' | 'best' | 'seasons' | 'titles', string>;
+    REACH_SQL: Record<'grid' | 'ever' | 'best' | 'seasons' | 'titles' | 'europe', string>;
   };
   const { DatabaseSync } = await import('node:sqlite');
   const db = new DatabaseSync(':memory:');
@@ -457,6 +457,14 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const titles = flat(q(R.titles), 'tier', 'n');
   if (titles !== '1:1 2:1 5:1') fails.push(`who has won each division: ${titles}`);
 
+  // Europe: three closed marks, counted once a device, and the question that counts them
+  put('E', 'open', 'eu_in', 'eu_final', 'eu_won');
+  put('F', 'open', 'eu_in', 'eu_final');
+  put('G', 'open', 'eu_in');
+  const eu = (db.prepare(R.europe).all() as unknown as { step: string; n: number }[]).map(r => `${r.step}:${r.n}`).join(' ');
+  if (eu !== 'eu_final:2 eu_in:3 eu_won:1') fails.push(`how many were drawn into the cup, stood in its final and lifted it: ${eu}`);
+  if (flat(q(R.grid), 'tier', 'season', 'n') !== grid || flat(q(R.titles), 'tier', 'n') !== titles) fails.push('a European mark leaked into the divisions or the titles');
+
   // and the door lets the milestones in, and nothing that only looks like one
   const written: unknown[][] = [];
   const env = {
@@ -468,6 +476,10 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   await post(['t3s5', 'w5', 't6s1', 't3s21', 'w9', 'bogus', 't3s05', 'season_2']);
   const kept = written.map(v => v[1]).join(',');
   if (kept !== 't3s5,w5,season_2') fails.push(`the worker kept [${kept}] out of a batch of eight, expected t3s5, w5 and season_2`);
+  written.length = 0;
+  await post(['eu_in', 'eu_final', 'eu_won', 'eu_lost', 'eu_', 'eu_won2', 'EU_IN', 'eu_in ']);
+  const keptEu = written.map(v => v[1]).join(',');
+  if (keptEu !== 'eu_in,eu_final,eu_won') fails.push(`the worker kept [${keptEu}] out of eight European-looking names, expected eu_in, eu_final and eu_won`);
   console.log('  where careers get to: a division in a season and a title, the worker keeps only those, and five questions give the right answers');
 }
 
@@ -482,6 +494,31 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const app2 = readFileSync('src/ui/App.tsx', 'utf8');
   if (!app2.includes("if (gs.meters.money < 0) moneyMark('money_red');")) fails.push('nothing reports a purse below zero');
   if (!app2.includes("if (G.sackedOverDebt(gs)) moneyMark('money_sack');")) fails.push('nothing reports a debt sacking');
+}
+
+/* 3g3. EUROPE: three closed marks. The worker must know them BEFORE the game that sends them is out, or they are
+        dropped at its door, so the game's pattern, the worker's pattern and the sending code are held together. */
+{
+  checked += 12;
+  const E = await import('../src/game/euro.ts');
+  const marks = ['eu_in', 'eu_final', 'eu_won'];
+  if (JSON.stringify(T.EURO_MARKS) !== JSON.stringify(marks) || JSON.stringify(E.EURO_MARKS) !== JSON.stringify(marks)) fails.push('the game and the competition do not agree on the three European marks');
+  if (!marks.every(k => T.isMilestone(k))) fails.push('a European mark is not accepted by the game pattern');
+  for (const bad of ['eu_', 'eu_lost', 'eu_in2', 'EU_IN', 'eu_in ', 'eu_finals', 'e_in']) if (T.isMilestone(bad)) fails.push(`"${bad}" passes as a European mark`);
+  if (T.STEP_ORDER['eu_in' as never] !== undefined) fails.push('a European mark is in the step order, which would backfill it');
+  const wsrc3 = readFileSync('worker/src/index.ts', 'utf8');
+  if (!/eu_in\|eu_final\|eu_won/.test(wsrc3)) fails.push('the worker refuses the European marks');
+  if (!wsrc3.includes('europe: europe.results')) fails.push('the worker does not answer the dashboard with the European counts');
+  const tele3 = readFileSync('src/game/telemetry.ts', 'utf8');
+  if (!/export function euroMark\(k: typeof EURO_MARKS\[number\]\): void/.test(tele3)) fails.push('euroMark() takes something wider than the three closed names');
+  const app3 = readFileSync('src/ui/App.tsx', 'utf8');
+  if (!app3.includes('const euroReports = G.euroMarksFor(gs).join(\',\');') || !app3.includes('euroMark(k)')) fails.push('nothing in the App reports Europe');
+  if (!/useEffect\(\(\) => \{\s*\n\s*if \(!booted \|\| adminKey \|\| !gs\.clubId\) return;\s*\n\s*for \(const k of euroReports/.test(app3)) fails.push('a visit to the dashboard, or a career with no club, reports Europe');
+  const adm3 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
+  if (!adm3.includes('ליגת אירופה') || !adm3.includes("x.step === 'eu_final'")) fails.push('the dashboard has no place for the European cup');
+  // the door is shut, so no career carries a cup and nothing is reported until it opens
+  if (G.euroMarksFor(G.newGame(5)).length !== 0) fails.push('a career with no cup reports Europe');
+  console.log('  Europe: three closed marks in the game, the worker and the sending code, counted once a device, nothing while the door is shut');
 }
 
 /* 3h. THE GAME REPORTS THEM, AND ONLY FROM A REAL CAREER ON A REAL PAGE. */

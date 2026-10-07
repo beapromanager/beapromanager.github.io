@@ -126,6 +126,20 @@ export function AdminScreen({ stats: data }: { stats: Stats }) {
                 ))}
               </div>}
           </div>
+          {data.reach.europe && data.reach.europe.length > 0 && (
+            <>
+              <div className="label-cap">ליגת אירופה</div>
+              <div className="tile" style={{ padding: '11px 12px' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+                  <span className="num">{data.reach.europe.find(x => x.step === 'eu_in')?.n ?? 0}</span> נכנסו לגביע
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num">{data.reach.europe.find(x => x.step === 'eu_final')?.n ?? 0}</span> הגיעו לגמר
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num" style={{ color: data.reach.europe.find(x => x.step === 'eu_won') ? 'var(--gold-hi)' : undefined }}>{data.reach.europe.find(x => x.step === 'eu_won')?.n ?? 0}</span> זכו בו
+                </span>
+              </div>
+            </>
+          )}
           <p className="hint">
             נספר מרגע שהמדידה עלתה, ומי שממשיך קריירה ישנה נספר בפעם הבאה שהוא פותח את המשחק.
           </p>
@@ -179,6 +193,8 @@ export type Stats = {
     best: { tier: number; n: number }[];
     seasons: { season: number; n: number }[];
     titles: { tier: number; n: number }[];
+    /** the European cup, absent from a worker that does not count it yet */
+    europe?: { step: string; n: number }[];
   };
 };
 

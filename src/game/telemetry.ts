@@ -90,17 +90,24 @@ export const QUEUE_CAP = 60;
  * and reaching the top does not mean having sat in every season on the way. So they are never backfilled, each is
  * reported when it happens, and the server keeps one of each per device like every other step.
  */
-export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number];
+export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number];
 /**
  * The two money facts worth counting, agreed with Itzik on 3.10: a career that
  * fell below zero, and a career the owner ended over debt. The bot simulations
  * cannot say how REAL managers, who buy players, feel the economy; these can.
  */
 export const MONEY_MARKS = ['money_red', 'money_sack'] as const;
+/**
+ * Europe, agreed with Itzik on 7.10: how many careers were drawn into the cup,
+ * how many stood in the final, how many lifted it. The door is shut, so nothing
+ * is reported until it opens; the worker must know the names BEFORE the game
+ * that sends them is out, or they are dropped at its door.
+ */
+export const EURO_MARKS = ['eu_in', 'eu_final', 'eu_won'] as const;
 /** a career older than this is counted in its twentieth season, "twenty or more" */
 export const MAX_SEASON = 20;
 /** the only shapes the game sends and the worker keeps. The worker holds the same pattern, telemetry-check compares them */
-export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack)$/;
+export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won)$/;
 
 export function isMilestone(k: unknown): k is Milestone {
   return typeof k === 'string' && MILESTONE.test(k);
@@ -330,6 +337,11 @@ export function reached(tier: number, season: number): void {
 export function wonLeague(tier: number): void {
   const k = titleKey(tier);
   if (k) trackMilestone(k);
+}
+
+/** Note that a career was drawn into the European cup, stood in its final, or lifted it. */
+export function euroMark(k: typeof EURO_MARKS[number]): void {
+  trackMilestone(k);
 }
 
 /** Note that the purse fell below zero, or that the owner ended it over debt. */

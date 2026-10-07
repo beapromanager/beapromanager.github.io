@@ -9,7 +9,7 @@ import { moneyShort } from '../data/money.ts';
 import {
   EURO_LIVE, euroEntry, drawEuro, nightFor, ROUND_NAMES, legsIn, strengthOf, recordMyLeg, needsPens, settleMyPens,
   serveBans, banFor, playAiRound, advanceRound, playOutWithoutMe, prizeFor, aggregate, myTie,
-  euroWeeks, closeEuroSeason, euroVerdict, ROUND_IN,
+  euroWeeks, closeEuroSeason, euroVerdict, euroMarks, ROUND_IN,
   GATE_SHARE, TRAVEL, SECURITY,
 } from './euro.ts';
 import type { EuroState, EuroNight, EuroTie } from './euro.ts';
@@ -3655,6 +3655,11 @@ export function settleEuroSeason(gs: GameState): GameState {
 export function euroSeasonVerdict(gs: GameState): ReturnType<typeof euroVerdict> {
   // only the top flight ever shows Europe, whatever a save carries
   return club(gs).tier >= TOP_TIER ? euroVerdict(gs.euro, gs.clubId) : null;
+}
+
+/** What this career reports about Europe: nothing outside the ליגת העל, and nothing while there is no cup. */
+export function euroMarksFor(gs: GameState): ReturnType<typeof euroMarks> {
+  return club(gs).tier >= TOP_TIER ? euroMarks(gs.euro, gs.clubId) : [];
 }
 
 /** Is the door open for players? The season-end words only promise Europe while it is. */
