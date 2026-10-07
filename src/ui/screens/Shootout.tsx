@@ -30,16 +30,29 @@ const CLIP = {
   saveBehind: asset('/moments/euro-penalty/save-behind.mp4'),
 };
 const POSTER = asset('/moments/euro-penalty/poster.jpg');
-/** the keeper's three frames: set, in the air (the wrong way or the right way), and how it ended */
+/**
+ * The keeper's frames: he is set, then he is in the air, then it is over.
+ * Three ways it goes, and each has its own pair, so the picture never argues
+ * with the words: he went the wrong way and it is in, he went the right way
+ * and still could not reach it, he went the right way and held it.
+ */
 const KEEPER = {
   set: asset('/moments/euro-penalty/keeper-set.webp'),
   wrong: asset('/moments/euro-penalty/keeper-wrong.webp'),
+  near: asset('/moments/euro-penalty/keeper-near.webp'),
   right: asset('/moments/euro-penalty/keeper-right.webp'),
   goal: asset('/moments/euro-penalty/keeper-goal.webp'),
+  nearEnd: asset('/moments/euro-penalty/keeper-near-end.webp'),
   save: asset('/moments/euro-penalty/keeper-save.webp'),
 };
 const ON_THE_SPOT = asset('/moments/euro/penalty.webp');
-const IN_GOAL = asset('/moments/euro/def-penalty.webp');
+/**
+ * The card for their kick is the keeper's own set frame, not the night's
+ * penalty-against picture: that one has a post and a crossbar right behind
+ * him, so he reads as standing at the side of the goal instead of its middle,
+ * and it has a referee in it against Itzik's rule of only the two men.
+ */
+const IN_GOAL = KEEPER.set;
 /** the keeper sequence on the clock: the set frame holds, the contact comes, the end frame lands (ms) */
 export const KEEPER_BEATS = { contact: 1100, end: 2000 } as const;
 
@@ -155,7 +168,7 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
 
       {stage.kind === 'their-play' && (
         <div className="eu-pov">
-          <KeeperSequence scored={stage.kick.scored} mirrored={stage.kick.pick === 'left'}
+          <KeeperSequence scored={stage.kick.scored} reached={stage.kick.dive === stage.kick.pick} mirrored={stage.kick.pick === 'left'}
             onEnded={() => { buzz(stage.kick.scored ? BUZZ_MISS : BUZZ_SAVE); setStage({ ...stage, ended: true }); }} />
           {stage.ended && (
             <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--loss)' : 'var(--win)' }}>
@@ -191,11 +204,14 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
 /**
  * Their kick from inside the goal, three frames cut by the clock: the keeper
  * set (a slow push in), the contact (the ball in the air, the keeper already
- * in his dive, the frame shakes), and the end (the net or the gloves). The
- * timers are cleared if the screen leaves early, so nothing fires on a gone
- * kick. Reduced motion keeps the cuts and drops the push and the shake.
+ * in his dive, the frame shakes), and the end (the net or the gloves). Which
+ * pair plays follows what the words say: a goal where he guessed the corner
+ * right shows him stretched and just short, and then beaten on his own side,
+ * never diving away from a ball he is said to have reached. The timers are
+ * cleared if the screen leaves early, so nothing fires on a gone kick.
+ * Reduced motion keeps the cuts and drops the push and the shake.
  */
-function KeeperSequence({ scored, mirrored, onEnded }: { scored: boolean; mirrored: boolean; onEnded: () => void }) {
+function KeeperSequence({ scored, reached, mirrored, onEnded }: { scored: boolean; reached: boolean; mirrored: boolean; onEnded: () => void }) {
   const [step, setStep] = useState<'set' | 'contact' | 'end'>('set');
   const ended = useRef(onEnded);
   ended.current = onEnded;
@@ -205,10 +221,10 @@ function KeeperSequence({ scored, mirrored, onEnded }: { scored: boolean; mirror
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
   // all three frames are in the box from the first beat, so a cut never waits on a picture still loading
-  const layers = [{ key: 'set', src: KEEPER.set }, { key: 'contact', src: scored ? KEEPER.wrong : KEEPER.right }, { key: 'end', src: scored ? KEEPER.goal : KEEPER.save }] as const;
+  const layers = [{ key: 'set', src: KEEPER.set }, { key: 'contact', src: !scored ? KEEPER.right : reached ? KEEPER.near : KEEPER.wrong }, { key: 'end', src: !scored ? KEEPER.save : reached ? KEEPER.nearEnd : KEEPER.goal }] as const;
   return (
     <div className="eu-seq" data-step={step} data-mirror={mirrored ? '1' : '0'} role="img"
-      aria-label={scored ? 'הכדור ברשת, השוער על הדשא' : 'השוער עם הכדור בידיים'}>
+      aria-label={!scored ? 'השוער עם הכדור בידיים' : reached ? 'השוער הגיע לפינה ולא הספיק, הכדור ברשת' : 'השוער הלך לצד השני, הכדור ברשת'}>
       {layers.map(l => <img key={l.key} className="eu-seq-frame" data-on={step === l.key ? '1' : '0'} src={l.src} alt="" draggable={false} />)}
       {step === 'end' && (
         <div className="moment-wash" style={{ background: scored
