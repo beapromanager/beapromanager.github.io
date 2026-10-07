@@ -3636,7 +3636,8 @@ export function settleEuroSeason(gs: GameState): GameState {
   const euro = closeEuroSeason(gs.euro, gs.clubId, drawSeed(gs, 150_300));
   const v = euroVerdict(euro, gs.clubId);
   const id = `euro-s${gs.season}`;
-  if (!v || gs.chronicle.some(c => c.id === id)) return { ...gs, euro };
+  // Europe belongs to the ליגת העל and to nothing below it: a cup on a club in a lower division is shut but never written down
+  if (!v || club(gs).tier < TOP_TIER || gs.chronicle.some(c => c.id === id)) return { ...gs, euro };
   const legs = v.played === 1 ? 'משחק אחד' : `${v.played} משחקים`;
   const paid = v.prize > 0 ? ` הפרסים שנכנסו לקופה: ${formatShekels(v.prize)}.` : '';
   const entry: ChronicleEntry = v.outcome === 'won'
@@ -3652,7 +3653,8 @@ export function settleEuroSeason(gs: GameState): GameState {
 
 /** How the manager's season in Europe went, for the season-end screen. Null when there was none. */
 export function euroSeasonVerdict(gs: GameState): ReturnType<typeof euroVerdict> {
-  return euroVerdict(gs.euro, gs.clubId);
+  // only the top flight ever shows Europe, whatever a save carries
+  return club(gs).tier >= TOP_TIER ? euroVerdict(gs.euro, gs.clubId) : null;
 }
 
 /** Is the door open for players? The season-end words only promise Europe while it is. */

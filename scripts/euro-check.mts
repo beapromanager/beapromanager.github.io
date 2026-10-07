@@ -40,7 +40,7 @@ import * as G from '../src/game/state.ts';
 import * as L from '../src/game/liveMatch.ts';
 import type { MatchResult } from '../src/engine/matchEngine.ts';
 import { overall } from '../src/engine/matchEngine.ts';
-import { gateIncome } from '../src/game/career.ts';
+import { gateIncome, TOP_TIER } from '../src/game/career.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
 import { euroClub } from '../src/data/europeClubs.ts';
@@ -776,12 +776,14 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
 
   // the state: chronicled once, nothing else moves, a season with no cup leaves nothing
   checked += 11;
-  const withCup = (euro: ReturnType<typeof drawEuro> | null) => ({ ...g, euro });
+  // the same club in the ליגת העל: Europe is written down only there. `g` stays in the third division for the negatives
+  const gTop = { ...g, league: { ...g.league, clubs: g.league.clubs.map(c => c.id === g.clubId ? { ...c, tier: TOP_TIER } : c) } };
+  const withCup = (euro: ReturnType<typeof drawEuro> | null) => ({ ...gTop, euro });
   const settledWon = G.settleEuroSeason(withCup(run(51, -1)));
   const entry = settledWon.chronicle.find(c => c.id === `euro-s${g.season}`);
   if (!entry || entry.kind !== 'season_end' || !entry.title.includes('ליגת אירופה') || !entry.body.includes('₪') && !/\d/.test(entry.body)) fails.push('a won cup is not chronicled with its title and its prizes');
-  if (settledWon.chronicle.length !== g.chronicle.length + 1) fails.push('a won cup wrote more or less than one chronicle line');
-  if (JSON.stringify(settledWon.meters) !== JSON.stringify(g.meters) || settledWon.league !== g.league || settledWon.phase !== g.phase || settledWon.week !== g.week) fails.push('closing the cup moved the money, the league, the phase or the week');
+  if (settledWon.chronicle.length !== gTop.chronicle.length + 1) fails.push('a won cup wrote more or less than one chronicle line');
+  if (JSON.stringify(settledWon.meters) !== JSON.stringify(gTop.meters) || settledWon.league !== gTop.league || settledWon.phase !== gTop.phase || settledWon.week !== gTop.week) fails.push('closing the cup moved the money, the league, the phase or the week');
   const again = G.settleEuroSeason(settledWon);
   if (again.chronicle.length !== settledWon.chronicle.length) fails.push('the same season was chronicled twice');
   const settledOut = G.settleEuroSeason(withCup(run(53, 2)));
@@ -797,6 +799,14 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   if (G.euroSeasonVerdict(withCup(null)) !== null || G.euroSeasonVerdict(settledWon)?.outcome !== 'won') fails.push('the season-end screen cannot read the verdict off the state');
   if (G.euroDoorOpen() !== EURO_LIVE || G.euroDoorOpen()) fails.push('the season-end words think the door is open');
   if (JSON.stringify(G.settleEuroSeason(withCup(run(53, 2)))) !== JSON.stringify(settledOut)) fails.push('closing the same season twice from the same state gave two different states');
+
+  // Itzik: Europe appears after the ליגת העל and nowhere else. A cup on a club in a lower division is shut, never chronicled, never shown
+  checked += 4;
+  const low = G.settleEuroSeason({ ...g, euro: run(51, -1) });
+  if (low.chronicle.length !== g.chronicle.length || low.chronicle.some(c => c.id.startsWith('euro-s'))) fails.push('a club below the ליגת העל got a European line in its chronicle');
+  if (!low.euro || low.euro.status === 'on') fails.push('a cup on a lower division club was left open');
+  if (G.euroSeasonVerdict({ ...g, euro: run(51, -1) }) !== null) fails.push('the season-end screen shows Europe to a club below the ליגת העל');
+  if (G.euroSeasonVerdict({ ...gTop, euro: run(51, -1) })?.outcome !== 'won') fails.push('the season-end screen hides Europe from a ליגת העל club that won it');
 
   // the wiring: the cup is closed where the season ends, before the summer draws the next, and only on a calendar that can play it
   checked += 8;
