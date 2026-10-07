@@ -380,26 +380,26 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
       )}
 
       {/* decisions, each pops up as a full-screen moment (portaled) */}
-      {pending?.kind === 'penalty' && <MomentPopup m={pending} kind="penalty" onPickCorner={c => { const scored = L.resolvePenalty(st, c); setPenOutcome({ corner: c, scored }); force(); }} />}
+      {pending?.kind === 'penalty' && <MomentPopup m={pending} kind="penalty" imgOverride={euro ? EURO_MOMENT.penalty : undefined} onPickCorner={c => { const scored = L.resolvePenalty(st, c); setPenOutcome({ corner: c, scored }); force(); }} />}
       {penOutcome && <PenaltyOutcome corner={penOutcome.corner} scored={penOutcome.scored} onDone={() => setPenOutcome(null)} />}
-      {pending?.kind === 'def_penalty' && <MomentPopup m={pending} kind="def_penalty" onPickCorner={c => {
+      {pending?.kind === 'def_penalty' && <MomentPopup m={pending} kind="def_penalty" imgOverride={euro ? EURO_MOMENT.def_penalty : undefined} onPickCorner={c => {
         const keeper = L.playerKeeperName(st);
         const { saved, aim } = L.resolveDefPenalty(st, c);
         setDefPenOutcome({ saved, keeper, aim });
         force();
       }} />}
       {defPenOutcome && <DefPenaltyOutcome saved={defPenOutcome.saved} keeper={defPenOutcome.keeper} aim={defPenOutcome.aim} onDone={() => setDefPenOutcome(null)} />}
-      {pending?.kind === 'shot' && <MomentPopup m={pending} kind="shot" onPickCorner={c => { const outcome = L.resolveShot(st, c); setShotOutcome({ corner: c, outcome }); force(); }} />}
+      {pending?.kind === 'shot' && <MomentPopup m={pending} kind="shot" imgOverride={euro ? EURO_MOMENT.shot : undefined} onPickCorner={c => { const outcome = L.resolveShot(st, c); setShotOutcome({ corner: c, outcome }); force(); }} />}
       {shotOutcome && <ShotOutcomeCard corner={shotOutcome.corner} outcome={shotOutcome.outcome} onDone={() => setShotOutcome(null)} />}
-      {pending?.kind === 'free_kick' && <MomentPopup m={pending} kind="free_kick" onPickCorner={c => { const outcome = L.resolveFreeKick(st, c); setFkOutcome({ corner: c, outcome }); force(); }} />}
+      {pending?.kind === 'free_kick' && <MomentPopup m={pending} kind="free_kick" imgOverride={euro ? EURO_MOMENT.free_kick : undefined} onPickCorner={c => { const outcome = L.resolveFreeKick(st, c); setFkOutcome({ corner: c, outcome }); force(); }} />}
       {fkOutcome && <FreeKickOutcomeCard corner={fkOutcome.corner} outcome={fkOutcome.outcome} onDone={() => setFkOutcome(null)} />}
-      {pending?.kind === 'one_on_one' && <MomentPopup m={pending} kind="one_on_one" onPickOption={id => { const outcome = L.resolveOneOnOne(st, id); setOneOnOneOutcome(outcome); force(); }} />}
+      {pending?.kind === 'one_on_one' && <MomentPopup m={pending} kind="one_on_one" imgOverride={euro ? EURO_MOMENT.one_on_one : undefined} onPickOption={id => { const outcome = L.resolveOneOnOne(st, id); setOneOnOneOutcome(outcome); force(); }} />}
       {oneOnOneOutcome && <OneOnOneOutcomeCard outcome={oneOnOneOutcome} onDone={() => setOneOnOneOutcome(null)} />}
-      {pending?.kind === 'def_keeper' && <MomentPopup m={pending} kind="def_keeper" onPickOption={id => { const outcome = L.resolveDefKeeper(st, id); setDefKeeperOutcome(outcome); force(); }} />}
+      {pending?.kind === 'def_keeper' && <MomentPopup m={pending} kind="def_keeper" imgOverride={euro ? EURO_MOMENT.def_keeper : undefined} onPickOption={id => { const outcome = L.resolveDefKeeper(st, id); setDefKeeperOutcome(outcome); force(); }} />}
       {defKeeperOutcome && <DefKeeperOutcomeCard outcome={defKeeperOutcome} onDone={() => setDefKeeperOutcome(null)} />}
-      {pending?.kind === 'def_tackle' && <MomentPopup m={pending} kind="def_tackle" onPickOption={id => { const outcome = L.resolveDefTackle(st, id); setDefTackleOutcome(outcome); force(); }} />}
+      {pending?.kind === 'def_tackle' && <MomentPopup m={pending} kind="def_tackle" imgOverride={euro ? EURO_MOMENT.def_tackle : undefined} onPickOption={id => { const outcome = L.resolveDefTackle(st, id); setDefTackleOutcome(outcome); force(); }} />}
       {defTackleOutcome && <DefTackleOutcomeCard outcome={defTackleOutcome} onDone={() => setDefTackleOutcome(null)} />}
-      {pending?.kind === 'tactic' && <MomentPopup m={pending} kind="tactic" imgOverride={tacticImg(G.club(gs).tier)} onPickOption={id => { L.resolveTactic(st, id); force(); }} />}
+      {pending?.kind === 'tactic' && <MomentPopup m={pending} kind="tactic" imgOverride={euro ? EURO_MOMENT.tactic : tacticImg(G.club(gs).tier)} onPickOption={id => { L.resolveTactic(st, id); force(); }} />}
 
       {st.phase === 'done' ? (
         <button className="btn" onClick={() => onDone(L.finalize(st), [...L.mySide(st).onPitch, ...L.mySide(st).sentOff.map(x => x.player)].map(p => p.id))}>
@@ -1054,6 +1054,23 @@ function FeedRow({ ev, mine, fresh, dim }: { ev: L.LiveEvent; mine: boolean; fre
  */
 
 type MomentKind = 'penalty' | 'shot' | 'one_on_one' | 'tactic' | 'free_kick' | 'def_keeper' | 'def_tackle' | 'def_penalty';
+
+/**
+ * The European night's own pictures for the moments, Itzik's note that the
+ * nights must not look like the league: the same eight moments shot under a
+ * deep blue floodlit sky in plain kits. Only the frame the question is asked
+ * on changes; the outcome frames are the league's own until theirs are made.
+ */
+const EURO_MOMENT: Record<MomentKind, string> = {
+  penalty: asset('/moments/euro/penalty.webp'),
+  def_penalty: asset('/moments/euro/def-penalty.webp'),
+  shot: asset('/moments/euro/shot.webp'),
+  one_on_one: asset('/moments/euro/one-on-one.webp'),
+  tactic: asset('/moments/euro/tactic.webp'),
+  free_kick: asset('/moments/euro/free-kick.webp'),
+  def_keeper: asset('/moments/euro/def-keeper.webp'),
+  def_tackle: asset('/moments/euro/def-tackle.webp'),
+};
 
 const MOMENT_LOOK: Record<MomentKind, { img: string; accent: string; kicker: string }> = {
   penalty:    { img: PEN_BUILDUP,                accent: 'var(--blood)', kicker: 'פנדל' },

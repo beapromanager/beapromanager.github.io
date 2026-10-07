@@ -40,7 +40,7 @@ import { gateIncome } from '../src/game/career.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
 import { euroClub } from '../src/data/europeClubs.ts';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { EURO_CLUBS } from '../src/data/europeClubs.ts';
 import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
@@ -608,6 +608,13 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const match = readFileSync('src/ui/screens/Match.tsx', 'utf8');
   if (!match.includes('{entrance && clubs && euroLines && <EuroEntrance') || !match.includes("&& !entrance && !paused")) fails.push('the match does not show the entrance before a European kickoff, or runs under it');
   if (!match.includes('<div className="eu-venue">{euroLines.venue}</div>') || !match.includes('data-euro={euro ? \'1\' : undefined}')) fails.push('the broadcast bar does not carry the ground or the European look');
+  // the moments wear the night's own pictures, every one of the eight, and the files are there
+  checked += 2;
+  const kinds = ['penalty', 'def_penalty', 'shot', 'free_kick', 'one_on_one', 'def_keeper', 'def_tackle'];
+  if (!kinds.every(k => match.includes(`kind="${k}" imgOverride={euro ? EURO_MOMENT.${k} : undefined}`)) || !match.includes('imgOverride={euro ? EURO_MOMENT.tactic : tacticImg(G.club(gs).tier)}')) fails.push('a moment on a European night still shows the league picture');
+  const files = ['penalty', 'def-penalty', 'shot', 'one-on-one', 'tactic', 'free-kick', 'def-keeper', 'def-tackle'];
+  const missingPic = files.filter(f => !existsSync(`public/moments/euro/${f}.webp`) || !match.includes(`asset('/moments/euro/${f}.webp')`));
+  if (missingPic.length) fails.push(`European moment pictures missing or unwired: ${missingPic.join(', ')}`);
   // the words: home is his town in Israel, away is their club, city and country, the final neutral
   checked += 4;
   const g0 = (() => {
