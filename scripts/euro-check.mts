@@ -25,12 +25,16 @@
  *      face each other before kickoff, and the ground is named Itzik's way
  *  13. the draw from his seat, owed once and never rolled again, and the
  *      bracket room that reads and never writes
+ *  14. the season's close: a cup still open is shut against him and played to
+ *      its champion, the way it went is chronicled once, no money and no
+ *      league moves, and the screen promises Europe only with the door open
  */
 import {
   EURO_LIVE, EURO_POOL, EURO_FIELD, EURO_ROUNDS, ROUND_NAMES, STAGE_TARGET, PRIZE,
   GATE_SHARE, TRAVEL, SECURITY, legsIn, euroWeeks, drawEuro, playAiRound, recordMyLeg, advanceRound, needsPens, settleMyPens,
   roundDone, shootout, settleTie, aggregate, strengthOf, myTie, iHost, banFor, serveBans, allWinners, aiLeg, prizeFor,
   playOutWithoutMe, champion, euroEntry, nightFor, shootoutStatus, hintFor, diveFor, myKickScores, theirKickSaved,
+  closeEuroSeason, euroVerdict, ROUND_IN,
 } from '../src/game/euro.ts';
 import * as G from '../src/game/state.ts';
 import * as L from '../src/game/liveMatch.ts';
@@ -265,8 +269,8 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const rescue = src.slice(src.indexOf('export function takeRescue'), src.indexOf('export function takeRescue') + 2500);
   if (!rescue.includes('    sacking: null,\n    euro: null,')) fails.push('a rescued manager keeps the European season of the club that sacked him');
   // the summer draws it through drawSeed with its own salt and carries the rested five forward
-  const summerLine = 'euro: euroEntry(EURO_LIVE, report, TOP_TIER)\n      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])';
-  if (!src.includes(summerLine)) fails.push('the summer does not draw the competition through the flag, the entry rule, drawSeed and the rested five');
+  const summerLine = 'euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null\n      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])';
+  if (!src.includes(summerLine)) fails.push('the summer does not draw the competition through the flag, the entry rule, a calendar that can play it, drawSeed and the rested five');
   // and the save gives an old career the field
   checked++;
   if (!readFileSync('src/game/save.ts', 'utf8').includes('euro: s.euro ?? null,')) fails.push('an old save would load without the euro field');
@@ -709,6 +713,104 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   if (!hub.includes('label="אירופה" onClick={onEuroBracket}')) fails.push('the hub has no European room');
   const app = readFileSync('src/ui/App.tsx', 'utf8');
   if (!app.includes("{gs.phase === 'euro-draw' && <EuroDrawScreen gs={gs} onDone={() => setGs(g => G.finishEuroDraw(g))} />}") || !app.includes("{gs.phase === 'euro-bracket' && <EuroBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}")) fails.push('the app does not show the draw and the bracket');
+}
+/* ------------------------------ 14. the season's close: the cup shut, chronicled once, never left open */
+{
+  const g = (() => {
+    let s = G.newGame(41);
+    s = G.setProfile(s, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+    s = G.pickCity(s, LEGEND_TOWN);
+    s = G.afterSigning(s, {});
+    s = G.enterPreseason({ ...s, phase: 'preseason-market' } as never);
+    while (s.phase === 'preseason-market') s = G.advancePreseason(s);
+    return { ...s, phase: 'hub' as const, week: 14 };
+  })();
+  const id = g.clubId;
+  /** a whole run for this club: win every round before `loseAt`, lose the round at `loseAt`, never lose when it is -1 */
+  const run = (seed: number, loseAt: number, stopAt = 9): ReturnType<typeof drawEuro> => {
+    let e = drawEuro(seed, id, g.season);
+    let guard = 0;
+    while (e.status === 'on' && e.round < stopAt && guard++ < 10) {
+      e = playAiRound(e, id, seed * 7 + e.round);
+      for (let l = 0; l < legsIn(e.round); l++) e = recordMyLeg(e, id, e.round === loseAt ? [0, 2] : [3, 0]);
+      e = needsPens(e, id) ? settleMyPens(e, id, shootout(createRng(seed * 11 + e.round)).score) : e;
+      e = advanceRound(e, id);
+    }
+    return e;
+  };
+  const total = (r: number) => PRIZE.slice(1, r + 1).reduce<number>((s, x) => s + x, 0);
+
+  // the verdict: how far he got, what it paid, how many legs, from the rounds he stood in
+  checked += 9;
+  const won = euroVerdict(run(51, -1), id);
+  if (!won || won.outcome !== 'won' || won.round !== 3 || won.prize !== 4_500_000 || won.played !== 7) fails.push(`a won cup reads ${JSON.stringify(won)}, wanted won in the final, 4.5M, seven legs`);
+  if (total(4) !== 4_500_000) fails.push('the prizes of the four rounds do not add to the agreed 4.5M');
+  const first = euroVerdict(run(52, 0), id);
+  if (!first || first.outcome !== 'out' || first.round !== 0 || first.prize !== 0 || first.played !== 2) fails.push(`going out in the last sixteen reads ${JSON.stringify(first)}, wanted out in round 0, nothing paid, two legs`);
+  const semi = euroVerdict(run(53, 2), id);
+  if (!semi || semi.outcome !== 'out' || semi.round !== 2 || semi.prize !== total(2)) fails.push(`going out in the semi reads ${JSON.stringify(semi)}, wanted round 2 and ${total(2)}`);
+  const lostFinal = euroVerdict(run(54, 3), id);
+  if (!lostFinal || lostFinal.outcome !== 'out' || lostFinal.round !== 3 || lostFinal.prize !== total(3)) fails.push(`losing the final reads ${JSON.stringify(lostFinal)}, wanted round 3 and ${total(3)}`);
+  if (euroVerdict(null, id) !== null || euroVerdict(drawEuro(55, id, g.season), id) !== null) fails.push('a season with no competition, or one still being played, has a verdict');
+  const closedOut = playOutWithoutMe(run(52, 0), id, 4040);
+  if (JSON.stringify(euroVerdict(closedOut, id)) !== JSON.stringify(first)) fails.push('playing the rest of the cup out changed how his own run reads');
+  if (ROUND_IN.length !== ROUND_NAMES.length || ROUND_IN.some((w, i) => w.includes('הה') || !w.endsWith(ROUND_NAMES[i].replace(/^ה/, '')))) fails.push('the round names with their preposition do not match the round names');
+  if (!(first.prize <= semi.prize && semi.prize <= lostFinal.prize && lostFinal.prize <= won.prize)) fails.push('a longer run pays less than a shorter one');
+
+  // the season ends with the cup open: his tie goes to the other side, the rest is played out, nobody is paid for a round he did not reach
+  checked += 7;
+  const open0 = drawEuro(56, id, g.season);
+  const cut0 = closeEuroSeason(open0, id, 777);
+  const v0 = euroVerdict(cut0, id);
+  if (cut0.status !== 'out' || !cut0.cut || !champion(cut0) || champion(cut0) === id || allWinners(cut0).length !== 15) fails.push('an open cup at the season end is not closed to one champion with fifteen winners and not him');
+  if (!v0 || v0.outcome !== 'cut' || v0.round !== 0 || v0.prize !== 0 || v0.played !== 0) fails.push(`an unplayed cup closes as ${JSON.stringify(v0)}, wanted cut in round 0, nothing paid, nothing played`);
+  if (JSON.stringify(closeEuroSeason(open0, id, 777)) !== JSON.stringify(cut0)) fails.push('closing the same cup twice on one seed gave two different cups');
+  const mid = run(57, -1, 1);                         // through the last sixteen, the quarter drawn and unplayed
+  const vMid = euroVerdict(closeEuroSeason(mid, id, 778), id);
+  if (mid.status !== 'on' || mid.round !== 1 || !vMid || vMid.outcome !== 'cut' || vMid.round !== 1 || vMid.prize !== total(1) || vMid.played !== 2) fails.push(`a cup cut at the quarter reads ${JSON.stringify(vMid)}, wanted round 1, only the round he reached paid, two legs`);
+  const done = run(58, 1);
+  if (closeEuroSeason(done, id, 779) !== done) fails.push('a cup that was already finished was changed by the close');
+  const won2 = run(51, -1);
+  if (closeEuroSeason(won2, id, 779) !== won2) fails.push('a cup he won was changed by the close');
+  if (euroVerdict({ ...done, cut: undefined }, id)?.outcome !== 'out') fails.push('a finished cup without the cut mark reads as cut');
+
+  // the state: chronicled once, nothing else moves, a season with no cup leaves nothing
+  checked += 11;
+  const withCup = (euro: ReturnType<typeof drawEuro> | null) => ({ ...g, euro });
+  const settledWon = G.settleEuroSeason(withCup(run(51, -1)));
+  const entry = settledWon.chronicle.find(c => c.id === `euro-s${g.season}`);
+  if (!entry || entry.kind !== 'season_end' || !entry.title.includes('ליגת אירופה') || !entry.body.includes('₪') && !/\d/.test(entry.body)) fails.push('a won cup is not chronicled with its title and its prizes');
+  if (settledWon.chronicle.length !== g.chronicle.length + 1) fails.push('a won cup wrote more or less than one chronicle line');
+  if (JSON.stringify(settledWon.meters) !== JSON.stringify(g.meters) || settledWon.league !== g.league || settledWon.phase !== g.phase || settledWon.week !== g.week) fails.push('closing the cup moved the money, the league, the phase or the week');
+  const again = G.settleEuroSeason(settledWon);
+  if (again.chronicle.length !== settledWon.chronicle.length) fails.push('the same season was chronicled twice');
+  const settledOut = G.settleEuroSeason(withCup(run(53, 2)));
+  const outEntry = settledOut.chronicle.find(c => c.id === `euro-s${g.season}`);
+  if (!outEntry || !outEntry.title.includes(ROUND_IN[2]) || !outEntry.body.includes('אליפות נוספת')) fails.push('going out is not chronicled with the round he went out in and the way back');
+  const settledCut = G.settleEuroSeason(withCup(drawEuro(56, id, g.season)));
+  const cutEntry = settledCut.chronicle.find(c => c.id === `euro-s${g.season}`);
+  if (!settledCut.euro || settledCut.euro.status === 'on' || !settledCut.euro.cut || !cutEntry || !cutEntry.body.includes('הפסד')) fails.push('an open cup at the season end is not shut and chronicled as a loss');
+  const none = withCup(null);
+  if (G.settleEuroSeason(none) !== none) fails.push('a season with no cup was changed');
+  const old = withCup({ ...run(51, -1), season: g.season - 1 });
+  if (G.settleEuroSeason(old) !== old) fails.push('last season\'s cup was closed and chronicled again this season');
+  if (G.euroSeasonVerdict(withCup(null)) !== null || G.euroSeasonVerdict(settledWon)?.outcome !== 'won') fails.push('the season-end screen cannot read the verdict off the state');
+  if (G.euroDoorOpen() !== EURO_LIVE || G.euroDoorOpen()) fails.push('the season-end words think the door is open');
+  if (JSON.stringify(G.settleEuroSeason(withCup(run(53, 2)))) !== JSON.stringify(settledOut)) fails.push('closing the same season twice from the same state gave two different states');
+
+  // the wiring: the cup is closed where the season ends, before the summer draws the next, and only on a calendar that can play it
+  checked += 8;
+  const src = readFileSync('src/game/state.ts', 'utf8');
+  if (!src.includes('const settled = settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs);') || !src.includes("return { ...settled, phase: 'season-end', press: null, chat: null, fanHistory };")) fails.push('the cup is not closed where the last league round ends');
+  if (!src.includes('euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null')) fails.push('a cup is drawn for a league too short to play it');
+  if (euroWeeks(10) !== null || euroWeeks(14) === null) fails.push('the calendar guard does not say which leagues can play the cup');
+  const end = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');
+  if (!end.includes('const europe = G.euroDoorOpen();') || !end.includes("(europe ? 'אלופי המדינה. עכשיו הולכים על אירופה.' : 'אלופי המדינה.')")) fails.push('the headline promises Europe with the door shut');
+  if (!end.includes("europe ? 'בליגת העל רק מקום ראשון פותח את הדרך לאירופה.' : 'בליגת העל רק מקום ראשון הוא אליפות.'")) fails.push('the hint under the button promises Europe with the door shut');
+  if (!end.includes("(europe ? 'עכשיו הולכים על אירופה' : 'האליפות היא שלנו')") || !end.includes('europe={europe}')) fails.push('the celebration promises Europe with the door shut');
+  if (!end.includes('{euroVerdict && <EuroSeasonCard v={euroVerdict} />}')) fails.push('the season-end screen does not show how Europe went');
+  const cardSrc = end.slice(end.indexOf('function EuroSeasonCard'), end.indexOf('/* ------------------------------------------------------------ the WOW */'));
+  if (cardSrc.includes('setGs') || cardSrc.includes('G.commit') || cardSrc.includes('onClick')) fails.push('the European card on the season-end screen writes or acts');
 }
 console.log(`${checked} checks`);
 if (fails.length) {

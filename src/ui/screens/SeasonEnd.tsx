@@ -7,6 +7,7 @@ import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { formatMoney } from '../components/bits.tsx';
 import { LEAGUE_NAMES } from '../../data/clubs.ts';
+import { ROUND_IN } from '../../game/euro.ts';
 
 /**
  * End of a season, which is now a milestone in a long climb rather than the end
@@ -27,10 +28,13 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
   const relegated = myPos >= teams && c.tier > 1;
   const nextTier = Math.max(1, Math.min(TOP_TIER, c.tier + (promoted ? 1 : 0) - (relegated ? 1 : 0)));
 
+  // Europe is promised only while its door is open for players; shut, the title is simply the title
+  const europe = G.euroDoorOpen();
+  const euroVerdict = G.euroSeasonVerdict(gs);
   const headline = blocked
     ? `${champion ? 'אלופים, אבל ה' : 'ה'}אצטדיון קטן מדי ל${LEAGUE_NAMES[gate!.nextTier]}. נשארים לעוד עונה.`
     : champion && c.tier >= TOP_TIER
-      ? 'אלופי המדינה. עכשיו הולכים על אירופה.'
+      ? (europe ? 'אלופי המדינה. עכשיו הולכים על אירופה.' : 'אלופי המדינה.')
       : champion
         ? `אלופים. עולים ל${LEAGUE_NAMES[nextTier]} עם הכתר על הראש.`
         : promoted
@@ -83,6 +87,8 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
         )}
       </div>
 
+      {euroVerdict && <EuroSeasonCard v={euroVerdict} />}
+
       <div className="label-cap">הטבלה הסופית</div>
       <div className="tile-flat" style={{ padding: 0, overflow: 'hidden' }}>
         {table.map((s, i) => {
@@ -115,15 +121,40 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
       <p className="hint" style={{ textAlign: 'center' }}>
         {blocked
           ? 'הרחב את האצטדיון עד לדרישת הליגה מעל, ובעונה הבאה העלייה שלך.'
-          : c.tier < TOP_TIER ? 'שתי המקומות הראשונים עולים ליגה, האחרון יורד.' : 'בליגת העל רק מקום ראשון פותח את הדרך לאירופה.'}
+          : c.tier < TOP_TIER ? 'שתי המקומות הראשונים עולים ליגה, האחרון יורד.' : europe ? 'בליגת העל רק מקום ראשון פותח את הדרך לאירופה.' : 'בליגת העל רק מקום ראשון הוא אליפות.'}
       </p>
 
       {celebrating && (
         <Celebration
-          champion={champion} atTop={champion && c.tier >= TOP_TIER}
+          champion={champion} atTop={champion && c.tier >= TOP_TIER} europe={europe}
           tier={c.tier} nextTier={nextTier}
           onDone={() => setCelebrating(false)} />
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------ the season in Europe */
+
+/**
+ * How the season in Europe went, in the night's own blue and silver, only for
+ * a manager who was in it. It reads the verdict and writes nothing: the cup
+ * was closed and chronicled when the last league round ended.
+ */
+function EuroSeasonCard({ v }: { v: NonNullable<ReturnType<typeof G.euroSeasonVerdict>> }) {
+  const won = v.outcome === 'won';
+  const legs = v.played === 1 ? 'משחק אחד' : `${v.played} משחקים`;
+  const headline = won ? 'הגביע אצלנו' : v.outcome === 'cut' ? `העונה נגמרה ${ROUND_IN[v.round]}` : `הדרך נגמרה ${ROUND_IN[v.round]}`;
+  return (
+    <div className="tile-flat" style={{
+      padding: '13px 15px', textAlign: 'center',
+      background: 'linear-gradient(180deg,#0f1626,#070b14)', border: `1px solid ${won ? 'var(--gold)' : '#2b3a55'}`,
+    }}>
+      <div className="label-cap" style={{ color: '#7f93b4' }}>ליגת אירופה</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.1, marginTop: 5, color: won ? 'var(--gold)' : '#CFE0FF' }}>{headline}</div>
+      <div className="sub" style={{ marginTop: 6 }}>
+        {legs}{v.prize > 0 ? ` · פרסים ${formatMoney(v.prize)}` : ''}
+      </div>
     </div>
   );
 }
@@ -146,8 +177,8 @@ const reduceMotion = typeof window !== 'undefined'
  * of gold confetti, a floodlight flash reveals the wordmark, and a tap drops it
  * to show the final table underneath. Same cinematic grammar as the cold open.
  */
-export function Celebration({ champion, atTop, tier, nextTier, onDone }: {
-  champion: boolean; atTop: boolean; tier: number; nextTier: number; onDone: () => void;
+export function Celebration({ champion, atTop, europe = true, tier, nextTier, onDone }: {
+  champion: boolean; atTop: boolean; europe?: boolean; tier: number; nextTier: number; onDone: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [imgOk, setImgOk] = useState(true);
@@ -156,7 +187,7 @@ export function Celebration({ champion, atTop, tier, nextTier, onDone }: {
   const finish = () => { if (!done.current) { done.current = true; onDone(); } };
 
   const word = atTop ? 'אלופי המדינה' : champion ? 'אלופים' : 'עלייה';
-  const sub = atTop ? 'עכשיו הולכים על אירופה'
+  const sub = atTop ? (europe ? 'עכשיו הולכים על אירופה' : 'האליפות היא שלנו')
     : `עולים ל${LEAGUE_NAMES[nextTier]}`;
 
   // preload so the push in never starts on a blank frame

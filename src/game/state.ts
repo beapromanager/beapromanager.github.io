@@ -9,6 +9,7 @@ import { moneyShort } from '../data/money.ts';
 import {
   EURO_LIVE, euroEntry, drawEuro, nightFor, ROUND_NAMES, legsIn, strengthOf, recordMyLeg, needsPens, settleMyPens,
   serveBans, banFor, playAiRound, advanceRound, playOutWithoutMe, prizeFor, aggregate, myTie,
+  euroWeeks, closeEuroSeason, euroVerdict, ROUND_IN,
   GATE_SHARE, TRAVEL, SECURITY,
 } from './euro.ts';
 import type { EuroState, EuroNight, EuroTie } from './euro.ts';
@@ -3624,6 +3625,39 @@ export function finishEuroPens(gs: GameState, score: [number, number]): GameStat
   };
 }
 
+/**
+ * The season is over: the competition is closed if it is not already, and the
+ * way it went is written in the chronicle once, whatever the road. No money
+ * moves here (every round paid its own prize on the night it was reached), the
+ * league is not touched, and a season that had no competition leaves nothing.
+ */
+export function settleEuroSeason(gs: GameState): GameState {
+  if (!gs.euro || gs.euro.season !== gs.season) return gs;
+  const euro = closeEuroSeason(gs.euro, gs.clubId, drawSeed(gs, 150_300));
+  const v = euroVerdict(euro, gs.clubId);
+  const id = `euro-s${gs.season}`;
+  if (!v || gs.chronicle.some(c => c.id === id)) return { ...gs, euro };
+  const legs = v.played === 1 ? 'משחק אחד' : `${v.played} משחקים`;
+  const paid = v.prize > 0 ? ` הפרסים שנכנסו לקופה: ${formatShekels(v.prize)}.` : '';
+  const entry: ChronicleEntry = v.outcome === 'won'
+    ? { id, kind: 'season_end', week: gs.week, icon: 'trophy', tint: 'gold',
+        title: 'ליגת אירופה: הגביע אצלנו', body: `${legs} בארבעה סבבים, ובסוף הגביע.${paid}` }
+    : v.outcome === 'cut'
+      ? { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: 'draw',
+          title: `ליגת אירופה: העונה נגמרה ${ROUND_IN[v.round]}`, body: `הזוג לא הוכרע בזמן ונחשב הפסד.${paid}` }
+      : { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: 'draw',
+          title: `ליגת אירופה: הדרך נגמרה ${ROUND_IN[v.round]}`, body: `${legs} באירופה.${paid} הדרך חזרה עוברת דרך אליפות נוספת.` };
+  return { ...gs, euro, chronicle: [...gs.chronicle, entry] };
+}
+
+/** How the manager's season in Europe went, for the season-end screen. Null when there was none. */
+export function euroSeasonVerdict(gs: GameState): ReturnType<typeof euroVerdict> {
+  return euroVerdict(gs.euro, gs.clubId);
+}
+
+/** Is the door open for players? The season-end words only promise Europe while it is. */
+export const euroDoorOpen = (): boolean => EURO_LIVE;
+
 /** The word on the hub after the night: the score, where it leaves the tie, and who is hurt. */
 function euroNightNotice(gs: GameState, night: EuroNight, goals: [number, number], tie: EuroTie | undefined, line: string, hurt: string[]): SquadNotice {
   const opp = euroClub(night.oppId);
@@ -4568,8 +4602,9 @@ function endOfWeek(gs: GameState): GameState {
     : gs.fanHistory;
   if (gs.seasonOver) {
     const finale = chronicleAtSeasonEnd(gs);
-    const chronicle = finale ? [...gs.chronicle, finale] : gs.chronicle;
-    return { ...gs, phase: 'season-end', press: null, chat: null, chronicle, fanHistory };
+    // the league's line first, then the cup's: the competition is closed and written down before the summer draws the next
+    const settled = settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs);
+    return { ...settled, phase: 'season-end', press: null, chat: null, fanHistory };
   }
   // the winter window opens with a word, not silently behind a green dot
   const next = gs.week + 1;
@@ -5236,7 +5271,7 @@ export function startNextSeason(gs: GameState): GameState {
     lastReport: report,
     // the door to Europe opens on a ליגת העל title and on nothing else. The five
     // clubs rested last season come first in the new draw
-    euro: euroEntry(EURO_LIVE, report, TOP_TIER)
+    euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null
       ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])
       : null,
     purseEarlier: 0,

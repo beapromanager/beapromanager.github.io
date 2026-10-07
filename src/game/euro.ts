@@ -81,6 +81,8 @@ export interface EuroState {
   played: number;
   /** the draw ceremony watched or skipped; absent on a competition drawn before the screen existed, so it is owed */
   seen?: boolean;
+  /** the season ended with his tie still open, so it was closed against him; absent otherwise */
+  cut?: boolean;
 }
 
 /** The manager's own fixed edge: he is the real squad, the edge is for the others. */
@@ -346,6 +348,46 @@ export function playOutWithoutMe(e: EuroState, myId: string, seed: number): Euro
     cur = advanceRound(cur, myId);
   }
   return cur;
+}
+
+/**
+ * The season is over and the cup is not: his tie was never played out. It goes
+ * to the other side, nobody is paid for a round he did not reach, and the rest
+ * of the cup is played to its champion so the competition is never left open
+ * into a summer that draws the next one. Anything already finished is left
+ * exactly as it is.
+ */
+export function closeEuroSeason(e: EuroState, myId: string, seed: number): EuroState {
+  if (e.status !== 'on') return e;
+  const ties = e.ties.map((round, r) => r !== e.round ? round : round.map(t =>
+    (t.a === myId || t.b === myId) && !t.winner ? { ...t, winner: t.a === myId ? t.b : t.a } : t));
+  return { ...playOutWithoutMe({ ...e, ties, status: 'out' }, myId, seed), cut: true };
+}
+
+/** Each round he reached paid its own prize, so a whole run is the sum of the rounds from the quarter up. */
+export const prizeTotal = (roundReached: number): number =>
+  PRIZE.slice(1, Math.min(roundReached, PRIZE.length - 1) + 1).reduce<number>((s, x) => s + x, 0);
+
+/** 'in the quarter', for a sentence: the name with its preposition, because ב and הגמר do not join. */
+export const ROUND_IN = ['בשמינית הגמר', 'ברבע הגמר', 'בחצי הגמר', 'בגמר'] as const;
+
+/** How his season in Europe ended. Null when there was no competition or it is still being played. */
+export interface EuroVerdict {
+  outcome: 'won' | 'out' | 'cut';
+  /** the last round he stood in: 0 the last sixteen, 3 the final */
+  round: number;
+  /** what the run paid in prizes, from the rounds he reached */
+  prize: number;
+  /** the legs he played */
+  played: number;
+}
+
+export function euroVerdict(e: EuroState | null, myId: string): EuroVerdict | null {
+  if (!e || e.status === 'on') return null;
+  let round = 0;
+  e.ties.forEach((ties, r) => { if (ties.some(t => t.a === myId || t.b === myId)) round = r; });
+  const prize = prizeTotal(e.status === 'won' ? EURO_ROUNDS : round);
+  return { outcome: e.status === 'won' ? 'won' : e.cut ? 'cut' : 'out', round, prize, played: e.played };
 }
 
 /** Who lifted the cup, once the final is settled. */
