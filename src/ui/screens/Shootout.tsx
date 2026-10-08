@@ -67,7 +67,7 @@ type Stage =
 
 export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score: [number, number]) => void }) {
   const sides = useMemo(() => G.euroPensSides(gs), [gs]);
-  const rng = useRef(createRng(G.drawSeed(gs, 150_020 + (gs.euro?.round ?? 0))));
+  const rng = useRef(createRng(G.drawSeed(gs, 152_000 + (gs.euro?.round ?? 0))));
   const [kicks, setKicks] = useState<Kick[]>([]);
   const [stage, setStage] = useState<Stage>({ kind: 'intro' });
   const me = G.club(gs);

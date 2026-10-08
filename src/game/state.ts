@@ -3390,7 +3390,7 @@ export function euroBanned(gs: GameState): Set<string> {
  * Cohen. Seeded on the leg, so a reload meets the same men.
  */
 function euroOpponent(gs: GameState, night: EuroNight): Squad {
-  const rng = createRng(drawSeed(gs, 150_010 + night.round * 10 + night.leg));
+  const rng = createRng(drawSeed(gs, 151_000 + night.round * 10 + night.leg));
   const sq = makeSquad(strengthOf(gs.euro!, night.oppId, night.round), rng);
   const country = euroClub(night.oppId)?.country ?? '';
   const used = new Set<string>();
@@ -3469,7 +3469,7 @@ export function euroPensSides(gs: GameState): { opp: ReturnType<typeof euroClub>
   const eleven = lineup(gs).filter(p => !isUnavailable(gs, p.id) && !banned.has(p.id));
   const keeper = eleven.find(p => p.position === 'GK') ?? mySquad(gs).starters.find(p => p.position === 'GK');
   const takers = eleven.filter(p => p.position !== 'GK').sort((a, b) => overall(b) - overall(a));
-  const rng = createRng(drawSeed(gs, 150_040 + (gs.euro?.round ?? 0)));
+  const rng = createRng(drawSeed(gs, 154_000 + (gs.euro?.round ?? 0)));
   const used = new Set<string>();
   const theirNames = Array.from({ length: 10 }, () => makeEuroName(rng, opp?.country ?? '', used));
   return { opp, takers, keeper, theirNames };
@@ -3534,7 +3534,7 @@ function euroAfterTie(gs: GameState, euro: EuroState, money: number): { euro: Eu
   const me = gs.clubId;
   const mine = myTie(euro, me);
   if (!mine?.winner) return { euro, money, line: '' };
-  let e = playAiRound(euro, me, drawSeed(gs, 150_100 + euro.round));
+  let e = playAiRound(euro, me, drawSeed(gs, 155_000 + euro.round));
   e = advanceRound(e, me);
   let line = '';
   if (e.status === 'won') {
@@ -3544,7 +3544,7 @@ function euroAfterTie(gs: GameState, euro: EuroState, money: number): { euro: Eu
     money += prizeFor(e.round);
     line = `עלית ל${ROUND_NAMES[e.round]}. הפרס על ההעפלה נכנס לקופה.`;
   } else {
-    e = playOutWithoutMe(e, me, drawSeed(gs, 150_200));
+    e = playOutWithoutMe(e, me, drawSeed(gs, 156_000));
     line = 'הדרך באירופה נגמרה העונה.';
   }
   return { euro: e, money, line };
@@ -3602,7 +3602,7 @@ export function commitEuroLeg(gs: GameState, r: MatchResult, onPitchIds: string[
 
 /** Who the night hurt, for this week's league match: seeded on the leg, one roll a man. */
 export function euroInjuries(gs: GameState, night: EuroNight, played: string[]): string[] {
-  const rng = createRng(drawSeed(gs, 150_030 + night.round * 10 + night.leg));
+  const rng = createRng(drawSeed(gs, 153_000 + night.round * 10 + night.leg));
   return played.filter(() => rng() < EURO_INJURY_RISK);
 }
 
@@ -3633,7 +3633,7 @@ export function finishEuroPens(gs: GameState, score: [number, number]): GameStat
  */
 export function settleEuroSeason(gs: GameState): GameState {
   if (!gs.euro || gs.euro.season !== gs.season) return gs;
-  const euro = closeEuroSeason(gs.euro, gs.clubId, drawSeed(gs, 150_300));
+  const euro = closeEuroSeason(gs.euro, gs.clubId, drawSeed(gs, 157_000));
   const v = euroVerdict(euro, gs.clubId);
   const id = `euro-s${gs.season}`;
   // Europe belongs to the ליגת העל and to nothing below it: a cup on a club in a lower division is shut but never written down

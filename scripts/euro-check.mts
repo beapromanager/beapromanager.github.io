@@ -594,7 +594,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   if (!scr.includes('const IN_GOAL = KEEPER.set;') || scr.includes("asset('/moments/euro/def-penalty.webp')")) fails.push('their pick card is not the keeper set frame, or still uses the picture with the post and the referee');
   const css = readFileSync('src/ui/tokens.css', 'utf8');
   if (!css.includes('.eu-seq[data-step="contact"] .eu-seq-frame[data-on="1"]{animation:eu-seq-shake') || !css.includes('@media (prefers-reduced-motion:reduce){ .eu-seq .eu-seq-frame, .eu-seq .moment-wash{animation:none;} }')) fails.push('the contact frame does not shake, or reduced motion does not still it');
-  if (!scr.includes('createRng(G.drawSeed(gs, 150_020 + (gs.euro?.round ?? 0)))')) fails.push('the shootout is not seeded on the round through drawSeed');
+  if (!scr.includes('createRng(G.drawSeed(gs, 152_000 + (gs.euro?.round ?? 0)))')) fails.push('the shootout is not seeded on the round through drawSeed');
   if (scr.includes('Math.random')) fails.push('the shootout rolls off Math.random');
   if (!scr.includes('buzz(stage.kick.scored ? BUZZ_GOAL : BUZZ_MISS)') || !scr.includes('buzz(stage.kick.scored ? BUZZ_MISS : BUZZ_SAVE)')) fails.push('a kick in the shootout does not buzz the phone when its clip or sequence ends');
   if (!scr.includes('onDone(status.score)')) fails.push('the screen does not hand the state his score as [mine, theirs]');
@@ -714,6 +714,37 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const app = readFileSync('src/ui/App.tsx', 'utf8');
   if (!app.includes("{gs.phase === 'euro-draw' && <EuroDrawScreen gs={gs} onDone={() => setGs(g => G.finishEuroDraw(g))} />}") || !app.includes("{gs.phase === 'euro-bracket' && <EuroBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}")) fails.push('the app does not show the draw and the bracket');
 }
+/* ------------------------------ 14a. the salts: one thousand apart per role, so no two draws of a night can meet */
+{
+  checked += 9;
+  const src = readFileSync('src/game/state.ts', 'utf8');
+  const shoot = readFileSync('src/ui/screens/Shootout.tsx', 'utf8');
+  // every role, as the source writes it, and the same formula here
+  const roles: Array<[string, string, (r: number, l: number) => number]> = [
+    ['the match', 'drawSeed(gs, 150_000 + night.round * 10 + night.leg)', (r, l) => 150_000 + r * 10 + l],
+    ['the other side', 'drawSeed(gs, 151_000 + night.round * 10 + night.leg)', (r, l) => 151_000 + r * 10 + l],
+    ['the shootout', 'G.drawSeed(gs, 152_000 + (gs.euro?.round ?? 0))', (r) => 152_000 + r],
+    ['the injuries', 'drawSeed(gs, 153_000 + night.round * 10 + night.leg)', (r, l) => 153_000 + r * 10 + l],
+    ['their names', 'drawSeed(gs, 154_000 + (gs.euro?.round ?? 0))', (r) => 154_000 + r],
+    ['the other ties', 'drawSeed(gs, 155_000 + euro.round)', (r) => 155_000 + r],
+    ['the play-out', 'drawSeed(gs, 156_000)', () => 156_000],
+    ['the season close', 'drawSeed(gs, 157_000)', () => 157_000],
+  ];
+  for (const [what, expr] of roles) if (!(src.includes(expr) || shoot.includes(expr))) fails.push(`the salt for ${what} is not ${expr}`);
+  const seen = new Map<number, string>();
+  let clash = '';
+  for (const [what, , f] of roles) for (let r = 0; r < EURO_ROUNDS; r++) for (let l = 0; l < legsIn(r); l++) {
+    const v = f(r, l);
+    const owner = seen.get(v);
+    if (owner && owner !== what) clash = `${owner} and ${what} both draw on ${v}`;
+    seen.set(v, what);
+  }
+  if (clash) fails.push(`two European draws can meet: ${clash}`);
+  // and none of them lands on a salt the rest of the game already uses (the old ones stop at 140_000)
+  if ([...seen.keys()].some(v => v < 150_000 || v >= 160_000)) fails.push('a European salt left its own band');
+  if (/150_(?!000 \+ night)[0-9]{3}/.test(src) || /150_0[1-9][0-9]/.test(shoot)) fails.push('an old European salt is still in the source');
+}
+
 /* ------------------------------ 14. the season's close: the cup shut, chronicled once, never left open */
 {
   const g = (() => {
