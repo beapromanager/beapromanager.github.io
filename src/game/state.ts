@@ -3690,6 +3690,8 @@ function euroNightNotice(gs: GameState, night: EuroNight, goals: [number, number
 export function startWeek(gs: GameState): GameState {
   // the sheet has to be in order first: nobody banned in the eleven, sixteen names
   if (weekBlockedReason(gs)) return gs;
+  // and a European night that is due is played first: the league waits for it, in the engine as well as on the Hub button
+  if (euroNight(gs)) return gs;
   // a shirt promised on the phone last week lands on this week's sheet
   if (gs.mate.promiseNext) {
     gs = {

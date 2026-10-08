@@ -855,6 +855,17 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   if (JSON.stringify(EURO_MARKS) !== '["eu_in","eu_final","eu_won"]') fails.push('the names of the European marks changed, and the worker holds the same three');
   if (!euroMarks(run(54, 3), id).includes('eu_final') || euroMarks(run(52, 0), id).includes('eu_final')) fails.push('the final is reported for a career that never stood in it');
 
+  // the engine, not only the button: a week with a European night due does not start, and starts once the night is played
+  checked += 6;
+  const nightWeek = { ...gTop, week: 2, euro: drawEuro(61, id, g.season) };
+  if (G.euroNight(nightWeek) === null) fails.push('the fixture week has no European night due');
+  if (G.startWeek(nightWeek) !== nightWeek) fails.push('startWeek went ahead past a European night that is due');
+  const nightPlayed = { ...nightWeek, euro: recordMyLeg(nightWeek.euro!, id, [1, 0]) };
+  if (G.euroNight(nightPlayed) !== null) fails.push('the night is still due after its leg was played');
+  if (G.startWeek(nightPlayed).phase !== 'dilemma') fails.push('startWeek still refuses once the night is played');
+  if (G.startWeek({ ...nightWeek, euro: null }).phase !== 'dilemma') fails.push('a week with no cup does not start');
+  if (!readFileSync('src/game/state.ts', 'utf8').includes('  if (euroNight(gs)) return gs;\n')) fails.push('startWeek does not check for a European night');
+
   // the wiring: the cup is closed where the season ends, before the summer draws the next, and only on a calendar that can play it
   checked += 8;
   const src = readFileSync('src/game/state.ts', 'utf8');
