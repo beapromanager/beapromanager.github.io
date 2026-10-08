@@ -69,7 +69,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
 /* ------------------------------------------- 1. the door and the numbers */
 {
   checked += 9;
-  if (EURO_LIVE !== false) fails.push('the European door is open before Itzik opened it');
+  if (EURO_LIVE !== true) fails.push('the European door is shut, Itzik opened it on 8.10');
   if (EURO_POOL !== 20 || EURO_FIELD !== 16 || EURO_ROUNDS !== 4) fails.push('pool, field or rounds moved off 20 / 16 / 4');
   if (JSON.stringify(STAGE_TARGET) !== '[74,78,82,84]') fails.push(`stage targets are ${JSON.stringify(STAGE_TARGET)}, agreed 74 / 78 / 82 / 84`);
   if (JSON.stringify(PRIZE) !== '[0,300000,700000,1300000,2200000]') fails.push(`prizes are ${JSON.stringify(PRIZE)}, agreed 0 / 300K / 700K / 1.3M / 2.2M`);
@@ -338,7 +338,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   checked += 3;
   const gs = G.newGame(7);
   const drawn = { ...gs, week: 2, euro: drawEuro(9, gs.clubId, 1) };
-  if (G.euroNight(drawn) !== null) fails.push('the Hub would announce a European night with the door shut');
+  if (G.euroNight(drawn, false) !== null) fails.push('the Hub would announce a European night with the door shut');
   if (G.euroNight(gs) !== null) fails.push('a career with no competition has a night');
   const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
   if (!hub.includes('const night = G.euroNight(gs);') || !hub.includes('{night && <EuroHero night={night} onGo={onEuro} />}')) fails.push('the Hub does not announce the night off euroNight');
@@ -412,7 +412,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   checked += 5;
   if (!night) fails.push('a drawn competition in week 2 has no night for the check');
   // the door shut: no night, the hub button does nothing; a closed match or shootout reloads at the hub
-  if (G.euroNight(gs) !== null || G.startEuroNight(gs).phase !== 'hub' || G.euroPensDue(gs)) fails.push('with the door shut the night still exists for the state');
+  if (G.euroNight(gs, false) !== null || G.startEuroNight(gs, false).phase !== 'hub' || G.euroPensDue(gs, false)) fails.push('with the door shut the night still exists for the state');
   if (G.startEuroNight(gs, true).phase !== 'euro-match') fails.push('with the door open the hub does not start the night');
   saveCareer({ ...gs, phase: 'euro-match' });
   if (loadCareer()?.phase !== 'hub') fails.push('a career closed inside the European night does not reload at the hub');
@@ -511,7 +511,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const firstMine = asMine(gs, mine, 0);
   const lvl = G.commitEuroLeg(second, fixed(second, [firstMine[1], firstMine[0]]), [], true);
   if (lvl.phase !== 'euro-pens' || !G.euroPensDue(lvl, true)) fails.push('a level tie after the legs does not go to the shootout');
-  if (G.euroPensDue(lvl)) fails.push('the shootout is due with the door shut');
+  if (G.euroPensDue(lvl, false)) fails.push('the shootout is due with the door shut');
   if (G.startEuroNight({ ...lvl, phase: 'hub' }, true).phase !== 'euro-pens') fails.push('the hub does not offer the shootout again after a reload');
   if (lvl.meters.money !== second.meters.money + (night.host === true ? -TRAVEL : gate - SECURITY)) fails.push('a level return leg did not charge the ground and nothing else');
   const won = G.finishEuroPens(lvl, [4, 3]);
@@ -672,7 +672,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const fin0 = { ...g0, week: 13, euro: { ...g0.euro!, round: 3, ties: [...g0.euro!.ties, [], [], [{ a: g0.clubId, b: n0.oppId, legs: [] }]] } };
   const lf = G.euroEntranceLines(fin0, true)!;
   if (lf.venue !== 'מגרש ניטרלי' || lf.leg !== 'הגמר, משחק אחד' || lf.round !== 'הגמר') fails.push('the final is not on neutral ground as one match');
-  if (G.euroEntranceLines(g0) !== null) fails.push('the entrance has words with the door shut');
+  if (G.euroEntranceLines(g0, false) !== null) fails.push('the entrance has words with the door shut');
 }
 /* ------------------------------------ 13. the draw from his seat, and the bracket */
 {
@@ -687,7 +687,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   })();
   checked += 8;
   // owed once with the door open, never with it shut, and not after it was watched or skipped
-  if (G.euroDrawDue(g0) || G.openEuroDraw(g0).phase !== 'hub' || G.openEuroBracket(g0).phase !== 'hub') fails.push('the draw or the bracket opens with the door shut');
+  if (G.euroDrawDue(g0, false) || G.openEuroDraw(g0, false).phase !== 'hub' || G.openEuroBracket(g0, false).phase !== 'hub') fails.push('the draw or the bracket opens with the door shut');
   if (!G.euroDrawDue(g0, true) || G.openEuroDraw(g0, true).phase !== 'euro-draw') fails.push('a fresh draw is not owed with the door open');
   const seen = G.finishEuroDraw(G.openEuroDraw(g0, true));
   if (seen.phase !== 'hub' || !seen.euro?.seen || G.euroDrawDue(seen, true) || G.openEuroDraw(seen, true).phase !== 'hub') fails.push('a watched draw is owed again');
@@ -828,7 +828,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const old = withCup({ ...run(51, -1), season: g.season - 1 });
   if (G.settleEuroSeason(old) !== old) fails.push('last season\'s cup was closed and chronicled again this season');
   if (G.euroSeasonVerdict(withCup(null)) !== null || G.euroSeasonVerdict(settledWon)?.outcome !== 'won') fails.push('the season-end screen cannot read the verdict off the state');
-  if (G.euroDoorOpen() !== EURO_LIVE || G.euroDoorOpen()) fails.push('the season-end words think the door is open');
+  if (G.euroDoorOpen() !== EURO_LIVE) fails.push('the season-end words and the flag disagree about the door');
   if (JSON.stringify(G.settleEuroSeason(withCup(run(53, 2)))) !== JSON.stringify(settledOut)) fails.push('closing the same season twice from the same state gave two different states');
 
   // Itzik: Europe appears after the ליגת העל and nowhere else. A cup on a club in a lower division is shut, never chronicled, never shown
@@ -874,6 +874,6 @@ if (fails.length) {
   console.log('\n  ' + fails.slice(0, 10).join('\n  '));
   console.log('\nFAIL');
 } else {
-  console.log('OK, the competition draws, plays and crowns one champion, and the door is shut');
+  console.log('OK, the competition draws, plays and crowns one champion, and the door is open');
 }
 process.exit(fails.length ? 1 : 0);

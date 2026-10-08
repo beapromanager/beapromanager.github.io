@@ -18,7 +18,7 @@ import { createRng } from '../engine/matchEngine.ts';
 import { EURO_CLUBS } from '../data/europeClubs.ts';
 
 /** The door. Off until Itzik says the top flight has enough managers in it. */
-export const EURO_LIVE = false;
+export const EURO_LIVE = true;
 
 export const EURO_POOL = 20;
 export const EURO_FIELD = 16;
