@@ -33,6 +33,8 @@ const MS_PER_MIN = 780;
 
 /** The penalty popup carries a start image, and a result image per corner. */
 const PEN_BUILDUP = asset('/moments/penalty/buildup.webp');
+/** the fourth official's board, the hero of the bench sheet (style A, Itzik's pick of 9.10) */
+const SUB_BOARD = asset('/moments/subs/board.webp');
 function penOutcomeImg(corner: Corner, scored: boolean): string {
   return asset(`/moments/penalty/${scored ? 'goal' : 'save'}-${corner}.webp`);
 }
@@ -414,10 +416,10 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
               Shut while a moment is waiting for an answer, and when the three are used */}
           <button className="btn dark btn-sm" style={{ width: 'auto', paddingInline: 14, gap: 6 }}
             disabled={!L.canChangeFormation(st) || shapeBusy}
-            aria-label={`שינוי מערך, ${L.shapeChangesUsed(st)} מתוך ${L.MAX_SHAPE_CHANGES}, לא נספר כחילוף`}
+            aria-label={`שינוי מערך, ${L.shapeChangesUsed(st)} עד עכשיו, בלי הגבלה, לא נספר כחילוף`}
             onClick={() => setShapeOpen(true)}>
             <span style={{ fontWeight: 800 }}>מערך</span>
-            <span className="num" style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{L.shapeChangesUsed(st)}/{L.MAX_SHAPE_CHANGES}</span>
+            {L.shapeChangesUsed(st) > 0 && <span className="num" style={{ fontSize: 12, color: 'var(--ink-faint)' }}>·{L.shapeChangesUsed(st)}</span>}
           </button>
           <div className="seg" style={{ flex: 1 }}>
             {SPEEDS.map(s => (
@@ -644,7 +646,7 @@ function HalfTime({ st, onTalk, onShape, onRevert, onSub }: {
         </div>
       ) : (
         <p className="hint" style={{ margin: '-6px 0 13px', textAlign: 'center' }}>
-          {L.canChangeFormation(st) ? L.FORMATION_CHOICES.find(f => f.id === shape)?.desc : L.SHAPE_LIMIT_TEXT}
+          {L.FORMATION_CHOICES.find(f => f.id === shape)?.desc}
         </p>
       )}
 
@@ -779,26 +781,32 @@ function SubSheet({ st, onSub, onSwap, onFill, onCover, onClose, focusId, benchK
         <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '84vh', overflowY: 'auto' }} role="dialog" aria-label="הרכב וחילופים">
           <div className="sheet-grip" />
 
-          {/* the way back is at the top, not a scroll away, and the pause is
-              said out loud: nobody should wonder whether the match ran on
-              while they were reading the bench */}
-          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
-            <button className="sheet-back" onClick={onClose}>
-              <Icon name="chevron" size={15} /> חזרה למשחק
-            </button>
-            <span className="chip" style={{ background: 'rgba(233,185,73,.13)', color: 'var(--gold-hi)', border: '1px solid rgba(233,185,73,.3)' }}>
-              <Icon name="pause" size={12} /> המשחק עצור
-            </span>
-          </div>
-
-          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-            <div className="h2" style={{ fontSize: 19, color: red ? 'var(--loss)' : undefined }}>
-              {red ? `אדום! ${red.name} מורחק` : 'המאמן מסתובב לספסל'}
+          {/* Style A, Itzik's pick of 9.10: the sheet opens on the touchline under the
+              fourth official's board. The way back is at the top, not a scroll away,
+              and the pause is said out loud: nobody should wonder whether the match
+              ran on while they were reading the bench */}
+          <div className="sub-hero" style={{ backgroundImage: `url('${SUB_BOARD}')` }}>
+            <div className="sub-hero-fade" aria-hidden="true" />
+            <div className="sub-hero-top">
+              <button className="sheet-back" onClick={onClose}>
+                <Icon name="chevron" size={15} /> חזרה למשחק
+              </button>
+              <span className="chip" style={{ background: 'rgba(8,15,11,.6)', color: 'var(--gold-hi)', border: '1px solid rgba(233,185,73,.3)' }}>
+                <Icon name="pause" size={12} /> המשחק עצור
+              </span>
             </div>
-            <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--ink-dim)' }}>
-              חילופים <span className="num">{st.subsUsed}/{L.MAX_SUBS}</span>
-            </span>
+            <div className="sub-hero-title">
+              {/* DRAFT WORDING, Itzik's to correct */}
+              <div className="h2" style={{ fontSize: 19, color: red ? '#ff8a8e' : '#fff', textShadow: '0 2px 12px rgba(0,0,0,.9)' }}>
+                {red ? `אדום! ${red.name} מורחק` : 'המאמן מסמן לרביעי'}
+              </div>
+              {/* three lamps, one lit red for every change made */}
+              <span className="sub-lamps" role="img" aria-label={`חילופים ${st.subsUsed} מתוך ${L.MAX_SUBS}`}>
+                {Array.from({ length: L.MAX_SUBS }, (_, i) => <i key={i} data-used={i < st.subsUsed ? '1' : '0'} />)}
+              </span>
+            </div>
           </div>
+          <SubLed st={st} picked={pickedPlayer} />
 
           {red && (
             <div className="tile" style={{ padding: '9px 12px', marginBottom: 8, borderColor: 'rgba(226,72,77,.4)', background: 'rgba(226,72,77,.08)', fontSize: 13.5, fontWeight: 700 }}>
@@ -868,6 +876,35 @@ function SubSheet({ st, onSub, onSwap, onFill, onCover, onClose, focusId, benchK
         </div>
       </div>
     </Portal>
+  );
+}
+
+/**
+ * The fourth official's board, in LED: who is coming off in red, who is coming
+ * on in green. While a man is held it shows him on the red side and waits for
+ * the bench; otherwise it shows the last change made, and before any it is dark.
+ */
+function SubLed({ st, picked }: { st: LiveState; picked: Player | null }) {
+  const side = L.mySide(st);
+  const last = side.replaced[side.replaced.length - 1];
+  const lastOn = last ? side.onPitch.find(p => p.id === last.byId) : undefined;
+  const off = picked ?? last?.player ?? null;
+  const on = picked ? null : lastOn ?? null;
+  const surname = (p: Player) => p.name.split(' ').slice(-1)[0];
+  return (
+    <div className="sub-led" role="status" aria-label={off && on ? `${off.name} יצא, ${on.name} נכנס` : off ? `${off.name} יוצא, בחר מי נכנס` : 'אין חילופים עדיין'}>
+      <div className="sub-led-cell">
+        <span className="sub-led-lbl">יוצא</span>
+        <span className="sub-led-dig" data-k={off ? 'off' : 'dim'}>{off ? off.position : '--'}</span>
+        <span className="sub-led-who">{off ? surname(off) : ' '}</span>
+      </div>
+      <span className="sub-led-arrow" aria-hidden="true">⇄</span>
+      <div className="sub-led-cell">
+        <span className="sub-led-lbl">נכנס</span>
+        <span className="sub-led-dig" data-k={on ? 'on' : 'dim'}>{on ? on.position : picked ? '?' : '--'}</span>
+        <span className="sub-led-who">{on ? surname(on) : picked ? 'בחר מהספסל' : last ? `${last.minute}′` : ' '}</span>
+      </div>
+    </div>
   );
 }
 
@@ -1401,7 +1438,6 @@ function ShapeSheet({ st, onShape, onClose }: {
 }) {
   const current = (st.iAmHome ? st.home : st.away).tactic.formation ?? '4-4-2';
   const [asking, setAsking] = useState<FormationId | null>(null);
-  const left = L.MAX_SHAPE_CHANGES - L.shapeChangesUsed(st);
   const choice = asking ? L.FORMATION_CHOICES.find(f => f.id === asking) : null;
   const now = L.FORMATION_CHOICES.find(f => f.id === current);
 
@@ -1420,7 +1456,7 @@ function ShapeSheet({ st, onShape, onClose }: {
           </div>
           <div className="h2" style={{ marginBottom: 4 }}>שינוי מערך</div>
           <div className="sub" style={{ fontSize: 13.5, marginBottom: 12 }}>
-            {left === 1 ? 'נשאר שינוי מערך אחד' : `נשארו ${left} שינויי מערך`}. שינוי מערך לא נספר כחילוף.
+            שינוי מערך לא נספר כחילוף, ואפשר לשנות כמה שרוצים. האחד עשר ייושבו מחדש בכל שינוי.
           </div>
           <div className="ht-shapes">
             {L.FORMATION_CHOICES.map(f => (

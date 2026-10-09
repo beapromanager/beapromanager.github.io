@@ -1813,6 +1813,34 @@ a.btn{text-decoration:none;}
 }
 .chip-euro{background:rgba(111,168,255,.14); color:#CFE0FF; border:1px solid rgba(111,168,255,.35);}
 
+/* ---- the bench sheet, style A: the fourth official's board over the sheet, the change in LED */
+.sub-hero{
+  position:relative; margin:-4px -18px 0; height:150px; overflow:hidden;
+  background-size:cover; background-position:center 32%; background-color:var(--surface-3);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+}
+.sub-hero-fade{position:absolute; inset:0; background:linear-gradient(180deg, rgba(14,23,18,.14) 0%, rgba(14,23,18,.38) 55%, var(--surface-3) 100%);}
+.sub-hero-top{position:relative; z-index:2; display:flex; justify-content:space-between; align-items:center; padding:10px 18px 0;}
+.sub-hero-title{position:absolute; z-index:2; inset-inline:18px; bottom:34px; display:flex; justify-content:space-between; align-items:center;}
+.sub-lamps{display:flex; gap:5px;}
+.sub-lamps i{width:12px; height:12px; border-radius:50%; background:#1b2a1f; border:1px solid #2b3f32;}
+.sub-lamps i[data-used="1"]{background:#ff4d55; border-color:#ff4d55; box-shadow:0 0 8px rgba(255,77,85,.9);}
+.sub-led{
+  position:relative; z-index:3; display:flex; align-items:center; gap:12px; margin:-26px 0 10px;
+  background:#07090c; border:2px solid #223a2c; border-radius:14px; padding:9px 12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.05);
+}
+.sub-led-cell{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px;}
+.sub-led-lbl{font-size:10px; font-weight:800; letter-spacing:.2em; color:#7f8f86;}
+.sub-led-dig{font-family:var(--font-display); font-weight:900; font-size:30px; line-height:1; letter-spacing:.06em; direction:ltr; unicode-bidi:isolate;}
+.sub-led-dig[data-k="off"]{color:#ff4d55; text-shadow:0 0 8px #ff4d55, 0 0 22px rgba(255,77,85,.6); animation:ledIn .35s ease-out;}
+.sub-led-dig[data-k="on"]{color:#43e06b; text-shadow:0 0 8px #43e06b, 0 0 22px rgba(67,224,107,.6); animation:ledIn .35s ease-out;}
+.sub-led-dig[data-k="dim"]{color:#2c3a31;}
+.sub-led-who{font-size:11px; font-weight:800; color:var(--ink-dim); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:14px;}
+.sub-led-arrow{font-size:22px; color:#555; font-weight:900;}
+@keyframes ledIn{from{opacity:0; filter:brightness(2);} to{opacity:1;}}
+@media (prefers-reduced-motion:reduce){ .sub-led-dig{animation:none !important;} }
+
 /* ---- the European shootout: the silver lamp board, the point of view frame, the five lamps */
 .eu-board{
   position:relative; padding:12px 14px 16px; border-radius:var(--r-md);

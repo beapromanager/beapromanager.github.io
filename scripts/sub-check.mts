@@ -22,7 +22,7 @@ import * as G from '../src/game/state.ts';
 import * as L from '../src/game/liveMatch.ts';
 import { overall } from '../src/engine/matchEngine.ts';
 import type { Player } from '../src/engine/matchEngine.ts';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 
 const fails: string[] = [];
 let checked = 0;
@@ -139,14 +139,21 @@ console.log(`  ${subsMade} substitutions into another man's shirt, ${strangeRole
 
 /* 3b. THE WORDS: a move is said to be free, a shape change is never called a substitution, and the men who left are shown. */
 {
-  checked += 6;
+  checked += 11;
   const scr = readFileSync('src/ui/screens/Match.tsx', 'utf8');
   if (!scr.includes('שינוי עמדה הוא חינם ולא נספר כחילוף')) fails.push('the bench sheet does not say a move is free');
   if (!scr.includes('ומי שיצא לא חוזר')) fails.push('the bench sheet does not say a man who left does not come back');
   if (!scr.includes('aria-label="יצאו מהמשחק"') || !scr.includes('side.replaced.map(x => (')) fails.push('the bench sheet does not show the men who left');
   if (/החלפת מערך|נשארו \$\{left\} החלפות|נשארה החלפה אחת/.test(scr)) fails.push('a shape change is still called a substitution on the screen');
   if (!scr.includes('שינוי מערך לא נספר כחילוף')) fails.push('the shape sheet does not say a shape change is not a substitution');
-  if (!L.SHAPE_LIMIT_TEXT.includes('לא חילוף')) fails.push('the shape limit text does not say it is not a substitution');
+  if (!scr.includes('שינוי מערך לא נספר כחילוף, ואפשר לשנות כמה שרוצים')) fails.push('the shape sheet does not say a shape change is free of any cap');
+  // style A: the fourth official's board is the sheet's hero, and the change is shown in LED
+  if (!scr.includes("asset('/moments/subs/board.webp')") || !scr.includes("backgroundImage: `url('${SUB_BOARD}')`")) fails.push('the bench sheet does not open under the board picture');
+  if (!existsSync('public/moments/subs/board.webp')) fails.push('the board picture is not shipped');
+  else if (statSync('public/moments/subs/board.webp').size > 60_000) fails.push('the board picture is heavier than the sheet allows (60K)');
+  if (!scr.includes('<SubLed st={st} picked={pickedPlayer} />') || !scr.includes('data-used={i < st.subsUsed')) fails.push('the sheet does not show the change in LED and the lamps');
+  const css = readFileSync('src/ui/tokens.css', 'utf8');
+  if (!css.includes('.sub-led-dig[data-k="off"]{color:#ff4d55') || !css.includes('.sub-led-dig[data-k="on"]{color:#43e06b')) fails.push('the LED is not red for off and green for on');
   console.log('  the words: a move is free, a shape change is a shape change, and the men who left are listed');
 }
 

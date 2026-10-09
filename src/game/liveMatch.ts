@@ -1040,9 +1040,7 @@ export function resumeFromHalfTime(st: LiveState) {
 export const FORMATION_CHOICES = FORMATIONS.map(f => ({ id: f.id, label: f.label, name: f.name, desc: f.desc }));
 
 /** The most times a manager may change shape in a match, the dressing room counting as one. */
-export const MAX_SHAPE_CHANGES = 3;
 /** DRAFT WORDING, Itzik's to correct. */
-export const SHAPE_LIMIT_TEXT = `נגמרו שינויי המערך, ${MAX_SHAPE_CHANGES} מקסימום. זה לא חילוף, החילופים נספרים לחוד`;
 
 /** How many he has used: each change in open play, and the dressing room's as one. */
 export function shapeChangesUsed(st: LiveState): number {
@@ -1052,8 +1050,10 @@ export function shapeChangesUsed(st: LiveState): number {
 export function canChangeFormation(st: LiveState): boolean {
   // in the dressing room a change already standing can be changed again at no cost,
   // it is still the one; a fresh one needs a place. In open play, never mid moment
-  if (st.phase === 'halftime') return !!st.shapeFrom || shapeChangesUsed(st) < MAX_SHAPE_CHANGES;
-  if (st.phase === 'play') return !st.pending && shapeChangesUsed(st) < MAX_SHAPE_CHANGES;
+  // no cap: Itzik's rule of 9.10, moving the eleven about is the manager's to do as often as he likes.
+  // In open play never mid moment; the count is kept for the record, not for a limit
+  if (st.phase === 'halftime') return true;
+  if (st.phase === 'play') return !st.pending;
   return false;
 }
 

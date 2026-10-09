@@ -285,14 +285,14 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
   if (!/onRevert/.test(src) || !/revertFormation/.test(src)) fails.push('the dressing room offers no way back from a change');
 }
 
-/* 8. IN OPEN PLAY TOO, THREE TIMES A MATCH, THE DRESSING ROOM COUNTING AS ONE.
+/* 8. IN OPEN PLAY TOO, AS OFTEN AS HE LIKES, THE DRESSING ROOM COUNTING AS ONE.
       Players asked for it. It was half time only on the grounds that a change in
       open play would be a free reset, and it was measured: a change to suit the
       score is worth about six hundredths of a point a match, and changing every
-      quarter of an hour is worth no more than once. So it is allowed, limited for
-      the feed's sake and not for the balance. */
+      quarter of an hour is worth no more than once. It was capped at three for the
+      feed's sake; on 9.10 Itzik took the cap off ("מיותר להגביל"). The count is
+      still kept, for the record and the reporter, never as a limit. */
 {
-  const MAX = 3;   // the number that was agreed, not read off the code
 
   /** play on, answering every moment the way the driver above does, until this minute */
   const advance = (st: LiveState, seed: number, minute: number) => {
@@ -384,17 +384,16 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
     if (L.canChangeFormation(over) || L.changeFormation(over, '5-4-1')) fails.push('the shape was changed after the final whistle');
   }
 
-  // three, and each one counts, taking it back included
+  // as many as he likes, and each one counts, taking it back included
   {
     const st = hour(6004);
-    const order: FormationId[] = ['3-4-3', '4-4-2', '5-4-1'];   // the second one is a return to the opening shape
+    const order: FormationId[] = ['3-4-3', '4-4-2', '5-4-1', '4-3-3', '3-5-2', '4-2-3-1'];   // the second one is a return to the opening shape
     let ok = 0;
     for (const f of order) { advance(st, 6004 + ok, st.minute + 1); if (st.phase === 'play' && L.changeFormation(st, f)) ok++; }
-    checked += 4;
-    if (ok !== MAX) fails.push(`${ok} changes went through in open play, expected ${MAX}, going back to the opening shape included`);
-    if (L.shapeChangesUsed(st) !== MAX) fails.push(`three changes count as ${L.shapeChangesUsed(st)}`);
-    if (L.canChangeFormation(st) || L.changeFormation(st, '4-3-3')) fails.push('a fourth change went through');
-    if (!L.SHAPE_LIMIT_TEXT.includes(String(MAX))) fails.push('the limit text does not say how many there are');
+    checked += 3;
+    if (ok !== order.length) fails.push(`${ok} changes went through in open play, expected ${order.length}, there is no cap`);
+    if (L.shapeChangesUsed(st) !== order.length) fails.push(`${order.length} changes count as ${L.shapeChangesUsed(st)}`);
+    if (!L.canChangeFormation(st)) fails.push('after six changes a seventh is refused, there is no cap');
   }
 
   // the dressing room counts as one, however often it was changed in there, and not at all if it was taken back
@@ -409,8 +408,8 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
     advance(st, 6006, st.minute + 1);
     const b = L.changeFormation(st, '3-4-3');
     advance(st, 6007, st.minute + 1);
-    if (!a || !b) fails.push('the two changes left after the dressing room were not both allowed');
-    if (L.canChangeFormation(st) || L.changeFormation(st, '4-3-3')) fails.push('the dressing room plus two changes in open play did not use up the three');
+    if (!a || !b) fails.push('the two changes after the dressing room were not both allowed');
+    if (!L.canChangeFormation(st)) fails.push('the dressing room plus two changes in open play shut the door, there is no cap');
 
     const taken = toHalfTime(6008);
     L.changeFormation(taken, '4-3-3'); L.revertFormation(taken);
@@ -419,7 +418,7 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
     if (L.shapeChangesUsed(taken) !== 0) fails.push(`a change taken back in the dressing room still counts as ${L.shapeChangesUsed(taken)}`);
   }
 
-  // the first half can use them up, and then the dressing room has no change left to offer
+  // three in the first half, and the dressing room still offers a change
   {
     const st = toHalfTime(6009);   // this is the dressing room; go again from the start of the match for the first half
     const early = L.createLive({
@@ -432,9 +431,9 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
     for (const f of ['3-4-3', '4-4-2', '5-4-1'] as FormationId[]) { advance(early, 6009 + n, early.minute + 3); if (early.phase === 'play' && L.changeFormation(early, f)) n++; }
     advance(early, 6020, 46);
     checked += 3;
-    if (n !== MAX) fails.push(`only ${n} changes went through in the first half`);
+    if (n !== 3) fails.push(`only ${n} changes went through in the first half`);
     if (early.phase !== 'halftime') fails.push(`the match did not reach half time, it is ${early.phase}`);
-    if (L.canChangeFormation(early) || L.changeFormation(early, '3-5-2')) fails.push('the dressing room offered a fourth change');
+    if (!L.canChangeFormation(early) || !L.changeFormation(early, '3-5-2')) fails.push('the dressing room refused a fourth change, there is no cap');
     void st;
   }
 
@@ -457,7 +456,7 @@ const mySide = (st: LiveState) => (st.iAmHome ? st.home : st.away);
     checked += 5;
     if (!/function ShapeSheet\(/.test(src)) fails.push('there is no sheet to change shape in open play');
     if (!/setShapeOpen\(true\)/.test(src)) fails.push('nothing opens the change of shape sheet');
-    if (!/disabled=\{!L\.canChangeFormation\(st\) \|\| shapeBusy\}/.test(src)) fails.push('the button is not shut when the limit is used or a moment is waiting');
+    if (!/disabled=\{!L\.canChangeFormation\(st\) \|\| shapeBusy\}/.test(src)) fails.push('the button is not shut while a moment is waiting');
     if (!/&& !shapeOpen &&/.test(src)) fails.push('the match runs on behind the change of shape sheet');
     // the dressing room shows its own change to take back, not the last one of the match: after a change in
     // the first half it offered to undo a change it had not made
