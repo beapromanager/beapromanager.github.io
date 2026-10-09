@@ -277,7 +277,8 @@ function seating(st: LiveState): Map<number, string> {
     let moved = 0;
     for (const [sl, id] of before) if (sl !== fwdSlot && sl !== slot && after.get(sl) !== id) moved++;
     if (moved) fails.push(`seed ${seed}: ${moved} other men changed shirts`);
-    if (s.bench.some(p => p.id === def.id) || !s.bench.some(p => p.id === fwd.id)) fails.push(`seed ${seed}: the bench did not swap the two`);
+    // the defender left the bench, and the forward LEFT THE MATCH: not back on the bench, Itzik's rule of 9.10
+    if (s.bench.some(p => p.id === def.id) || s.bench.some(p => p.id === fwd.id) || !s.replaced.some(x => x.player.id === fwd.id)) fails.push(`seed ${seed}: the defender is still on the bench, or the forward did not leave the match`);
   }
   checked += 2;
   if (tested < 25) fails.push(`only ${tested} of 40 matches had a defender on the bench, the section proves too little`);

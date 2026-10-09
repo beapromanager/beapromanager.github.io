@@ -400,7 +400,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
       }
       L.step(st);
     }
-    const ids = [...L.mySide(st).onPitch, ...L.mySide(st).sentOff.map(x => x.player)].map(p => p.id);
+    const ids = [...L.mySide(st).onPitch, ...L.mySide(st).sentOff.map(x => x.player), ...L.mySide(st).replaced.map(x => x.player)].map(p => p.id);
     return { input, result: L.finalize(st), ids };
   };
   const frozen = (gs: G.GameState) => JSON.stringify([gs.league.table, gs.seasonStats, gs.form, gs.lastLedger, gs.lastPlayerMatch, gs.pressHistory, gs.chatHistory, gs.suspensions, gs.sitOutNext, gs.week, gs.purseEarlier, gs.season]);

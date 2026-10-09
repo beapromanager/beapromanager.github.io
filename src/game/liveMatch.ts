@@ -55,6 +55,13 @@ export interface Side {
    * from appearing to change shirts.
    */
   sentOff: { player: Player; slot: number; minute: number }[];
+  /**
+   * The men this side has taken off. A substituted player has left the match:
+   * he does not go back to the bench, he is never offered again, and nothing
+   * can bring him on. Itzik's rule of 9.10, after players found the man they
+   * had just taken off sitting on the bench ready to come back.
+   */
+  replaced: { player: Player; minute: number; byId: string }[];
   isPlayer: boolean;
   /** what the manager is worth to this side, only set for the player's team */
   coach?: { chemistry: number; att: number; def: number; cards: number };
@@ -254,14 +261,14 @@ export function createLive(input: {
     isHome: input.iAmHome && !input.neutral, isPlayer: true,
     // slot order from here on: a caller that hands over a plain list gets it seated by fit
     onPitch: input.seated ? pStarters : fillFormation(pStarters, formation(input.playerTactic.formation ?? DEFAULT_FORMATION)),
-    bench: pBench, tactic: input.playerTactic, sentOff: [],
+    bench: pBench, tactic: input.playerTactic, sentOff: [], replaced: [],
     coach: input.coach,
   };
   const oppSideObj: Side = {
     id: input.iAmHome ? input.awayId : input.homeId,
     name: input.iAmHome ? input.awayName : input.homeName,
     isHome: !input.iAmHome && !input.neutral, isPlayer: false,
-    onPitch: oStarters, bench: oBench, sentOff: [],
+    onPitch: oStarters, bench: oBench, sentOff: [], replaced: [],
     tactic: { approach: 'balanced', press: 'mid', formation: formationForClub(input.iAmHome ? input.awayId : input.homeId) },
   };
 
@@ -1035,7 +1042,7 @@ export const FORMATION_CHOICES = FORMATIONS.map(f => ({ id: f.id, label: f.label
 /** The most times a manager may change shape in a match, the dressing room counting as one. */
 export const MAX_SHAPE_CHANGES = 3;
 /** DRAFT WORDING, Itzik's to correct. */
-export const SHAPE_LIMIT_TEXT = `נגמרו החלפות המערך, ${MAX_SHAPE_CHANGES} מקסימום`;
+export const SHAPE_LIMIT_TEXT = `נגמרו שינויי המערך, ${MAX_SHAPE_CHANGES} מקסימום. זה לא חילוף, החילופים נספרים לחוד`;
 
 /** How many he has used: each change in open play, and the dressing room's as one. */
 export function shapeChangesUsed(st: LiveState): number {
@@ -1230,6 +1237,8 @@ export function suggestSubs(st: LiveState, offId: string, limit = 3): SubSuggest
 
 export function subBlockedReason(st: LiveState, offId: string, onId: string): string | null {
   if (st.phase === 'done') return 'שריקת סיום, אין יותר חילופים';
+  const gone = playerSide(st).replaced.find(x => x.player.id === onId);
+  if (gone) return `${gone.player.name} כבר יצא מהמשחק. שחקן שהוחלף לא חוזר`;
   if (st.subsUsed >= MAX_SUBS) return `נגמרו החילופים, ${MAX_SUBS} מקסימום`;
   const off = playerSide(st).onPitch.find(p => p.id === offId);
   const on = playerSide(st).bench.find(p => p.id === onId);
@@ -1389,7 +1398,9 @@ export function makeSub(st: LiveState, offId: string, onId: string) {
   // is the formation's business; fillFormation seats him by fit, and a man
   // asked to cover a strange role is priced as exactly that.
   side.onPitch[oi] = { ...on };
-  side.bench[bi] = off;
+  // the man taken off has left the match, he does not sit back down on the bench
+  side.bench.splice(bi, 1);
+  side.replaced.push({ player: off, minute: st.minute, byId: on.id });
   st.subsUsed++;
   st.events.push({ minute: st.minute, type: 'sub', teamId: side.id, text: `חילוף, ${on.name} נכנס במקום ${off.name}` });
 }
@@ -1406,7 +1417,7 @@ export function finalize(st: LiveState): MatchResult {
     .sort((a, b) => a.minute - b.minute);
 
   const ratings: Record<string, number> = {};
-  for (const s of [st.home, st.away]) for (const p of [...s.onPitch, ...s.bench]) ratings[p.id] = 6.0;
+  for (const s of [st.home, st.away]) for (const p of [...s.onPitch, ...s.bench, ...s.replaced.map(x => x.player)]) ratings[p.id] = 6.0;
   for (const e of events) if ((e.type === 'goal' || e.type === 'penalty_goal') && e.playerId) ratings[e.playerId] = Math.min(10, (ratings[e.playerId] ?? 6) + 1.2);
 
   const mk = (i: 0 | 1) => ({ possession: i === 0 ? st.possession : 1 - st.possession, chances: st.shots[i], goals: st.score[i], xg: st.xg[i] });

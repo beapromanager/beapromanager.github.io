@@ -402,7 +402,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
       {pending?.kind === 'tactic' && <MomentPopup m={pending} kind="tactic" imgOverride={euro ? EURO_MOMENT.tactic : tacticImg(G.club(gs).tier)} onPickOption={id => { L.resolveTactic(st, id); force(); }} />}
 
       {st.phase === 'done' ? (
-        <button className="btn" onClick={() => onDone(L.finalize(st), [...L.mySide(st).onPitch, ...L.mySide(st).sentOff.map(x => x.player)].map(p => p.id))}>
+        <button className="btn" onClick={() => onDone(L.finalize(st), [...L.mySide(st).onPitch, ...L.mySide(st).sentOff.map(x => x.player), ...L.mySide(st).replaced.map(x => x.player)].map(p => p.id))}>
           {doneLabel ?? 'לתוצאות'} <Icon name="chevron" size={17} />
         </button>
       ) : st.phase !== 'halftime' && (
@@ -414,7 +414,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
               Shut while a moment is waiting for an answer, and when the three are used */}
           <button className="btn dark btn-sm" style={{ width: 'auto', paddingInline: 14, gap: 6 }}
             disabled={!L.canChangeFormation(st) || shapeBusy}
-            aria-label={`החלפת מערך, ${L.shapeChangesUsed(st)} מתוך ${L.MAX_SHAPE_CHANGES}`}
+            aria-label={`שינוי מערך, ${L.shapeChangesUsed(st)} מתוך ${L.MAX_SHAPE_CHANGES}, לא נספר כחילוף`}
             onClick={() => setShapeOpen(true)}>
             <span style={{ fontWeight: 800 }}>מערך</span>
             <span className="num" style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{L.shapeChangesUsed(st)}/{L.MAX_SHAPE_CHANGES}</span>
@@ -826,9 +826,22 @@ function SubSheet({ st, onSub, onSwap, onFill, onCover, onClose, focusId, benchK
             <div className="bench-wood" aria-hidden="true" />
           </div>
 
-<p className="hint" style={{ margin: '2px 0 8px' }}>
-            לחץ על שחקן ואז על שחקן אחר מתוך ה-11 בהרכב כדי לשנות עמדה לשחקנים
-            {canSub ? ' או בחר מי מהספסל נכנס במקומו.' : ' נגמרו החילופים, אבל לסדר מחדש אפשר תמיד.'}
+{side.replaced.length > 0 && (
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '0 0 8px', alignItems: 'center' }} aria-label="יצאו מהמשחק">
+              <span className="sub" style={{ fontSize: 11.5 }}>יצאו מהמשחק:</span>
+              {side.replaced.map(x => (
+                <span key={x.player.id} className="chip" style={{ background: 'rgba(255,255,255,.05)', color: 'var(--ink-faint)', textDecoration: 'line-through' }}>
+                  {x.player.name.split(' ').slice(-1)[0]} <span className="num">{x.minute}′</span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <p className="hint" style={{ margin: '2px 0 8px' }}>
+            לחץ על שחקן ואז על שחקן אחר מתוך ה-11 כדי להחליף ביניהם עמדות. שינוי עמדה הוא חינם ולא נספר כחילוף.
+            {canSub ? ' חילוף הוא רק כשמישהו מהספסל נכנס במקום מישהו מהמגרש, ומי שיצא לא חוזר.'
+              : st.subsUsed >= L.MAX_SUBS ? ' נגמרו החילופים, אבל לסדר מחדש אפשר תמיד.'
+              : st.phase === 'done' ? ' שריקת סיום, הספסל נסגר.' : ' כרגע אי אפשר להחליף, אבל לסדר מחדש אפשר.'}
           </p>
 
           {/* Picking is NOT gated on having a substitution left any more. Moving
@@ -1395,7 +1408,7 @@ function ShapeSheet({ st, onShape, onClose }: {
   return (
     <Portal>
       <div className="sheet-scrim" onClick={onClose}>
-        <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '84vh', overflowY: 'auto' }} role="dialog" aria-label="החלפת מערך">
+        <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '84vh', overflowY: 'auto' }} role="dialog" aria-label="שינוי מערך">
           <div className="sheet-grip" />
           <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
             <button className="sheet-back" onClick={onClose}>
@@ -1405,9 +1418,9 @@ function ShapeSheet({ st, onShape, onClose }: {
               <Icon name="pause" size={12} /> המשחק עצור
             </span>
           </div>
-          <div className="h2" style={{ marginBottom: 4 }}>החלפת מערך</div>
+          <div className="h2" style={{ marginBottom: 4 }}>שינוי מערך</div>
           <div className="sub" style={{ fontSize: 13.5, marginBottom: 12 }}>
-            {left === 1 ? 'נשארה החלפה אחת' : `נשארו ${left} החלפות`}
+            {left === 1 ? 'נשאר שינוי מערך אחד' : `נשארו ${left} שינויי מערך`}. שינוי מערך לא נספר כחילוף.
           </div>
           <div className="ht-shapes">
             {L.FORMATION_CHOICES.map(f => (

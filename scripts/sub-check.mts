@@ -9,8 +9,10 @@
  * read off real live matches on the path a player takes:
  *   1. after a sub the man on the pitch has the position his card has
  *   2. and the rating his card has, whatever shirt he was sent on to cover
- *   3. the man taken off sits on the bench as himself, and there is still
- *      exactly one keeper in the eleven
+ *   3. the man taken off has LEFT the match: not on the pitch, not on the
+ *      bench, never offered, and no call can bring him back (Itzik, 9.10);
+ *      he is still rated as having played, and there is still exactly one
+ *      keeper in the eleven
  *   4. the owner's boy comes on after the half time talk, the only door out
  *      of half time the screen has, as himself, and the story names him
  * And through finalize and commitRound, nobody's position in the saved squad
@@ -20,6 +22,7 @@ import * as G from '../src/game/state.ts';
 import * as L from '../src/game/liveMatch.ts';
 import { overall } from '../src/engine/matchEngine.ts';
 import type { Player } from '../src/engine/matchEngine.ts';
+import { readFileSync } from 'node:fs';
 
 const fails: string[] = [];
 let checked = 0;
@@ -85,16 +88,29 @@ for (const [i, city] of ['אשדוד', 'חיפה', 'רמת גן', 'באר שבע
       subsMade++;
       const now = L.mySide(st);
       const inMan = now.onPitch.find(p => p.id === on.id);
-      const outMan = now.bench.find(p => p.id === off.id);
-      checked += 5;
+      const outMan = now.replaced.find(x => x.player.id === off.id)?.player;
+      checked += 9;
       if (!inMan) { fails.push(`${city} #${seed}: ${on.name} did not come on`); continue; }
       if (inMan.position !== before.pos)
         fails.push(`${city} #${seed}: ${on.name} came on as ${inMan.position}, his card says ${before.pos}`);
       if (overall(inMan) !== before.ovr)
         fails.push(`${city} #${seed}: ${on.name} rates ${overall(inMan)} on the pitch, ${before.ovr} on his card`);
-      if (!outMan) fails.push(`${city} #${seed}: ${off.name} is not on the bench after coming off`);
+      if (!outMan) fails.push(`${city} #${seed}: ${off.name} is not among the men taken off`);
       else if (outMan.position !== before.offPos || overall(outMan) !== before.offOvr)
-        fails.push(`${city} #${seed}: ${off.name} changed on the bench`);
+        fails.push(`${city} #${seed}: ${off.name} changed after coming off`);
+      if (now.bench.some(p => p.id === off.id)) fails.push(`${city} #${seed}: ${off.name} sat back down on the bench after coming off`);
+      if (now.onPitch.some(p => p.id === off.id)) fails.push(`${city} #${seed}: ${off.name} is still on the pitch after coming off`);
+      if (now.bench.some(p => p.id === on.id)) fails.push(`${city} #${seed}: ${on.name} is on the pitch and on the bench at once`);
+      // nobody can bring him back, by any door: the reason says so, and the offers never name him
+      const back = now.onPitch.find(p => p.position !== 'GK' && p.id !== on.id);
+      if (back) {
+        const why = L.subBlockedReason(st, back.id, off.id);
+        if (!why || !why.includes('לא חוזר')) fails.push(`${city} #${seed}: ${off.name} can be brought back on (${why})`);
+        const usedBefore = st.subsUsed;
+        L.makeSub(st, back.id, off.id);
+        if (st.subsUsed !== usedBefore || L.mySide(st).onPitch.some(p => p.id === off.id)) fails.push(`${city} #${seed}: makeSub brought ${off.name} back on`);
+        if (L.suggestSubs(st, back.id, 20).some(o => o.player.id === off.id)) fails.push(`${city} #${seed}: ${off.name} is offered as a substitute after coming off`);
+      }
       if (now.onPitch.filter(p => p.position === 'GK').length !== 1)
         fails.push(`${city} #${seed}: ${now.onPitch.filter(p => p.position === 'GK').length} keepers in the eleven after a sub`);
       // the shape still seats him somewhere, and usually somewhere strange
@@ -107,6 +123,8 @@ for (const [i, city] of ['אשדוד', 'חיפה', 'רמת גן', 'באר שבע
     // and the match ends, and the saved squad has not moved anybody
     toFullTime(st);
     const res = L.finalize(st);
+    // the men taken off played, so they are rated like everyone who did
+    for (const x of L.mySide(st).replaced) { checked++; if (!(x.player.id in res.ratings)) fails.push(`${city} #${seed}: ${x.player.name} came off and was not rated`); }
     const after = G.commitRound(gs, res);
     for (const p of [...G.mySquad(gs).starters, ...G.mySquad(gs).bench]) {
       const later = card(after, p.id);
@@ -118,6 +136,19 @@ for (const [i, city] of ['אשדוד', 'חיפה', 'רמת גן', 'באר שבע
   }
 }
 console.log(`  ${subsMade} substitutions into another man's shirt, ${strangeRoles} of them seated in a strange role, every man still himself`);
+
+/* 3b. THE WORDS: a move is said to be free, a shape change is never called a substitution, and the men who left are shown. */
+{
+  checked += 6;
+  const scr = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  if (!scr.includes('שינוי עמדה הוא חינם ולא נספר כחילוף')) fails.push('the bench sheet does not say a move is free');
+  if (!scr.includes('ומי שיצא לא חוזר')) fails.push('the bench sheet does not say a man who left does not come back');
+  if (!scr.includes('aria-label="יצאו מהמשחק"') || !scr.includes('side.replaced.map(x => (')) fails.push('the bench sheet does not show the men who left');
+  if (/החלפת מערך|נשארו \$\{left\} החלפות|נשארה החלפה אחת/.test(scr)) fails.push('a shape change is still called a substitution on the screen');
+  if (!scr.includes('שינוי מערך לא נספר כחילוף')) fails.push('the shape sheet does not say a shape change is not a substitution');
+  if (!L.SHAPE_LIMIT_TEXT.includes('לא חילוף')) fails.push('the shape limit text does not say it is not a substitution');
+  console.log('  the words: a move is free, a shape change is a shape change, and the men who left are listed');
+}
 
 /* 4. THE OWNER'S BOY. */
 {
