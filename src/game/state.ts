@@ -5187,9 +5187,21 @@ export const LOAN_MATCHES = 5;
 export const LOYAL_LIFT = 10;
 const LOAN_POSITIONS: Position[] = ['ST', 'LW', 'RW'];
 
+/**
+ * The gift is a limited offer (Itzik, 11.10): whoever stands past ten seasons on a hub before
+ * Thursday 15.10.2026 at 20:00, Israel time (UTC+3 on that date), is told and gets it. After that
+ * the door is shut for good, and a career that gets there later is owed nothing.
+ */
+export const LOYAL_DEADLINE = Date.parse('2026-10-15T20:00:00+03:00');
+
 /** Past ten seasons, never told yet, standing on the hub with nothing in the way. */
-export function loyalGiftDue(gs: GameState): boolean {
+function loyalGiftReady(gs: GameState): boolean {
   return gs.phase === 'hub' && gs.season > LOYAL_SEASONS && gs.loyalGift === null && !gs.pull && !gs.sacking;
+}
+
+/** Ready, and the offer has not run out. The clock is the player's own, handed in so a check can set it. */
+export function loyalGiftDue(gs: GameState, now: number = Date.now()): boolean {
+  return now < LOYAL_DEADLINE && loyalGiftReady(gs);
 }
 
 /** The league's level: the average of every club's eleven in this division. */
@@ -5229,7 +5241,8 @@ export function rollLoyalPull(gs: GameState): PackPull {
 
 /** The popup was read and the pack tapped: the card is rolled and held for the reveal. */
 export function openLoyalGift(gs: GameState): GameState {
-  if (!loyalGiftDue(gs)) return gs;
+  // no clock here: a man who was shown the popup in time and taps a minute late still gets it
+  if (!loyalGiftReady(gs)) return gs;
   return { ...gs, pull: rollLoyalPull(gs), loyalGift: { season: gs.season, playerId: null } };
 }
 

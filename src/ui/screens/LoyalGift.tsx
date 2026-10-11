@@ -33,6 +33,8 @@ export function LoyalGift({ gs, onOpen }: { gs: G.GameState; onOpen: () => void 
           <p className="loyal-line">קודם כל, <b>WOW</b>.</p>
           <p className="loyal-line">דבר שני, רצינו לפרגן לך בחבילה של שחקן <b>מעל הליגה</b>.</p>
           <p className="loyal-small">חלוץ ברמה של עשר נקודות מעל הליגה שלך, מושאל לחמישה משחקים. נכנס לסגל בלי שאף אחד יוצא, ובלי שכר.</p>
+          {/* DRAFT WORDING, Itzik's to correct */}
+          <p className="loyal-until">ההצעה בתוקף עד יום חמישי 15.10 בשעה 20:00</p>
           <button className="btn loyal-btn" onClick={onOpen}>
             <Icon name="star" size={18} /> פתח ת'חבילה
           </button>

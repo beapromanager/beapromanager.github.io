@@ -43,16 +43,34 @@ function career(seed: number, season: number): G.GameState {
 }
 const all = (gs: G.GameState) => [...G.mySquad(gs).starters, ...G.mySquad(gs).bench];
 const ATK = new Set(['ST', 'LW', 'RW']);
+/** a fixed clock inside the offer, so the check does not age out with the calendar */
+const NOW = Date.parse('2026-10-12T12:00:00+03:00');
+
+/* 1b. THE OFFER ENDS: Thursday 15.10.2026, 20:00 Israel time. Before it every career past ten seasons is owed the gift, after it nobody is */
+{
+  checked += 7;
+  const at11 = career(11, 11);
+  const last = Date.parse('2026-10-15T19:59:59+03:00'), edge = Date.parse('2026-10-15T20:00:00+03:00'), after = Date.parse('2026-10-16T09:00:00+03:00');
+  if (G.LOYAL_DEADLINE !== Date.parse('2026-10-15T17:00:00Z')) fails.push('the deadline is not Thursday 15.10.2026 at 20:00 Israel time (17:00 UTC)');
+  if (!G.loyalGiftDue(at11, last)) fails.push('the gift is gone a second before the deadline');
+  if (G.loyalGiftDue(at11, edge)) fails.push('the gift is still due at 20:00 exactly');
+  if (G.loyalGiftDue(at11, after) || G.loyalGiftDue(career(11, 30), after)) fails.push('a career past ten seasons is owed the gift after the deadline');
+  // a man who was shown the popup in time and taps a minute late still gets it
+  if (G.openLoyalGift(at11) === at11) fails.push('opening the gift does not work, with no clock to stop it');
+  const src = readFileSync('src/game/state.ts', 'utf8');
+  if (!src.includes('return now < LOYAL_DEADLINE && loyalGiftReady(gs);')) fails.push('the due rule does not look at the deadline');
+  if (!src.includes('if (!loyalGiftReady(gs)) return gs;')) fails.push('opening the gift is stopped by the clock, so a late tap loses it');
+}
 
 /* 1. WHEN IT IS DUE: past ten seasons, once, on the hub, nothing in the way */
 {
   checked += 7;
   const at10 = career(11, 10), at11 = career(11, 11), at20 = career(11, 20);
-  if (G.loyalGiftDue(at10)) fails.push('the gift is due in the tenth season, it is for a manager PAST ten');
-  if (!G.loyalGiftDue(at11) || !G.loyalGiftDue(at20)) fails.push('the gift is not due past ten seasons');
-  if (G.loyalGiftDue({ ...at11, phase: 'squad' })) fails.push('the gift is due off the hub');
-  if (G.loyalGiftDue({ ...at11, loyalGift: { season: 11, playerId: null } })) fails.push('the gift is due twice');
-  if (G.loyalGiftDue({ ...at11, pull: G.rollLoyalPull(at11) })) fails.push('the gift is due while another pack is open');
+  if (G.loyalGiftDue(at10, NOW)) fails.push('the gift is due in the tenth season, it is for a manager PAST ten');
+  if (!G.loyalGiftDue(at11, NOW) || !G.loyalGiftDue(at20, NOW)) fails.push('the gift is not due past ten seasons');
+  if (G.loyalGiftDue({ ...at11, phase: 'squad' }, NOW)) fails.push('the gift is due off the hub');
+  if (G.loyalGiftDue({ ...at11, loyalGift: { season: 11, playerId: null } }, NOW)) fails.push('the gift is due twice');
+  if (G.loyalGiftDue({ ...at11, pull: G.rollLoyalPull(at11) }, NOW)) fails.push('the gift is due while another pack is open');
   const told = G.openLoyalGift(at11);
   if (!told.pull || !told.loyalGift || told.loyalGift.season !== 11 || told.loyalGift.playerId !== null) fails.push('opening the gift did not hold the card and mark it told');
   if (G.openLoyalGift(at10) !== at10) fails.push('the gift opened for a manager who has not earned it');
@@ -108,7 +126,7 @@ const ATK = new Set(['ST', 'LW', 'RW']);
   if (!why || !why.includes('מושאל')) fails.push(`the gift can be sold (${why})`);
   if (G.sellPlayer(signed, him.id) !== signed) fails.push('selling the gift changed the state');
   if (G.signLoyalGift(signed) !== signed) fails.push('signing the gift twice changed the state');
-  if (G.loyalGiftDue(signed)) fails.push('the gift is due again after it was taken');
+  if (G.loyalGiftDue(signed, NOW)) fails.push('the gift is due again after it was taken');
   // no wage: the weekly wage bill is the squad's, and he is not of the squad
   const wages = (g: G.GameState) => all(g).filter(p => !G.isOnLoan(g, p.id)).length;
   if (wages(signed) !== wages(gs)) fails.push('the gift is counted among the men on the wage bill');
@@ -170,7 +188,7 @@ const ATK = new Set(['ST', 'LW', 'RW']);
   saveCareer(raw);
   const back = loadCareer();
   if (!back || back.loyalGift !== null || JSON.stringify(back.loans) !== '{}') fails.push('an older save does not read as never told with no loans');
-  if (!G.loyalGiftDue(back!)) fails.push('an older career past ten seasons is not owed the gift');
+  if (!G.loyalGiftDue(back!, NOW)) fails.push('an older career past ten seasons is not owed the gift');
   const signed = G.signLoyalGift(G.openLoyalGift(gs));
   saveCareer(signed);
   const again = loadCareer();
@@ -189,7 +207,7 @@ const ATK = new Set(['ST', 'LW', 'RW']);
   if (!app.includes("gs.phase === 'hub' && gs.notices.length === 0 && G.loyalGiftDue(gs) && (") || !app.includes('<LoyalGift gs={gs} onOpen={() => setGs(g => G.openLoyalGift(g))} />')) fails.push('the hub does not show the gift when it is due');
   if (!app.includes("gs.phase === 'hub' && gs.pull && gs.loyalGift && gs.loyalGift.playerId === null && (") || !app.includes('onSign={() => setGs(g => G.signLoyalGift(g))} onSell={() => undefined} />')) fails.push('the reveal of the gift is not wired to signing him');
   if (!/<PackReveal [^>]*\bloan\b/.test(app)) fails.push('the gift is revealed without loan mode');
-  for (const w of ['אלוף, אתה משחק מעל', 'עונות במשחק', 'WOW', 'רצינו לפרגן לך בחבילה של שחקן', "פתח ת'חבילה"]) if (!gift.includes(w)) fails.push(`the popup is missing Itzik's words: ${w}`);
+  for (const w of ['אלוף, אתה משחק מעל', 'עונות במשחק', 'WOW', 'רצינו לפרגן לך בחבילה של שחקן', "פתח ת'חבילה", 'ההצעה בתוקף עד יום חמישי 15.10 בשעה 20:00']) if (!gift.includes(w)) fails.push(`the popup is missing Itzik's words: ${w}`);
   if (!packs.includes('export function PackReveal(') || !packs.includes('loan?: boolean;')) fails.push('the reveal has no loan mode');
   if (!packs.includes("{loan ? (") || !/loan \? \([\s\S]*?<button className="btn" onClick=\{onSign\}>צרף לסגל/.test(packs)) fails.push('in loan mode the only way out of the reveal is to take him');
   if (!/\{loan \? \([\s\S]*?\) : \([\s\S]*?onClick=\{onSell\}/.test(packs)) fails.push('a sale is offered in loan mode');
