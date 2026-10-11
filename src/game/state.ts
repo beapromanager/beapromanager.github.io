@@ -5194,9 +5194,9 @@ const LOAN_POSITIONS: Position[] = ['ST', 'LW', 'RW'];
  */
 export const LOYAL_DEADLINE = Date.parse('2026-10-15T20:00:00+03:00');
 
-/** Past ten seasons, never told yet, standing on the hub with nothing in the way. */
+/** In the tenth season or later (Itzik, 11.10: "עונה 10 ומעלה"), never told yet, standing on the hub with nothing in the way. */
 function loyalGiftReady(gs: GameState): boolean {
-  return gs.phase === 'hub' && gs.season > LOYAL_SEASONS && gs.loyalGift === null && !gs.pull && !gs.sacking;
+  return gs.phase === 'hub' && gs.season >= LOYAL_SEASONS && gs.loyalGift === null && !gs.pull && !gs.sacking;
 }
 
 /** Ready, and the offer has not run out. The clock is the player's own, handed in so a check can set it. */

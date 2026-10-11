@@ -12,7 +12,7 @@ import { Portal } from '../components/Portal.tsx';
 export function LoyalGift({ gs, onOpen }: { gs: G.GameState; onOpen: () => void }) {
   const [lit, setLit] = useState(false);
   useEffect(() => { const t = window.setTimeout(() => setLit(true), 120); return () => clearTimeout(t); }, []);
-  const seasons = gs.season - 1;
+  const seasons = gs.season;
   return (
     <Portal>
       <div className="moment-scrim" role="dialog" aria-modal="true" aria-label="מתנה למי שנשאר"
@@ -25,8 +25,8 @@ export function LoyalGift({ gs, onOpen }: { gs: G.GameState; onOpen: () => void 
         }} />
         <div className="loyal-card" data-lit={lit ? '1' : '0'}>
           <div className="loyal-seasons">
+            <span>עונה</span>
             <span className="num">{seasons}</span>
-            <span>עונות</span>
           </div>
           <div className="loyal-wow">WOW!</div>
           <p className="loyal-line">אלוף, אתה משחק מעל <span className="num">10</span> עונות במשחק.</p>

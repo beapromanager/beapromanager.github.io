@@ -65,15 +65,16 @@ const NOW = Date.parse('2026-10-12T12:00:00+03:00');
 /* 1. WHEN IT IS DUE: past ten seasons, once, on the hub, nothing in the way */
 {
   checked += 7;
-  const at10 = career(11, 10), at11 = career(11, 11), at20 = career(11, 20);
-  if (G.loyalGiftDue(at10, NOW)) fails.push('the gift is due in the tenth season, it is for a manager PAST ten');
+  const at9 = career(11, 9), at10 = career(11, 10), at11 = career(11, 11), at20 = career(11, 20);
+  if (G.loyalGiftDue(at9, NOW)) fails.push('the gift is due in the ninth season, it starts in the tenth');
+  if (!G.loyalGiftDue(at10, NOW)) fails.push('the gift is not due in the tenth season, Itzik said season ten and up');
   if (!G.loyalGiftDue(at11, NOW) || !G.loyalGiftDue(at20, NOW)) fails.push('the gift is not due past ten seasons');
   if (G.loyalGiftDue({ ...at11, phase: 'squad' }, NOW)) fails.push('the gift is due off the hub');
   if (G.loyalGiftDue({ ...at11, loyalGift: { season: 11, playerId: null } }, NOW)) fails.push('the gift is due twice');
   if (G.loyalGiftDue({ ...at11, pull: G.rollLoyalPull(at11) }, NOW)) fails.push('the gift is due while another pack is open');
   const told = G.openLoyalGift(at11);
   if (!told.pull || !told.loyalGift || told.loyalGift.season !== 11 || told.loyalGift.playerId !== null) fails.push('opening the gift did not hold the card and mark it told');
-  if (G.openLoyalGift(at10) !== at10) fails.push('the gift opened for a manager who has not earned it');
+  if (G.openLoyalGift(at9) !== at9) fails.push('the gift opened for a manager who has not earned it');
 }
 
 /* 2. THE CARD: an attacker the squad is shortest of, the league's average plus ten, the same man on a reload */
