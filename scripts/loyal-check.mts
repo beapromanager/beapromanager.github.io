@@ -194,7 +194,9 @@ const ATK = new Set(['ST', 'LW', 'RW']);
   if (!packs.includes("{loan ? (") || !/loan \? \([\s\S]*?<button className="btn" onClick=\{onSign\}>צרף לסגל/.test(packs)) fails.push('in loan mode the only way out of the reveal is to take him');
   if (!/\{loan \? \([\s\S]*?\) : \([\s\S]*?onClick=\{onSell\}/.test(packs)) fails.push('a sale is offered in loan mode');
   if (!packs.includes('מושאל · <span className="num">{G.LOAN_MATCHES}</span> משחקים')) fails.push('the card does not say he is on loan and for how long');
-  if (!squad.includes('G.isOnLoan(gs, p.id) ? `מושאל · ${G.loanLeft(gs, p.id)}` : null')) fails.push('the squad does not mark the man on loan with his rounds left');
+  if (!squad.includes('G.isOnLoan(gs, p.id) ? `מושאל · ${G.loanLeft(gs, p.id)}` : G.isSuspended')) fails.push('the squad does not mark the man on loan with his rounds left, first, so no other mark hides it');
+  const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
+  if (!hub.includes('G.isOnLoan(gs, p.id)') || !hub.includes('נשארו <span className="num">{G.loanLeft(gs, p.id)}</span> משחקי ליגה')) fails.push('the hub does not say how many league rounds the man on loan has left');
 }
 
 console.log(`${checked} checks`);

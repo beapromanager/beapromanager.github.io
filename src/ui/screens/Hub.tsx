@@ -233,6 +233,9 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting }: {
   }
   const table = G.sortedTable(gs.league);
   const posOf = (id: string) => table.findIndex(s => s.clubId === id) + 1;
+  // the man on loan: how many league rounds he has left, said before every round
+  const sqd = G.mySquad(gs);
+  const loaned = [...sqd.starters, ...sqd.bench].filter(p => G.isOnLoan(gs, p.id));
   // a banned man in the eleven, or a sheet short of sixteen names, and the
   // round does not start. The reason sits where the button was
   const blocked = G.weekBlockedReason(gs);
@@ -250,6 +253,13 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting }: {
         <span className="match-vs">VS</span>
         <Side club={rival} pos={posOf(rival.id)} />
       </div>
+
+      {loaned.map(p => (
+        <div key={p.id} className="loan-strip">
+          <span><b>{p.name}</b> מושאל אצלך</span>
+          <span className="loan-left">נשארו <span className="num">{G.loanLeft(gs, p.id)}</span> משחקי ליגה</span>
+        </div>
+      ))}
 
       {blocked ? (
         <div style={{ marginTop: 14 }}>
