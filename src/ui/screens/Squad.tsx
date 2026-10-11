@@ -238,7 +238,7 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   // from the moment the week starts and moves it onto the sheet
   const promised = gs.matchMods.promised ?? gs.mate.promiseNext ?? null;
   const markOf = (p: Player): string | null =>
-    G.isSuspended(gs, p.id) ? 'מורחק' : gs.emergencyYouth === p.id ? 'רשום בלבד' : gs.sitOut[p.id] ?? (promised?.id === p.id ? PROMISED : null);
+    G.isSuspended(gs, p.id) ? 'מורחק' : gs.emergencyYouth === p.id ? 'רשום בלבד' : gs.sitOut[p.id] ?? (promised?.id === p.id ? PROMISED : G.isOnLoan(gs, p.id) ? `מושאל · ${G.loanLeft(gs, p.id)}` : null);
 
   // serving a red, and therefore the reason the round will not start
   const bannedIds = useMemo(

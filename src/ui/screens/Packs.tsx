@@ -189,8 +189,10 @@ const BEATS: [Beat, number][] = [
   ['shake', 350], ['light', 750], ['rise', 1350], ['flip', 2000], ['done', 2750],
 ];
 
-function PackReveal({ pull, club, squadFull, standing, onSign, onSell }: {
+export function PackReveal({ pull, club, squadFull, standing, onSign, onSell, loan }: {
   pull: PackPull;
+  /** the loyalty gift: he is on loan, there is no selling him, and the only way out is to take him */
+  loan?: boolean;
   club: Parameters<typeof UltraCard>[0]['club'];
   squadFull: boolean;
   /** how he compares to the squad you already have */
@@ -223,7 +225,7 @@ function PackReveal({ pull, club, squadFull, standing, onSign, onSell }: {
         className="moment-scrim"
         onClick={done ? undefined : skip}
         role="dialog" aria-modal="true"
-        aria-label={`נפתחה חבילה, ${pull.player.name}, דירוג ${o}`}
+        aria-label={`${loan ? 'המתנה' : 'נפתחה חבילה'}, ${pull.player.name}, דירוג ${o}`}
         style={{ display: 'grid', placeItems: 'center', padding: 20 }}
       >
         {/* the light behind everything, its colour is the first hint of rarity */}
@@ -269,6 +271,11 @@ function PackReveal({ pull, club, squadFull, standing, onSign, onSell }: {
                   <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--ink-dim)' }}>
                     גיל <span className="num">{pull.player.age}</span>
                   </span>
+                  {loan && (
+                    <span className="chip" style={{ background: 'rgba(233,185,73,.18)', color: 'var(--gold-hi)', fontWeight: 800 }}>
+                      מושאל · <span className="num">{G.LOAN_MATCHES}</span> משחקים
+                    </span>
+                  )}
                   {pull.upside >= 4 && (
                     <span className="chip" style={{ background: 'rgba(51,194,122,.16)', color: 'var(--win)', fontWeight: 800 }}>
                       יכול להגיע ל־<span className="num">{o + pull.upside}</span>
@@ -277,20 +284,28 @@ function PackReveal({ pull, club, squadFull, standing, onSign, onSell }: {
                 </div>
               </div>
 
-              {squadFull && (
+              {squadFull && !loan && (
                 <div className="tile" style={{ padding: '9px 12px', fontSize: 13.5, color: 'var(--ink-dim)' }}>
                   הסגל מלא, אפשר רק למכור אותו. תפנה מקום ותפתח חבילה חדשה.
                 </div>
               )}
 
-              <div className="row" style={{ gap: 10 }}>
-                <button className="btn ghost" style={{ flex: 1 }} onClick={onSell}>
-                  מכור · {formatMoney(pull.cashValue)}
-                </button>
-                <button className="btn" style={{ flex: 1.4 }} disabled={squadFull} onClick={onSign}>
-                  צרף לסגל ‹
-                </button>
-              </div>
+              {loan ? (
+                <>
+                  {/* DRAFT WORDING, Itzik's to correct */}
+                  <div className="sub" style={{ fontSize: 13 }}>הוא שלך לחמישה משחקי ליגה, בלי שכר, ואז חוזר למועדון שלו.</div>
+                  <button className="btn" onClick={onSign}>צרף לסגל ‹</button>
+                </>
+              ) : (
+                <div className="row" style={{ gap: 10 }}>
+                  <button className="btn ghost" style={{ flex: 1 }} onClick={onSell}>
+                    מכור · {formatMoney(pull.cashValue)}
+                  </button>
+                  <button className="btn" style={{ flex: 1.4 }} disabled={squadFull} onClick={onSign}>
+                    צרף לסגל ‹
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

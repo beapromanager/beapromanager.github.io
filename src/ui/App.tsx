@@ -40,7 +40,8 @@ import { StandingsScreen } from './screens/Standings.tsx';
 import { CaptainScreen } from './screens/Captain.tsx';
 import { AssistantScreen } from './screens/Assistant.tsx';
 import { StadiumScreen } from './screens/Stadium.tsx';
-import { PacksScreen } from './screens/Packs.tsx';
+import { PacksScreen, PackReveal } from './screens/Packs.tsx';
+import { LoyalGift } from './screens/LoyalGift.tsx';
 import { CoachScreen } from './screens/Coach.tsx';
 import { InviteScreen } from './screens/Invite.tsx';
 import { setInviteHandler, setInstallHandler, setReportHandler } from './components/bits.tsx';
@@ -329,6 +330,14 @@ export function App() {
           onSquad={() => { setSquadFromHub(true); setGs(g => G.openSquad(G.dismissNotice(g))); }}
           onYouth={() => setGs(g => G.openYouth(G.dismissNotice(g)))}
           onTransfers={() => setGs(g => G.openTransfers(G.dismissNotice(g)))} />
+      )}
+      {/* the loyalty gift: told once on the hub, then the pack's own ceremony with the man on loan */}
+      {gs.phase === 'hub' && gs.notices.length === 0 && G.loyalGiftDue(gs) && (
+        <LoyalGift gs={gs} onOpen={() => setGs(g => G.openLoyalGift(g))} />
+      )}
+      {gs.phase === 'hub' && gs.pull && gs.loyalGift && gs.loyalGift.playerId === null && (
+        <PackReveal pull={gs.pull} club={G.club(gs)} squadFull={false} standing={null} loan
+          onSign={() => setGs(g => G.signLoyalGift(g))} onSell={() => undefined} />
       )}
       {gs.phase === 'hub' && gs.notices.length === 0 && (
         <Hub gs={gs}
