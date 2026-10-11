@@ -869,7 +869,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   // the wiring: the cup is closed where the season ends, before the summer draws the next, and only on a calendar that can play it
   checked += 8;
   const src = readFileSync('src/game/state.ts', 'utf8');
-  if (!src.includes('const settled = settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs);') || !src.includes("return { ...settled, phase: 'season-end', press: null, chat: null, fanHistory };")) fails.push('the cup is not closed where the last league round ends');
+  if (!src.includes("const settled = settleLoans(settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs), 'season');") || !src.includes("return { ...settled, phase: 'season-end', press: null, chat: null, fanHistory };")) fails.push('the cup is not closed where the last league round ends');
   if (!src.includes('euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null')) fails.push('a cup is drawn for a league too short to play it');
   if (euroWeeks(10) !== null || euroWeeks(14) === null) fails.push('the calendar guard does not say which leagues can play the cup');
   const end = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');

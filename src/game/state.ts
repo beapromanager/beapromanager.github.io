@@ -3,7 +3,8 @@ import { surnameOf } from '../data/names.ts';
 import type { ManagerId, ManagerType } from '../data/managers.ts';
 import { getManager } from '../data/managers.ts';
 import type { Squad } from '../data/squadGen.ts';
-import { playerValue, squadAvgOvr, nextPlayerId, makePlayer, makeSquad } from '../data/squadGen.ts';
+import { playerValue, squadAvgOvr, nextPlayerId, makePlayer, makeSquad, NEUTRAL_TRAITS } from '../data/squadGen.ts';
+import { rarityForOvr } from './cards.ts';
 import { FACTORIES, describeFriendly } from '../data/friendly.ts';
 import { moneyShort } from '../data/money.ts';
 import {
@@ -333,6 +334,10 @@ export interface GameState {
   seasonChatEvents: string[];
   /** ליגת אירופה this season, when the title opened the door; null otherwise */
   euro: EuroState | null;
+  /** the loyalty gift past ten seasons: null until it is shown, then the season and the man it brought */
+  loyalGift: { season: number; playerId: string | null } | null;
+  /** men here on loan, by the league rounds they have left */
+  loans: Record<string, number>;
   /** the money in and out of the round just played, shown on the result screen */
   lastLedger: RoundLedger | null;
   /** what the season's purse has already paid round by round, so the summer pays only the rest */
@@ -538,6 +543,8 @@ export function newGame(seed = 12345): GameState {
     seasonDilemmas: [],
     seasonChatEvents: [],
     euro: null,
+    loyalGift: null,
+    loans: {},
     lastLedger: null,
     purseEarlier: 0,
     chat: null,
@@ -847,6 +854,7 @@ export function takeRescue(gs: GameState): GameState {
     ...gs,
     sacking: null,
     euro: null,
+    loans: {},
     ultimatumSeason: null,
     // he does not move while you are away, and the day you get back he is there.
     // Already in the same division, the account is open on the pitch instead.
@@ -2196,7 +2204,8 @@ export function swapPlayers(gs: GameState, starterId: string, benchId: string): 
 
 export function squadSize(gs: GameState): number {
   const sq = mySquad(gs);
-  return sq.starters.length + sq.bench.length;
+  // a man on loan is not the club's: he neither fills the cap nor holds up the floor
+  return [...sq.starters, ...sq.bench].filter(p => !isOnLoan(gs, p.id)).length;
 }
 
 export function signBlockedReason(gs: GameState, fa: FreeAgent): string | null {
@@ -2242,6 +2251,7 @@ export function lastKeeperReason(gs: GameState, playerId: string): string | null
 export function sellBlockedReason(gs: GameState, playerId?: string): string | null {
   // A club in the red is always allowed to sell. Without this the owner could
   // sack you for a debt you had no way to pay off, which is a trap, not pressure.
+  if (playerId && isOnLoan(gs, playerId)) return 'מושאל, לא למכירה';
   if (!transferWindow(gs).open && debt(gs).level === 'clear') return 'החלון סגור';
   if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר לרדת מתחת ל-${MIN_SQUAD} שחקנים`;
   if (playerId) {
@@ -4390,7 +4400,7 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
     if (!him) return withChron.mate;
     return mateAfterRound(withChron.mate, withChron.seasonStats[him.id]?.apps ?? 0);
   })();
-  return maybeCrisis(checkTheBooks({ ...withChron, mate: mateNow }, !won && !draw));
+  return maybeCrisis(checkTheBooks(settleLoans({ ...withChron, mate: mateNow }, 'round'), !won && !draw));
 }
 
 /**
@@ -4612,7 +4622,7 @@ function endOfWeek(gs: GameState): GameState {
   if (gs.seasonOver) {
     const finale = chronicleAtSeasonEnd(gs);
     // the league's line first, then the cup's: the competition is closed and written down before the summer draws the next
-    const settled = settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs);
+    const settled = settleLoans(settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs), 'season');
     return { ...settled, phase: 'season-end', press: null, chat: null, fanHistory };
   }
   // the winter window opens with a word, not silently behind a green dot
@@ -5160,6 +5170,119 @@ export function openChronicle(gs: GameState): GameState {
 export function closeChronicle(gs: GameState): GameState {
   return { ...gs, phase: 'hub' };
 }
+
+/* ------------------------------------------------------- the loyalty gift */
+
+/**
+ * Itzik's gift of 11.10 to the managers who stayed. Past ten seasons a career
+ * is told, once, that this is worth something, and handed a striker ten above
+ * his league on loan for five league rounds. His rules: the five count from
+ * the moment the man is received, whether he plays or not; he walks into the
+ * squad without anyone having to leave and without counting against the cap;
+ * no wage; the gift goes to everyone already past the mark, not only to the
+ * next to cross it; and only league rounds count, a European night does not.
+ */
+export const LOYAL_SEASONS = 10;
+export const LOAN_MATCHES = 5;
+export const LOYAL_LIFT = 10;
+const LOAN_POSITIONS: Position[] = ['ST', 'LW', 'RW'];
+
+/** Past ten seasons, never told yet, standing on the hub with nothing in the way. */
+export function loyalGiftDue(gs: GameState): boolean {
+  return gs.phase === 'hub' && gs.season > LOYAL_SEASONS && gs.loyalGift === null && !gs.pull && !gs.sacking;
+}
+
+/** The league's level: the average of every club's eleven in this division. */
+export function leagueAvgOvr(gs: GameState): number {
+  const xs = Object.values(gs.league.ovr);
+  return xs.length ? Math.round(xs.reduce((s, x) => s + x, 0) / xs.length) : squadAvgOvr(mySquad(gs));
+}
+
+/**
+ * The card: an attacker, whichever of the three the squad is shortest of,
+ * rated the league's average plus ten, to the point. Seeded on the career and
+ * the season so a reload shows the same man. He cannot be sold, so his cash
+ * value is nothing.
+ */
+export function rollLoyalPull(gs: GameState): PackPull {
+  const sq = mySquad(gs);
+  const all = [...sq.starters, ...sq.bench];
+  const taken = new Set(all.map(p => p.name));
+  const rng = createRng(drawSeed(gs, 160_000));
+  const counts = LOAN_POSITIONS.map(pos => all.filter(p => p.position === pos).length);
+  const fewest = Math.min(...counts);
+  const choices = LOAN_POSITIONS.filter((_, i) => counts[i] === fewest);
+  const pos = choices[Math.floor(rng() * choices.length)];
+  const target = leagueAvgOvr(gs) + LOYAL_LIFT;
+  let best: Player | null = null;
+  let bias = 0;
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const p = makePlayer(pos, target + bias, rng, NEUTRAL_TRAITS, taken);
+    const o = overall(p);
+    if (!best || Math.abs(o - target) < Math.abs(overall(best) - target)) best = p;
+    if (o === target) break;
+    bias += target - o;
+  }
+  const player = best!;
+  return { player, rarity: rarityForOvr(overall(player)), cashValue: 0, upside: 0 };
+}
+
+/** The popup was read and the pack tapped: the card is rolled and held for the reveal. */
+export function openLoyalGift(gs: GameState): GameState {
+  if (!loyalGiftDue(gs)) return gs;
+  return { ...gs, pull: rollLoyalPull(gs), loyalGift: { season: gs.season, playerId: null } };
+}
+
+/**
+ * The man walks in. Onto the bench, past the cap, on no contract and no
+ * wage, with five league rounds on his clock. The reveal's sell button is not
+ * offered for him, and signing is the only way out of the reveal.
+ */
+export function signLoyalGift(gs: GameState): GameState {
+  const pull = gs.pull;
+  if (!pull || !gs.loyalGift || gs.loyalGift.playerId) return gs;
+  const sq = mySquad(gs);
+  const next = writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, pull.player] });
+  return {
+    ...next,
+    pull: null,
+    loyalGift: { ...gs.loyalGift, playerId: pull.player.id },
+    loans: { ...gs.loans, [pull.player.id]: LOAN_MATCHES },
+    arrivals: [...gs.arrivals, pull.player.id],
+  };
+}
+
+/** On loan, and the league rounds he has left. */
+export function loanLeft(gs: GameState, playerId: string): number {
+  return gs.loans[playerId] ?? 0;
+}
+export const isOnLoan = (gs: GameState, playerId: string): boolean => loanLeft(gs, playerId) > 0;
+
+/**
+ * A league round was played: every loan is one round shorter, and a loan at
+ * nought is over, the man goes back where he came from and the hub says so.
+ * The season's end closes every loan the same way, since the summer is not
+ * his to spend here.
+ */
+export function settleLoans(gs: GameState, reason: 'round' | 'season'): GameState {
+  const ids = Object.keys(gs.loans);
+  if (!ids.length) return gs;
+  const loans: Record<string, number> = {};
+  let next = gs;
+  const notices: SquadNotice[] = [];
+  for (const id of ids) {
+    const left = reason === 'round' ? gs.loans[id] - 1 : 0;
+    if (left > 0) { loans[id] = left; continue; }
+    const him = [...mySquad(next).starters, ...mySquad(next).bench].find(p => p.id === id);
+    if (him) {
+      next = removePlayer(next, id);
+      notices.push({ kind: 'story', title: `${him.name} חזר מההשאלה`, icon: 'handshake',
+        body: reason === 'round' ? `חמשת המשחקים נגמרו. ${surnameOf(him.name)} חוזר למועדון שלו, ותודה על הכול.` : `העונה נגמרה וההשאלה איתה. ${surnameOf(him.name)} חוזר למועדון שלו.` });
+    }
+  }
+  return { ...next, loans, notices: [...next.notices, ...notices] };
+}
+
 /* ------------------------------------------------------------ the new season */
 
 /**
