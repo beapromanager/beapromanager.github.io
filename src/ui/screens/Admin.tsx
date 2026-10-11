@@ -150,6 +150,16 @@ export function AdminScreen({ stats: data }: { stats: Stats }) {
               </div>
             </>
           )}
+          {data.reach.share && data.reach.share.length > 0 && (
+            <>
+              <div className="label-cap">שיתוף לחבר</div>
+              <div className="tile" style={{ padding: '11px 12px' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+                  <span className="num" style={{ color: 'var(--gold-hi)' }}>{data.reach.share[0]?.n ?? 0}</span> מכשירים שלחו רגע גדול לחבר
+                </span>
+              </div>
+            </>
+          )}
           <p className="hint">
             נספר מרגע שהמדידה עלתה, ומי שממשיך קריירה ישנה נספר בפעם הבאה שהוא פותח את המשחק.
           </p>
@@ -207,6 +217,8 @@ export type Stats = {
     europe?: { step: string; n: number }[];
     /** the loyalty gift, absent from a worker that does not count it yet */
     gift?: { n: number }[];
+    /** devices that sent a big moment to a friend, absent from a worker that does not count it yet */
+    share?: { n: number }[];
   };
 };
 

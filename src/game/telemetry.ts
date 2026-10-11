@@ -90,7 +90,7 @@ export const QUEUE_CAP = 60;
  * and reaching the top does not mean having sat in every season on the way. So they are never backfilled, each is
  * reported when it happens, and the server keeps one of each per device like every other step.
  */
-export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof GIFT_MARKS[number];
+export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof GIFT_MARKS[number] | typeof SHARE_MARKS[number];
 /**
  * The two money facts worth counting, agreed with Itzik on 3.10: a career that
  * fell below zero, and a career the owner ended over debt. The bot simulations
@@ -109,10 +109,15 @@ export const EURO_MARKS = ['eu_in', 'eu_final', 'eu_won'] as const;
  * took the man on loan. One name, said once a device, like the rest.
  */
 export const GIFT_MARKS = ['gift10'] as const;
+/**
+ * The share button, agreed with Itzik on 11.10: how many devices ever sent a moment to a friend. One name, said once
+ * a device, like the rest. Without it the button would be a hope; with it the dashboard says whether it is used.
+ */
+export const SHARE_MARKS = ['share_tap'] as const;
 /** a career older than this is counted in its twentieth season, "twenty or more" */
 export const MAX_SEASON = 20;
 /** the only shapes the game sends and the worker keeps. The worker holds the same pattern, telemetry-check compares them */
-export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|gift10)$/;
+export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|gift10|share_tap)$/;
 
 export function isMilestone(k: unknown): k is Milestone {
   return typeof k === 'string' && MILESTONE.test(k);
@@ -346,6 +351,11 @@ export function wonLeague(tier: number): void {
 
 /** Note that a career was drawn into the European cup, stood in its final, or lifted it. */
 export function euroMark(k: typeof EURO_MARKS[number]): void {
+  trackMilestone(k);
+}
+
+/** Note that this device sent a big moment to a friend. */
+export function shareMark(k: typeof SHARE_MARKS[number]): void {
   trackMilestone(k);
 }
 

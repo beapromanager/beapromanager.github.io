@@ -11,6 +11,7 @@ import { ROUND_IN } from '../../game/euro.ts';
 import { shareKindFor, shareText, shareLink } from '../../game/share.ts';
 import { ShareMoment } from '../components/ShareMoment.tsx';
 import { Portal } from '../components/Portal.tsx';
+import { shareMark } from '../../game/telemetry.ts';
 
 /**
  * End of a season, which is now a milestone in a long climb rather than the end
@@ -88,7 +89,7 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
         </div>
         <div style={{ marginTop: 11, fontWeight: 700, fontSize: 15.5 }}>{headline}</div>
 
-        {share && <div style={{ marginTop: 14 }}><ShareMoment text={share.text} link={share.link} /></div>}
+        {share && <div style={{ marginTop: 14 }}><ShareMoment text={share.text} link={share.link} onShared={() => shareMark('share_tap')} /></div>}
 
         {nextTier !== c.tier && (
           <div className="row" style={{ justifyContent: 'center', gap: 9, marginTop: 12 }}>
@@ -314,7 +315,7 @@ export function Celebration({ champion, atTop, europe = true, tier, nextTier, sh
           display: 'flex', justifyContent: 'center',
           opacity: shown ? 1 : 0, transition: 'opacity 1s ease 1.2s',
         }}>
-          <ShareMoment glass text={share.text} link={share.link} />
+          <ShareMoment glass text={share.text} link={share.link} onShared={() => shareMark('share_tap')} />
         </div>
       )}
 

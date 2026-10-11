@@ -432,7 +432,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
 
   const worker = (await import('../worker/src/index.ts')) as {
     default: { fetch: (r: Request, e: unknown) => Promise<Response> };
-    REACH_SQL: Record<'grid' | 'ever' | 'best' | 'seasons' | 'titles' | 'europe' | 'gift', string>;
+    REACH_SQL: Record<'grid' | 'ever' | 'best' | 'seasons' | 'titles' | 'europe' | 'gift' | 'share', string>;
   };
   const { DatabaseSync } = await import('node:sqlite');
   const db = new DatabaseSync(':memory:');
@@ -472,6 +472,14 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const gift = (db.prepare(R.gift).all() as unknown as { n: number }[])[0]?.n;
   if (gift !== 2) fails.push(`how many signed the loyalty gift: ${gift}, wanted 2`);
   if (flat(q(R.grid), 'tier', 'season', 'n') !== grid || flat(q(R.titles), 'tier', 'n') !== titles) fails.push('the gift mark leaked into the divisions or the titles');
+
+  // the share button: one closed mark, counted once a device, and not the gift
+  put('K', 'open', 'share_tap');
+  put('L', 'open', 'share_tap', 'gift10');
+  put('M', 'open', 'share_taps');
+  const sharedN = (db.prepare(R.share).all() as unknown as { n: number }[])[0]?.n;
+  if (sharedN !== 2) fails.push(`how many devices sent a moment to a friend: ${sharedN}, wanted 2`);
+  if ((db.prepare(R.gift).all() as unknown as { n: number }[])[0]?.n !== 3) fails.push('the share mark changed the gift count');
 
   // and the door lets the milestones in, and nothing that only looks like one
   const written: unknown[][] = [];
@@ -537,7 +545,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   for (const bad of ['gift', 'gift1', 'gift100', 'GIFT10', 'gift10 ', 'gift_10']) if (T.isMilestone(bad)) fails.push(`"${bad}" passes as the gift mark`);
   if (T.STEP_ORDER['gift10' as never] !== undefined) fails.push('the gift mark is in the step order, which would backfill it');
   const wsrc4 = readFileSync('worker/src/index.ts', 'utf8');
-  if (!wsrc4.includes('|eu_won|gift10)$/')) fails.push('the worker refuses the gift mark');
+  if (!wsrc4.includes('|gift10|') && !wsrc4.includes('|gift10)$/')) fails.push('the worker refuses the gift mark');
   if (!wsrc4.includes('gift: gift.results')) fails.push('the worker does not answer the dashboard with the gift count');
   const tele4 = readFileSync('src/game/telemetry.ts', 'utf8');
   if (!tele4.includes('export function giftMark(k: typeof GIFT_MARKS[number]): void')) fails.push('giftMark() takes something wider than the one closed name');
@@ -546,6 +554,23 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const adm4 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
   if (!adm4.includes('data.reach.gift') || !adm4.includes('המתנה למי שנשאר')) fails.push('the dashboard has no place for the gift count');
   console.log('  the loyalty gift: one closed mark in the game, the worker, the sending code and the dashboard, counted once a device');
+}
+
+/* 3g5. THE SHARE BUTTON: one closed mark, share_tap, held in the game, the worker, the sending code and the dashboard together. */
+{
+  checked += 11;
+  if (JSON.stringify(T.SHARE_MARKS) !== '["share_tap"]') fails.push('the name of the share mark changed, and the worker holds the same one');
+  if (!T.isMilestone('share_tap')) fails.push('the share mark is not accepted by the game pattern');
+  for (const bad of ['share', 'share_', 'share_tap2', 'SHARE_TAP', 'share_tap ', 'shared']) if (T.isMilestone(bad)) fails.push(`"${bad}" passes as the share mark`);
+  if (T.STEP_ORDER['share_tap' as never] !== undefined) fails.push('the share mark is in the step order, which would backfill it');
+  const wsrc5 = readFileSync('worker/src/index.ts', 'utf8');
+  if (!wsrc5.includes('|gift10|share_tap)$/')) fails.push('the worker refuses the share mark');
+  if (!wsrc5.includes('share: share.results')) fails.push('the worker does not answer the dashboard with the share count');
+  if (!readFileSync('src/game/telemetry.ts', 'utf8').includes('export function shareMark(k: typeof SHARE_MARKS[number]): void')) fails.push('shareMark() takes something wider than the one closed name');
+  const end5 = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');
+  if (!end5.includes("onShared={() => shareMark('share_tap')}")) fails.push('nothing reports a share');
+  const adm5 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
+  if (!adm5.includes('data.reach.share') || !adm5.includes('שיתוף לחבר')) fails.push('the dashboard has no place for the share count');
 }
 
 /* 3h. THE GAME REPORTS THEM, AND ONLY FROM A REAL CAREER ON A REAL PAGE. */

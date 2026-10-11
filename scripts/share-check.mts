@@ -79,8 +79,8 @@ const store = new Map<string, string>();
 
   if (!end.includes("shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won' })")) fails.push('the season end does not ask which moment this was');
   if (!end.includes('const shareKind = blocked ? null :')) fails.push('a promotion the ground blocked is sent to a friend as a promotion');
-  if (!end.includes('<ShareMoment text={share.text} link={share.link} />')) fails.push('the season end card has no share button');
-  if (!end.includes('<ShareMoment glass text={share.text} link={share.link} />')) fails.push('the celebration has no share button');
+  if (!end.includes('<ShareMoment text={share.text} link={share.link} onShared={() => shareMark(\'share_tap\')} />')) fails.push('the season end card has no share button that reports');
+  if (!end.includes('<ShareMoment glass text={share.text} link={share.link} onShared={() => shareMark(\'share_tap\')} />')) fails.push('the celebration has no share button that reports');
   if (!end.includes('share={share}')) fails.push('the celebration is not handed the words to send');
   if (!/<Portal><div onClick=\{finish\}/.test(end) || !end.includes('</div></Portal>')) fails.push('the celebration is not on the viewport, so its title and the way on fall below the fold');
   if (!btn.includes('e.stopPropagation()')) fails.push('tapping share inside the celebration also dismisses it');
