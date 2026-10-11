@@ -8,7 +8,7 @@ export type IconName =
   | 'alert' | 'glove' | 'trophy' | 'coins' | 'star' | 'flame'
   | 'chevron' | 'play' | 'pause' | 'shirt' | 'mic' | 'crowd'
   | 'whistle' | 'flag' | 'target' | 'handshake' | 'calendar' | 'boot'
-  | 'download';
+  | 'download' | 'share';
 
 const S = { stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
 
@@ -116,6 +116,16 @@ function body(name: IconName) {
     case 'boot':
       return <path d="M4 7.4h5.6l1.4 3.6 5.2 1.6a3.4 3.4 0 0 1 2.4 3.2v1.4a1.2 1.2 0 0 1-1.2 1.2H5.2A1.2 1.2 0 0 1 4 17.2z" {...S} />;
 
+    // send to somebody: three dots joined, the usual mark for sharing
+    case 'share':
+      return (
+        <g {...S}>
+          <circle cx="6.5" cy="12" r="2.2" />
+          <circle cx="17.5" cy="6.2" r="2.2" />
+          <circle cx="17.5" cy="17.8" r="2.2" />
+          <path d="m8.5 10.9 7-3.6M8.5 13.1l7 3.6" />
+        </g>
+      );
     // onto the home screen: an arrow into a tray
     case 'download':
       return (

@@ -104,6 +104,9 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
 
           {saved && <p className="hint" style={{ textAlign: 'center' }}>קריירה חדשה תמחק את הקריירה השמורה.</p>}
 
+          {/* what a stranger wants to know before he presses: it costs nothing and asks for nothing */}
+          {!saved && <p className="hint" style={{ textAlign: 'center', margin: '-2px 0 0' }}>חינם, בלי הרשמה. הכול נשמר אצלך במכשיר.</p>}
+
           {/* The install belongs HERE, before a career, not buried in the game.
               Somebody who has just arrived should be able to put the game on his
               phone and open it from there, rather than discovering the option

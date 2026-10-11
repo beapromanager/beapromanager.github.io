@@ -8,6 +8,9 @@ import { Icon } from '../components/Icon.tsx';
 import { formatMoney } from '../components/bits.tsx';
 import { LEAGUE_NAMES } from '../../data/clubs.ts';
 import { ROUND_IN } from '../../game/euro.ts';
+import { shareKindFor, shareText, shareLink } from '../../game/share.ts';
+import { ShareMoment } from '../components/ShareMoment.tsx';
+import { Portal } from '../components/Portal.tsx';
 
 /**
  * End of a season, which is now a milestone in a long climb rather than the end
@@ -52,6 +55,13 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
   // something to celebrate. A blocked promotion is not a party.
   const [celebrating, setCelebrating] = useState((champion || promoted) && !blocked);
 
+  // the moment worth sending to a friend: the cup, the title, the promotion
+  const shareKind = blocked ? null : shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won' });
+  const share = shareKind ? {
+    text: shareText(shareKind, { club: c.name, league: LEAGUE_NAMES[c.tier], nextLeague: LEAGUE_NAMES[nextTier], season: gs.season }),
+    link: shareLink(),
+  } : null;
+
   return (
     <div className="screen pad stack pad-b" style={{ gap: 13, minHeight: '100%' }}>
       <div className="stack" style={{ alignItems: 'center', gap: 8, marginTop: 18 }}>
@@ -77,6 +87,8 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
           </div>
         </div>
         <div style={{ marginTop: 11, fontWeight: 700, fontSize: 15.5 }}>{headline}</div>
+
+        {share && <div style={{ marginTop: 14 }}><ShareMoment text={share.text} link={share.link} /></div>}
 
         {nextTier !== c.tier && (
           <div className="row" style={{ justifyContent: 'center', gap: 9, marginTop: 12 }}>
@@ -127,7 +139,7 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
       {celebrating && (
         <Celebration
           champion={champion} atTop={champion && c.tier >= TOP_TIER} europe={europe}
-          tier={c.tier} nextTier={nextTier}
+          tier={c.tier} nextTier={nextTier} share={share}
           onDone={() => setCelebrating(false)} />
       )}
     </div>
@@ -177,8 +189,10 @@ const reduceMotion = typeof window !== 'undefined'
  * of gold confetti, a floodlight flash reveals the wordmark, and a tap drops it
  * to show the final table underneath. Same cinematic grammar as the cold open.
  */
-export function Celebration({ champion, atTop, europe = true, tier, nextTier, onDone }: {
+export function Celebration({ champion, atTop, europe = true, tier, nextTier, share, onDone }: {
   champion: boolean; atTop: boolean; europe?: boolean; tier: number; nextTier: number; onDone: () => void;
+  /** the words and the link for the friend, when the moment is worth sending */
+  share?: { text: string; link: string } | null;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [imgOk, setImgOk] = useState(true);
@@ -237,7 +251,7 @@ export function Celebration({ champion, atTop, europe = true, tier, nextTier, on
   }, []);
 
   return (
-    <div onClick={finish} role="button" aria-label="חגיגת אליפות, הקש להמשך" style={{
+    <Portal><div onClick={finish} role="button" aria-label="חגיגת אליפות, הקש להמשך" style={{
       position: 'fixed', inset: 0, zIndex: 80, overflow: 'hidden', cursor: 'pointer',
       background: '#05070c',
     }}>
@@ -294,12 +308,22 @@ export function Celebration({ champion, atTop, europe = true, tier, nextTier, on
         }}>{sub}</div>
       </div>
 
+      {share && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 58px)', insetInline: 0,
+          display: 'flex', justifyContent: 'center',
+          opacity: shown ? 1 : 0, transition: 'opacity 1s ease 1.2s',
+        }}>
+          <ShareMoment glass text={share.text} link={share.link} />
+        </div>
+      )}
+
       <div style={{
         position: 'absolute', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)', insetInline: 0,
         textAlign: 'center', fontSize: 13.5, fontWeight: 700, color: 'rgba(255,255,255,.62)',
         opacity: shown ? 1 : 0, transition: 'opacity 1s ease 1.2s', pointerEvents: 'none',
       }}>הקש להמשך ‹</div>
-    </div>
+    </div></Portal>
   );
 }
 

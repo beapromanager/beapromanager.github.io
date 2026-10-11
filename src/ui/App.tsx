@@ -71,7 +71,9 @@ const BACK_TO_HUB = new Set<G.Phase>([
 ]);
 
 export function App() {
-  const [introDone, setIntroDone] = useState(false);      // the cold open plays first, every launch
+  // The cold open is for a stranger. A manager with a career on this phone has seen it, and every launch he sat through four and a
+  // half seconds before the button he came for, so he goes straight to the title screen (11.10).
+  const [introDone, setIntroDone] = useState(() => savedSummary() !== null);
   const [booted, setBooted] = useState(false);            // still on the title screen
   const [gs, setGs] = useState<G.GameState>(() => G.newGame());
   const [squadFromHub, setSquadFromHub] = useState(false);
