@@ -90,7 +90,7 @@ export const QUEUE_CAP = 60;
  * and reaching the top does not mean having sat in every season on the way. So they are never backfilled, each is
  * reported when it happens, and the server keeps one of each per device like every other step.
  */
-export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number];
+export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof GIFT_MARKS[number];
 /**
  * The two money facts worth counting, agreed with Itzik on 3.10: a career that
  * fell below zero, and a career the owner ended over debt. The bot simulations
@@ -104,10 +104,15 @@ export const MONEY_MARKS = ['money_red', 'money_sack'] as const;
  * that sends them is out, or they are dropped at its door.
  */
 export const EURO_MARKS = ['eu_in', 'eu_final', 'eu_won'] as const;
+/**
+ * The loyalty gift, agreed with Itzik on 11.10: how many careers past ten seasons
+ * took the man on loan. One name, said once a device, like the rest.
+ */
+export const GIFT_MARKS = ['gift10'] as const;
 /** a career older than this is counted in its twentieth season, "twenty or more" */
 export const MAX_SEASON = 20;
 /** the only shapes the game sends and the worker keeps. The worker holds the same pattern, telemetry-check compares them */
-export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won)$/;
+export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|gift10)$/;
 
 export function isMilestone(k: unknown): k is Milestone {
   return typeof k === 'string' && MILESTONE.test(k);
@@ -341,6 +346,11 @@ export function wonLeague(tier: number): void {
 
 /** Note that a career was drawn into the European cup, stood in its final, or lifted it. */
 export function euroMark(k: typeof EURO_MARKS[number]): void {
+  trackMilestone(k);
+}
+
+/** Note that a career past ten seasons signed the loyalty gift. */
+export function giftMark(k: typeof GIFT_MARKS[number]): void {
   trackMilestone(k);
 }
 

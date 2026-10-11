@@ -432,7 +432,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
 
   const worker = (await import('../worker/src/index.ts')) as {
     default: { fetch: (r: Request, e: unknown) => Promise<Response> };
-    REACH_SQL: Record<'grid' | 'ever' | 'best' | 'seasons' | 'titles' | 'europe', string>;
+    REACH_SQL: Record<'grid' | 'ever' | 'best' | 'seasons' | 'titles' | 'europe' | 'gift', string>;
   };
   const { DatabaseSync } = await import('node:sqlite');
   const db = new DatabaseSync(':memory:');
@@ -464,6 +464,14 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const eu = (db.prepare(R.europe).all() as unknown as { step: string; n: number }[]).map(r => `${r.step}:${r.n}`).join(' ');
   if (eu !== 'eu_final:2 eu_in:3 eu_won:1') fails.push(`how many were drawn into the cup, stood in its final and lifted it: ${eu}`);
   if (flat(q(R.grid), 'tier', 'season', 'n') !== grid || flat(q(R.titles), 'tier', 'n') !== titles) fails.push('a European mark leaked into the divisions or the titles');
+
+  // the loyalty gift: one closed mark, counted once a device
+  put('H', 'open', 'gift10');
+  put('I', 'open', 'gift10');
+  put('J', 'open', 'gift1'); // not a mark the door lets in, but a row that looks like one must not be counted either
+  const gift = (db.prepare(R.gift).all() as unknown as { n: number }[])[0]?.n;
+  if (gift !== 2) fails.push(`how many signed the loyalty gift: ${gift}, wanted 2`);
+  if (flat(q(R.grid), 'tier', 'season', 'n') !== grid || flat(q(R.titles), 'tier', 'n') !== titles) fails.push('the gift mark leaked into the divisions or the titles');
 
   // and the door lets the milestones in, and nothing that only looks like one
   const written: unknown[][] = [];
@@ -519,6 +527,25 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   // the door is shut, so no career carries a cup and nothing is reported until it opens
   if (G.euroMarksFor(G.newGame(5)).length !== 0) fails.push('a career with no cup reports Europe');
   console.log('  Europe: three closed marks in the game, the worker and the sending code, counted once a device, nothing while the door is shut');
+}
+
+/* 3g4. THE LOYALTY GIFT: one closed mark, gift10, held in the game, the worker, the App and the dashboard together for the same reason. */
+{
+  checked += 9;
+  if (JSON.stringify(T.GIFT_MARKS) !== '["gift10"]') fails.push('the name of the gift mark changed, and the worker holds the same one');
+  if (!T.isMilestone('gift10')) fails.push('the gift mark is not accepted by the game pattern');
+  for (const bad of ['gift', 'gift1', 'gift100', 'GIFT10', 'gift10 ', 'gift_10']) if (T.isMilestone(bad)) fails.push(`"${bad}" passes as the gift mark`);
+  if (T.STEP_ORDER['gift10' as never] !== undefined) fails.push('the gift mark is in the step order, which would backfill it');
+  const wsrc4 = readFileSync('worker/src/index.ts', 'utf8');
+  if (!wsrc4.includes('|eu_won|gift10)$/')) fails.push('the worker refuses the gift mark');
+  if (!wsrc4.includes('gift: gift.results')) fails.push('the worker does not answer the dashboard with the gift count');
+  const tele4 = readFileSync('src/game/telemetry.ts', 'utf8');
+  if (!tele4.includes('export function giftMark(k: typeof GIFT_MARKS[number]): void')) fails.push('giftMark() takes something wider than the one closed name');
+  const app4 = readFileSync('src/ui/App.tsx', 'utf8');
+  if (!app4.includes('const giftSigned = !!gs.loyalGift?.playerId;') || !app4.includes("if (giftSigned) giftMark('gift10');")) fails.push('nothing in the App reports the gift');
+  const adm4 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
+  if (!adm4.includes('data.reach.gift') || !adm4.includes('המתנה למי שנשאר')) fails.push('the dashboard has no place for the gift count');
+  console.log('  the loyalty gift: one closed mark in the game, the worker, the sending code and the dashboard, counted once a device');
 }
 
 /* 3h. THE GAME REPORTS THEM, AND ONLY FROM A REAL CAREER ON A REAL PAGE. */

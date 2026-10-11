@@ -48,7 +48,7 @@ import { setInviteHandler, setInstallHandler, setReportHandler } from './compone
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, STEP_ORDER } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, giftMark, STEP_ORDER } from '../game/telemetry.ts';
 import { AdminScreen } from './screens/Admin.tsx';
 import type { Stats as AdminStats } from './screens/Admin.tsx';
 import { TELEMETRY_URL } from '../data/telemetry.ts';
@@ -236,6 +236,12 @@ export function App() {
     if (!booted || adminKey || !gs.clubId) return;
     for (const k of euroReports ? euroReports.split(',') as Array<'eu_in' | 'eu_final' | 'eu_won'> : []) euroMark(k);
   }, [booted, adminKey, gs.clubId, euroReports]);
+  // the loyalty gift: the man past ten seasons was signed. Once a device, like the rest
+  const giftSigned = !!gs.loyalGift?.playerId;
+  useEffect(() => {
+    if (!booted || adminKey || !gs.clubId) return;
+    if (giftSigned) giftMark('gift10');
+  }, [booted, adminKey, gs.clubId, giftSigned]);
 
   function startNew() {
     track('career_new');

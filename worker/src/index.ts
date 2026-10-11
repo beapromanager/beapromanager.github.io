@@ -60,7 +60,7 @@ const KNOWN = new Set<string>(STEPS);
  * career that won the top division. The same pattern as MILESTONE in src/game/telemetry.ts, and telemetry-check
  * compares the two, because a copy nobody compares is a copy that drifts.
  */
-const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won)$/;
+const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|gift10)$/;
 
 /**
  * What the dashboard asks of the milestones. Plain SQL over the same table as the funnel, one row per device per
@@ -79,6 +79,8 @@ export const REACH_SQL = {
   titles: "SELECT CAST(substr(step, 2, 1) AS INTEGER) AS tier, COUNT(*) AS n FROM steps WHERE step GLOB 'w[1-5]' GROUP BY tier ORDER BY tier",
   /** people drawn into the European cup, people who stood in its final, people who lifted it: one row per mark */
   europe: "SELECT step, COUNT(*) AS n FROM steps WHERE step IN ('eu_in', 'eu_final', 'eu_won') GROUP BY step ORDER BY step",
+  /** people past ten seasons who signed the loyalty gift */
+  gift: "SELECT COUNT(*) AS n FROM steps WHERE step = 'gift10'",
 };
 
 /** the error kinds the game may report; anything else is dropped */
@@ -175,7 +177,7 @@ export default {
       const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days') ?? 30)));
       const since = today(Date.now() - days * 86400000);
 
-      const [funnel, totals, daily, returning, crashes, grid, ever, best, seasons, titles, europe] = await Promise.all([
+      const [funnel, totals, daily, returning, crashes, grid, ever, best, seasons, titles, europe, gift] = await Promise.all([
         env.DB.prepare('SELECT step, COUNT(*) AS n FROM steps GROUP BY step').all(),
         env.DB.prepare(
           'SELECT (SELECT COUNT(DISTINCT aid) FROM sessions) AS people,' +
@@ -202,6 +204,7 @@ export default {
         env.DB.prepare(REACH_SQL.seasons).all(),
         env.DB.prepare(REACH_SQL.titles).all(),
         env.DB.prepare(REACH_SQL.europe).all(),
+        env.DB.prepare(REACH_SQL.gift).all(),
       ]);
 
       const counts: Record<string, number> = {};
@@ -217,7 +220,7 @@ export default {
         daily: daily.results,
         crashes: crashes.results,
         // where careers get to, from the milestones: empty until the game that reports them is out
-        reach: { grid: grid.results, ever: ever.results, best: best.results, seasons: seasons.results, titles: titles.results, europe: europe.results },
+        reach: { grid: grid.results, ever: ever.results, best: best.results, seasons: seasons.results, titles: titles.results, europe: europe.results, gift: gift.results },
       }, 200, origin);
     }
 

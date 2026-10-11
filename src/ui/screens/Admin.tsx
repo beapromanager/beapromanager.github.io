@@ -140,6 +140,16 @@ export function AdminScreen({ stats: data }: { stats: Stats }) {
               </div>
             </>
           )}
+          {data.reach.gift && data.reach.gift.length > 0 && (
+            <>
+              <div className="label-cap">המתנה למי שנשאר</div>
+              <div className="tile" style={{ padding: '11px 12px' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+                  <span className="num" style={{ color: 'var(--gold-hi)' }}>{data.reach.gift[0]?.n ?? 0}</span> מנג'רים מעל 10 עונות צירפו את השחקן המושאל
+                </span>
+              </div>
+            </>
+          )}
           <p className="hint">
             נספר מרגע שהמדידה עלתה, ומי שממשיך קריירה ישנה נספר בפעם הבאה שהוא פותח את המשחק.
           </p>
@@ -195,6 +205,8 @@ export type Stats = {
     titles: { tier: number; n: number }[];
     /** the European cup, absent from a worker that does not count it yet */
     europe?: { step: string; n: number }[];
+    /** the loyalty gift, absent from a worker that does not count it yet */
+    gift?: { n: number }[];
   };
 };
 
