@@ -83,17 +83,17 @@ export interface PackSpec {
  */
 export const PACKS: PackSpec[] = [
   {
-    id: 'boost', name: 'חבילת חיזוק', cost: 8,
+    id: 'boost', name: 'חבילת חיזוק', cost: 10,
     blurb: 'צעיר שעוד ישתפר, ברמת הליגה שלך',
     offset: -2, spread: 3, youth: 0.75, minUpside: 6, skew: 1, maxAge: 24,
   },
   {
-    id: 'star', name: 'חבילת כוכב', cost: 20,
+    id: 'star', name: 'חבילת כוכב', cost: 25,
     blurb: 'צעיר שכבר טוב, ויגדל עוד',
     offset: +1.5, spread: 2.5, youth: 0.7, minUpside: 5, skew: 0.8, maxAge: 24,
   },
   {
-    id: 'pro', name: 'חבילת פרו', cost: 30,
+    id: 'pro', name: 'חבילת פרו', cost: 40,
     blurb: 'מוכן עכשיו, ברמת הליגה שמעליך',
     offset: +8, spread: 2, youth: 0.4, minUpside: 0, skew: 0.5, maxAge: 28,
   },

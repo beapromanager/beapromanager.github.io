@@ -67,14 +67,14 @@ for (const tier of [1, 2, 3, 4, 5]) {
 const avg = ratio.reduce((a, b) => a + b, 0) / ratio.length;
 console.log(`  ${pulls} cards sold both ways, pack over bench ${avg.toFixed(2)}x`);
 
-/* THE SHOP'S PRICES (Itzik, 12.10): packs must not be easy to get. Measured by the economist on the real code:
+/* THE SHOP'S PRICES (Itzik, 12.10, raised from 8/20/30 to 10/25/40 the same day): packs must not be easy to get. Measured by the economist on the real code at 8/20/30:
    with these prices a manager affords a star pack about once in five seasons and a pro pack about once in seven,
    against once in three and once in four at 5/12/18. The boost stays within reach of a first season's saving. */
 {
   const { PACKS, GEMS_AT_START } = await import('../src/game/packs.ts');
   const price = (id: string) => PACKS.find(p => p.id === id)!.cost;
   checked += 6;
-  if (price('boost') !== 8 || price('star') !== 20 || price('pro') !== 30) fails.push(`the shop sells at ${price('boost')}/${price('star')}/${price('pro')} gems, Itzik's prices are 8/20/30`);
+  if (price('boost') !== 10 || price('star') !== 25 || price('pro') !== 40) fails.push(`the shop sells at ${price('boost')}/${price('star')}/${price('pro')} gems, Itzik's prices are 10/25/40`);
   if (!(price('boost') < price('star') && price('star') < price('pro'))) fails.push('the packs are not dearer the better they are');
   if (GEMS_AT_START >= price('boost')) fails.push('a new manager can open a pack on the first day, which was meant to take a season');
   if (price('boost') > 12) fails.push(`the cheapest pack costs ${price('boost')} gems, further than a first season's saving can reach`);
