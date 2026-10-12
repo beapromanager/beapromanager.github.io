@@ -15,6 +15,7 @@ import { primePlayerIds } from '../data/squadGen.ts';
 import { setDerbies } from '../data/clubs.ts';
 import { localRival } from '../data/cities.ts';
 import { newCoach } from './coach.ts';
+import { emptyDaily } from './daily.ts';
 import { emptyInvite } from './invite.ts';
 import { emptyMate } from './mate.ts';
 import { emptyScout } from './scout.ts';
@@ -125,6 +126,7 @@ export function loadCareer(): GameState | null {
     seasonDilemmas: s.seasonDilemmas ?? [],
     seasonChatEvents: s.seasonChatEvents ?? [],
     euro: s.euro ?? null,
+    daily: s.daily ?? emptyDaily(),
     loyalGift: s.loyalGift ?? null,
     loans: s.loans ?? {},
     crisisReason: s.crisisReason ?? null,

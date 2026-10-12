@@ -5,6 +5,8 @@ import { getManager } from '../data/managers.ts';
 import type { Squad } from '../data/squadGen.ts';
 import { playerValue, squadAvgOvr, nextPlayerId, makePlayer, makeSquad, NEUTRAL_TRAITS } from '../data/squadGen.ts';
 import { rarityForOvr } from './cards.ts';
+import { DAILY_LIVE, GOLD_EVERY, GOLD_LIFT, emptyDaily, dailyView, today as dailyDay } from './daily.ts';
+import type { DailyState } from './daily.ts';
 import { FACTORIES, describeFriendly } from '../data/friendly.ts';
 import { moneyShort } from '../data/money.ts';
 import {
@@ -105,7 +107,7 @@ import {
 } from './coach.ts';
 import type { PackPull, PackId } from './packs.ts';
 import {
-  openPack, packById, GEMS_AT_START, GEMS_PER_AD, GEMS_ON_PROMOTION, adFreeGems,
+  openPack, pullOf, packById, GEMS_AT_START, GEMS_PER_AD, GEMS_ON_PROMOTION, adFreeGems,
   ADS_PER_SEASON, PACK_CONTRACT_YEARS,
 } from './packs.ts';
 
@@ -338,6 +340,8 @@ export interface GameState {
   loyalGift: { season: number; playerId: string | null } | null;
   /** men here on loan, by the league rounds they have left */
   loans: Record<string, number>;
+  /** the daily gift: the run, the last day taken, the last day a round was played */
+  daily: DailyState;
   /** the money in and out of the round just played, shown on the result screen */
   lastLedger: RoundLedger | null;
   /** what the season's purse has already paid round by round, so the summer pays only the rest */
@@ -545,6 +549,7 @@ export function newGame(seed = 12345): GameState {
     euro: null,
     loyalGift: null,
     loans: {},
+    daily: emptyDaily(),
     lastLedger: null,
     purseEarlier: 0,
     chat: null,
@@ -3599,7 +3604,7 @@ export function commitEuroLeg(gs: GameState, r: MatchResult, onPitchIds: string[
   const pensDue = needsPens(euro, me);
   const after = pensDue ? { euro, money, line: '' } : euroAfterTie(gs, euro, money);
   const notice = euroNightNotice(gs, night, goals, myTie(euro, me), after.line, hurt);
-  return {
+  return markPlayed({
     ...gs,
     euro: after.euro,
     meters: { ...gs.meters, money: after.money },
@@ -3607,7 +3612,7 @@ export function commitEuroLeg(gs: GameState, r: MatchResult, onPitchIds: string[
     sitOut,
     notices: pensDue ? gs.notices : [...gs.notices, notice],
     phase: pensDue ? 'euro-pens' : 'hub',
-  };
+  });
 }
 
 /** Who the night hurt, for this week's league match: seeded on the leg, one roll a man. */
@@ -4400,7 +4405,7 @@ export function commitRound(gs: GameState, playerResult: MatchResult): GameState
     if (!him) return withChron.mate;
     return mateAfterRound(withChron.mate, withChron.seasonStats[him.id]?.apps ?? 0);
   })();
-  return maybeCrisis(checkTheBooks(settleLoans({ ...withChron, mate: mateNow }, 'round'), !won && !draw));
+  return markPlayed(maybeCrisis(checkTheBooks(settleLoans({ ...withChron, mate: mateNow }, 'round'), !won && !draw)));
 }
 
 /**
@@ -5186,6 +5191,81 @@ export const LOYAL_SEASONS = 10;
 export const LOAN_MATCHES = 5;
 export const LOYAL_LIFT = 10;
 const LOAN_POSITIONS: Position[] = ['ST', 'LW', 'RW'];
+
+/* ------------------------------------------------------------- the daily gift */
+
+/** what the daily gift screen shows: the clock is the player's own, handed in so a check can set it */
+export function dailyViewOf(gs: GameState, now: number = Date.now(), live: boolean = DAILY_LIVE) {
+  return dailyView(gs.daily, club(gs).tier, now, live);
+}
+
+/**
+ * A round was played: today counts. While the door is shut this does nothing at all, so no existing career and
+ * no existing check sees a different state. The day is the game's (never earlier than the latest it has seen).
+ */
+export function markPlayed(gs: GameState, now: number = Date.now(), live: boolean = DAILY_LIVE): GameState {
+  if (!live) return gs;
+  const day = dailyDay(gs.daily, now);
+  if (gs.daily.played === day && gs.daily.maxDay === day) return gs;
+  return { ...gs, daily: { ...gs.daily, played: day, maxDay: day } };
+}
+
+/** the squad's names and the thinnest line, which is where a reward should land */
+function dailyTaken(gs: GameState): Set<string> {
+  const sq = mySquad(gs);
+  return new Set([...sq.starters, ...sq.bench].map(p => p.name));
+}
+
+/** the seventh gift: a boost pack of the club's own division, free, leaning toward the thinnest line like every pack */
+export function rollFreeBoost(gs: GameState): PackPull {
+  const rng = createRng(drawSeed(gs, 161_000 + gs.daily.streak));
+  const position = thinnestPosition(gs, rng);
+  return openPack(packById('boost'), club(gs).tier, rng, { position, taken: dailyTaken(gs) });
+}
+
+/**
+ * The thirtieth day of an unbroken run: a player five above the league he plays in, exactly, on the thinnest line,
+ * the way the loyalty gift finds its man. He is a real card with a contract, to sign or to sell.
+ */
+export function rollGoldPull(gs: GameState): PackPull {
+  const rng = createRng(drawSeed(gs, 162_000 + gs.daily.gold));
+  const pos = thinnestPosition(gs, rng);
+  const taken = dailyTaken(gs);
+  const target = leagueAvgOvr(gs) + GOLD_LIFT;
+  let best: Player | null = null;
+  let bias = 0;
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const p = makePlayer(pos, target + bias, rng, NEUTRAL_TRAITS, taken);
+    const o = overall(p);
+    if (!best || Math.abs(o - target) < Math.abs(overall(best) - target)) best = p;
+    if (o === target) break;
+    bias += target - o;
+  }
+  return pullOf(best!, club(gs).tier);
+}
+
+/**
+ * Take today's gift. Only today's: the view says whether the door is open, a round was played and it is still
+ * there, and nothing else is a gift. The money goes to the purse, the gems to the pocket; the seventh day also
+ * holds a pack, and the thirtieth day of a run a gold player, which wait in the reveal to be signed or sold.
+ * If a card is already waiting in the reveal the gift waits too, so two cards never fight for the one slot.
+ */
+export function claimDaily(gs: GameState, now: number = Date.now(), live: boolean = DAILY_LIVE): GameState {
+  const v = dailyViewOf(gs, now, live);
+  if (!v.canClaim || gs.pull) return gs;
+  const streak = v.nextStreak;
+  const gold = streak % GOLD_EVERY === 0;
+  const next: GameState = {
+    ...gs,
+    meters: { ...gs.meters, money: cash(gs.meters.money + v.reward.money) },
+    gems: gs.gems + v.reward.gems,
+    daily: { ...gs.daily, streak, lastClaim: v.day, maxDay: v.day, gold: gs.daily.gold + (gold ? 1 : 0) },
+  };
+  // the gold player takes the slot when both fall on one day, which is every 210 days: his is the bigger gift
+  if (gold) return { ...next, pull: rollGoldPull(next) };
+  if (v.reward.pack) return { ...next, pull: rollFreeBoost(next) };
+  return next;
+}
 
 /**
  * The gift is a limited offer (Itzik, 11.10): whoever stands past ten seasons on a hub before

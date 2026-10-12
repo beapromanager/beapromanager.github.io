@@ -432,7 +432,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
 
   const worker = (await import('../worker/src/index.ts')) as {
     default: { fetch: (r: Request, e: unknown) => Promise<Response> };
-    REACH_SQL: Record<'grid' | 'ever' | 'best' | 'seasons' | 'titles' | 'europe' | 'gift' | 'share', string>;
+    REACH_SQL: Record<'grid' | 'ever' | 'best' | 'seasons' | 'titles' | 'europe' | 'gift' | 'share' | 'daily', string>;
   };
   const { DatabaseSync } = await import('node:sqlite');
   const db = new DatabaseSync(':memory:');
@@ -480,6 +480,15 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const sharedN = (db.prepare(R.share).all() as unknown as { n: number }[])[0]?.n;
   if (sharedN !== 2) fails.push(`how many devices sent a moment to a friend: ${sharedN}, wanted 2`);
   if ((db.prepare(R.gift).all() as unknown as { n: number }[])[0]?.n !== 3) fails.push('the share mark changed the gift count');
+
+  // the daily gift: three closed marks, counted once a device, one row each
+  put('N', 'open', 'daily_1');
+  put('O', 'open', 'daily_1', 'daily_7');
+  put('P', 'open', 'daily_1', 'daily_7', 'daily_30');
+  put('Q', 'open', 'daily_', 'daily_8', 'daily_100');
+  const dailyRows = (db.prepare(R.daily).all() as unknown as { step: string; n: number }[]).map(r => `${r.step}:${r.n}`).join(' ');
+  if (dailyRows !== 'daily_1:3 daily_30:1 daily_7:2') fails.push(`how far the daily gift goes: ${dailyRows}, wanted daily_1:3 daily_30:1 daily_7:2`);
+  if ((db.prepare(R.share).all() as unknown as { n: number }[])[0]?.n !== 2) fails.push('the daily marks changed the share count');
 
   // and the door lets the milestones in, and nothing that only looks like one
   const written: unknown[][] = [];
@@ -564,13 +573,30 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   for (const bad of ['share', 'share_', 'share_tap2', 'SHARE_TAP', 'share_tap ', 'shared']) if (T.isMilestone(bad)) fails.push(`"${bad}" passes as the share mark`);
   if (T.STEP_ORDER['share_tap' as never] !== undefined) fails.push('the share mark is in the step order, which would backfill it');
   const wsrc5 = readFileSync('worker/src/index.ts', 'utf8');
-  if (!wsrc5.includes('|gift10|share_tap)$/')) fails.push('the worker refuses the share mark');
+  if (!wsrc5.includes('|gift10|share_tap|')) fails.push('the worker refuses the share mark');
   if (!wsrc5.includes('share: share.results')) fails.push('the worker does not answer the dashboard with the share count');
   if (!readFileSync('src/game/telemetry.ts', 'utf8').includes('export function shareMark(k: typeof SHARE_MARKS[number]): void')) fails.push('shareMark() takes something wider than the one closed name');
   const end5 = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');
   if (!end5.includes("onShared={() => shareMark('share_tap')}")) fails.push('nothing reports a share');
   const adm5 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
   if (!adm5.includes('data.reach.share') || !adm5.includes('שיתוף לחבר')) fails.push('the dashboard has no place for the share count');
+}
+
+/* 3g6. THE DAILY GIFT: three closed marks, held in the game, the worker, the sending code and the dashboard together. */
+{
+  checked += 11;
+  if (JSON.stringify(T.DAILY_MARKS) !== '["daily_1","daily_7","daily_30"]') fails.push('the names of the daily marks changed, and the worker holds the same three');
+  if (!T.DAILY_MARKS.every((k: string) => T.isMilestone(k))) fails.push('a daily mark is not accepted by the game pattern');
+  for (const bad of ['daily', 'daily_', 'daily_2', 'daily_70', 'DAILY_1', 'daily_1 ', 'daily_300']) if (T.isMilestone(bad)) fails.push(`"${bad}" passes as a daily mark`);
+  if (T.STEP_ORDER['daily_1' as never] !== undefined) fails.push('a daily mark is in the step order, which would backfill it');
+  const wsrc6 = readFileSync('worker/src/index.ts', 'utf8');
+  if (!wsrc6.includes('|daily_1|daily_7|daily_30)$/')) fails.push('the worker refuses the daily marks');
+  if (!wsrc6.includes('daily: dailyGift.results')) fails.push('the worker does not answer the dashboard with the daily counts');
+  if (!readFileSync('src/game/telemetry.ts', 'utf8').includes('export function dailyMark(k: typeof DAILY_MARKS[number]): void')) fails.push('dailyMark() takes something wider than the three closed names');
+  const app6 = readFileSync('src/ui/App.tsx', 'utf8');
+  if (!app6.includes("if (dailyStreak >= 1) dailyMark('daily_1');") || !app6.includes("if (dailyStreak >= 7) dailyMark('daily_7');") || !app6.includes("if (dailyStreak >= 30) dailyMark('daily_30');")) fails.push('nothing reports how far a run has gone');
+  const adm6 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
+  if (!adm6.includes('data.reach.daily') || !adm6.includes('המתנה היומית')) fails.push('the dashboard has no place for the daily counts');
 }
 
 /* 3h. THE GAME REPORTS THEM, AND ONLY FROM A REAL CAREER ON A REAL PAGE. */

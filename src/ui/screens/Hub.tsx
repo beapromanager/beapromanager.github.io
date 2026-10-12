@@ -16,6 +16,8 @@ import { FanNote } from '../components/FanNote.tsx';
 import { Feed } from '../components/Feed.tsx';
 import { Gem } from '../components/Gem.tsx';
 import { PACKS } from '../../game/packs.ts';
+import { DAILY_LIVE } from '../../game/daily.ts';
+import { DailyHubCard } from './DailyGift.tsx';
 import { SCOUT_LIVE, SCOUT_TEXT } from '../../game/scout.ts';
 
 /**
@@ -39,9 +41,9 @@ import { SCOUT_LIVE, SCOUT_TEXT } from '../../game/scout.ts';
  * round is never more than one tap away.
  */
 
-export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth, onScout, onEuro, onEuroDraw, onEuroBracket }: {
+export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth, onScout, onEuro, onEuroDraw, onEuroBracket, onDaily }: {
   gs: G.GameState; onStart: () => void; onSquad: () => void; onTransfers: () => void; onEuro: () => void;
-  onEuroDraw: () => void; onEuroBracket: () => void;
+  onEuroDraw: () => void; onEuroBracket: () => void; onDaily?: () => void;
   onChronicle: () => void; onCaptain: () => void; onAssistant: () => void; onInbox: () => void;
   onStadium: () => void; onPacks: () => void; onCoach: () => void; onTable: () => void; onYouth: () => void; onScout: () => void;
 }) {
@@ -87,6 +89,8 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
           {!night && pensDue && <EuroPensCard gs={gs} onGo={onEuro} />}
           <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} waiting={!!night || pensDue} />
         </div>
+
+        {DAILY_LIVE && onDaily && <DailyHubCard gs={gs} onOpen={onDaily} />}
 
         {books.level !== 'clear' && <DebtStrip d={books} outlook={G.purseOutlook(gs)} onClick={onTransfers} />}
 

@@ -60,7 +60,7 @@ const KNOWN = new Set<string>(STEPS);
  * career that won the top division. The same pattern as MILESTONE in src/game/telemetry.ts, and telemetry-check
  * compares the two, because a copy nobody compares is a copy that drifts.
  */
-const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|gift10|share_tap)$/;
+const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|gift10|share_tap|daily_1|daily_7|daily_30)$/;
 
 /**
  * What the dashboard asks of the milestones. Plain SQL over the same table as the funnel, one row per device per
@@ -83,6 +83,8 @@ export const REACH_SQL = {
   gift: "SELECT COUNT(*) AS n FROM steps WHERE step = 'gift10'",
   /** devices that ever sent a big moment to a friend */
   share: "SELECT COUNT(*) AS n FROM steps WHERE step = 'share_tap'",
+  /** devices that took a first daily gift, reached a full week, reached thirty days: one row per mark */
+  daily: "SELECT step, COUNT(*) AS n FROM steps WHERE step IN ('daily_1', 'daily_7', 'daily_30') GROUP BY step ORDER BY step",
 };
 
 /** the error kinds the game may report; anything else is dropped */
@@ -179,7 +181,7 @@ export default {
       const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days') ?? 30)));
       const since = today(Date.now() - days * 86400000);
 
-      const [funnel, totals, daily, returning, crashes, grid, ever, best, seasons, titles, europe, gift, share] = await Promise.all([
+      const [funnel, totals, daily, returning, crashes, grid, ever, best, seasons, titles, europe, gift, share, dailyGift] = await Promise.all([
         env.DB.prepare('SELECT step, COUNT(*) AS n FROM steps GROUP BY step').all(),
         env.DB.prepare(
           'SELECT (SELECT COUNT(DISTINCT aid) FROM sessions) AS people,' +
@@ -208,6 +210,7 @@ export default {
         env.DB.prepare(REACH_SQL.europe).all(),
         env.DB.prepare(REACH_SQL.gift).all(),
         env.DB.prepare(REACH_SQL.share).all(),
+        env.DB.prepare(REACH_SQL.daily).all(),
       ]);
 
       const counts: Record<string, number> = {};
@@ -223,7 +226,7 @@ export default {
         daily: daily.results,
         crashes: crashes.results,
         // where careers get to, from the milestones: empty until the game that reports them is out
-        reach: { grid: grid.results, ever: ever.results, best: best.results, seasons: seasons.results, titles: titles.results, europe: europe.results, gift: gift.results, share: share.results },
+        reach: { grid: grid.results, ever: ever.results, best: best.results, seasons: seasons.results, titles: titles.results, europe: europe.results, gift: gift.results, share: share.results, daily: dailyGift.results },
       }, 200, origin);
     }
 

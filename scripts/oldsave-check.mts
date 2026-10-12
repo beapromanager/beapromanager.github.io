@@ -39,6 +39,7 @@ Object.defineProperty(globalThis, 'localStorage', {
  * before any of it wrote none of these, so an old save has them all missing.
  */
 const ADDED_SINCE = [
+  'daily',                          // the daily gift's run
   'loyalGift', 'loans',             // the loyalty gift past ten seasons, and the loan it brings
   'euro',                           // ליגת אירופה, null until a title opens it
   'seasonChatEvents',               // the season nights the phone rang for

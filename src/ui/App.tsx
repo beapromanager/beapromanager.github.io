@@ -42,13 +42,16 @@ import { AssistantScreen } from './screens/Assistant.tsx';
 import { StadiumScreen } from './screens/Stadium.tsx';
 import { PacksScreen, PackReveal } from './screens/Packs.tsx';
 import { LoyalGift } from './screens/LoyalGift.tsx';
+import { DailyGiftSheet, DailyClaim } from './screens/DailyGift.tsx';
+import { DAILY_LIVE, GOLD_EVERY } from '../game/daily.ts';
+import type { DailyReward } from '../game/daily.ts';
 import { CoachScreen } from './screens/Coach.tsx';
 import { InviteScreen } from './screens/Invite.tsx';
 import { setInviteHandler, setInstallHandler, setReportHandler } from './components/bits.tsx';
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, giftMark, STEP_ORDER } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, giftMark, dailyMark, STEP_ORDER } from '../game/telemetry.ts';
 import { AdminScreen } from './screens/Admin.tsx';
 import type { Stats as AdminStats } from './screens/Admin.tsx';
 import { TELEMETRY_URL } from '../data/telemetry.ts';
@@ -75,6 +78,9 @@ export function App() {
   // title screen, which is alive on its own (Itzik, 12.10: the film for the first visit, the living picture for everyone).
   const [introDone, setIntroDone] = useState(() => savedSummary() !== null);
   const [booted, setBooted] = useState(false);            // still on the title screen
+  // the daily gift: the table open, and the celebration of the gift just taken (the reveal of a pack waits for it)
+  const [dailyOpen, setDailyOpen] = useState(false);
+  const [dailyWow, setDailyWow] = useState<{ reward: DailyReward; streak: number; gold: boolean } | null>(null);
   const [gs, setGs] = useState<G.GameState>(() => G.newGame());
   const [squadFromHub, setSquadFromHub] = useState(false);
   const [saved, setSaved] = useState<SaveSummary | null>(() => savedSummary());
@@ -238,6 +244,14 @@ export function App() {
     if (!booted || adminKey || !gs.clubId) return;
     for (const k of euroReports ? euroReports.split(',') as Array<'eu_in' | 'eu_final' | 'eu_won'> : []) euroMark(k);
   }, [booted, adminKey, gs.clubId, euroReports]);
+  // the daily gift: how far the run has gone. Each name once a device; with the door shut no run ever begins
+  const dailyStreak = gs.daily?.streak ?? 0;
+  useEffect(() => {
+    if (!booted || adminKey || !gs.clubId) return;
+    if (dailyStreak >= 1) dailyMark('daily_1');
+    if (dailyStreak >= 7) dailyMark('daily_7');
+    if (dailyStreak >= 30) dailyMark('daily_30');
+  }, [booted, adminKey, gs.clubId, dailyStreak]);
   // the loyalty gift: the man past ten seasons was signed. Once a device, like the rest
   const giftSigned = !!gs.loyalGift?.playerId;
   useEffect(() => {
@@ -347,8 +361,28 @@ export function App() {
         <PackReveal pull={gs.pull} club={G.club(gs)} squadFull={false} standing={null} loan
           onSign={() => setGs(g => G.signLoyalGift(g))} onSell={() => undefined} />
       )}
+      {/* the daily gift: today's gift lit and pressable, then the celebration, then the pack or the gold player if there is one */}
+      {DAILY_LIVE && gs.phase === 'hub' && gs.notices.length === 0 && dailyOpen && !dailyWow && (
+        <DailyGiftSheet gs={gs} onClose={() => setDailyOpen(false)}
+          onClaim={() => {
+            const v = G.dailyViewOf(gs);
+            const next = G.claimDaily(gs);
+            if (next === gs) return;
+            setGs(next);
+            setDailyWow({ reward: v.reward, streak: v.nextStreak, gold: v.nextStreak % GOLD_EVERY === 0 });
+          }} />
+      )}
+      {dailyWow && (
+        <DailyClaim reward={dailyWow.reward} streak={dailyWow.streak} gold={dailyWow.gold}
+          onDone={() => { setDailyWow(null); if (gs.pull) setDailyOpen(false); }} />
+      )}
+      {gs.phase === 'hub' && gs.pull && !dailyWow && !(gs.loyalGift && gs.loyalGift.playerId === null) && (
+        <PackReveal pull={gs.pull} club={G.club(gs)} squadFull={G.squadSize(gs) >= G.MAX_SQUAD} standing={null}
+          onSign={() => setGs(g => G.signPull(g))} onSell={() => setGs(g => G.sellPull(g))} />
+      )}
       {gs.phase === 'hub' && gs.notices.length === 0 && (
         <Hub gs={gs}
+          onDaily={() => setDailyOpen(true)}
           onStart={() => setGs(G.startWeek(gs))}
           onSquad={() => { setSquadFromHub(true); setGs(G.openSquad(gs)); }}
           onTransfers={() => setGs(G.openTransfers(gs))}

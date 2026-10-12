@@ -211,5 +211,14 @@ export function openPack(
   }
 }
 
+/**
+ * A card that no pack rolled but somebody handed over, dressed as a pull so the same reveal can show him: what the
+ * bench would pay for him, and how much he can still grow.
+ */
+export function pullOf(player: Player, tier: number): PackPull {
+  const o = overall(player);
+  return { player, rarity: rarityForOvr(o), cashValue: sellPrice(player, tier), upside: Math.max(0, reachableCeiling(player) - o) };
+}
+
 /** Contract length handed to a pulled card when he is added to the squad. */
 export const PACK_CONTRACT_YEARS = 2;

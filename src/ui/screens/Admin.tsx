@@ -160,6 +160,20 @@ export function AdminScreen({ stats: data }: { stats: Stats }) {
               </div>
             </>
           )}
+          {data.reach.daily && data.reach.daily.length > 0 && (
+            <>
+              <div className="label-cap">המתנה היומית</div>
+              <div className="tile" style={{ padding: '11px 12px' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+                  <span className="num">{data.reach.daily.find(x => x.step === 'daily_1')?.n ?? 0}</span> לקחו מתנה
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num">{data.reach.daily.find(x => x.step === 'daily_7')?.n ?? 0}</span> שבוע שלם
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num" style={{ color: data.reach.daily.find(x => x.step === 'daily_30') ? 'var(--gold-hi)' : undefined }}>{data.reach.daily.find(x => x.step === 'daily_30')?.n ?? 0}</span> שלושים יום
+                </span>
+              </div>
+            </>
+          )}
           <p className="hint">
             נספר מרגע שהמדידה עלתה, ומי שממשיך קריירה ישנה נספר בפעם הבאה שהוא פותח את המשחק.
           </p>
@@ -219,6 +233,8 @@ export type Stats = {
     gift?: { n: number }[];
     /** devices that sent a big moment to a friend, absent from a worker that does not count it yet */
     share?: { n: number }[];
+    /** the daily gift's three marks, absent from a worker that does not count them yet */
+    daily?: { step: string; n: number }[];
   };
 };
 
