@@ -7,7 +7,7 @@
  *
  * Run: node --experimental-strip-types scripts/share-check.mts
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { shareKindFor, shareText, shareLink } from '../src/game/share.ts';
 import type { ShareKind } from '../src/game/share.ts';
 import { refFromUrl } from '../src/game/invite.ts';
@@ -87,7 +87,10 @@ const store = new Map<string, string>();
   if (!btn.includes('navigator.share({ title:')) fails.push('the button does not open the phone share sheet');
   if (!btn.includes('https://wa.me/?text=')) fails.push('without a share sheet the button does nothing');
   if (!app.includes('useState(() => savedSummary() !== null)')) fails.push('a manager with a career still sits through the cold open every launch');
-  if (!title.includes('חינם, בלי הרשמה. הכול נשמר אצלך במכשיר.') || !title.includes('{!saved && <p className="hint"')) fails.push('a stranger is not told it is free and asks nothing, under the button');
+  if (!title.includes('הקהל מחכה.') || !title.includes('צא למגרש עכשיו.')) fails.push('the title screen lost Itzik\'s line (12.10)');
+  if (!title.includes('ITZIK UZIEL') || !title.includes('ISRU-E') || !title.includes('כל הזכויות שמורות')) fails.push('the title screen lost the credit and the rights line');
+  if (title.includes('חינם, בלי הרשמה')) fails.push('the "free" line Itzik asked to drop is back');
+  if (!title.includes("asset('/title/tunnel.webp')") || !existsSync('public/title/tunnel.webp')) fails.push('the tunnel photograph is missing');
   if (!css.includes('.share-glass{') || !icon.includes("case 'share':")) fails.push('the share pill or its icon is missing');
 }
 
