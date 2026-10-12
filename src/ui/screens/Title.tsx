@@ -14,6 +14,10 @@ import { watchInstall, isInstalled } from '../install.ts';
  * the game in two paragraphs; the funnel said a third of the people who saw
  * it never pressed the button, so the explaining is gone and the picture does
  * it. The words are Itzik's.
+ *
+ * The picture is alive (Itzik, 12.10): a short silent loop of the same frame, the crowd moving, flags and
+ * confetti in the light, the manager walking. The still is the poster, so the first frame is on screen before
+ * the loop has arrived, and it is all a phone that will not autoplay, or a person who asked for less motion, gets.
  */
 export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
   saved: SaveSummary | null;
@@ -29,11 +33,19 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
   const installed = isInstalled();
   // the photograph fades up once it has arrived, never pops in half drawn
   const [lit, setLit] = useState(false);
+  const stillOnly = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   return (
     <div className="screen title-tunnel">
       <img src={asset('/title/tunnel.webp')} alt="" aria-hidden="true" className="title-hero" data-lit={lit ? '1' : '0'}
         onLoad={() => setLit(true)} onError={() => setLit(true)} />
+      {!stillOnly && (
+        <video className="title-live" aria-hidden="true" autoPlay muted loop playsInline disablePictureInPicture
+          preload="auto" poster={asset('/title/tunnel.webp')}
+          onPlaying={e => { e.currentTarget.dataset.on = '1'; }}>
+          <source src={asset('/title/tunnel.mp4')} type="video/mp4" />
+        </video>
+      )}
       <div className="title-shade" aria-hidden="true" />
       <div className="title-bar" style={{ top: 0 }} aria-hidden="true" />
       <div className="title-bar" style={{ bottom: 0 }} aria-hidden="true" />

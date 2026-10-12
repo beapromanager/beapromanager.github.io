@@ -86,12 +86,16 @@ const store = new Map<string, string>();
   if (!btn.includes('e.stopPropagation()')) fails.push('tapping share inside the celebration also dismisses it');
   if (!btn.includes('navigator.share({ title:')) fails.push('the button does not open the phone share sheet');
   if (!btn.includes('https://wa.me/?text=')) fails.push('without a share sheet the button does nothing');
-  if (!app.includes('const [introDone, setIntroDone] = useState(false);')) fails.push('the cold open is skipped for somebody, and Itzik wants it to play every launch (12.10)');
+  if (!app.includes('useState(() => savedSummary() !== null)')) fails.push('a manager with a career still sits through the cold open every launch (Itzik, 12.10: the film is for the first visit)');
   if (!css.includes('.frame:has(.title-tunnel){height:100dvh; overflow:hidden;')) fails.push('the title screen is not pinned to the viewport, so an iPhone can scroll it');
   if (!title.includes('הקהל מחכה.') || !title.includes('צא למגרש עכשיו.')) fails.push('the title screen lost Itzik\'s line (12.10)');
   if (!title.includes('ITZIK UZIEL') || !title.includes('ISRU-E') || !title.includes('כל הזכויות שמורות')) fails.push('the title screen lost the credit and the rights line');
   if (title.includes('חינם, בלי הרשמה')) fails.push('the "free" line Itzik asked to drop is back');
   if (!title.includes("asset('/title/tunnel.webp')") || !existsSync('public/title/tunnel.webp')) fails.push('the tunnel photograph is missing');
+  if (!title.includes("asset('/title/tunnel.mp4')") || !existsSync('public/title/tunnel.mp4')) fails.push('the living picture is missing');
+  if (!/autoPlay muted loop playsInline/.test(title)) fails.push('the living picture would not autoplay on a phone (it must be muted, looping and inline)');
+  if (!title.includes('prefers-reduced-motion: reduce')) fails.push('a person who asked for less motion still gets the loop');
+  if (!title.includes("poster={asset('/title/tunnel.webp')}")) fails.push('the loop has no poster, so the first frame is black until it arrives');
   if (!css.includes('.share-glass{') || !icon.includes("case 'share':")) fails.push('the share pill or its icon is missing');
 }
 

@@ -71,9 +71,9 @@ const BACK_TO_HUB = new Set<G.Phase>([
 ]);
 
 export function App() {
-  // The cold open plays first, every launch. It was skipped for a saved career for a day (11.10) and Itzik
-  // read that as the film being broken on his own phone, so it is back for everybody (12.10).
-  const [introDone, setIntroDone] = useState(false);
+  // The cold open is for a stranger. A manager with a career on this phone has seen it, so he goes straight to the
+  // title screen, which is alive on its own (Itzik, 12.10: the film for the first visit, the living picture for everyone).
+  const [introDone, setIntroDone] = useState(() => savedSummary() !== null);
   const [booted, setBooted] = useState(false);            // still on the title screen
   const [gs, setGs] = useState<G.GameState>(() => G.newGame());
   const [squadFromHub, setSquadFromHub] = useState(false);
