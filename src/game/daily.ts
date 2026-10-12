@@ -16,11 +16,11 @@
  * with a bot (PIC/sim-money/daily-gift): a week is worth between about one and a half and one round's wage bill.
  * The gems are three a week and the pack is the rest, because a whole season brings about four gems.
  *
- * The door is shut until Itzik opens it, like the scout's.
+ * The door was opened by Itzik on 12.10 ("תפתח"). One line shuts it again.
  */
 
-/** Whether the daily gift is live for players. One line, like the other doors. */
-export const DAILY_LIVE = false;
+/** Whether the daily gift is live for players. One line, like the other doors. Open since 12.10. */
+export const DAILY_LIVE = true;
 
 /** the table is seven long */
 export const DAILY_WEEK = 7;

@@ -136,9 +136,9 @@ for (const seed of [6161, 77, 4040]) {
   if (G.claimDaily(waiting, at(1), true) !== waiting) fails.push(`${tag}: a gift was taken over a card waiting in the reveal`);
 
   // the door
-  if (G.markPlayed(start, at(0)) !== start) fails.push(`${tag}: with the door shut a round changes the state`);
+  if (G.markPlayed(start, at(0), false) !== start) fails.push(`${tag}: with the door shut a round changes the state`);
   const played = G.markPlayed(start, at(0), true);
-  if (G.claimDaily(played, at(0)) !== played) fails.push(`${tag}: a gift was taken with the door shut`);
+  if (G.claimDaily(played, at(0), false) !== played) fails.push(`${tag}: a gift was taken with the door shut`);
 }
 
 /* 4. THIRTY DAYS: the gold player, exactly five above the league, and only for an unbroken run */
@@ -172,7 +172,7 @@ for (const seed of [6161, 5151, 31, 9091, 555, 12007]) {
   const state = readFileSync('src/game/state.ts', 'utf8');
   const daily = readFileSync('src/game/daily.ts', 'utf8');
 
-  if (!/export const DAILY_LIVE = false;/.test(daily)) fails.push('the door is not shut: DAILY_LIVE is not false (it opens on Itzik\'s word only)');
+  if (!/export const DAILY_LIVE = true;/.test(daily)) fails.push('the door is shut: DAILY_LIVE is not true (Itzik opened it on 12.10)');
   if (!state.includes('return markPlayed(maybeCrisis(checkTheBooks(')) fails.push('a league round does not count as a round played');
   if (!state.includes('return markPlayed({\n    ...gs,\n    euro: after.euro,') && !state.includes('return markPlayed({\r\n    ...gs,\r\n    euro: after.euro,')) fails.push('a European night does not count as a round played');
   if (!sheet.includes("return st === 'today' ? (") || !sheet.includes('<button key={pos} className="daily-tile" data-state="today"')) fails.push("today's gift is not the one button");
