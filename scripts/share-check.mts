@@ -88,6 +88,8 @@ const store = new Map<string, string>();
   if (!btn.includes('https://wa.me/?text=')) fails.push('without a share sheet the button does nothing');
   if (!app.includes('useState(() => savedSummary() !== null)')) fails.push('a manager with a career still sits through the cold open every launch (Itzik, 12.10: the film is for the first visit)');
   if (!css.includes('.frame:has(.title-tunnel){height:100dvh; overflow:hidden;')) fails.push('the title screen is not pinned to the viewport, so an iPhone can scroll it');
+  if (!css.includes('html.title-locked, html.title-locked body{position:fixed;') || !title.includes("root.classList.add('title-locked')") || !title.includes("el?.addEventListener('touchmove', stop, { passive: false })")) fails.push('the page is not nailed down while the title is up, so iOS Safari still bounces it');
+  if (!title.includes("root.classList.remove('title-locked')")) fails.push('the page stays nailed down after the title screen is gone, so the game cannot scroll');
   if (!title.includes('הקהל מחכה.') || !title.includes('צא למגרש עכשיו.')) fails.push('the title screen lost Itzik\'s line (12.10)');
   if (!title.includes('ITZIK UZIEL') || !title.includes('ISRU-E') || !title.includes('כל הזכויות שמורות')) fails.push('the title screen lost the credit and the rights line');
   if (title.includes('חינם, בלי הרשמה')) fails.push('the "free" line Itzik asked to drop is back');

@@ -1,7 +1,7 @@
 import type { SaveSummary } from '../../game/save.ts';
 import { asset } from '../asset.ts';
 import { Icon } from '../components/Icon.tsx';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { watchInstall, isInstalled } from '../install.ts';
 
 /**
@@ -35,8 +35,21 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
   const [lit, setLit] = useState(false);
   const stillOnly = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
+  // iOS Safari rubber-bands the whole page on a drag even when there is nothing to scroll, and ignores overflow on the
+  // body for that. The two things it does respect: a body that is position fixed, and a touchmove that is cancelled.
+  // Both only while this screen is up; the install sheet lives on the body outside this element, so it still scrolls.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('title-locked');
+    const el = rootRef.current;
+    const stop = (e: TouchEvent) => { if (e.touches.length === 1) e.preventDefault(); };
+    el?.addEventListener('touchmove', stop, { passive: false });
+    return () => { root.classList.remove('title-locked'); el?.removeEventListener('touchmove', stop); };
+  }, []);
+  const rootRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className="screen title-tunnel">
+    <div className="screen title-tunnel" ref={rootRef}>
       <img src={asset('/title/tunnel.webp')} alt="" aria-hidden="true" className="title-hero" data-lit={lit ? '1' : '0'}
         onLoad={() => setLit(true)} onError={() => setLit(true)} />
       {!stillOnly && (

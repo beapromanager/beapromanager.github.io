@@ -137,6 +137,8 @@ input{font-family:inherit;}
 
 /* ---- the tunnel (the entry screen, 12.10): one photograph, the words on its dark floor */
 .frame:has(.title-tunnel){height:100dvh; overflow:hidden; padding-top:0; padding-bottom:0;}
+/* while the entry screen is up the page itself is nailed down, which is the one thing iOS Safari honours against its bounce */
+html.title-locked, html.title-locked body{position:fixed; inset:0; width:100%; height:100%; overflow:hidden; overscroll-behavior:none;}
 .title-tunnel{position:relative; height:100%; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; background:#050907; overscroll-behavior:none;}
 .title-hero{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 30%; opacity:0; transform:scale(1.06); transition:opacity .9s ease, transform 7s linear;}
 .title-hero[data-lit="1"]{opacity:1; transform:scale(1);}
