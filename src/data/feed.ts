@@ -33,6 +33,10 @@ const PRESS_ACCOUNTS = [
   { author: 'Yספורט', handle: '@ysport' },
   { author: 'ספורט 555', handle: '@sport555' },
 ];
+const LOCAL_ACCOUNTS = [
+  { author: 'חדשות המקום', handle: '@local_news' },
+  { author: 'ספורט האזור', handle: '@region_sport' },
+];
 const FAN_ACCOUNTS = [
   { author: 'היציע המזרחי', handle: '@mizrahi_stand' },
   { author: 'אולטראס', handle: '@ultras' },
@@ -42,6 +46,11 @@ const RUMOUR_ACCOUNTS = [
   { author: 'שמועות העברות', handle: '@transfers_il' },
   { author: 'מבית הסוכנים', handle: '@agentroom' },
 ];
+
+/** ליגה ג׳ to ליגה א׳ are written up by the town and the region, not by the national sites. */
+const pressFor = (c: FeedContext) => (c.tier ?? 5) <= 3 ? LOCAL_ACCOUNTS : PRESS_ACCOUNTS;
+const fansFor = (c: FeedContext) => (c.tier ?? 5) <= 1 ? FAN_ACCOUNTS.filter(a => a.handle !== '@ultras') : FAN_ACCOUNTS;
+const rumoursFor = (c: FeedContext) => (c.tier ?? 5) <= 2 ? RUMOUR_ACCOUNTS.filter(a => a.handle !== '@agentroom') : RUMOUR_ACCOUNTS;
 
 const WHEN = ['הרגע', 'לפני 12 דקות', 'לפני שעה', 'לפני שעתיים', 'אתמול'];
 
@@ -53,6 +62,8 @@ export interface FeedContext {
   clubShort: string;
   city: string;
   league: string;
+  /** the division, 1 = ליגה ג׳ .. 5 = ליגת העל; leaves out the national sites and the agents' room where they do not exist */
+  tier?: number;
   /** table position and how many teams */
   pos: number;
   teams: number;
@@ -96,7 +107,7 @@ export function buildFeed(c: FeedContext, rng: Rng): Post[] {
   if (c.last) {
     const { opponent, mine, theirs, isDerby, home, climbed } = c.last;
     const won = mine > theirs, drew = mine === theirs;
-    const press = pick(rng, PRESS_ACCOUNTS);
+    const press = pick(rng, pressFor(c));
     // the table is read, not assumed: a win does not always move you, and the
     // top is a place you keep as well as one you reach
     const threePoints = climbed ? 'שלוש נקודות ועלייה בטבלה.'
@@ -111,7 +122,7 @@ export function buildFeed(c: FeedContext, rng: Rng): Post[] {
           : `${opponent} ${theirs}:${mine} ${c.clubShort}. ${isDerby ? 'הדרבי הלך. ' : ''}עוד ערב שכדאי לשכוח.`,
     });
 
-    const fan = pick(rng, FAN_ACCOUNTS);
+    const fan = pick(rng, fansFor(c));
     add({
       kind: 'fan', author: fan.author, handle: fan.handle, verified: false,
       text: won
@@ -128,7 +139,7 @@ export function buildFeed(c: FeedContext, rng: Rng): Post[] {
 
   /* --- the scorer everyone is talking about --- */
   if (c.topScorer && c.topScorer.goals > 0) {
-    const press = pick(rng, PRESS_ACCOUNTS);
+    const press = pick(rng, pressFor(c));
     add({
       kind: 'press', author: press.author, handle: press.handle, verified: true,
       text: `${c.topScorer.goals} שערים העונה ל${surname(c.topScorer.name)}. בקצב הזה הוא מסיים בצמרת מלך השערים של ${c.league}.`,
@@ -137,7 +148,7 @@ export function buildFeed(c: FeedContext, rng: Rng): Post[] {
 
   /* --- the striker who cannot buy one --- */
   if (c.coldStriker && c.coldStriker.weeks >= 3) {
-    const fan = pick(rng, FAN_ACCOUNTS);
+    const fan = pick(rng, fansFor(c));
     add({
       kind: 'fan', author: fan.author, handle: fan.handle, verified: false,
       text: `${surname(c.coldStriker.name)} כבר ${c.coldStriker.weeks} מחזורים בלי שער. אני עדיין מאמין בו, אבל צריך לתת לו מנוחה או ביטחון.`,
@@ -145,16 +156,16 @@ export function buildFeed(c: FeedContext, rng: Rng): Post[] {
   }
 
   /* --- the rumour mill, the part everyone reads first --- */
-  if (c.star) {
-    const rum = pick(rng, RUMOUR_ACCOUNTS);
-    const suitors = ['קבוצה מהליגה שמעל', 'מועדון מהצפון', 'קבוצה מהמרכז', 'מועדון עשיר מהדרום'];
+  if (c.star && (c.tier ?? 5) >= 2) {
+    const rum = pick(rng, rumoursFor(c));
+    const suitors = [(c.tier ?? 5) >= 5 ? 'מועדון מחו״ל' : 'קבוצה מהליגה שמעל', 'מועדון מהצפון', 'קבוצה מהמרכז', 'מועדון עשיר מהדרום'];
     add({
       kind: 'rumour', author: rum.author, handle: rum.handle, verified: false,
       text: `🔴 שמועה: ${pick(rng, suitors)} שלחה צופים לראות את ${surname(c.star.name)} (${overall(c.star)}) מ${c.clubShort}. בינתיים אין הצעה רשמית.`,
     });
   }
-  if (c.marketTarget) {
-    const rum = pick(rng, RUMOUR_ACCOUNTS);
+  if (c.marketTarget && (c.tier ?? 5) >= 3) {
+    const rum = pick(rng, rumoursFor(c));
     add({
       kind: 'rumour', author: rum.author, handle: rum.handle, verified: false,
       text: `מדברים על ${surname(c.marketTarget.name)} (${overall(c.marketTarget)}), חופשי, ו${c.clubShort} מוזכרת בין המתעניינות. לא נסגר כלום.`,
@@ -184,7 +195,7 @@ export function buildFeed(c: FeedContext, rng: Rng): Post[] {
     const allW = streak.every(f => f === 'W');
     const allL = streak.every(f => f === 'L');
     if (allW || allL) {
-      const press = pick(rng, PRESS_ACCOUNTS);
+      const press = pick(rng, pressFor(c));
       add({
         kind: 'press', author: press.author, handle: press.handle, verified: true,
         text: allW
@@ -196,7 +207,7 @@ export function buildFeed(c: FeedContext, rng: Rng): Post[] {
 
   /* --- the derby is coming --- */
   if (c.rival) {
-    const fan = pick(rng, FAN_ACCOUNTS);
+    const fan = pick(rng, fansFor(c));
     add({
       kind: 'fan', author: fan.author, handle: fan.handle, verified: false,
       text: `אני לא סופר את שאר המשחקים. יש רק אחד שחשוב, ו${c.rival} יודעים בדיוק על מה אני מדבר. 👀`,

@@ -559,7 +559,7 @@ if (seen.size < 12) fails.push(`only ${seen.size} distinct questions across ${ro
   gate8('loss_crowd_left', { ...loss, margin: -2, ga: 2 }, loss, 'a home beating the crowd walked out of');
   gate8('loss_next_week_derby', { ...loss, nextIsDerby: true }, loss, 'the derby waits next week');
   checked++;
-  if (!asked8(loss).has('loss_tactics_blame')) fails.push('the pundits question is not in the loss pool');
+  if (!asked8({ ...loss, tier: 4 }).has('loss_tactics_blame')) fails.push('the pundits question is not in the loss pool');
   const thrash = { result: 'thrashing' as const, margin: -3, gf: 0, ga: 3 };
   gate8('thrash_apology', { ...thrash, isHome: false }, thrash, 'a beating away');
   gate8('thrash_youth_watching', thrash, { ...thrash, isHome: false }, 'a beating at home');

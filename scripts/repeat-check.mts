@@ -27,6 +27,7 @@ import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { CITIES } from '../src/data/cities.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
+import { CHAT_TIERS, inTier } from '../src/data/leagueGate.ts';
 
 const store = new Map<string, string>();
 (globalThis as unknown as { localStorage: unknown }).localStorage = {
@@ -116,7 +117,7 @@ for (let s = 0; s < SEASONS; s++) {
       const raw = [chat.contact, chat.subtitle, ...chat.lines.flatMap(l => [l.from, l.text])].find(s => /\{\w+\}/.test(s));
       if (raw) fails.push(`${tag}: "${chat.id}" left a slot unfilled: ${raw}`);
       const trig = THREADS.find(t => t.id === chat.id)!.trigger;
-      const siblings = THREADS.filter(t => t.trigger === trig).map(t => t.id);
+      const siblings = THREADS.filter(t => t.trigger === trig && inTier(CHAT_TIERS, t.id, G.club(gs).tier)).map(t => t.id);
       if (chatBefore.includes(chat.id)) {
         const unheard = siblings.filter(id => !chatBefore.includes(id));
         if (unheard.length) fails.push(`${tag}: the phone showed "${chat.id}" again while "${unheard[0]}" was unheard`);

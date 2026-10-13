@@ -11,6 +11,7 @@
 
 import type { Rng } from '../engine/matchEngine.ts';
 import type { MatchFact } from './matchFacts.ts';
+import { CHAT_TIERS, inTier } from './leagueGate.ts';
 
 export type ChatTrigger =
   | 'derby_win' | 'derby_loss' | 'derby_draw' | 'hat_trick'
@@ -40,6 +41,8 @@ export interface ChatThreadTemplate {
 }
 
 export interface ChatCtx {
+  /** the division, 1 = ליגה ג׳ .. 5 = ליגת העל; leaves out what that league never sees */
+  tier?: number;
   club: string;
   rival: string;
   score: string;     // "3 - 0" from your point of view
@@ -1244,7 +1247,7 @@ function fill(t: string, ctx: ChatCtx): string {
 
 /** Build the conversation for a trigger, avoiding the one shown most recently. */
 export function rollChat(trigger: ChatTrigger, ctx: ChatCtx, rng: Rng, recent: string[]): RolledChat | null {
-  const all = THREADS.filter(t => t.trigger === trigger);
+  const all = THREADS.filter(t => t.trigger === trigger && (ctx.tier === undefined || inTier(CHAT_TIERS, t.id, ctx.tier)));
   if (!all.length) return null;
   // never one heard lately. When every thread for this trigger has been seen,
   // the one seen longest ago is the least bad repeat

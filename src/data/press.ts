@@ -9,6 +9,8 @@
 
 import type { Rng } from '../engine/matchEngine.ts';
 
+import { PRESS_TIERS, inTier } from './leagueGate.ts';
+
 export const OUTLETS = ['ספורט WOW', 'ספורט 555', 'ספורט ישראל', 'Yספורט', 'Nספורט'] as const;
 export type Outlet = typeof OUTLETS[number];
 
@@ -942,17 +944,31 @@ const SITUATION: Array<{ when: (c: PressContext) => boolean; gen: QGen }> = [
  * pool of one still yields a question rather than nothing.
  */
 export function fresh(pool: QGen[], c: PressContext, rng: Rng, recent: string[]): PressQuestion {
-  const all = pool.map(g => g(c));
+  const every = pool.map(g => g(c));
+  const kept = every.filter(q => inTier(PRESS_TIERS, q.id, c.tier));
+  const all = kept.length ? kept : every;
   const unheard = all.filter(q => !recent.includes(q.id));
   if (unheard.length) return unheard[Math.floor(rng() * unheard.length)];
   return all.reduce((a, b) => recent.indexOf(a.id) <= recent.indexOf(b.id) ? a : b);
 }
 
+/** The national sites only write about the Leumit and the top flight (ליגה א׳ and below are covered by the town paper and a regional site). */
+const OUTLET_TIERS: Record<string, readonly [number, number]> = {
+  'ספורט WOW': [3, 5], 'ספורט 555': [3, 5], 'ספורט ישראל': [4, 5], 'Yספורט': [4, 5], 'Nספורט': [4, 5],
+};
+function outletFor(tier: number, city: string, rng: Rng): Outlet {
+  const ok = OUTLETS.filter(o => { const s = OUTLET_TIERS[o]; return !s || (tier >= s[0] && tier <= s[1]); });
+  if (!ok.length) return `מקומון ${city}` as Outlet;
+  return ok[Math.floor(rng() * ok.length)];
+}
+
 /** Pick a fitting question. `recent` is what was asked lately, oldest first, and is avoided. */
 export function pickPressQuestion(c: PressContext, rng: Rng, recent: string[] = []): { outlet: Outlet; q: PressQuestion } {
-  const outlet = OUTLETS[Math.floor(rng() * OUTLETS.length)];
+  const outlet = outletFor(c.tier, c.city, rng);
   const roll = rng();
-  const terrace = fittingFans(c);
+  const fits = fittingFans(c);
+  const inLeague = (g: QGen) => inTier(PRESS_TIERS, g(c).id, c.tier);
+  const terrace = { urgent: fits.urgent.filter(inLeague), rest: fits.rest.filter(inLeague) };
 
   // the terrace's two big nights come before anything else, and are asked
   // once: the whistling is one question, not one a week until a win
@@ -972,7 +988,7 @@ export function pickPressQuestion(c: PressContext, rng: Rng, recent: string[] = 
   }
 
   // roughly a quarter of the time the town paper gets in first, with its own byline
-  if (roll < 0.25) return { outlet: `מקומון ${c.city}` as Outlet, q: fresh(LOCAL, c, rng, recent) };
+  if (roll < 0.25 && c.tier <= 4) return { outlet: `מקומון ${c.city}` as Outlet, q: fresh(LOCAL, c, rng, recent) };
 
   // and about a third of the nights the crowd gave him something to answer
   // for, that is the question, provided it has not been asked lately

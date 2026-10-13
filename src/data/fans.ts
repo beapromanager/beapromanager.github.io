@@ -11,6 +11,7 @@
  */
 
 import type { Rng, Approach } from '../engine/matchEngine.ts';
+import { FAN_TIERS, inTier } from './leagueGate.ts';
 
 /** The head a fan watches football with. Drives which lines are his to say. */
 export type Voice =
@@ -59,6 +60,8 @@ export const FANS_LOUD = 75;
 export const FANS_QUIET = 30;
 
 export interface FanContext {
+  /** the division, 1 = ליגה ג׳ .. 5 = ליגת העל */
+  tier?: number;
   timing: FanTiming;
   isDerby: boolean;
   isHome: boolean;
@@ -369,15 +372,16 @@ export function everyFanLine(): ReadonlyArray<Line & { pool: FanTiming }> {
 export function fanMessage(ctx: FanContext, rng: Rng, recent: string[] = []): FanMessage {
   const pool = ctx.timing === 'pre' ? PRE : POST;
   const seen = new Set(recent);
-  const fits = pool.filter(l => l.when(ctx));
+  const fits = pool.filter(l => (ctx.tier === undefined || inTier(FAN_TIERS, l.id, ctx.tier)) && l.when(ctx));
   const base = fits.length ? fits : [pool[pool.length - 1]];
   const fresh = base.filter(l => !seen.has(l.id));
   const from = fresh.length ? fresh : base;
   const line = from[Math.floor(rng() * from.length)];
 
   // a fan whose voice owns the line, or anyone when the line is voice neutral
-  const candidates = line.voice ? FANS.filter(f => f.voice === line.voice) : FANS;
-  const roster = candidates.length ? candidates : FANS;
+  const cast = ctx.tier === undefined ? FANS : FANS.filter(f => inTier(FAN_TIERS, f.id, ctx.tier!));
+  const candidates = line.voice ? cast.filter(f => f.voice === line.voice) : cast;
+  const roster = candidates.length ? candidates : cast.length ? cast : FANS;
   const fan = roster[Math.floor(rng() * roster.length)];
 
   return { fan, text: line.text(ctx, rng), id: line.id };

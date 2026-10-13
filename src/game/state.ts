@@ -62,7 +62,8 @@ export type { DebtState };
 import { DEFAULT_FORMATION, formationForClub, formation, fillFormation, effectiveOverall } from '../data/formations.ts';
 import { ADS_LIVE } from '../data/ads.ts';
 import type { FormationId } from '../data/formations.ts';
-import { TEMPLATES, eligible, rollDilemma } from '../data/dilemmas.ts';
+import { MATE_TIERS, inTier } from '../data/leagueGate.ts';
+import { TEMPLATES, eligible, rollDilemma, templatesForTier } from '../data/dilemmas.ts';
 import type { RolledDilemma, DilemmaEffect, Ctx as DilemmaCtx, Act, Who } from '../data/dilemmas.ts';
 import { pickPressQuestion } from '../data/press.ts';
 import {
@@ -2961,6 +2962,7 @@ export function fanContext(gs: GameState, timing: FanTiming): FanContext {
   const ctx: FanContext = {
     timing, isDerby: fx ? isDerby(fx.homeId, fx.awayId) : false,
     isHome: iAmHome, rival, city: club(gs).city,
+    tier: club(gs).tier,
     coldStriker, coldWeeks,
     youngster: kid?.name ?? null,
     approach: gs.tactic.approach,
@@ -3052,6 +3054,7 @@ export function clubFeed(gs: GameState): Post[] {
   const ctx: FeedContext = {
     clubName: c.name, clubShort: c.short, city: c.city,
     league: LEAGUE_NAMES[c.tier] ?? '',
+    tier: c.tier,
     pos, teams: gs.league.clubs.length,
     form: gs.form,
     last,
@@ -3740,7 +3743,7 @@ export function startWeek(gs: GameState): GameState {
   const booked = ctx.queued ? TEMPLATES.find(t => t.id === ctx.queued) : undefined;
   const urgent = booked
     ? rollDilemma(booked, ctx, rng)
-    : (pick('now') ?? rollDilemma(TEMPLATES[Math.floor(rng() * TEMPLATES.length)], ctx, rng));
+    : (pick('now') ?? (() => { const pool = templatesForTier(ctx.tier); return rollDilemma(pool[Math.floor(rng() * pool.length)], ctx, rng); })());
   if (booked) gs = { ...gs, queued: null };
 
   // and something that can wait lands in the inbox, capped so it never piles up
@@ -4934,6 +4937,7 @@ export function advancePastPress(gs: GameState): GameState {
   const opp = iAmHome ? r.score[1] : r.score[0];
   const rng = createRng(drawSeed(gs, 90_000));
   const chat = rollChat(picked.trigger, {
+    tier: club(gs).tier,
     club: club(gs).short,
     rival: rival?.short ?? 'היריבה',
     score: `${my} - ${opp}`,
@@ -5003,9 +5007,9 @@ function mateChatNow(gs: GameState, r: MatchResult): GameState | null {
     aloneNow: gs.friends.some(x => x.sold),
     seasonOver: gs.week >= gs.league.rounds,
     rounds: gs.league.rounds,
-    justUp: gs.chronicle.some(e => e.id === `season-${gs.season - 1}-promoted` || e.id === `season-${gs.season - 1}-champion`),
+    justUp: gs.chronicle.some(e => e.id === `season-${gs.season - 1}-promoted` || (club(gs).tier < TOP_TIER && e.id === `season-${gs.season - 1}-champion`)),
   });
-  if (!trigger) return null;
+  if (!trigger || !inTier(MATE_TIERS, trigger, club(gs).tier)) return null;
 
   const t = mateThread(trigger);
   if (!t) return null;

@@ -22,6 +22,7 @@
 import type { Rng } from '../engine/matchEngine.ts';
 import type { FormationId } from './formations.ts';
 import type { ChatTrigger } from './chats.ts';
+import { DILEMMA_TIERS, inTier } from './leagueGate.ts';
 
 export type Speaker =
   | 'owner' | 'veteran' | 'reporter' | 'ultras'
@@ -1712,7 +1713,12 @@ export const urgencyOf = (id: string): Urgency => (INBOX_IDS.has(id) ? 'inbox' :
 
 /** Templates that make sense right now, given the live squad and table. */
 export function eligible(ctx: Ctx, kind: Urgency): DilemmaTemplate[] {
-  return TEMPLATES.filter(t => urgencyOf(t.id) === kind && (!t.when || t.when(ctx)));
+  return TEMPLATES.filter(t => urgencyOf(t.id) === kind && inTier(DILEMMA_TIERS, t.id, ctx.tier) && (!t.when || t.when(ctx)));
+}
+
+/** Every template this league may see, for the fallback that ignores the situation. */
+export function templatesForTier(tier: number): DilemmaTemplate[] {
+  return TEMPLATES.filter(t => inTier(DILEMMA_TIERS, t.id, tier));
 }
 
 /** Fill a template from context and a seeded rng. */

@@ -11,6 +11,7 @@ import { assignTraits, renderLine, getTrait } from '../src/data/personalities.ts
 import { makeSquad } from '../src/data/squadGen.ts';
 import { CITIES, clubFromCity } from '../src/data/cities.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
+import { TRAIT_TIERS, inTier } from '../src/data/leagueGate.ts';
 import { readFileSync, readdirSync } from 'node:fs';
 
 const fails: string[] = [];
@@ -67,6 +68,8 @@ const dayJobIn = (tier: number | undefined) => {
   for (const all of squads) {
     const base = assignTraits(all, [], undefined);
     const low = assignTraits(all, [], 2);
+    // the league table of stories (leagueGate) takes some traits out of a division on purpose, and that can ripple
+    if ([...base.values()].some(ts => ts.some(t => !inTier(TRAIT_TIERS, t.id, 2)))) continue;
     for (const p of all) {
       const a = (base.get(p.id) ?? []).map(t => t.id).join();
       if (a !== (low.get(p.id) ?? []).map(t => t.id).join()) movedBelow++;

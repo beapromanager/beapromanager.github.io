@@ -22,6 +22,7 @@
 import type { Player } from '../engine/matchEngine.ts';
 import type { Legend } from './legends.ts';
 import { legendByName } from './legends.ts';
+import { TRAIT_TIERS, inTier } from './leagueGate.ts';
 import type { Friend } from '../game/friends.ts';
 import { friendTrait, friendLine } from '../game/friends.ts';
 import { overall } from '../engine/matchEngine.ts';
@@ -430,7 +431,7 @@ function orderedTraits(p: Player): Trait[] {
 
 /** Can this be said in this division. No division given means the caller does not know, and nothing is held back. */
 function sayable(t: Trait, tier?: number): boolean {
-  return tier === undefined || !t.tiers || t.tiers(tier);
+  return tier === undefined || ((!t.tiers || t.tiers(tier)) && inTier(TRAIT_TIERS, t.id, tier));
 }
 
 /** How many traits a player carries when they carry any. One in five is simpler. */
