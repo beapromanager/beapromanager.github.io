@@ -23,6 +23,7 @@ import type { Rng } from '../engine/matchEngine.ts';
 import type { FormationId } from './formations.ts';
 import type { ChatTrigger } from './chats.ts';
 import { DILEMMA_TIERS, SUM_SCALE, inTier, scaledSum, scaleSumsInText } from './leagueGate.ts';
+import { TOP_DILEMMA_REWRITE, TOP_DILEMMA_NEW } from './topFlightText.ts';
 
 export type Speaker =
   | 'owner' | 'veteran' | 'reporter' | 'ultras'
@@ -1727,18 +1728,29 @@ export function rollDilemma(tpl: DilemmaTemplate, ctx: Ctx, rng: Rng): RolledDil
   for (const [slot, values] of Object.entries({ ...tpl.slots, ...(tpl.slotsFor?.(ctx) ?? {}) })) {
     picks[slot] = fill(values[Math.floor(rng() * values.length)], ctx, {});
   }
-  const f = SUM_SCALE[ctx.tier] ?? 1;
+  // ליגת העל has its own text, in its own sums (topFlightText.ts), so nothing of it is scaled again
+  const top = ctx.tier >= 5 ? (TOP_DILEMMA_REWRITE[tpl.id] ?? TOP_DILEMMA_NEW[tpl.id]) : undefined;
+  const f = top ? 1 : (SUM_SCALE[ctx.tier] ?? 1);
   const sums = (s: string) => scaleSumsInText(s, ctx.tier);
-  const text = sums(fill(tpl.text, ctx, picks));
+  const own = (s: string) => top ? s : sums(s);
+  const wording = top ? [top.text, ...top.variants] : [tpl.text];
+  const text = own(fill(wording[Math.floor(rng() * wording.length)], ctx, picks));
   const subjectName = tpl.subject ? (ctx[tpl.subject] || undefined) : undefined;
   const filled = { ...picks, subject: subjectName ?? '' };
   // the options are written in the middle world's sums. Handing them a purse divided by the scale makes the part that
   // is a share of the purse come out whole after the multiplication, and only the fixed sums move.
-  const options = tpl.options({ ...ctx, money: ctx.money / f }, picks).map(o => ({
+  const base = tpl.options({ ...ctx, money: ctx.money / f }, picks);
+  // what the answer does in the game (release, a follow up, a bonus) stays with the old answer of the same place
+  const given: DilemmaOption[] = top ? top.options.map((t, i) => ({
+    ...(base[i] ?? { label: '', outcome: '', effect: {} }),
+    label: t.label, outcome: t.outcome,
+    effect: { ...(base[i]?.effect ?? {}), money: t.money, morale: t.morale, fans: t.fans, prestige: t.prestige },
+  })) : base;
+  const options = given.map(o => ({
     ...o,
-    label: sums(fill(o.label, ctx, filled)),
-    effect: o.effect.money === undefined ? o.effect : { ...o.effect, money: scaledSum(o.effect.money, ctx.tier) },
-    outcome: sums(fill(o.outcome, ctx, filled)),
+    label: own(fill(o.label, ctx, filled)),
+    effect: top || o.effect.money === undefined ? o.effect : { ...o.effect, money: scaledSum(o.effect.money, ctx.tier) },
+    outcome: own(fill(o.outcome, ctx, filled)),
     act: o.act?.map(a => a.kind === 'follow' ? { ...a, title: sums(fill(a.title, ctx, filled)), body: sums(fill(a.body, ctx, filled)) }
       : a.kind === 'winBonus' ? { ...a, amount: scaledSum(a.amount, ctx.tier) }
       : a.kind === 'friendly' ? { ...a, fee: scaledSum(a.fee, ctx.tier) } : a),
@@ -1749,4 +1761,30 @@ export function rollDilemma(tpl: DilemmaTemplate, ctx: Ctx, rng: Rng): RolledDil
     : tpl.speaker === 'sponsor' && ctx.sponsor ? `${ctx.sponsor} · ${SPEAKER_LABEL.sponsor}`
     : SPEAKER_LABEL[tpl.speaker];
   return { id: tpl.id, speaker: tpl.speaker, speakerLabel, subjectName, text, options };
+}
+
+/* ---------------------------------------------------------------- ליגת העל only
+ * The new ones of the professional league (Itzik, 13.10). A dilemma whose condition the game cannot yet read stays out
+ * (the national team, the VAR, flares, a contract's end, the European calendar): it needs a system first.
+ */
+const TOP_WHEN: Record<string, { speaker: Speaker; when: (c: Ctx) => boolean; oncePerSeason?: boolean }> = {
+  owner_ceo_budget_war: { speaker: 'director', when: c => c.week >= 8 && c.week <= 16, oncePerSeason: true },
+  title_race_rest_star: { speaker: 'physio', when: c => c.pos <= 3 && c.week >= 10 && !!c.star, oncePerSeason: true },
+  squad_bonus_demand: { speaker: 'squad', when: c => c.isDerby, oncePerSeason: true },
+  owner_foreign_assistant: { speaker: 'owner', when: c => c.week >= 4, oncePerSeason: true },
+  sponsor_ad_bad_run: { speaker: 'sponsor', when: c => !!c.sponsor && c.lostLast && c.winStreak === 0, oncePerSeason: true },
+  deadline_day_striker: { speaker: 'director', when: c => c.winterLast && !!c.youngster, oncePerSeason: true },
+  winger_wants_january: { speaker: 'player', when: c => c.winterOpen, oncePerSeason: true },
+  foreign_coach_rumour: { speaker: 'reporter', when: c => c.pos > 3 && c.lostLast && c.week >= 8, oncePerSeason: true },
+  owner_birthday_pre_derby: { speaker: 'owner', when: c => c.isDerby, oncePerSeason: true },
+  training_leak_press: { speaker: 'director', when: c => c.week >= 5, oncePerSeason: true },
+};
+export const TOP_NEW_IDS = Object.keys(TOP_WHEN);
+for (const id of TOP_NEW_IDS) {
+  const d = TOP_DILEMMA_NEW[id];
+  if (!d) continue;
+  TEMPLATES.push({
+    id, speaker: TOP_WHEN[id].speaker, slots: {}, text: d.text, when: TOP_WHEN[id].when, oncePerSeason: TOP_WHEN[id].oncePerSeason,
+    options: () => d.options.map(o => ({ label: o.label, outcome: o.outcome, effect: { money: o.money, morale: o.morale, fans: o.fans, prestige: o.prestige } })),
+  });
 }

@@ -3,6 +3,8 @@
  * [lowest tier, highest tier], 1 = ליגה ג׳ .. 5 = ליגת העל. An id that is not here runs in all five.
  * The first audit was done line by line against the five worlds in PIC/team/league-audit/RUBRIC.md.
  */
+import { TOP_DILEMMA_DROP, TOP_DILEMMA_NEW, TOP_PRESS_DROP, TOP_PRESS_NEW, TOP_CHAT_NEW, TOP_FAN_NEW } from './topFlightText.ts';
+
 export type TierSpan = readonly [number, number];
 
 export const DILEMMA_TIERS: Record<string, TierSpan> = {
@@ -143,3 +145,12 @@ function say(v: number, comma = false): string {
   if (!comma && v >= 1000 && v % 1000 === 0) return `${v / 1000} אלף`;
   return v.toLocaleString('en-US');
 }
+
+/* ליגת העל from the ground up: what left it, and what exists only in it (topFlightText.ts, Itzik 13.10) */
+const capMax = (t: Record<string, TierSpan>, id: string, max: number): void => { t[id] = [t[id]?.[0] ?? 1, Math.min(t[id]?.[1] ?? 5, max)]; };
+for (const id of TOP_DILEMMA_DROP) capMax(DILEMMA_TIERS, id, 4);
+for (const id of TOP_PRESS_DROP) capMax(PRESS_TIERS, id, 4);
+for (const id of Object.keys(TOP_DILEMMA_NEW)) DILEMMA_TIERS[id] = [5, 5];
+for (const id of Object.keys(TOP_PRESS_NEW)) PRESS_TIERS[id] = [5, 5];
+for (const id of Object.keys(TOP_CHAT_NEW)) CHAT_TIERS[id] = [5, 5];
+for (const id of Object.keys(TOP_FAN_NEW)) FAN_TIERS[id] = [5, 5];

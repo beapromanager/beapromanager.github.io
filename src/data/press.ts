@@ -10,6 +10,7 @@
 import type { Rng } from '../engine/matchEngine.ts';
 
 import { PRESS_TIERS, inTier } from './leagueGate.ts';
+import { TOP_PRESS_REWRITE, TOP_PRESS_NEW } from './topFlightText.ts';
 
 export const OUTLETS = ['ספורט WOW', 'ספורט 555', 'ספורט ישראל', 'Yספורט', 'Nספורט'] as const;
 export type Outlet = typeof OUTLETS[number];
@@ -943,8 +944,38 @@ const SITUATION: Array<{ when: (c: PressContext) => boolean; gen: QGen }> = [
  * been heard lately the one heard longest ago is the least bad repeat, so a
  * pool of one still yields a question rather than nothing.
  */
+/* ליגת העל has its own wording for part of the questions (topFlightText.ts). What an answer does stays with the old answer of the same place. */
+function topSlots(t: string, c: PressContext): string {
+  return t.replace(/{(star|rival|city)}/g, (_, k: 'star' | 'rival' | 'city') => c[k] || '');
+}
+function topWording(q: PressQuestion, c: PressContext): PressQuestion {
+  const t = c.tier >= 5 ? TOP_PRESS_REWRITE[q.id] : undefined;
+  if (!t) return q;
+  return { ...q, text: topSlots(t.text, c), answers: t.answers.map((a, i) => ({ ...(q.answers[i] ?? { effect: {} }), label: topSlots(a.label, c), reply: topSlots(a.reply, c) })) };
+}
+
+/** The questions only a professional top flight is asked, each with the night it fits. Ones that need a system the game lacks (national team, VAR, Europe) are not here. */
+const TOP_WHEN: Record<string, (c: PressContext) => boolean> = {
+  owner_three_games: c => c.lossRun >= 2,
+  foreign_coach_rumour: c => c.lossRun >= 3,
+  title_decider_rival: c => c.tablePos <= 2 && c.week >= c.rounds - 6,
+  euro_place_budget: c => c.tablePos >= 3 && c.tablePos <= 6 && c.week >= c.rounds * 0.7,
+  fans_flares_fine: c => c.isDerby && c.fans >= 75,
+  fans_protest_owner: c => c.fans <= 30,
+  leak_lineup: c => c.week % 4 === 0,
+  leak_dressing_room: c => c.lowMorale || c.lossRun >= 2,
+};
+const TOP_NEW_GENS: QGen[] = Object.keys(TOP_WHEN).filter(id => TOP_PRESS_NEW[id]).map(id => (c: PressContext): PressQuestion => ({
+  id, tone: 'serious', text: topSlots(TOP_PRESS_NEW[id].text, c),
+  answers: TOP_PRESS_NEW[id].answers.map((a, i) => ({
+    label: topSlots(a.label, c), reply: topSlots(a.reply, c),
+    effect: i === 0 ? { morale: +3, prestige: -1 } : { morale: -2, prestige: +3 },
+  })),
+}));
+const topTonight = (c: PressContext): QGen[] => c.tier < 5 ? [] : Object.keys(TOP_WHEN).filter(id => TOP_PRESS_NEW[id] && TOP_WHEN[id](c)).map(id => TOP_NEW_GENS.find(g => g(c).id === id)!);
+
 export function fresh(pool: QGen[], c: PressContext, rng: Rng, recent: string[]): PressQuestion {
-  const every = pool.map(g => g(c));
+  const every = pool.map(g => topWording(g(c), c));
   const kept = every.filter(q => inTier(PRESS_TIERS, q.id, c.tier));
   const all = kept.length ? kept : every;
   const unheard = all.filter(q => !recent.includes(q.id));
@@ -998,7 +1029,7 @@ export function pickPressQuestion(c: PressContext, rng: Rng, recent: string[] = 
   }
 
   const night = SITUATION.filter(s => s.when(c)).map(s => s.gen);
-  return { outlet, q: fresh([...night, ...BY_RESULT[c.result]], c, rng, recent) };
+  return { outlet, q: fresh([...night, ...topTonight(c), ...BY_RESULT[c.result]], c, rng, recent) };
 }
 
 /**

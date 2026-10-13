@@ -22,6 +22,7 @@ import { everyFactQuestion } from '../src/data/pressFacts.ts';
 import { buildFeed } from '../src/data/feed.ts';
 import type { FeedContext } from '../src/data/feed.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
+import { TOP_DILEMMA_NEW, TOP_PRESS_NEW, TOP_CHAT_NEW, TOP_FAN_NEW, TOP_DILEMMA_REWRITE, TOP_PRESS_REWRITE, TOP_CHAT_REWRITE } from '../src/data/topFlightText.ts';
 import { TRAITS } from '../src/data/personalities.ts';
 
 const fails: string[] = [];
@@ -37,19 +38,32 @@ const bare = {
   allGoalsFirstHalf: false,
 } as unknown as PressContext;
 
+const HELD0 = { dilemma: Object.keys(TOP_DILEMMA_NEW), chat: Object.keys(TOP_CHAT_NEW) };
 /* every id in a table is a real thing, or the table guards nothing */
 const dilemmaIds = new Set(TEMPLATES.map(t => t.id));
-for (const id of Object.keys(DILEMMA_TIERS)) ok(dilemmaIds.has(id), `dilemma gate names a dilemma that does not exist: ${id}`);
+for (const id of Object.keys(DILEMMA_TIERS).filter(i => !HELD0.dilemma.includes(i))) ok(dilemmaIds.has(id), `dilemma gate names a dilemma that does not exist: ${id}`);
 const chatIds = new Set(THREADS.map(t => t.id));
-for (const id of Object.keys(CHAT_TIERS)) ok(chatIds.has(id), `chat gate names a chat that does not exist: ${id}`);
+for (const id of Object.keys(CHAT_TIERS).filter(i => !HELD0.chat.includes(i))) ok(chatIds.has(id), `chat gate names a chat that does not exist: ${id}`);
 const mateIds = new Set(MATE_THREADS.map(t => t.id));
 for (const id of Object.keys(MATE_TIERS)) ok(mateIds.has(id), `mate gate names a thread that does not exist: ${id}`);
 const fanIds = new Set([...everyFanLine().map(l => l.id), ...FANS.map(f => f.id)]);
 for (const id of Object.keys(FAN_TIERS)) ok(fanIds.has(id), `fan gate names a line or fan that does not exist: ${id}`);
 const pressIds = new Set([...everyWideQuestion(bare), ...everyFactQuestion(bare)].map(q => q.id));
-for (const id of Object.keys(PRESS_TIERS)) ok(pressIds.has(id), `press gate names a question that does not exist: ${id}`);
+for (const id of Object.keys(PRESS_TIERS).filter(i => !(i in TOP_PRESS_NEW))) ok(pressIds.has(id), `press gate names a question that does not exist: ${id}`);
 const traitIds = new Set(TRAITS.map(t => t.id));
 for (const id of Object.keys(TRAIT_TIERS)) ok(traitIds.has(id), `trait gate names a trait that does not exist: ${id}`);
+
+/* ליגת העל from the ground up: the new ones are in unless their night is one the game cannot see yet. That list is exact,
+   so building a system for one of them has to take it off the list on purpose. */
+const HELD = {
+  dilemma: ['national_team_callup_clash', 'ultras_flares_fine', 'foreign_player_agent_minutes', 'var_storm_reporter', 'european_qualifier_rotation', 'star_contract_bonuses', 'star_medical_key_match'],
+  press: ['euro_qualifier_draw', 'euro_gap_lost', 'natl_callup_star', 'natl_snub_star', 'var_goal_disallowed', 'var_penalty_win', 'transfer_saga_star'],
+  chat: ['club_doctor_star', 'owner_title_race', 'video_analyst_clips', 'press_officer_prep', 'team_manager_charter', 'childhood_friend_tickets'],
+};
+const notIn = (all: string[], have: Set<string>) => all.filter(id => !have.has(id)).sort().join();
+ok(notIn(Object.keys(TOP_DILEMMA_NEW), dilemmaIds) === [...HELD.dilemma].sort().join(), 'the new top flight dilemmas that are in do not match the list: ' + notIn(Object.keys(TOP_DILEMMA_NEW), dilemmaIds));
+ok(notIn(Object.keys(TOP_CHAT_NEW), chatIds) === [...HELD.chat].sort().join(), 'the new top flight chats that are in do not match the list: ' + notIn(Object.keys(TOP_CHAT_NEW), chatIds));
+ok(Object.keys(TOP_FAN_NEW).every(id => fanIds.has(id)), 'a new top flight terrace line is not in');
 
 /* dilemmas: the list for a division holds exactly what that division may see */
 for (const tier of TIERS) {
@@ -83,6 +97,7 @@ ok(!inTier(CHAT_TIERS, 'fans_hot_streak', 5), 'promotion talk must not run in th
 
 /* press: the sites and the questions */
 const NATIONAL = ['ספורט WOW', 'ספורט 555', 'ספורט ישראל', 'Yספורט', 'Nספורט'];
+const dsafe5 = () => new Proxy({ tier: 5, money: 5_000_000, star: 'אבי כהנוב', rival: 'בית״ר', city: 'חיפה', club: 'מכבי', youngster: 'נעם', benched: 'רן', veteranName: 'יגאל', scorer: 'גל', dry: 'דור', newcomer: 'איתן', academy: 'ליאור', kids3: 'א, ב, ג', squadSize: 22, room: 3, pos: 3, teams: 14, week: 8, sponsor: 'חברת מזון', sponsorWants: [] } as Record<string, unknown>, { get: (o, k) => (k in o ? o[k as string] : '') }) as never;
 const results = ['win', 'loss', 'draw', 'big_win', 'thrashing'] as const;
 for (const tier of TIERS) {
   for (let s = 1; s <= 300; s++) {
@@ -139,6 +154,42 @@ ok(feedOfTier(4).texts.some(x => x.includes('מהליגה שמעל')), 'the leag
   const sell = TEMPLATES.find(t => t.id === 'owner_sell_star')!;
   const gain = (tier: number) => rollDilemma(sell, { tier, money: 100_000 * tier, star: 'כהן', city: 'עיר', rival: 'נחל' } as never, createRng(2)).options[0].effect.money ?? 0;
   ok(gain(5) - 0.6 * 500_000 > gain(1) - 0.6 * 100_000, 'the fixed part of selling the star is no bigger at the top than at the bottom');
+}
+
+/* ליגת העל from the ground up: everything the top flight can say, rolled many times, is scanned for the words of a world it is not in */
+{
+  const FORBIDDEN = /ליגה (שמעל|מעל)|הליגה (שמעל|מעל)|מהליגה שמעל|שמעלינו|מילואים|בוחן|משמרת|פיצרי|מקומון|הפועל נחל|עין סלע|דני כהן|\{\w+\}/;
+  const seen: string[] = [];
+  let rewrittenAsked = 0, wrongWording = 0;
+  for (const t of templatesForTier(5)) for (let s = 1; s <= 8; s++) {
+    const r = rollDilemma(t, dsafe5(), createRng(s * 19 + t.id.length));
+    seen.push(r.text, ...r.options.flatMap(o => [o.label, o.outcome]));
+  }
+  for (let s = 1; s <= 400; s++) {
+    const c = { ...bare, tier: 5, tablePos: 1 + (s % 10), result: results[s % 5], isDerby: s % 7 === 0, lossRun: s % 4, fans: 20 + (s % 70), week: 4 + (s % 18), rounds: 26, lowMorale: s % 5 === 0 } as PressContext;
+    const { q } = pickPressQuestion(c, createRng(s * 23), []);
+    seen.push(q.text, ...q.answers.flatMap(a => [a.label, a.reply]));
+    const mine = TOP_PRESS_REWRITE[q.id];
+    if (mine) { rewrittenAsked++; if (q.text.slice(0, 10) !== mine.text.slice(0, 10)) wrongWording++; }
+    const m = fanMessage(fctx(5, s % 2 ? 'pre' : 'post', s), createRng(s * 29), []);
+    seen.push(m.text, m.fan.bio);
+  }
+  for (const trig of triggers) for (let s = 1; s <= 60; s++) {
+    const c = rollChat(trig, { tier: 5, club: 'מכבי', rival: 'בית״ר', score: '2 - 0', star: 'אבי', mgr: 'מאמן', who: 'אבי' }, createRng(s * 37), []);
+    if (c) seen.push(c.contact, c.subtitle, ...c.lines.map(l => l.text));
+  }
+  const bad = [...new Set(seen.filter(x => FORBIDDEN.test(x)))];
+  ok(bad.length === 0, `${bad.length} lines in the top flight speak of a world it is not in, for example: ${bad.slice(0, 2).join(' / ')}`);
+  ok(rewrittenAsked > 5 && wrongWording === 0, `a rewritten top flight press question was asked ${rewrittenAsked} times, ${wrongWording} in the old words`);
+  ok(seen.length > 3000, 'the top flight scan saw too little');
+  // the rewritten and the new are what the top flight rolls, in its own sums
+  const callup = TOP_DILEMMA_REWRITE.player_transfer_request;
+  const sell = rollDilemma(TEMPLATES.find(t => t.id === 'player_transfer_request')!, dsafe5(), createRng(1));
+  ok(sell.options[0].effect.money === callup.options[0].money, 'the top flight sale is not the sum written for it');
+  ok(!sell.text.includes('הליגה'), 'the top flight transfer request still names a league above');
+  ok(templatesForTier(5).some(t => t.id === 'owner_ceo_budget_war'), 'a new top flight dilemma is not offered');
+  ok(!templatesForTier(4).some(t => t.id === 'owner_ceo_budget_war'), 'a top flight dilemma leaked into the Leumit');
+  ok(Object.keys(TOP_PRESS_REWRITE).length > 10 && Object.keys(TOP_CHAT_REWRITE).length >= 5, 'the top flight rewrites are missing');
 }
 
 /* personalities */

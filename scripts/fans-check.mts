@@ -19,6 +19,8 @@ import { createRng } from '../src/engine/matchEngine.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import type { MatchResult } from '../src/engine/matchEngine.ts';
+import { TOP_FAN_NEW } from '../src/data/topFlightText.ts';
+const TOP_ONLY = new Set(Object.keys(TOP_FAN_NEW));
 
 const fails: string[] = [];
 let checked = 0;
@@ -267,7 +269,7 @@ const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
     coldStriker: null, coldWeeks: 0, youngster: null, approach: 'balanced',
     tablePos: 4, totalTeams: 14, streak: 0, fans: FANS_MIDDLE,
   };
-  const meterLines = everyFanLine().filter(l => l.id.startsWith('fans-'));
+  const meterLines = everyFanLine().filter(l => l.id.startsWith('fans-') && !TOP_ONLY.has(l.id));
   checked++;
   if (meterLines.length !== 8) fails.push(`${meterLines.length} lines answer to the meter, the document had 8`);
 

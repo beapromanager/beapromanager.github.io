@@ -70,7 +70,7 @@ let checked = 0;
 /* --------------------------------------- 4. the threads and the voices */
 {
   checked += 3;
-  if (THREADS.length !== 86) fails.push(`${THREADS.length} threads, the agreed count is 86 (26 + Itzik's 60)`);
+  if (THREADS.length !== 90) fails.push(`${THREADS.length} threads, the agreed count is 90 (26 + Itzik's 60 + four that only the top flight has)`);
   const perTrigger = (t: ChatTrigger) => THREADS.filter(x => x.trigger === t).length;
   for (const t of ['promotion_clinched', 'title_won', 'relegation_sealed', 'season_over_good',
     'late_penalty_save', 'first_win_season', 'streak_broken', 'youth_debut_goal'] as ChatTrigger[]) {

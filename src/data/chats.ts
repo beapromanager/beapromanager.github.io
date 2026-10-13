@@ -12,6 +12,7 @@
 import type { Rng } from '../engine/matchEngine.ts';
 import type { MatchFact } from './matchFacts.ts';
 import { CHAT_TIERS, inTier } from './leagueGate.ts';
+import { TOP_CHAT_REWRITE, TOP_CHAT_NEW } from './topFlightText.ts';
 
 export type ChatTrigger =
   | 'derby_win' | 'derby_loss' | 'derby_draw' | 'hat_trick'
@@ -1255,9 +1256,22 @@ export function rollChat(trigger: ChatTrigger, ctx: ChatCtx, rng: Rng, recent: s
   const t = fresh.length
     ? fresh[Math.floor(rng() * fresh.length)]
     : all.reduce((a, b) => recent.indexOf(a.id) <= recent.indexOf(b.id) ? a : b);
+  // ליגת העל has its own wording for part of the phone (topFlightText.ts)
+  const own = ctx.tier !== undefined && ctx.tier >= 5 ? TOP_CHAT_REWRITE[t.id] : undefined;
+  const shown = own ? { ...t, contact: own.contact, subtitle: own.subtitle, group: own.group, lines: own.lines } : t;
   // the contact can be a slot too: the sent off man, the rival's manager
   return {
-    id: t.id, contact: fill(t.contact, ctx), subtitle: fill(t.subtitle, ctx), group: t.group, accent: t.accent,
-    lines: t.lines.map(l => ({ from: fill(l.from, ctx), text: fill(l.text, ctx) })),
+    id: t.id, contact: fill(shown.contact, ctx), subtitle: fill(shown.subtitle, ctx), group: shown.group, accent: shown.accent,
+    lines: shown.lines.map(l => ({ from: fill(l.from, ctx), text: fill(l.text, ctx) })),
   };
+}
+
+/* ליגת העל only: the phone of a professional club. The night each one rings on is the nearest the game has a trigger for;
+ * the ones that wait for a night it cannot see (a pre match hour, an injury, a European away trip) are not here yet. */
+const TOP_NIGHT: Record<string, ChatTrigger> = {
+  ceo_loss_car_park: 'big_loss', agent_euro_feeler: 'hot_streak', national_coach_assistant: 'big_win', ultras_leaders_meeting: 'cold_streak',
+};
+for (const [id, trigger] of Object.entries(TOP_NIGHT)) {
+  const c = TOP_CHAT_NEW[id];
+  if (c) THREADS.push({ id, trigger, contact: c.contact, subtitle: c.subtitle, group: c.group, accent: GREY, lines: c.lines });
 }

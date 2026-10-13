@@ -15,6 +15,7 @@
  *   5. closing the popup pays the agreed fee once and tires the men who played
  *   6. the screen is wired in and the words obey the house rules
  */
+import { scaledSum } from '../src/data/leagueGate.ts';
 import * as G from '../src/game/state.ts';
 import { TEMPLATES } from '../src/data/dilemmas.ts';
 import { FACTORIES, describeFriendly } from '../src/data/friendly.ts';
@@ -71,7 +72,7 @@ const all = (gs: G.GameState) => [...G.mySquad(gs).starters, ...G.mySquad(gs).be
   if (!f) fails.push('agreeing to the friendly agreed nothing');
   else {
     if (!FACTORIES.includes(f.factory)) fails.push(`the works team is "${f.factory}", not from the approved list`);
-    if (f.fee !== 15_000) fails.push(`the fee is ${f.fee}, the agreed figure is 15,000`);
+    if (f.fee !== scaledSum(15_000, G.club(gs0).tier)) fails.push(`the fee is ${f.fee}, the agreed figure is the 15,000 of the middle world, scaled to the division`);
     if (f.report) fails.push('the match was played before the sheet was sent');
   }
   if (no.matchMods.friendly) fails.push('declining the friendly still agreed one');
@@ -197,7 +198,7 @@ const all = (gs: G.GameState) => [...G.mySquad(gs).starters, ...G.mySquad(gs).be
   if (back.phase !== 'friendly') fails.push(`a reload on the popup opened "${back.phase}"`);
   if (JSON.stringify(back.matchMods.friendly?.report) !== JSON.stringify(popup.matchMods.friendly?.report)) fails.push('a reload changed the report');
   const paid = G.finishFriendly(back);
-  if (paid.meters.money - back.meters.money !== 15_000) fails.push(`closing the popup after a reload paid ${paid.meters.money - back.meters.money}`);
+  if (paid.meters.money - back.meters.money !== scaledSum(15_000, G.club(back).tier)) fails.push(`closing the popup after a reload paid ${paid.meters.money - back.meters.money}`);
 }
 
 /* ------------------------------- 5. closing the popup: fee and legs */
@@ -208,7 +209,7 @@ const all = (gs: G.GameState) => [...G.mySquad(gs).starters, ...G.mySquad(gs).be
   const done = G.finishFriendly(popup);
   checked += 8;
   if (done.phase !== 'match') fails.push(`closing the popup led to "${done.phase}", not the match`);
-  if (done.meters.money - popup.meters.money !== 15_000) fails.push(`the fee is ${done.meters.money - popup.meters.money}, the agreed figure is 15,000`);
+  if (done.meters.money - popup.meters.money !== scaledSum(15_000, G.club(popup).tier)) fails.push(`the fee is ${done.meters.money - popup.meters.money}, the agreed figure is 15,000`);
   if (done.matchMods.friendly) fails.push('the friendly stayed on the week after it was played');
   const tired = Object.entries(done.matchMods.fitness ?? {}).filter(([, d]) => (d as number) < 0).map(([id]) => id);
   if (tired.length !== 11 || !played.every(id => tired.includes(id))) fails.push(`${tired.length} men are tired, the eleven who played should be`);

@@ -63,6 +63,7 @@ import { DEFAULT_FORMATION, formationForClub, formation, fillFormation, effectiv
 import { ADS_LIVE } from '../data/ads.ts';
 import type { FormationId } from '../data/formations.ts';
 import { MATE_TIERS, inTier } from '../data/leagueGate.ts';
+import { TOP_MATE } from '../data/topFlightText.ts';
 import { TEMPLATES, eligible, rollDilemma, templatesForTier } from '../data/dilemmas.ts';
 import type { RolledDilemma, DilemmaEffect, Ctx as DilemmaCtx, Act, Who } from '../data/dilemmas.ts';
 import { pickPressQuestion } from '../data/press.ts';
@@ -5014,6 +5015,10 @@ function mateChatNow(gs: GameState, r: MatchResult): GameState | null {
   const t = mateThread(trigger);
   if (!t) return null;
   const league = LEAGUE_NAMES[club(gs).tier] ?? '';
+  // ליגת העל has its own wording for what the friend writes (topFlightText.ts); what an answer does stays
+  const own = club(gs).tier >= TOP_TIER ? TOP_MATE[t.id] : undefined;
+  const mateLines = own ? own.lines : t.lines;
+  const mateAnswers = own ? own.answers.map((a, i) => ({ ...(t.answers[i] ?? { effect: {} }), label: a.label, reply: a.reply })) : t.answers;
   return {
     ...gs,
     phase: 'chat',
@@ -5024,9 +5029,9 @@ function mateChatNow(gs: GameState, r: MatchResult): GameState | null {
       subtitle: 'מקוון',
       group: false,
       accent: '#2FA96B',
-      lines: t.lines.map(text => ({ from: him.name.split(' ')[0], text: fillMate(text, { league }) })),
+      lines: mateLines.map(text => ({ from: him.name.split(' ')[0], text: fillMate(text, { league }) })),
     },
-    chatAnswers: { answers: t.answers, mateId: him.id, trigger },
+    chatAnswers: { answers: mateAnswers as typeof t.answers, mateId: him.id, trigger },
     mate: { ...gs.mate, seen: [...gs.mate.seen, trigger], lastWeek: gs.week },
   };
 }

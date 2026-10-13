@@ -12,6 +12,7 @@
 
 import type { Rng, Approach } from '../engine/matchEngine.ts';
 import { FAN_TIERS, inTier } from './leagueGate.ts';
+import { TOP_FAN_REWRITE, TOP_FAN_NEW } from './topFlightText.ts';
 
 /** The head a fan watches football with. Drives which lines are his to say. */
 export type Voice =
@@ -372,7 +373,7 @@ export function everyFanLine(): ReadonlyArray<Line & { pool: FanTiming }> {
 export function fanMessage(ctx: FanContext, rng: Rng, recent: string[] = []): FanMessage {
   const pool = ctx.timing === 'pre' ? PRE : POST;
   const seen = new Set(recent);
-  const fits = pool.filter(l => (ctx.tier === undefined || inTier(FAN_TIERS, l.id, ctx.tier)) && l.when(ctx));
+  const fits = pool.filter(l => (ctx.tier === undefined ? !TOP_FAN_NEW[l.id] : inTier(FAN_TIERS, l.id, ctx.tier)) && l.when(ctx));
   const base = fits.length ? fits : [pool[pool.length - 1]];
   const fresh = base.filter(l => !seen.has(l.id));
   const from = fresh.length ? fresh : base;
@@ -384,5 +385,21 @@ export function fanMessage(ctx: FanContext, rng: Rng, recent: string[] = []): Fa
   const roster = candidates.length ? candidates : cast.length ? cast : FANS;
   const fan = roster[Math.floor(rng() * roster.length)];
 
-  return { fan, text: line.text(ctx, rng), id: line.id };
+  // ליגת העל has its own wording for part of the terrace (topFlightText.ts)
+  const own = ctx.tier !== undefined && ctx.tier >= 5 ? TOP_FAN_REWRITE[line.id] : undefined;
+  return { fan, text: own ? own.text : line.text(ctx, rng), id: line.id };
+}
+
+/* ליגת העל only: the terrace of a professional club. Each one with the night it fits. */
+const TOP_FAN_WHEN: Record<string, (c: FanContext) => boolean> = {
+  'ultras-derby-police': c => c.isDerby,
+  'ultras-away-convoy': c => !c.isHome,
+  'fans-euro-place': c => c.tablePos >= 3 && c.tablePos <= 5,
+  'fans-title-race': c => c.tablePos <= 2,
+  'fans-win-linger': c => c.isHome && c.result === 'win',
+  'fans-relegation-fear': c => c.result !== 'win' && c.tablePos >= c.totalTeams - 3,
+};
+for (const [id, when] of Object.entries(TOP_FAN_WHEN)) {
+  const n = TOP_FAN_NEW[id];
+  if (n) (n.when === 'pre' ? PRE : POST).push({ id, when, text: () => n.text });
 }
