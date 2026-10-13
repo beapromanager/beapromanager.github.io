@@ -64,6 +64,7 @@ export type Act =
   | { kind: 'promote' }                                            // the academy kid joins the squad
   | { kind: 'sell'; who: Who }                                     // to a club in the league, story and all
   | { kind: 'follow'; weeks: number; title: string; body: string } // a word back at the hub, later
+  | { kind: 'youthLeaves' }                                        // the boy of the academy this is about leaves the club (a sale, a release)
   | { kind: 'youthBoost' }                                         // three kids grow faster in the summer
   | { kind: 'youthLeaveRisk'; p: number }                          // the kid may be gone by summer
   | { kind: 'promiseWin' }                                         // the terrace remembers if you lose
@@ -87,7 +88,7 @@ export interface DilemmaTemplate {
    * it "שחקן בסגל" asked for minutes, you promised or refused, and there was no
    * way to ever know whether your answer meant anything, because it did not.
    */
-  subject?: 'star' | 'benched' | 'youngster' | 'veteranName' | 'scorer' | 'dry' | 'academy' | 'newcomer' | 'gk';
+  subject?: 'star' | 'benched' | 'youngster' | 'veteranName' | 'scorer' | 'dry' | 'academy' | 'newcomer' | 'gk' | 'boy';
   slots: Record<string, string[]>;
   /** slots that depend on the live save, laid over : the sponsor's own asks */
   slotsFor?: (c: Ctx) => Record<string, string[]>;
@@ -154,6 +155,12 @@ export interface Ctx {
   gk: string;
   /** the best starter plays up front, for the top-scorer story */
   starIsForward: boolean;
+  /** the new academy (academy.ts): a boy under 18 it is about (the one who has played least), how many starts he has, whether he can be a real talent, his age, how many boys there are. Empty with the door shut. */
+  boy?: string;
+  boyApps?: number;
+  boyGem?: boolean;
+  boyAge?: number;
+  boys?: number;
 }
 
 export const SPEAKER_LABEL: Record<Speaker, string> = {
@@ -1730,9 +1737,11 @@ export function rollDilemma(tpl: DilemmaTemplate, ctx: Ctx, rng: Rng): RolledDil
   }
   // ליגת העל has its own text, in its own sums (topFlightText.ts), so nothing of it is scaled again
   const top = ctx.tier >= 5 ? (TOP_DILEMMA_REWRITE[tpl.id] ?? TOP_DILEMMA_NEW[tpl.id]) : undefined;
-  const f = top ? 1 : (SUM_SCALE[ctx.tier] ?? 1);
+  // a template that writes its own sums for the division (the academy's) is not scaled either
+  const keep = !!top || FIXED_SUM_IDS.has(tpl.id);
+  const f = keep ? 1 : (SUM_SCALE[ctx.tier] ?? 1);
   const sums = (s: string) => scaleSumsInText(s, ctx.tier);
-  const own = (s: string) => top ? s : sums(s);
+  const own = (s: string) => keep ? s : sums(s);
   const wording = top ? [top.text, ...top.variants] : [tpl.text];
   const text = own(fill(wording[Math.floor(rng() * wording.length)], ctx, picks));
   const subjectName = tpl.subject ? (ctx[tpl.subject] || undefined) : undefined;
@@ -1749,7 +1758,7 @@ export function rollDilemma(tpl: DilemmaTemplate, ctx: Ctx, rng: Rng): RolledDil
   const options = given.map(o => ({
     ...o,
     label: own(fill(o.label, ctx, filled)),
-    effect: top || o.effect.money === undefined ? o.effect : { ...o.effect, money: scaledSum(o.effect.money, ctx.tier) },
+    effect: keep || o.effect.money === undefined ? o.effect : { ...o.effect, money: scaledSum(o.effect.money, ctx.tier) },
     outcome: own(fill(o.outcome, ctx, filled)),
     act: o.act?.map(a => a.kind === 'follow' ? { ...a, title: sums(fill(a.title, ctx, filled)), body: sums(fill(a.body, ctx, filled)) }
       : a.kind === 'winBonus' ? { ...a, amount: scaledSum(a.amount, ctx.tier) }
@@ -1788,3 +1797,111 @@ for (const id of TOP_NEW_IDS) {
     options: () => d.options.map(o => ({ label: o.label, outcome: o.outcome, effect: { money: o.money, morale: o.morale, fans: o.fans, prestige: o.prestige } })),
   });
 }
+
+/* ------------------------------------------------------------ the academy's own desk
+ * Nine questions about the boys (the content writer's drafts of 13.10). They write their own final sums for the division
+ * (a boy's price, a pitch's lights), so nothing here is scaled again. They are offered only with the door open and a boy
+ * to talk about, and a boy who is sold or let go really leaves the academy.
+ */
+export const FIXED_SUM_IDS = new Set([
+  'yd_europe_17', 'yd_rival_offer_low', 'yd_rival_offer_pro', 'yd_facility_low', 'yd_facility_pro',
+]);
+/** what a club pays for a good boy, by division, and what a pitch's lights cost, and a pro club's video analyst and dietitian */
+const BOY_OFFER = [10_000, 30_000, 80_000, 140_000, 200_000];
+const PITCH_KIT = [3_000, 4_000, 12_000];
+const PRO_STAFF = [0, 0, 0, 240_000, 600_000];
+const at = (tier: number, t: number[]) => t[Math.max(0, Math.min(t.length - 1, tier - 1))];
+
+const YD: DilemmaTemplate[] = [
+  {
+    id: 'yd_mustwin_boy', speaker: 'youth', subject: 'boy', slots: {},
+    when: c => !!c.boy && c.week >= 6 && (c.pos <= 2 || c.pos >= c.teams - 2), oncePerSeason: true,
+    text: 'משחק שחייבים לנצח. {boy} מהנוער צועק שהוא מוכן. המאמן מהנוער מבקש הזדמנות. הוותיקים מסתכלים עליך.',
+    options: () => [
+      { label: 'מכניס אותו', effect: { morale: -2, fans: +2, prestige: +1 }, outcome: 'הוא נכנס מפוחד ומשחק יפה. אם ניצחתם, כולם יגידו שאתה גאון. אם לא, כולם יגידו מי הכניס ילד.' },
+      { label: 'רק מהספסל, 20 דקות', effect: { morale: +1, prestige: +1 }, outcome: 'הוא מקבל את הטעם בלי הלחץ המלא. הוותיקים נושמים, והנער לומד.' },
+      { label: 'הוותיק מתחיל', effect: { morale: +2, prestige: -1 }, outcome: 'אתה בטוח, הנער מתאכזב. הוא לא יאמר כלום, אבל יזכור.' },
+    ],
+  },
+  {
+    id: 'yd_father_low', speaker: 'youth', subject: 'boy', slots: {},
+    when: c => !!c.boy && c.boyApps === 0 && c.week >= 6, oncePerSeason: true,
+    text: 'האבא של {boy} מחכה לך ליד הקיוסק. ״הילד שלי טוב מכל מי שיש לך. למה הוא לא פותח?״',
+    options: () => [
+      { label: 'מסביר לו בשקט', effect: { fans: -1 }, outcome: 'הוא לא מרוצה אבל מקשיב. הוא יחזור עוד שבוע, עם אותה שאלה.' },
+      { label: 'מראה לו את המספרים', effect: { prestige: +1 }, outcome: 'האבא רואה שהבן עוד לא שם, ומסכים לחכות. הנער לא יודע כלום.' },
+      { label: 'נותן לנער לפתוח במשחק הקרוב', effect: { morale: -2, fans: +2 }, outcome: 'האבא יושב ביציע וצועק את שמו. הנער משחק לחוץ, והוותיק שנשאר בחוץ מקמט את המצח.' },
+    ],
+  },
+  {
+    id: 'yd_father_pro', speaker: 'agent', subject: 'boy', slots: {},
+    when: c => !!c.boy && c.boyApps === 0 && c.week >= 6, oncePerSeason: true,
+    text: 'האבא של {boy} בא למשרד עם סוכן. ״הילד צריך דקות, אחרת נחפש מקום אחר. יש התעניינות.״',
+    options: () => [
+      { label: 'מבטיח דקות', effect: { morale: +1, prestige: -1 }, outcome: 'הם יוצאים מרוצים. עכשיו אתה חייב לתת, ואם הוא יתפרק, זה עליך.' },
+      { label: 'אומר שהמגרש הוא ההוכחה', effect: { morale: -1, prestige: +1 }, outcome: 'הסוכן מחייך באי נוחות. הנער ממשיך להתאמן, והאבא מתחיל לחפש הצעות.' },
+      { label: 'מבקש מהסוכן לצאת', effect: { morale: -2, prestige: -1 }, outcome: 'החדר נעשה קר. האבא נשאר, הסוכן לא. הנער נראה פחות נינוח באימון.' },
+    ],
+  },
+  {
+    id: 'yd_europe_17', speaker: 'agent', subject: 'boy', slots: {},
+    when: c => !!c.boy && !!c.boyGem && c.boyAge === 17, oncePerSeason: true,
+    text: '{boy} בן 17, והסוכן שלו אומר שיש לו הצעה מקבוצה באירופה. ״הוא רוצה ללכת, וזה לא בתוכניות שלכם בכל מקרה.״',
+    options: c => [
+      { label: 'משחרר אותו', effect: { money: Math.round(at(c.tier, BOY_OFFER) * 0.4), prestige: +1 }, act: [{ kind: 'youthLeaves' }], outcome: 'אתה לא עוצר חלום. הוא יוצא עם ברכה, והמועדון מקבל פיצוי קטן. הנוער לומד שאפשר לצאת מכאן לגדולות.' },
+      { label: 'מציע חוזה ארוך', effect: { morale: +1 }, outcome: 'הוא נשאר, אבל עם הרבה ציפיות. אם לא תיתן לו לשחק, הוא יהיה בעיה.' },
+      { label: 'אומר לא', effect: { morale: -2 }, outcome: 'הוא נשאר, כועס. אתה ממשיך לשחק איתו או שיהיה לך קושי איתו שנה.' },
+    ],
+  },
+  {
+    id: 'yd_bigger_club_low', speaker: 'youth', subject: 'boy', slots: {},
+    when: c => !!c.boy && !!c.boyGem && c.boyAge === 17, oncePerSeason: true,
+    text: '{boy} בן 17, ואבא שלו מספר שקבוצה מליגה גבוהה מזמינה אותו לאימון. ״רק להראות את עצמו.״',
+    options: () => [
+      { label: 'נותן לו ללכת', effect: { fans: -1 }, outcome: 'הוא חוזר אחרי שבוע עם עיניים בוערות. אולי יישאר, אולי כבר לא.' },
+      { label: 'מסרב, כי הוא שלך', effect: { morale: -1 }, outcome: 'הוא נשאר, אבל מסתכל על כל אימון בעין אחרת.' },
+      { label: 'מבקש תשלום', effect: {}, outcome: 'אם הם רוצים אותו, הם ישלמו. הם חושבים, והנער ממתין.' },
+    ],
+  },
+  {
+    id: 'yd_rival_offer_low', speaker: 'owner', subject: 'boy', slots: {},
+    when: c => !!c.boy && !!c.boyGem && (c.boyApps ?? 0) <= 1, oncePerSeason: true,
+    text: 'קבוצה מהעיר השנייה שולחת לך הצעה על {boy}. הוא נער, והם נותנים כסף טוב עבורו. הוא עוד לא שיחק אצלך.',
+    options: c => [
+      { label: 'מוכר', effect: { money: at(c.tier, BOY_OFFER), fans: -1 }, act: [{ kind: 'youthLeaves' }], outcome: 'הכסף נכנס, הנער הולך. יש מי שיגיד שמכרת את העתיד.' },
+      { label: 'אומר לא', effect: { fans: +1 }, outcome: 'הם מציעים שוב בעוד חודש. הנער יודע שרצו אותו, וזה מוסיף לו קצת בטחון.' },
+      { label: 'מבקש יותר', effect: {}, outcome: 'הם חושבים. אולי חוזרים עם יותר, אולי נעלמים.' },
+    ],
+  },
+  {
+    id: 'yd_rival_offer_pro', speaker: 'director', subject: 'boy', slots: {},
+    when: c => !!c.boy && !!c.boyGem && (c.boyApps ?? 0) <= 1, oncePerSeason: true,
+    text: 'מנהל הכדורגל נכנס עם הצעה. קבוצה מליגה בכירה באירופה רוצה את {boy} ומציעה כסף שבעצם לא תראה בחיים על נער. הוא לא שיחק אצלך אפילו ברבע שעה.',
+    options: c => [
+      { label: 'מוכר, ושומר אחוזים', effect: { money: Math.round(at(c.tier, BOY_OFFER) * 1.5) }, act: [{ kind: 'youthLeaves' }], outcome: 'הכסף נכנס, והמועדון יראה עוד כסף אם יצליח. הנער מתרגש. הקהל שואל מי הוא היה.' },
+      { label: 'מסרב', effect: { prestige: -1 }, outcome: 'אתה שומר נער שאולי יהיה הכוכב הבא. הדירקטוריון לא שמח, כי הם ראו את המספר.' },
+      { label: 'מבקש שנה על הספסל איתנו', effect: {}, outcome: 'הם מסכימים, אבל כעבור שנה המחיר שלהם לא בהכרח אותו מחיר.' },
+    ],
+  },
+  {
+    id: 'yd_facility_low', speaker: 'youth', slots: {},
+    when: c => (c.boys ?? 0) >= 2, oncePerSeason: true,
+    text: 'מאמן הנוער מראה לך את המגרש האחורי. ״אין אורות, הקרשים של השער שבורים, והכדורים פנצ׳ר. הילדים עושים הכל על עפר.״',
+    options: c => [
+      { label: 'משלם על ציוד', effect: { money: -at(c.tier, PITCH_KIT), morale: +1 }, outcome: 'כדורים, שערים, אור. הנערים מתאמנים כמו בני אדם, והמאמן מחייך.' },
+      { label: 'אומר לחכות', effect: {}, outcome: 'המאמן מבין. הנערים ימשיכו לשחק על העפר, וזה חלק מהסיפור.' },
+      { label: 'מבקש מהקהל לתרום', effect: { fans: +1 }, outcome: 'חלק מהאוהדים נותנים, חלק מגחכים. בסוף יש כדורים חדשים.' },
+    ],
+  },
+  {
+    id: 'yd_facility_pro', speaker: 'director', slots: {},
+    when: c => (c.boys ?? 0) >= 2, oncePerSeason: true,
+    text: 'מנהל הכדורגל בא עם בקשה. ״האקדמיה צריכה מנתח וידאו ותזונאי נוער. בלי זה אנחנו לא באותה ליגה עם מועדוני אירופה.״',
+    options: c => [
+      { label: 'מאשר את שניהם', effect: { money: -at(c.tier, PRO_STAFF), morale: +1, prestige: +1 }, outcome: 'הנערים מקבלים כלים כמו המקצוענים. זה לא זול, ואם הם לא ישחקו, זה יצטייר כבזבוז.' },
+      { label: 'רק את מנתח הווידאו', effect: { money: -Math.round(at(c.tier, PRO_STAFF) * 0.4) }, outcome: 'פתרון אמצע. המאמן מתאזן, והנערים מקבלים חצי חבילה.' },
+      { label: 'אומר שאין תקציב', effect: { prestige: -1 }, outcome: 'הדירקטוריון מצדיק אותך, המנהל לא. הנוער ימשיך עם מה שיש.' },
+    ],
+  },
+];
+for (const t of YD) TEMPLATES.push(t);

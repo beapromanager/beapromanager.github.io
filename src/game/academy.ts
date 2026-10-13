@@ -19,9 +19,15 @@ import { overall } from '../engine/matchEngine.ts';
 import { makePlayer } from '../data/squadGen.ts';
 import { leagueCeiling } from '../data/clubs.ts';
 import { potMaxOf, potentialOf, devFactor } from './career.ts';
+import { scoutReport } from '../data/academyText.ts';
+
+/** On a developer's machine only, ?youth in the address opens the door to look at it. A built game never does. */
+function devDoor(): boolean {
+  try { return !!import.meta.env?.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('youth'); } catch { return false; }
+}
 
 /** Whether the new academy is live for players. Shut until Itzik opens it. */
-export let YOUTH_V2 = false;
+export let YOUTH_V2 = devDoor();
 
 /** For the checks only, which walk the door open and shut: the game never calls it. */
 export function setYouthDoorForChecks(open: boolean): void { YOUTH_V2 = open; }
@@ -144,4 +150,9 @@ export function toNewRules(p: Player): Player {
   if (p.lock0 !== undefined || p.age >= 18) return p;
   const gap = OPENING_GAP[0] + Math.floor(devFactor(p, '|gap') * (OPENING_GAP[1] - OPENING_GAP[0] + 1));
   return { ...p, lock0: Math.max(0, potMaxOf(p) - (overall(p) + gap)), pu: 0 };
+}
+
+/** The scout's line about a boy for the list: it hints at what he truly has and gives no number. */
+export function reportOf(p: Player, tier: number): string {
+  return scoutReport(p.name, p.position, potMaxOf(p), tier);
 }

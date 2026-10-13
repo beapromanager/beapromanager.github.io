@@ -2259,3 +2259,9 @@ a.btn{text-decoration:none;}
   .tcard-sheen{display:none;}
 }
 .acad-kid{padding:12px; border-radius:var(--plate-sm); background:rgba(10,18,14,.8); border:1px solid var(--line-2); backdrop-filter:blur(5px);}
+
+/* the youth coach's messages on the academy screen: a few short bubbles, one after another */
+.acad-coach{display:flex; flex-direction:column; gap:6px; padding:12px; border-radius:var(--plate-sm); background:rgba(10,18,14,.78); border:1px solid rgba(233,185,73,.3); backdrop-filter:blur(5px);}
+.acad-coach-who{font-size:12.5px; font-weight:900; color:var(--gold);}
+.acad-bubble{align-self:flex-start; max-width:92%; padding:8px 12px; border-radius:4px 14px 14px 14px; background:rgba(255,255,255,.08); font-size:14.5px; line-height:1.4; animation:tcardIn .45s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i, 0) * 220ms);}
+@media (prefers-reduced-motion: reduce){ .acad-bubble{animation:none;} }

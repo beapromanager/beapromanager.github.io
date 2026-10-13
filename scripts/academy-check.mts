@@ -20,6 +20,8 @@ import {
   youthPrice, routeOf, rangeOf, reachNow, foldMinutes, makeYouthKid, drawPool,
 } from '../src/game/academy.ts';
 import { sellPrice } from '../src/game/transfers.ts';
+import { scoutReport, promotionText, POS_HE, bandOf, COACH } from '../src/data/academyText.ts';
+import { TEMPLATES, eligible, rollDilemma } from '../src/data/dilemmas.ts';
 import { createRng, simulateMatch } from '../src/engine/matchEngine.ts';
 import type { MatchResult } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
@@ -160,7 +162,7 @@ try {
   ok(G.signYouthBlockedReason(one, one.youthPool[0].player.id) !== null && G.signYouthKid(one, one.youthPool[0].player.id) === one, 'a ninth boy was signed');
   // the window
   const shut = { ...gs, week: 3 };
-  ok(G.signYouthBlockedReason(shut, first.player.id) === 'החלון סגור', 'a boy was signed with the window shut');
+  ok(G.signYouthBlockedReason(shut, first.player.id) === 'חלון ההעברות סגור. תחכה שייפתח ואז תביא נער.', 'a boy was signed with the window shut');
 
   /* ---------------------------------------------------------------- a scout in ליגה א׳ */
   let t3 = rich(career(7003, 3));
@@ -240,6 +242,62 @@ try {
   ok(potentialOf(grown!) > potentialOf(boy), 'eleven starts did not raise what he can reach');
   ok(overall(grown!) <= Math.max(overall(boy) + 12, potentialOf(grown!)), 'a boy grew past what he could reach');
   ok(next.youth.players.length >= 1 && next.youth.players.every(p => p.age <= 18), 'the academy has a man past 18 after the summer');
+
+  /* ------------------------------------------------------------------ what it says */
+  for (const pos of ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'] as const) for (const pot of [55, 70, 85]) for (const tier of [1, 3, 5]) {
+    const r = scoutReport('דני כהן', pos, pot, tier);
+    ok(r.startsWith(`דני כהן, ${POS_HE[pos]}. `), `a report about a ${pos} does not start with his position: ${r.slice(0, 30)}`);
+    ok(!/d/.test(r), `a scout's report gives a number: ${r}`);
+    ok(r === scoutReport('דני כהן', pos, pot, tier), 'a report is not the same twice');
+  }
+  ok(bandOf(60) === 'modest' && bandOf(70) === 'promising' && bandOf(80) === 'gem', 'the bands are not under 65, to 77, 78 up');
+  ok(scoutReport('א', 'ST', 90, 5) !== scoutReport('א', 'ST', 50, 5), 'a gem and a modest striker read the same');
+  ok(Object.values(COACH).every(ls => ls.length === 3), 'a coach message is not three lines');
+  ok(Object.values(COACH).flat().every(l => !/[–—]/.test(l)), 'a coach message has a long dash');
+  ok(promotionText('דני', 'מכבי', 1).includes('דני עולה לבוגרים') && promotionText('דני', 'מכבי', 5).includes('בסגל הבוגרים של מכבי'), 'the promotion text is not in both voices');
+  ok(!promotionText('דני', 'מכבי', 1).includes('קסדה'), 'the promotion text has the helmet again');
+
+  /* the academy's own desk: offered with the door open and a boy to talk about, never with it shut, and a boy sold really leaves */
+  const yds = TEMPLATES.filter(t => t.id.startsWith('yd_'));
+  ok(yds.length === 9, `the academy has ${yds.length} dilemmas, not 9`);
+  {
+    let g = G.openYouth(rich(career(7040, 1)));
+    const kidId = g.youthPool[0].player.id;
+    g = G.signYouthKid(g, kidId);
+    const kid = g.youth.players.find(p => p.id === kidId)!;
+    // a boy who could be a real talent and has not played: all of the others are gone, so he is the one it is about
+    const gemBoy = { ...boys.find(p => potMaxOf(p) >= 88)!, lock0: 0, pu: 0 };
+    g = { ...g, youth: { ...g.youth, players: [{ ...gemBoy, name: kid.name }] }, week: 9, dilemma: null };
+    ok(G.rollNamedDilemma(g, 'yd_rival_offer_low') !== null, 'the rival offer is not offered when there is a boy who could be a talent');
+    ok(G.rollNamedDilemma(g, 'yd_facility_low') === null, 'the pitch question is asked with one boy');
+    const rolled = G.rollNamedDilemma(g, 'yd_rival_offer_low')!;
+    ok(rolled.options.length === 3 && rolled.subjectName !== undefined && rolled.text.includes(rolled.subjectName), 'the rival offer does not name the boy');
+    const money0 = g.meters.money;
+    const sold = G.chooseDilemma({ ...g, dilemma: rolled }, 0);
+    ok(sold.youth.players.length === 0, 'a boy who was sold is still at the academy');
+    ok(sold.meters.money - money0 === 10_000, `a boy sold in ליגה ג׳ paid ${sold.meters.money - money0}, not the 10,000 written for it`);
+    const kept = G.chooseDilemma({ ...g, dilemma: rolled }, 1);
+    ok(kept.youth.players.length === 1, 'a boy who was kept left');
+    // the top flight writes its own sum, and it is not multiplied again
+    const top = { ...career(7042, 5), week: 9 };
+    let tg = G.openYouth(rich(top));
+    tg = G.signYouthKid(tg, tg.youthPool.reduce((a, b) => (b.fee < a.fee ? b : a)).player.id);
+    const tkid = tg.youth.players.find(p => p.lock0 !== undefined && (p.joined ?? 0) === tg.season) ?? tg.youth.players[0];
+    tg = { ...tg, youth: { ...tg.youth, players: [{ ...gemBoy, name: tkid.name }] }, dilemma: null };
+    const trolled = G.rollNamedDilemma(tg, 'yd_rival_offer_pro');
+    ok(trolled !== null, 'the top flight offer for a boy is not offered');
+    if (trolled) {
+      const m0 = tg.meters.money;
+      const after = G.chooseDilemma({ ...tg, dilemma: trolled }, 0);
+      ok(after.meters.money - m0 === 300_000, `a boy sold in the top flight paid ${after.meters.money - m0}, not 300,000`);
+    }
+    // the coach has a word when there is something true to say
+    const note = G.academyCoachNote({ ...g, youth: { ...g.youth, players: [{ ...kid, lock0: 60, pu: 0, joined: g.season }] }, week: 3 });
+    ok(note !== null && note.lines.length === 3 && !note.lines.some(l => l.includes('{')), 'the coach has no word, or leaves a slot open');
+  }
+  setYouthDoorForChecks(false);
+  ok(G.academyCoachNote(career(7041, 1)) === null && G.rollNamedDilemma(rich(career(7041, 1)), 'yd_facility_low') === null, 'with the door shut the coach speaks or the desk asks');
+  setYouthDoorForChecks(true);
 
   /* ------------------------------------------------------------------ the clock */
   for (const f of ['src/game/academy.ts']) {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as G from '../../game/state.ts';
 import { overall } from '../../engine/matchEngine.ts';
 import type { Player } from '../../engine/matchEngine.ts';
-import { rangeOf, routeOf, TRIP_FEE, ACADEMY_MAX, CALL_UPS_PER_ROUND } from '../../game/academy.ts';
+import { rangeOf, routeOf, reportOf, TRIP_FEE, ACADEMY_MAX, CALL_UPS_PER_ROUND } from '../../game/academy.ts';
 import type { YouthOffer } from '../../game/academy.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
@@ -116,6 +116,7 @@ export function AcademyScreen({ gs, onPromote, onRelease, onCallUp, onUndoCallUp
   const apps = (p: Player) => gs.seasonStats[p.id]?.apps ?? 0;
   const tripWhy = G.youthTripBlockedReason(gs);
   const boys = kids.length + up.length;
+  const coach = G.academyCoachNote(gs);
 
   return (
     <div className="acad">
@@ -142,6 +143,13 @@ export function AcademyScreen({ gs, onPromote, onRelease, onCallUp, onUndoCallUp
             </div>
             <p className="acad-rule">הפוטנציאל נפתח רק עם דקות. נער שלא פותחים נשאר איפה שהוא.</p>
           </header>
+
+          {coach && (
+            <section className="acad-coach" aria-label="מאמן הנוער">
+              <span className="acad-coach-who">מאמן הנוער</span>
+              {coach.lines.map((l, i) => <div key={i} className="acad-bubble" style={{ ['--i' as string]: i }}>{l}</div>)}
+            </section>
+          )}
 
           {up.length > 0 && (
             <section className="stack" style={{ gap: 9 }}>
@@ -267,7 +275,7 @@ function OfferCard({ o, gs, tier, i, onSign }: { o: YouthOffer; gs: G.GameState;
   const why = G.signYouthBlockedReason(gs, o.player.id);
   return (
     <Face p={o.player} apps={0} tier={tier} i={i}>
-      {o.via === 'scout' && <div className="tcard-note">מצא הסקאוט</div>}
+      <div className="tcard-note">{o.via === 'scout' ? 'מצא הסקאוט. ' : ''}{reportOf(o.player, tier)}</div>
       <div className="row" style={{ gap: 10, marginTop: 11, alignItems: 'center' }}>
         <button className="btn btn-sm acad-btn" style={{ flex: 1, opacity: why ? 0.45 : 1 }} disabled={!!why} onClick={onSign}>
           {o.fee > 0 ? <>החתם · <span className="num">{formatMoney(o.fee)}</span></> : 'החתם, בחינם'}

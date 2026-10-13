@@ -42,7 +42,9 @@ import { debtState, debtLine, debtLimit } from './finance.ts';
 import { emptyYouth, seedYouth, advanceYouth, outlook } from './youth.ts';
 import type { Outlook } from './youth.ts';
 import type { Youth } from './youth.ts';
-import { YOUTH_V2, ACADEMY_MAX, TRIP_FEE, CALL_UPS_PER_ROUND, OWN_INTAKE, FREE_POT_CAP, routeOf, drawPool, makeYouthKid, foldMinutes, toNewRules } from './academy.ts';
+import { promotionText, COACH } from '../data/academyText.ts';
+import type { CoachNote } from '../data/academyText.ts';
+import { YOUTH_V2, ACADEMY_MAX, TRIP_FEE, CALL_UPS_PER_ROUND, OWN_INTAKE, FREE_POT_CAP, routeOf, drawPool, makeYouthKid, foldMinutes, toNewRules, rangeOf, reachNow } from './academy.ts';
 import type { YouthOffer } from './academy.ts';
 import {
   emptyScout, scoutWindowKey, SCOUT_TIER, SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, findKeen, arrivedKeen,
@@ -957,7 +959,9 @@ export function promoteYouth(gs: GameState, playerId: string): GameState {
       ready: gs.youth.ready.filter(n => n !== kid.name),
     },
     contracts: { ...gs.contracts, [kid.id]: 3 },
-    pendingOutcome: `${kid.name} חתם חוזה בכיר ועלה לסגל. ${squadSize(next)} שחקנים בסגל עכשיו.`,
+    pendingOutcome: YOUTH_V2
+      ? `${promotionText(kid.name, club(gs).short, club(gs).tier)} ${squadSize(next)} שחקנים בסגל עכשיו.`
+      : `${kid.name} חתם חוזה בכיר ועלה לסגל. ${squadSize(next)} שחקנים בסגל עכשיו.`,
   };
 }
 
@@ -3391,6 +3395,7 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
     starFee: (() => { const all = [...mySquad(gs).starters, ...mySquad(gs).bench]; const best = [...all].sort((a, b) => overall(b) - overall(a))[0]; return best ? sellPrice(best, club(gs).tier) : 0; })(),
     gk: (() => { const k = [...mySquad(gs).starters, ...mySquad(gs).bench].find(p => p.position === 'GK'); return k ? surnameOf(k.name) : ''; })(),
     starIsForward: (() => { const best = [...mySquad(gs).starters].sort((a, b) => overall(b) - overall(a))[0]; return !!best && FORWARD.has(best.position); })(),
+    ...youthCtx(gs),
   };
 }
 
@@ -4009,6 +4014,15 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
         break;
       }
       case 'follow': gs = { ...gs, followUps: [...gs.followUps, { season: gs.season, week: gs.week + a.weeks, title: a.title, body: a.body }] }; break;
+      case 'youthLeaves': {
+        const name = rolled.subjectName;
+        const gone = name ? [...gs.youth.players, ...[...mySquad(gs).starters, ...mySquad(gs).bench].filter(p => (gs.youthUp ?? []).includes(p.id))].find(p => surname(p.name) === name) : undefined;
+        if (!gone) break;
+        const inSquad = [...mySquad(gs).starters, ...mySquad(gs).bench].some(p => p.id === gone.id);
+        const base = inSquad ? removePlayer(gs, gone.id) : gs;
+        gs = { ...base, youth: { ...base.youth, players: base.youth.players.filter(p => p.id !== gone.id), ready: base.youth.ready.filter(n => n !== gone.name) }, youthUp: (base.youthUp ?? []).filter(id => id !== gone.id) };
+        break;
+      }
       case 'youthBoost': gs = { ...gs, youthBoost: [...new Set([...gs.youthBoost, ...gs.youth.players.slice(0, 3).map(p => p.name)])] }; break;
       case 'youthLeaveRisk': {
         const kid = [...gs.youth.players].sort((a, b) => overall(b) - overall(a))[0];
@@ -5818,7 +5832,7 @@ export function youthTripBlockedReason(gs: GameState): string | null {
   if (!YOUTH_V2) return 'הדלת עוד סגורה';
   if (routeOf(club(gs).tier) !== 'trip') return 'סקאוט לנוער רק בליגה א׳';
   if (gs.youthTripSeason === gs.season) return 'הסקאוט כבר יצא העונה';
-  if (!transferWindow(gs).open) return 'החלון סגור';
+  if (!transferWindow(gs).open) return 'חלון ההעברות סגור. תחכה שייפתח ואז תשלח את הסקאוט.';
   if (gs.meters.money < TRIP_FEE) return 'אין מספיק בקופה לנסיעה';
   return null;
 }
@@ -5842,8 +5856,8 @@ export function signYouthBlockedReason(gs: GameState, id: string): string | null
   if (!YOUTH_V2) return 'הדלת עוד סגורה';
   const offer = gs.youthPool.find(o => o.player.id === id);
   if (!offer) return 'הוא כבר לא ברשימה';
-  if (!transferWindow(gs).open) return 'החלון סגור';
-  if (gs.youth.players.length >= ACADEMY_MAX) return `המחלקה מלאה, ${ACADEMY_MAX} נערים לכל היותר`;
+  if (!transferWindow(gs).open) return 'חלון ההעברות סגור. תחכה שייפתח ואז תביא נער.';
+  if (gs.youth.players.length >= ACADEMY_MAX) return 'המחלקה מלאה. תעלה מישהו לבוגרים או תשחרר, ואז יהיה מקום.';
   if (gs.meters.money < offer.fee) return 'אין מספיק בקופה';
   return null;
 }
@@ -5918,4 +5932,57 @@ function foldYouthMinutes(gs: GameState): GameState {
   const bench = sq.bench.map(p => foldMinutes(p, apps(p)));
   const youth = { ...gs.youth, players: gs.youth.players.map(p => foldMinutes(p, apps(p))) };
   return { ...writeSquad(gs, { starters, bench }), youth };
+}
+
+/* ------------------------------------------------- the academy, what it says */
+
+/** The boys the manager can still shape: the academy under 18 and the ones registered for this round. */
+function youthBoys(gs: GameState): Player[] {
+  const sq = mySquad(gs);
+  const up = [...sq.starters, ...sq.bench].filter(p => (gs.youthUp ?? []).includes(p.id));
+  return [...gs.youth.players.filter(p => p.age < 18), ...up];
+}
+
+/** For the dilemmas about a boy: who, how much he has played, and whether he could be a real talent. Nothing with the door shut. */
+function youthCtx(gs: GameState): { boy?: string; boyApps?: number; boyGem?: boolean; boyAge?: number; boys?: number } {
+  if (!YOUTH_V2) return {};
+  const boys = youthBoys(gs);
+  if (!boys.length) return { boys: 0 };
+  const apps = (p: Player) => gs.seasonStats[p.id]?.apps ?? 0;
+  const him = [...boys].sort((a, b) => apps(a) - apps(b) || overall(b) - overall(a))[0];
+  const gem = [...boys].sort((a, b) => rangeOf(b, apps(b)).hi - rangeOf(a, apps(a)).hi)[0];
+  const top = rangeOf(gem, apps(gem)).hi - leagueCeiling(club(gs).tier) >= 7;
+  // the one who has played least is the boy for the stories of waiting, the best of them for the stories of leaving
+  return { boy: top ? surname(gem.name) : surname(him.name), boyApps: top ? apps(gem) : apps(him), boyGem: top, boyAge: top ? gem.age : him.age, boys: boys.length };
+}
+
+/**
+ * The youth coach's word for the academy screen: the first thing that is true of the boys right now. Never a number the
+ * game does not hold, and nothing at all with the door shut or with no boys.
+ */
+export function academyCoachNote(gs: GameState): CoachNote | null {
+  if (!YOUTH_V2) return null;
+  const boys = youthBoys(gs);
+  if (!boys.length) return null;
+  const tier = club(gs).tier;
+  const apps = (p: Player) => gs.seasonStats[p.id]?.apps ?? 0;
+  const late = gs.week >= gs.league.rounds - 4;
+  const note = (id: string, p: Player): CoachNote => ({ id, lines: COACH[id].map(l => l.replace('{boy}', surname(p.name))) });
+  const seventeen = boys.find(p => p.age === 17 && apps(p) >= 1 && gs.week >= 10);
+  if (seventeen) return note('yc_asks_seniors', seventeen);
+  const turning = late ? boys.find(p => p.age === 17) : undefined;
+  if (turning) return note('yc_turning_18', turning);
+  const jumped = boys.find(p => reachNow(p, apps(p)) - potentialOf(p) >= 3);
+  if (jumped) return note('yc_potential_jump', jumped);
+  const talent = boys.find(p => rangeOf(p, apps(p)).hi - leagueCeiling(tier) >= 7 && apps(p) >= 4);
+  if (talent) return note(tier >= 4 ? 'yc_sniffing_pro' : 'yc_sniffing_low', talent);
+  const stuck = boys.find(p => apps(p) === 0 && p.joined !== undefined && p.joined < gs.season || (apps(p) === 0 && gs.week >= 8));
+  if (stuck) return note('yc_bench_stuck', stuck);
+  const stalled = boys.find(p => apps(p) >= 4 && rangeOf(p, apps(p)).hi - overall(p) <= 1);
+  if (stalled) return note('yc_stagnant', stalled);
+  const first = boys.find(p => apps(p) >= 1 && apps(p) <= 2);
+  if (first) return note('yc_first_minutes', first);
+  const fresh = boys.find(p => p.joined === gs.season);
+  if (fresh) return note('yc_new_arrival', fresh);
+  return null;
 }
