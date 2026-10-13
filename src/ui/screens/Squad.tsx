@@ -6,6 +6,7 @@ import { ovrColor } from '../../game/cards.ts';
 import type { Trait } from '../../data/personalities.ts';
 import { headlineTrait, assignTraits, renderLine, TONE_COLOR, isFriendTrait } from '../../data/personalities.ts';
 import { surnameOf } from '../../data/names.ts';
+import { sellPrice } from '../../game/transfers.ts';
 import type { Squad } from '../../data/squadGen.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Kit } from '../components/Kit.tsx';
@@ -205,7 +206,7 @@ function Line({ title, color, players, render }: {
  * red name and a lower number, the number the match will actually use, and
  * the panel says so in words.
  */
-export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart, onDone }: {
+export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart, onSell, onDone }: {
   gs: G.GameState;
   firstTime: boolean;
   onSwap: (starterId: string, benchId: string) => void;
@@ -214,6 +215,8 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
   onFormation: (id: FormationId) => void;
   /** let a man go from his card, the way the card offered */
   onPart?: (playerId: string, kind: G.PartKind) => void;
+  /** a quick sale straight from the sheet that opens on a tap */
+  onSell?: (playerId: string) => void;
   onDone: () => void;
 }) {
   const c = G.club(gs);
@@ -563,6 +566,10 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
       {sheetPlayer && !card && (
         <PlayerSheet p={sheetPlayer} role={roleOf(sheetPlayer.id)} traits={tr(sheetPlayer)} tier={c.tier}
           captain={sheetPlayer.id === captainId} mark={markOf(sheetPlayer)}
+          sale={!firstTime && onSell ? {
+            price: sellPrice(sheetPlayer, c.tier), blocked: G.sellBlockedReason(gs, sheetPlayer.id),
+            onSell: () => { const who = sheetPlayer.name; const price = sellPrice(sheetPlayer, c.tier); onSell(sheetPlayer.id); setSheet(null); setPicked(null); setFlash(`${who} נמכר תמורת ${formatMoney(price)}.`); },
+          } : undefined}
           onCard={() => setCard(sheetPlayer)}
           onSwap={() => { setPicked(sheetPlayer.id); setSheet(null); setFlash(null); }}
           onClose={() => setSheet(null)} />
@@ -594,10 +601,13 @@ export function SquadScreen({ gs, firstTime, onSwap, onMove, onFormation, onPart
  * attributes as bars, the shirt he is in and what it costs him, and the two
  * things a manager does next: swap him, or read the whole card.
  */
-function PlayerSheet({ p, role, traits, tier, captain, mark, onCard, onSwap, onClose }: {
+function PlayerSheet({ p, role, traits, tier, captain, mark, sale, onCard, onSwap, onClose }: {
   p: Player; role: SlotRole | null; traits: Trait[]; tier: number; captain: boolean; mark: string | null;
+  sale?: { price: number; blocked: string | null; onSell: () => void };
   onCard: () => void; onSwap: () => void; onClose: () => void;
 }) {
+  // a sale is final, so the first press asks and the second sells
+  const [sure, setSure] = useState(false);
   const o = overall(p);
   const fit = role ? roleFit(p.position, role) : 'natural';
   const eff = role ? effectiveOverall(p, role, o) : o;
@@ -657,6 +667,17 @@ function PlayerSheet({ p, role, traits, tier, captain, mark, onCard, onSwap, onC
           <button className="btn btn-sm" style={{ flex: 1 }} onClick={onSwap}><Icon name="sub" size={15} /> החלף</button>
           <button className="btn dark btn-sm" style={{ flex: 1 }} onClick={onCard}>הכרטיס המלא</button>
         </div>
+        {sale && (
+          <>
+            <button className="btn btn-sm" disabled={!!sale.blocked}
+              style={{ width: '100%', marginTop: 8, background: sure ? 'var(--loss)' : undefined, opacity: sale.blocked ? .55 : 1 }}
+              aria-label={sale.blocked ? `מכירה מהירה סגורה: ${sale.blocked}` : `מכירה מהירה של ${p.name}`}
+              onClick={() => { if (sure) sale.onSell(); else setSure(true); }}>
+              {sure ? <>בטוח? מוכרים את {surnameOf(p.name)} ב־<span className="num">{formatMoney(sale.price)}</span></> : <>מכירה מהירה · <span className="num">{formatMoney(sale.price)}</span></>}
+            </button>
+            {sale.blocked && <div className="sub" style={{ fontSize: 12.5, marginTop: 5, textAlign: 'center', color: 'var(--loss)' }}>{sale.blocked}</div>}
+          </>
+        )}
       </div>
     </Portal>
   );

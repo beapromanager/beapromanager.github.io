@@ -28,7 +28,7 @@ import type { IconName } from '../components/Icon.tsx';
 const CORNERS: { id: Corner; label: string }[] = [
   { id: 'left', label: 'שמאל' }, { id: 'center', label: 'מרכז' }, { id: 'right', label: 'ימין' },
 ];
-const SPEEDS = [1, 2, 3] as const;
+const SPEEDS = [1, 2, 3, 5] as const;
 const MS_PER_MIN = 780;
 
 /** The penalty popup carries a start image, and a result image per corner. */
@@ -171,7 +171,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   useEffect(preloadMoments, []);
 
   const [, force] = useReducer(x => x + 1, 0);
-  const [speed, setSpeed] = useState<1 | 2 | 3>(1);
+  const [speed, setSpeed] = useState<1 | 2 | 3 | 5>(1);
   const [paused, setPaused] = useState(false);
   /**
    * The flares, on the four nights that are not ordinary. Read once, because the
@@ -223,9 +223,10 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   useEffect(() => {
     if (!play) return;
     if (!play.scored) return;                 // nothing is being held back
-    const t = window.setTimeout(reveal, 3200);
+    // at x5 the man wants the result, not the replay: the goal is held for a breath and let go
+    const t = window.setTimeout(reveal, speed >= 5 ? 700 : 3200);
     return () => window.clearTimeout(t);
-  }, [play]);
+  }, [play, speed]);
 
   const fx = clubs ? null : G.playerFixture(gs)!;
   const homeClub = clubs?.home ?? gs.league.clubs.find(c => c.id === fx!.homeId)!;
@@ -277,9 +278,9 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   // and lower it on its own timer, decoupled from the per minute re-renders
   useEffect(() => {
     if (!flash) return;
-    const t = window.setTimeout(() => setFlash(null), 1600);
+    const t = window.setTimeout(() => setFlash(null), speed >= 5 ? 700 : 1600);
     return () => window.clearTimeout(t);
-  }, [flash]);
+  }, [flash, speed]);
 
   // A red card for YOUR side is not a caption, it is the moment the match
   // changes. The instant one lands in the visible feed the clock stops (the

@@ -2260,7 +2260,8 @@ export function sellBlockedReason(gs: GameState, playerId?: string): string | nu
   // sack you for a debt you had no way to pay off, which is a trap, not pressure.
   if (playerId && isOnLoan(gs, playerId)) return 'מושאל, לא למכירה';
   if (!transferWindow(gs).open && debt(gs).level === 'clear') return 'החלון סגור';
-  if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר לרדת מתחת ל-${MIN_SQUAD} שחקנים`;
+  if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר להיות פחות מ-${MIN_SQUAD} שחקנים בסגל`;
+  if (playerId && isFriend(gs.friends, { id: playerId })) return 'חבר שלך. אפשר רק מהכרטיס המלא';
   if (playerId) {
     const keeper = lastKeeperReason(gs, playerId);
     if (keeper) return keeper;

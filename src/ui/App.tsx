@@ -320,6 +320,7 @@ export function App() {
           onMove={(a, b) => setGs(g => G.movePlayers(g, a, b))}
           onFormation={id => setGs(g => G.setTactic(g, { ...g.tactic, formation: id }))}
           onPart={(id, kind) => setGs(g => G.partWays(g, id, kind))}
+          onSell={id => setGs(g => G.sellPlayer(g, id))}
           onDone={() => {
             if (squadFromHub) { setGs(G.backToHub(gs)); setSquadFromHub(false); }
             else setGs(G.enterPreseason(gs));
