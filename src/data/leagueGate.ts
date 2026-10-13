@@ -110,3 +110,31 @@ export function inTier(table: Record<string, TierSpan>, id: string, tier: number
   const s = table[id];
   return !s || (tier >= s[0] && tier <= s[1]);
 }
+
+/**
+ * The sums written into the dilemmas were set for one middle world. A division's wage bill is about 25K a round in
+ * ליגה ג׳ and ב׳, 170K in ליגה א׳, 235K in הלאומית and 600K in ליגת העל (PIC/sim-money), so the same 30,000 is a fortune
+ * at the bottom and a rounding error at the top. A sum in a dilemma, in its money effect or in its words, is multiplied
+ * by this and rounded to something a person would say.
+ */
+export const SUM_SCALE: Record<number, number> = { 1: 0.4, 2: 0.45, 3: 1.5, 4: 2, 5: 4 };
+
+/** a sum as a person would say it: to the nearest 500 under 10K, the nearest 1000 above, the nearest 5000 above 100K */
+export function niceSum(n: number): number {
+  const a = Math.abs(n);
+  const step = a < 10_000 ? 500 : a < 100_000 ? 1_000 : 5_000;
+  return Math.sign(n) * Math.max(step, Math.round(a / step) * step);
+}
+export const scaledSum = (n: number, tier: number): number => n === 0 ? 0 : niceSum(n * (SUM_SCALE[tier] ?? 1));
+
+/** Every sum in a sentence ("8,000", "35 אלף") moved to the division's scale. */
+export function scaleSumsInText(s: string, tier: number): string {
+  if ((SUM_SCALE[tier] ?? 1) === 1) return s;
+  return s
+    .replace(/(\d+(?:\.\d+)?) אלף/g, (_, n) => say(scaledSum(parseFloat(n) * 1000, tier)))
+    .replace(/\d{1,3}(?:,\d{3})+/g, m => say(scaledSum(parseInt(m.replace(/,/g, ''), 10), tier), true));
+}
+function say(v: number, comma = false): string {
+  if (!comma && v >= 1000 && v % 1000 === 0) return `${v / 1000} אלף`;
+  return v.toLocaleString('en-US');
+}

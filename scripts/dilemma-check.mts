@@ -25,6 +25,7 @@ import { CITIES } from '../src/data/cities.ts';
 import { isDerby } from '../src/data/clubs.ts';
 import { THREADS } from '../src/data/chats.ts';
 import { readFileSync } from 'node:fs';
+import { scaledSum } from '../src/data/leagueGate.ts';
 
 const fails: string[] = [];
 let checked = 0;
@@ -216,7 +217,8 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   // the owner pays a tenth of the purse, Itzik's number, not a flat hundred
   // and twenty thousand that was forty percent of a ליגה ג׳ season
   const paid = gs.meters.money - purse;
-  if (paid !== Math.round(purse * 0.10)) fails.push(`the owner paid ₪${paid} for his boy's half, expected a tenth of ₪${purse}`);
+  // the sum is said in round numbers for the division, so it can sit half a step off the exact tenth
+  if (Math.abs(paid - Math.round(purse * 0.10)) > 1_000) fails.push(`the owner paid ₪${paid} for his boy's half, expected a tenth of ₪${purse}`);
   if (!gs.matchMods.guest) fails.push('saying yes to the owner did not put his boy anywhere');
   const inp = G.liveMatchInput(gs);
   const guest = gs.matchMods.guest!;
@@ -676,14 +678,15 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
       const promised = answer(at, 'owner_derby_bonus', 0).gs;
       const declined = answer(at, 'owner_derby_bonus', 1).gs;
       checked += 3;
-      if (promised.matchMods.winBonus !== 40_000) fails.push(`the promised bonus is ${promised.matchMods.winBonus}, the agreed figure is 40,000`);
+      const bonus = scaledSum(40_000, G.club(at).tier);
+      if (promised.matchMods.winBonus !== bonus) fails.push(`the promised bonus is ${promised.matchMods.winBonus}, the agreed figure is ${bonus}`);
       if (declined.matchMods.winBonus) fails.push('the declined bonus still sits on the match');
       // the SAME save with and without the bonus entry, so the only difference
       // the purse can show is the bonus itself
       const bare = { ...promised, matchMods: { ...promised.matchMods, winBonus: undefined } };
       const win = (g: G.GameState) => playRound(g, 9, [3, 0]).meters.money;
       const loss = (g: G.GameState) => playRound(g, 9, [0, 2]).meters.money;
-      if (win(bare) - win(promised) !== 40_000) fails.push(`a won derby moved the purses ${win(bare) - win(promised)} apart, the bonus is 40,000`);
+      if (win(bare) - win(promised) !== bonus) fails.push(`a won derby moved the purses ${win(bare) - win(promised)} apart, the bonus is ${bonus}`);
       if (loss(promised) - loss(bare) !== 0) fails.push('a lost derby still paid the bonus');
     }
   }

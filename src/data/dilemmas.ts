@@ -22,7 +22,7 @@
 import type { Rng } from '../engine/matchEngine.ts';
 import type { FormationId } from './formations.ts';
 import type { ChatTrigger } from './chats.ts';
-import { DILEMMA_TIERS, inTier } from './leagueGate.ts';
+import { DILEMMA_TIERS, SUM_SCALE, inTier, scaledSum, scaleSumsInText } from './leagueGate.ts';
 
 export type Speaker =
   | 'owner' | 'veteran' | 'reporter' | 'ultras'
@@ -1727,13 +1727,21 @@ export function rollDilemma(tpl: DilemmaTemplate, ctx: Ctx, rng: Rng): RolledDil
   for (const [slot, values] of Object.entries({ ...tpl.slots, ...(tpl.slotsFor?.(ctx) ?? {}) })) {
     picks[slot] = fill(values[Math.floor(rng() * values.length)], ctx, {});
   }
-  const text = fill(tpl.text, ctx, picks);
+  const f = SUM_SCALE[ctx.tier] ?? 1;
+  const sums = (s: string) => scaleSumsInText(s, ctx.tier);
+  const text = sums(fill(tpl.text, ctx, picks));
   const subjectName = tpl.subject ? (ctx[tpl.subject] || undefined) : undefined;
   const filled = { ...picks, subject: subjectName ?? '' };
-  const options = tpl.options(ctx, picks).map(o => ({
+  // the options are written in the middle world's sums. Handing them a purse divided by the scale makes the part that
+  // is a share of the purse come out whole after the multiplication, and only the fixed sums move.
+  const options = tpl.options({ ...ctx, money: ctx.money / f }, picks).map(o => ({
     ...o,
-    outcome: fill(o.outcome, ctx, filled),
-    act: o.act?.map(a => a.kind === 'follow' ? { ...a, title: fill(a.title, ctx, filled), body: fill(a.body, ctx, filled) } : a),
+    label: sums(fill(o.label, ctx, filled)),
+    effect: o.effect.money === undefined ? o.effect : { ...o.effect, money: scaledSum(o.effect.money, ctx.tier) },
+    outcome: sums(fill(o.outcome, ctx, filled)),
+    act: o.act?.map(a => a.kind === 'follow' ? { ...a, title: sums(fill(a.title, ctx, filled)), body: sums(fill(a.body, ctx, filled)) }
+      : a.kind === 'winBonus' ? { ...a, amount: scaledSum(a.amount, ctx.tier) }
+      : a.kind === 'friendly' ? { ...a, fee: scaledSum(a.fee, ctx.tier) } : a),
   }));
   // a player with a name is a person, "שחקן בסגל" is scenery
   const speakerLabel = subjectName && tpl.speaker === 'player'

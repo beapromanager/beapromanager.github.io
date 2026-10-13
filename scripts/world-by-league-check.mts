@@ -10,7 +10,7 @@
 import {
   DILEMMA_TIERS, PRESS_TIERS, CHAT_TIERS, MATE_TIERS, FAN_TIERS, TRAIT_TIERS, inTier,
 } from '../src/data/leagueGate.ts';
-import { TEMPLATES, templatesForTier } from '../src/data/dilemmas.ts';
+import { TEMPLATES, templatesForTier, rollDilemma } from '../src/data/dilemmas.ts';
 import { THREADS, rollChat } from '../src/data/chats.ts';
 import type { ChatTrigger } from '../src/data/chats.ts';
 import { MATE_THREADS } from '../src/data/mateChats.ts';
@@ -125,6 +125,21 @@ for (const tier of [1, 2, 3]) {
 for (const tier of [1, 2]) ok(!feedOfTier(tier).handles.has('@agentroom'), `tier ${tier}: an agents account exists`);
 ok(!feedOfTier(5).texts.some(x => x.includes('מהליגה שמעל')), 'the top flight has a league above in the rumour mill');
 ok(feedOfTier(4).texts.some(x => x.includes('מהליגה שמעל')), 'the league above no longer wants players from the Leumit');
+
+/* the sums: the same flag for the terrace costs a neighbourhood club little and a top club a lot, in the words and in the purse */
+{
+  const tifo = TEMPLATES.find(t => t.id === 'ultras_tifo_money')!;
+  const roll = (tier: number) => rollDilemma(tifo, { tier, money: 500_000, rival: 'נחל', city: 'עיר', star: 'כהן' } as never, createRng(5));
+  const said = TIERS.map(t => Number((roll(t).text.match(/\d{1,3}(?:,\d{3})+|\d+/) ?? ['0'])[0].replace(/,/g, '')));
+  const paid = TIERS.map(t => Math.abs(roll(t).options[0].effect.money ?? 0));
+  ok(said.every((v, i) => i === 0 || v > said[i - 1]), `the sum in the words does not grow with the league: ${said.join(', ')}`);
+  ok(paid.every((v, i) => i === 0 || v > paid[i - 1]), `the sum from the purse does not grow with the league: ${paid.join(', ')}`);
+  ok(said[0] <= 4_000 && said[4] >= 20_000, `the flag asks ${said[0]} at the bottom and ${said[4]} at the top`);
+  ok(paid.every((v, i) => Math.abs(v * 2 - said[i]) <= 1_500), `the words and the purse disagree: ${said.join(', ')} against ${paid.join(', ')}`);
+  const sell = TEMPLATES.find(t => t.id === 'owner_sell_star')!;
+  const gain = (tier: number) => rollDilemma(sell, { tier, money: 100_000 * tier, star: 'כהן', city: 'עיר', rival: 'נחל' } as never, createRng(2)).options[0].effect.money ?? 0;
+  ok(gain(5) - 0.6 * 500_000 > gain(1) - 0.6 * 100_000, 'the fixed part of selling the star is no bigger at the top than at the bottom');
+}
 
 /* personalities */
 for (const id of ['almost', 'old-glory', 'dad-stands']) ok(!inTier(TRAIT_TIERS, id, 5), `trait ${id} is false in the top flight`);
