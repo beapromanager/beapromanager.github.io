@@ -42,6 +42,8 @@ import { debtState, debtLine, debtLimit } from './finance.ts';
 import { emptyYouth, seedYouth, advanceYouth, outlook } from './youth.ts';
 import type { Outlook } from './youth.ts';
 import type { Youth } from './youth.ts';
+import { YOUTH_V2, ACADEMY_MAX, TRIP_FEE, CALL_UPS_PER_ROUND, OWN_INTAKE, FREE_POT_CAP, routeOf, drawPool, makeYouthKid, foldMinutes, toNewRules } from './academy.ts';
+import type { YouthOffer } from './academy.ts';
 import {
   emptyScout, scoutWindowKey, SCOUT_TIER, SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, findKeen, arrivedKeen,
   pickSafe, safeFee, feeRange, scoutBudget, SAFE_NEAREST, SAFE_POTENTIAL, findOld, oldFee,
@@ -368,6 +370,15 @@ export interface GameState {
    * the moment the round is over.
    */
   emergencyYouth: string | null;
+  /**
+   * The academy v2 (academy.ts): the boys on offer, the stamp of the half season they were drawn for, the boys registered
+   * to this round's match day squad, and the season the scout's trip was taken. A registered boy sits in the squad for
+   * the round, is not counted in the sixteen to twenty, and goes back down when the week ends.
+   */
+  youthPool: YouthOffer[];
+  youthStamp: number;
+  youthUp: string[];
+  youthTripSeason: number;
   /** what the manager has to be told before he sees the hub again */
   notices: SquadNotice[];
   /** men sold to clubs in this league, so the story can follow them */
@@ -560,6 +571,10 @@ export function newGame(seed = 12345): GameState {
     pressHistory: [],
     suspensions: {},
     emergencyYouth: null,
+    youthPool: [],
+    youthStamp: 0,
+    youthUp: [],
+    youthTripSeason: 0,
     notices: [],
     exits: [],
     sitOut: {},
@@ -1042,7 +1057,7 @@ export function demoteToYouth(gs: GameState, playerId: string): GameState {
   };
 }
 
-export function openYouth(gs: GameState): GameState { return { ...gs, phase: 'youth', pendingOutcome: null }; }
+export function openYouth(gs: GameState): GameState { return { ...refreshYouthPool(gs), phase: 'youth', pendingOutcome: null }; }
 export function closeYouth(gs: GameState): GameState { return { ...gs, phase: 'hub', pendingOutcome: null }; }
 export function clearYouthOutcome(gs: GameState): GameState { return { ...gs, pendingOutcome: null }; }
 
@@ -2211,8 +2226,9 @@ export function swapPlayers(gs: GameState, starterId: string, benchId: string): 
 
 export function squadSize(gs: GameState): number {
   const sq = mySquad(gs);
-  // a man on loan is not the club's: he neither fills the cap nor holds up the floor
-  return [...sq.starters, ...sq.bench].filter(p => !isOnLoan(gs, p.id)).length;
+  // a man on loan is not the club's: he neither fills the cap nor holds up the floor. Nor is a boy registered from the
+  // academy for one round
+  return [...sq.starters, ...sq.bench].filter(p => !isOnLoan(gs, p.id) && !(gs.youthUp ?? []).includes(p.id)).length;
 }
 
 export function signBlockedReason(gs: GameState, fa: FreeAgent): string | null {
@@ -2259,6 +2275,7 @@ export function sellBlockedReason(gs: GameState, playerId?: string): string | nu
   // A club in the red is always allowed to sell. Without this the owner could
   // sack you for a debt you had no way to pay off, which is a trap, not pressure.
   if (playerId && isOnLoan(gs, playerId)) return 'מושאל, לא למכירה';
+  if (playerId && (gs.youthUp ?? []).includes(playerId)) return 'רשום למחזור מהנוער, אחריו הוא חוזר';
   if (!transferWindow(gs).open && debt(gs).level === 'clear') return 'החלון סגור';
   if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר להיות פחות מ-${MIN_SQUAD} שחקנים בסגל`;
   if (playerId && isFriend(gs.friends, { id: playerId })) return 'חבר שלך. אפשר רק מהכרטיס המלא';
@@ -2455,7 +2472,7 @@ export function partBlockedReason(gs: GameState, playerId: string): string | nul
   const sq = mySquad(gs);
   const p = [...sq.starters, ...sq.bench].find(x => x.id === playerId);
   if (!p) return 'הוא לא בסגל שלך';
-  if (gs.emergencyYouth === playerId) return 'הוא רשום רק למחזור הזה, אחריו הוא חוזר לנוער';
+  if (gs.emergencyYouth === playerId || (gs.youthUp ?? []).includes(playerId)) return 'הוא רשום רק למחזור הזה, אחריו הוא חוזר לנוער';
   if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר לרדת מתחת ל-${MIN_SQUAD} שחקנים. תחתים מישהו קודם.`;
   const keeper = lastKeeperReason(gs, playerId);
   if (keeper) return `${keeper}. תחתים שוער קודם.`;
@@ -4621,7 +4638,7 @@ export function pressRemaining(gs: GameState): number {
 function endOfWeek(gs: GameState): GameState {
   // the registered youth goes back down and the reds are served, before the
   // manager is told anything about either
-  gs = serveSuspensions(returnEmergencyYouth(gs));
+  gs = serveSuspensions(returnYouthUp(returnEmergencyYouth(gs)));
   // this week's answers have done their work: the men who sat are free, the
   // ones who got hurt sit next, and the match mods are spent
   gs = { ...gs, sitOut: gs.sitOutNext, sitOutNext: {}, matchMods: {} };
@@ -5395,6 +5412,8 @@ export function settleLoans(gs: GameState, reason: 'round' | 'season'): GameStat
  * ליגה ג' rather than a fourteen round loop.
  */
 export function startNextSeason(gs: GameState): GameState {
+  // the starts of the season open the potential of the boys of the new academy, before anything reads the squad
+  gs = foldYouthMinutes(gs);
   const table = sortedTable(gs.league);
   const position = Math.max(1, table.findIndex(s => s.clubId === gs.clubId) + 1);
   const teams = gs.league.clubs.length;
@@ -5698,7 +5717,13 @@ function settleInjuries(gs: GameState): Record<string, string> {
  * promote may have walked, as the youth coach warned he might.
  */
 function summerAcademy(gs: GameState, newTier: number, seed: number, used: Set<string>): { youth: Youth; left: string | null } {
-  let youth = advanceYouth(gs.youth, newTier, createRng(seed + 6602), used, coachYouthGrowth(gs.coach), new Set(gs.youthBoost));
+  const intakeRng = createRng(seed + 6604);
+  const youthNow = YOUTH_V2 ? { ...gs.youth, players: gs.youth.players.map(toNewRules) } : gs.youth;
+  let youth = advanceYouth(youthNow, newTier, createRng(seed + 6602), used, coachYouthGrowth(gs.coach), new Set(gs.youthBoost),
+    YOUTH_V2 ? {
+      target: OWN_INTAKE,
+      makeIntake: room => Array.from({ length: room }, () => makeYouthKid(newTier, intakeRng, used, gs.season + 1, FREE_POT_CAP[newTier] ?? 80)),
+    } : undefined);
   const risk = gs.youthLeaveRisk;
   let left: string | null = null;
   if (risk && youth.players.some(p => p.name === risk.name) && createRng(seed + 6603)() < risk.p) {
@@ -5758,4 +5783,139 @@ function settleSummerExits(gs: GameState): GameState {
     };
   }
   return { ...out, summerExits: [] };
+}
+
+/* ------------------------------------------------------ the academy, v2 */
+
+/** Half seasons, so the list is drawn again when the winter window opens and when the summer does. */
+const youthStampOf = (gs: GameState): number => gs.season * 2 + (gs.week >= 8 ? 1 : 0);
+
+/**
+ * The boys on offer, drawn for this half of the season and kept until the next. In ליגה א׳ the list is empty until the
+ * scout has been sent. Deterministic: the draw is a function of the career, the season and the half.
+ */
+export function refreshYouthPool(g0: GameState): GameState {
+  if (!YOUTH_V2) return g0;
+  // the boys of the old academy join the new rules the first time the door is opened
+  const gs = g0.youth.players.some(p => p.lock0 === undefined && p.age < 18)
+    ? { ...g0, youth: { ...g0.youth, players: g0.youth.players.map(toNewRules) } } : g0;
+  const tier = club(gs).tier;
+  const route = routeOf(tier);
+  if (route === 'trip') {
+    // what the scout found stays for the season it was found in
+    return gs.youthTripSeason < gs.season && gs.youthPool.length ? { ...gs, youthPool: [] } : gs;
+  }
+  const stamp = youthStampOf(gs);
+  if (gs.youthStamp === stamp) return gs;
+  const sq = mySquad(gs);
+  const used = new Set([...sq.starters, ...sq.bench, ...gs.youth.players].map(p => p.name));
+  const rng = createRng(drawSeed(gs, 170_000 + stamp));
+  return { ...gs, youthPool: drawPool(tier, rng, used, gs.season, route === 'paid' ? 'paid' : 'free'), youthStamp: stamp };
+}
+
+/** Why the scout cannot go to look for a boy yet, or null. */
+export function youthTripBlockedReason(gs: GameState): string | null {
+  if (!YOUTH_V2) return 'הדלת עוד סגורה';
+  if (routeOf(club(gs).tier) !== 'trip') return 'סקאוט לנוער רק בליגה א׳';
+  if (gs.youthTripSeason === gs.season) return 'הסקאוט כבר יצא העונה';
+  if (!transferWindow(gs).open) return 'החלון סגור';
+  if (gs.meters.money < TRIP_FEE) return 'אין מספיק בקופה לנסיעה';
+  return null;
+}
+
+/** Send the scout: it costs the fee, and he comes back with two boys, once a season. */
+export function youthScoutTrip(gs: GameState): GameState {
+  if (youthTripBlockedReason(gs)) return gs;
+  const sq = mySquad(gs);
+  const used = new Set([...sq.starters, ...sq.bench, ...gs.youth.players].map(p => p.name));
+  const rng = createRng(drawSeed(gs, 171_000 + gs.season));
+  return {
+    ...gs,
+    meters: { ...gs.meters, money: cash(gs.meters.money - TRIP_FEE) },
+    youthPool: drawPool(club(gs).tier, rng, used, gs.season, 'scout'),
+    youthTripSeason: gs.season,
+  };
+}
+
+/** Why this boy cannot be signed, or null. */
+export function signYouthBlockedReason(gs: GameState, id: string): string | null {
+  if (!YOUTH_V2) return 'הדלת עוד סגורה';
+  const offer = gs.youthPool.find(o => o.player.id === id);
+  if (!offer) return 'הוא כבר לא ברשימה';
+  if (!transferWindow(gs).open) return 'החלון סגור';
+  if (gs.youth.players.length >= ACADEMY_MAX) return `המחלקה מלאה, ${ACADEMY_MAX} נערים לכל היותר`;
+  if (gs.meters.money < offer.fee) return 'אין מספיק בקופה';
+  return null;
+}
+
+/** Bring him in: the fee leaves the purse and he joins the academy, not the squad. */
+export function signYouthKid(gs: GameState, id: string): GameState {
+  if (signYouthBlockedReason(gs, id)) return gs;
+  const offer = gs.youthPool.find(o => o.player.id === id)!;
+  return {
+    ...gs,
+    meters: { ...gs.meters, money: cash(gs.meters.money - offer.fee) },
+    youth: { ...gs.youth, players: [...gs.youth.players, offer.player] },
+    // the scout brought two names for one place: a signing closes the trip
+    youthPool: offer.via === 'scout' ? [] : gs.youthPool.filter(o => o.player.id !== id),
+    pendingOutcome: `${offer.player.name} הצטרף למחלקת הנוער.`,
+  };
+}
+
+/** Why this boy cannot be registered to the match day squad, or null. */
+export function callUpBlockedReason(gs: GameState, id: string): string | null {
+  if (!YOUTH_V2) return 'הדלת עוד סגורה';
+  const kid = gs.youth.players.find(p => p.id === id);
+  if (!kid) return 'הוא לא במחלקה';
+  if (kid.age >= 18) return 'בן 18, מחליטים עליו בקיץ';
+  if (gs.youthUp.length >= CALL_UPS_PER_ROUND) return `כבר רשמת ${CALL_UPS_PER_ROUND} למחזור`;
+  return null;
+}
+
+/** Register a boy for the round: he sits on the bench, the manager can start him, and he is not counted in the squad. */
+export function callUpYouth(gs: GameState, id: string): GameState {
+  if (callUpBlockedReason(gs, id)) return gs;
+  const kid = gs.youth.players.find(p => p.id === id)!;
+  const sq = mySquad(gs);
+  const next = writeSquad(gs, { starters: sq.starters, bench: [...sq.bench, kid] });
+  return {
+    ...next,
+    youth: { ...gs.youth, players: gs.youth.players.filter(p => p.id !== id) },
+    youthUp: [...gs.youthUp, id],
+    pendingOutcome: `${kid.name} רשום למחזור. תפתח אותו אם אתה רוצה שהוא ישחק.`,
+  };
+}
+
+/** Take a boy off the round's sheet again, before it is played. */
+export function undoCallUp(gs: GameState, id: string): GameState {
+  if (!gs.youthUp.includes(id)) return gs;
+  const sq = mySquad(gs);
+  const kid = [...sq.starters, ...sq.bench].find(p => p.id === id);
+  if (!kid) return { ...gs, youthUp: gs.youthUp.filter(x => x !== id) };
+  const next = removePlayer(gs, id);
+  return { ...next, youthUp: gs.youthUp.filter(x => x !== id), youth: { ...next.youth, players: [...next.youth.players, kid] } };
+}
+
+/** After the round: the boys registered from the academy go back down, with a word each. */
+function returnYouthUp(gs: GameState): GameState {
+  let g = gs;
+  for (const id of gs.youthUp ?? []) {
+    const sq = mySquad(g);
+    const kid = [...sq.starters, ...sq.bench].find(p => p.id === id);
+    if (!kid) continue;
+    const next = removePlayer(g, id);
+    g = { ...next, youth: { ...next.youth, players: [...next.youth.players, kid] }, notices: [...next.notices, { kind: 'youth_back', name: kid.name }] };
+  }
+  return gs.youthUp?.length ? { ...g, youthUp: [] } : g;
+}
+
+/** The summer: every start of the season is folded into the potential the boy carries, in the squad and at the academy. */
+function foldYouthMinutes(gs: GameState): GameState {
+  if (!YOUTH_V2) return gs;
+  const apps = (p: Player) => gs.seasonStats[p.id]?.apps ?? 0;
+  const sq = mySquad(gs);
+  const starters = sq.starters.map(p => foldMinutes(p, apps(p)));
+  const bench = sq.bench.map(p => foldMinutes(p, apps(p)));
+  const youth = { ...gs.youth, players: gs.youth.players.map(p => foldMinutes(p, apps(p))) };
+  return { ...writeSquad(gs, { starters, bench }), youth };
 }

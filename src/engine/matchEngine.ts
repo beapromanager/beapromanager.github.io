@@ -51,6 +51,14 @@ export interface Player {
   age: number;
   fitness: number;       // 0..100
   morale: number;        // 0..100
+  /**
+   * Youth academy v2 (Itzik, 13.10): a boy signed from outside keeps part of his potential locked, and minutes unlock it.
+   * lock0 is the points locked at the start, pu the minutes he has played so far (starts, in units), joined the season
+   * he came. Absent on every player from before it: they behave exactly as they always did.
+   */
+  lock0?: number;
+  pu?: number;
+  joined?: number;
 }
 
 /**

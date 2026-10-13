@@ -28,6 +28,8 @@ import { ShootoutScreen } from './screens/Shootout.tsx';
 import { EuroDrawScreen } from './screens/EuroDraw.tsx';
 import { EuroBracketScreen } from './screens/EuroBracket.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
+import { AcademyScreen } from './screens/Academy.tsx';
+import { YOUTH_V2 } from '../game/academy.ts';
 import { ScoutScreen } from './screens/Scout.tsx';
 import { YouthDecisionScreen } from './screens/YouthDecision.tsx';
 import { NoticeScreen } from './screens/Notice.tsx';
@@ -414,7 +416,17 @@ export function App() {
           onSign={() => setGs(g => G.signScoutOffer(g))}
           onBack={() => setGs(G.backToHub(gs))} />
       )}
-      {gs.phase === 'youth' && (
+      {gs.phase === 'youth' && YOUTH_V2 && (
+        <AcademyScreen gs={gs}
+          onPromote={id => setGs(g => G.promoteYouth(g, id))}
+          onRelease={id => setGs(g => G.releaseYouth(g, id))}
+          onCallUp={id => setGs(g => G.callUpYouth(g, id))}
+          onUndoCallUp={id => setGs(g => G.undoCallUp(g, id))}
+          onSign={id => setGs(g => G.signYouthKid(g, id))}
+          onTrip={() => setGs(g => G.youthScoutTrip(g))}
+          onBack={() => setGs(G.backToHub(gs))} />
+      )}
+      {gs.phase === 'youth' && !YOUTH_V2 && (
         <YouthScreen gs={gs}
           onPromote={id => setGs(g => G.promoteYouth(g, id))}
           onRelease={id => setGs(g => G.releaseYouth(g, id))}

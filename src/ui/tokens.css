@@ -2163,3 +2163,30 @@ a.btn{text-decoration:none;}
 .eu-tabs .chip{background:transparent; color:#9FB4DA; border:1px solid rgba(111,168,255,.25); cursor:pointer; font:inherit; font-size:12.5px;}
 .eu-tabs .chip[data-on="1"]{background:rgba(111,168,255,.14); color:#CFE0FF; border-color:rgba(111,168,255,.5);}
 @media (prefers-reduced-motion:reduce){ .eu-ball[data-rolling="1"],.eu-tie{animation:none;} }
+
+/* ---- the youth academy as a place (13.10): a door on the hub, the training ground at dusk behind the screen */
+.acad-card{
+  position:relative; display:flex; align-items:flex-end; width:100%; min-height:104px; padding:0; border-radius:var(--plate-sm);
+  overflow:hidden; border:1px solid rgba(233,185,73,.4); background:#07100b; color:var(--ink); cursor:pointer; font-family:var(--font-body);
+}
+.acad-card-img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 55%;}
+.acad-card-shade{position:absolute; inset:0; background:linear-gradient(180deg, rgba(7,16,11,.1) 0%, rgba(7,16,11,.82) 100%);}
+.acad-card-body{position:relative; display:flex; flex-direction:column; gap:2px; padding:12px 14px; text-align:start;}
+.acad-card-t{font-weight:900; font-size:17px; color:var(--gold-hi);}
+.acad-card-s{font-size:13.5px; color:var(--ink); opacity:.92;}
+.acad-card-dot{position:absolute; top:10px; inset-inline-end:12px; width:12px; height:12px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 0 rgba(233,185,73,.6); animation:dailyPulse 2s ease-out infinite;}
+.acad{position:relative; min-height:100%;}
+.acad-bg{position:sticky; top:0; height:100vh; height:100dvh; margin-bottom:-100vh; margin-bottom:-100dvh; z-index:0; overflow:hidden; pointer-events:none;}
+.acad-bg img,.acad-bg video{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition:opacity .6s ease;}
+.acad-bg-shade{position:absolute; inset:0; background:linear-gradient(180deg, rgba(7,16,11,.55) 0%, rgba(7,16,11,.82) 45%, rgba(7,16,11,.94) 100%);}
+.acad-front{position:relative; z-index:1;}
+.acad-pitch{margin:0; font-size:15px; line-height:1.45; color:var(--ink);}
+.acad-kid{padding:12px; border-radius:var(--plate-sm); background:rgba(10,18,14,.78); border:1px solid var(--line-2); backdrop-filter:blur(5px);}
+.acad-kid[data-gold="1"]{border-color:rgba(233,185,73,.5); background:linear-gradient(180deg, rgba(233,185,73,.12), rgba(10,18,14,.8));}
+.acad-range{display:flex; align-items:center; gap:10px; margin-top:9px;}
+.acad-range-bar{position:relative; flex:1; height:9px; border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden;}
+.acad-range-now{position:absolute; left:0; top:0; bottom:0; background:linear-gradient(90deg,var(--gold-lo),var(--gold)); border-radius:99px;}
+.acad-range-room{position:absolute; top:0; bottom:0; background:repeating-linear-gradient(45deg, rgba(233,185,73,.42) 0 4px, rgba(233,185,73,.16) 4px 8px);}
+.acad-range-n{font-weight:900; font-size:15px; color:var(--gold-hi); min-width:58px; text-align:right;}
+.acad-btn{width:100%;}
+.acad-link{background:none; border:0; color:var(--ink-faint); font-size:13px; text-decoration:underline; cursor:pointer; padding:6px;}

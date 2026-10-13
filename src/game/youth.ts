@@ -17,7 +17,7 @@ import type { Player, Rng, Position } from '../engine/matchEngine.ts';
 import { overall } from '../engine/matchEngine.ts';
 import { makePlayer } from '../data/squadGen.ts';
 import { leagueCeiling } from '../data/clubs.ts';
-import { devFactor, potentialOf, potentialBand } from './career.ts';
+import { devFactor, potentialOf, potentialBand, growForYear } from './career.ts';
 
 export interface Youth {
   /** the players currently at the academy, 16 to 18 */
@@ -114,6 +114,8 @@ export function advanceYouth(
   youth: Youth, tier: number, rng: Rng, used: Set<string>, growth = 1,
   /** kids the manager let train with the seniors: a bigger year for them */
   boosted: Set<string> = new Set(),
+  /** the new academy (academy.ts): boys with a locked potential grow by the senior step up to what they can reach now, and the club's own intake is small */
+  v2?: { target: number; makeIntake: (room: number) => Player[] },
 ): Youth {
   // Anybody already eighteen when the summer starts was never decided on. The game
   // stops on them every summer, so the only way here is a save or a test that walked
@@ -123,15 +125,22 @@ export function advanceYouth(
   const graduated: string[] = [];
   const ready: string[] = [];
 
-  // the one who breaks out: the youngest-but-promising, weighted by potential
+  // the one who breaks out: the youngest-but-promising, weighted by potential. Only the old kind of boy breaks out;
+  // a boy of the new academy grows with his starts and nothing else
   let starId: string | null = null;
-  if (players.length) {
-    const under18 = players.filter(p => p.age < 18);
+  if (players.some(p => p.lock0 === undefined)) {
+    const under18 = players.filter(p => p.age < 18 && p.lock0 === undefined);
     const pool = under18.length ? under18 : players;
-    starId = pool.reduce((a, b) => (devFactor(b) > devFactor(a) ? b : a)).id;
+    starId = pool.length ? pool.reduce((a, b) => (devFactor(b) > devFactor(a) ? b : a)).id : null;
   }
 
-  for (const p of players) {
+  for (let i = 0; i < players.length; i++) {
+    const p = players[i];
+    if (p.lock0 !== undefined) {
+      // his minutes were folded into his potential before this; his year is the senior step, held under what he can reach
+      players[i] = growForYear(p, p.age + 1, growth * (boosted.has(p.name) ? 1.8 : 1));
+      continue;
+    }
     p.age += 1;
     const pot = devFactor(p);
     // a normal year is a point or two, a breakout year is a real jump
@@ -145,8 +154,8 @@ export function advanceYouth(
   for (const p of grown) ready.push(p.name);
 
   // keep the academy stocked
-  const room = Math.max(0, 5 - staying.length);
-  const intake = room > 0 ? seedYouth(tier, rng, used, room) : [];
+  const room = Math.max(0, (v2 ? v2.target : 5) - staying.length);
+  const intake = room > 0 ? (v2 ? v2.makeIntake(room) : seedYouth(tier, rng, used, room)) : [];
 
   // the eighteen year olds STAY on the list: they used to be dropped here and kept
   // only as a name in `ready` that no screen showed, so the kid who turned eighteen

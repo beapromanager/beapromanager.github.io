@@ -18,6 +18,8 @@ import { Gem } from '../components/Gem.tsx';
 import { PACKS } from '../../game/packs.ts';
 import { DAILY_LIVE } from '../../game/daily.ts';
 import { DailyHubCard } from './DailyGift.tsx';
+import { AcademyHubCard } from './Academy.tsx';
+import { YOUTH_V2 } from '../../game/academy.ts';
 import { SCOUT_LIVE, SCOUT_TEXT } from '../../game/scout.ts';
 
 /**
@@ -96,6 +98,8 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
 
         {gs.inbox.length > 0 && <InboxStrip count={gs.inbox.length} onClick={onInbox} />}
 
+        {YOUTH_V2 && <AcademyHubCard gs={gs} onOpen={onYouth} />}
+
         {/* every room in the club, a word each */}
         <div className="hub-grid stagger">
           <Cell i={0} icon="shirt" label="הסגל" onClick={onSquad} count={`${G.squadSize(gs)} · ${gs.tactic.formation}`} />
@@ -113,8 +117,8 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
             dot={G.assistantActive(gs) ? undefined : 'var(--gold)'} />
           <Cell i={7} icon="trophy" label="כרוניקה" onClick={onChronicle}
             badge={G.unreadChronicle(gs) || undefined} />
-          <Cell i={8} icon="star" label="נוער" onClick={onYouth}
-            dot={gs.youth.players.some(p => p.age >= 18) ? 'var(--gold)' : undefined} />
+          {!YOUTH_V2 && <Cell i={8} icon="star" label="נוער" onClick={onYouth}
+            dot={gs.youth.players.some(p => p.age >= 18) ? 'var(--gold)' : undefined} />}
           {SCOUT_LIVE && G.scoutAvailable(gs) && (
             <Cell i={9} icon="target" label={SCOUT_TEXT.door} onClick={onScout}
               dot={G.scoutDot(gs) ? 'var(--loss)' : gs.scout.offer ? 'var(--win)' : undefined} blink={G.scoutDot(gs)} />

@@ -76,6 +76,17 @@ export function devFactor(p: Pick<Player, 'id' | 'seed'>, salt = ''): number {
  * and after ten seasons the whole league floats far above its own division.
  */
 export function potentialOf(p: Player): number {
+  const max = potMaxOf(p);
+  if (p.lock0 === undefined) return max;
+  // a boy from the academy: part of it is locked, and every start he plays unlocks some (never past his own ceiling)
+  return Math.round(max - p.lock0 * Math.exp(-(p.pu ?? 0) / POT_TAU));
+}
+
+/** How many starts it takes to open about two thirds of what is locked. */
+export const POT_TAU = 28;
+
+/** His true ceiling, hidden for ever: what he can reach if he plays enough. */
+export function potMaxOf(p: Player): number {
   return Math.round(45 + devFactor(p, '|pot') * 45);   // 45..90
 }
 

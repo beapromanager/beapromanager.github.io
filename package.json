@@ -21,6 +21,7 @@
     "check:league": "node --experimental-strip-types scripts/league-check.mts",
     "check:world": "node --experimental-strip-types scripts/world-by-league-check.mts",
     "check:quicksale": "node --experimental-strip-types scripts/quicksale-check.mts",
+    "check:academy": "node --experimental-strip-types scripts/academy-check.mts",
     "check:youth": "node --experimental-strip-types scripts/youth-check.mts",
     "check:kits": "node --experimental-strip-types scripts/kit-check.mts",
     "check:palette": "node --experimental-strip-types scripts/palette-check.mts",
