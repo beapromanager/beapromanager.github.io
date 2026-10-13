@@ -5832,7 +5832,7 @@ export function youthTripBlockedReason(gs: GameState): string | null {
   if (!YOUTH_V2) return 'הדלת עוד סגורה';
   if (routeOf(club(gs).tier) !== 'trip') return 'סקאוט לנוער רק בליגה א׳';
   if (gs.youthTripSeason === gs.season) return 'הסקאוט כבר יצא העונה';
-  if (!transferWindow(gs).open) return 'חלון ההעברות סגור. תחכה שייפתח ואז תשלח את הסקאוט.';
+  if (!transferWindow(gs).open) return 'חלון העברות סגור. בחלון הבא תוכל לשלוח את הסקאוט.';
   if (gs.meters.money < TRIP_FEE) return 'אין מספיק כסף בקופה לנסיעה';
   return null;
 }
@@ -5856,7 +5856,7 @@ export function signYouthBlockedReason(gs: GameState, id: string): string | null
   if (!YOUTH_V2) return 'הדלת עוד סגורה';
   const offer = gs.youthPool.find(o => o.player.id === id);
   if (!offer) return 'הוא כבר לא ברשימה';
-  if (!transferWindow(gs).open) return 'חלון ההעברות סגור. תחכה שייפתח ואז תביא נער.';
+  if (!transferWindow(gs).open) return 'חלון העברות סגור. בחלון הבא תוכל להחתים שחקן נוער.';
   if (gs.youth.players.length >= ACADEMY_MAX) return 'המחלקה מלאה. תעלה מישהו לבוגרים או תשחרר, ואז יהיה מקום.';
   if (gs.meters.money < offer.fee) return 'אין מספיק כסף בקופה';
   return null;
@@ -5882,7 +5882,7 @@ export function callUpBlockedReason(gs: GameState, id: string): string | null {
   const kid = gs.youth.players.find(p => p.id === id);
   if (!kid) return 'הוא לא במחלקה';
   if (kid.age >= 18) return 'בן 18, מחליטים עליו בקיץ';
-  if (gs.youthUp.length >= CALL_UPS_PER_ROUND) return `כבר צירפת ${CALL_UPS_PER_ROUND} נערים למחזור`;
+  if (gs.youthUp.length >= CALL_UPS_PER_ROUND) return `כבר צירפת ${CALL_UPS_PER_ROUND} שחקני נוער למחזור`;
   return null;
 }
 

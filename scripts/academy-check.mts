@@ -162,7 +162,7 @@ try {
   ok(G.signYouthBlockedReason(one, one.youthPool[0].player.id) !== null && G.signYouthKid(one, one.youthPool[0].player.id) === one, 'a ninth boy was signed');
   // the window
   const shut = { ...gs, week: 3 };
-  ok(G.signYouthBlockedReason(shut, first.player.id) === 'חלון ההעברות סגור. תחכה שייפתח ואז תביא נער.', 'a boy was signed with the window shut');
+  ok(G.signYouthBlockedReason(shut, first.player.id) === 'חלון העברות סגור. בחלון הבא תוכל להחתים שחקן נוער.', 'a boy was signed with the window shut');
 
   /* ---------------------------------------------------------------- a scout in ליגה א׳ */
   let t3 = rich(career(7003, 3));
@@ -204,7 +204,7 @@ try {
   ok([...G.mySquad(c1).bench].some(p => p.id === ids[0]) && !c1.youth.players.some(p => p.id === ids[0]), 'a registered boy is not on the bench');
   ok(G.squadSize(c1) === size0, 'a registered boy was counted in the squad');
   const c2 = G.callUpYouth(c1, ids[1]);
-  ok(G.callUpBlockedReason(c2, ids[2]) === `כבר צירפת ${CALL_UPS_PER_ROUND} נערים למחזור` && G.callUpYouth(c2, ids[2]) === c2, 'a third boy was registered');
+  ok(G.callUpBlockedReason(c2, ids[2]) === `כבר צירפת ${CALL_UPS_PER_ROUND} שחקני נוער למחזור` && G.callUpYouth(c2, ids[2]) === c2, 'a third boy was registered');
   ok(G.sellBlockedReason(c2, ids[0]) === 'הוא בסגל המחזור מהנוער, ואחריו חוזר למחלקה' && G.sellPlayer(c2, ids[0]) === c2, 'a registered boy was sold');
   const undone = G.undoCallUp(c2, ids[1]);
   ok(undone.youth.players.some(p => p.id === ids[1]) && !undone.youthUp.includes(ids[1]), 'taking a boy off the sheet did not send him down');
@@ -310,12 +310,12 @@ try {
 
 /* ---------------------------------------------------- the screen and the files, as written */
 {
-  // a boy of 16 is a נער, never a ילד (Itzik, 13.10): none of the academy's words says otherwise
-  for (const f of ['src/ui/screens/Academy.tsx', 'src/data/academyText.ts']) ok(!readFileSync(f, 'utf8').includes('ילד'), `${f} calls a boy of 16 a ילד`);
+  // a boy of 16 is a שחקן נוער, never a נער or a ילד (Itzik, 13.10 and 14.10): none of the academy's words says otherwise
+  for (const f of ['src/ui/screens/Academy.tsx', 'src/data/academyText.ts']) for (const bad of ['ילד', 'נער']) ok(!readFileSync(f, 'utf8').includes(bad), `${f} says ${bad} about a player of the academy`);
   {
     const d = readFileSync('src/data/dilemmas.ts', 'utf8');
     const desk = d.slice(d.indexOf("the academy's own desk"));
-    const lines = desk.split('\n').filter(l => l.includes('ילד') && !l.includes('הבן שלי'));
+    const lines = desk.split('\n').filter(l => (l.includes('ילד') || l.includes('נער')) && !l.includes('הבן שלי'));
     ok(lines.length === 0, `the academy desk calls a boy a ילד: ${lines[0]?.slice(0, 60)}`);
   }
   const scr = readFileSync('src/ui/screens/Academy.tsx', 'utf8');
