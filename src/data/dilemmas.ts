@@ -1818,7 +1818,7 @@ const YD: DilemmaTemplate[] = [
     when: c => !!c.boy && c.week >= 6 && (c.pos <= 2 || c.pos >= c.teams - 2), oncePerSeason: true,
     text: 'משחק שחייבים לנצח. {boy} מהנוער צועק שהוא מוכן. המאמן מהנוער מבקש הזדמנות. הוותיקים מסתכלים עליך.',
     options: () => [
-      { label: 'מכניס אותו', effect: { morale: -2, fans: +2, prestige: +1 }, outcome: 'הוא נכנס מפוחד ומשחק יפה. אם ניצחתם, כולם יגידו שאתה גאון. אם לא, כולם יגידו מי הכניס ילד.' },
+      { label: 'מכניס אותו', effect: { morale: -2, fans: +2, prestige: +1 }, outcome: 'הוא נכנס מפוחד ומשחק יפה. אם ניצחתם, כולם יגידו שאתה גאון. אם לא, כולם יגידו מי הכניס נער.' },
       { label: 'רק מהספסל, 20 דקות', effect: { morale: +1, prestige: +1 }, outcome: 'הוא מקבל את הטעם בלי הלחץ המלא. הוותיקים נושמים, והנער לומד.' },
       { label: 'הוותיק מתחיל', effect: { morale: +2, prestige: -1 }, outcome: 'אתה בטוח, הנער מתאכזב. הוא לא יאמר כלום, אבל יזכור.' },
     ],
@@ -1826,7 +1826,7 @@ const YD: DilemmaTemplate[] = [
   {
     id: 'yd_father_low', speaker: 'youth', subject: 'boy', slots: {},
     when: c => !!c.boy && c.boyApps === 0 && c.week >= 6, oncePerSeason: true,
-    text: 'האבא של {boy} מחכה לך ליד הקיוסק. ״הילד שלי טוב מכל מי שיש לך. למה הוא לא פותח?״',
+    text: 'האבא של {boy} מחכה לך ליד הקיוסק. ״הבן שלי טוב מכל מי שיש לך. למה הוא לא פותח?״',
     options: () => [
       { label: 'מסביר לו בשקט', effect: { fans: -1 }, outcome: 'הוא לא מרוצה אבל מקשיב. הוא יחזור עוד שבוע, עם אותה שאלה.' },
       { label: 'מראה לו את המספרים', effect: { prestige: +1 }, outcome: 'האבא רואה שהבן עוד לא שם, ומסכים לחכות. הנער לא יודע כלום.' },
@@ -1836,7 +1836,7 @@ const YD: DilemmaTemplate[] = [
   {
     id: 'yd_father_pro', speaker: 'agent', subject: 'boy', slots: {},
     when: c => !!c.boy && c.boyApps === 0 && c.week >= 6, oncePerSeason: true,
-    text: 'האבא של {boy} בא למשרד עם סוכן. ״הילד צריך דקות, אחרת נחפש מקום אחר. יש התעניינות.״',
+    text: 'האבא של {boy} בא למשרד עם סוכן. ״הבן צריך דקות, אחרת נחפש לו מקום אחר. יש התעניינות.״',
     options: () => [
       { label: 'מבטיח דקות', effect: { morale: +1, prestige: -1 }, outcome: 'הם יוצאים מרוצים. עכשיו אתה חייב לתת, ואם הוא יתפרק, זה עליך.' },
       { label: 'אומר שהמגרש הוא ההוכחה', effect: { morale: -1, prestige: +1 }, outcome: 'הסוכן מחייך באי נוחות. הנער ממשיך להתאמן, והאבא מתחיל לחפש הצעות.' },
@@ -1886,7 +1886,7 @@ const YD: DilemmaTemplate[] = [
   {
     id: 'yd_facility_low', speaker: 'youth', slots: {},
     when: c => (c.boys ?? 0) >= 2, oncePerSeason: true,
-    text: 'מאמן הנוער מראה לך את המגרש האחורי. ״אין אורות, הקרשים של השער שבורים, והכדורים פנצ׳ר. הילדים עושים הכל על עפר.״',
+    text: 'מאמן הנוער מראה לך את המגרש האחורי. ״אין אורות, הקרשים של השער שבורים, והכדורים פנצ׳ר. הנערים מתאמנים רק על עפר.״',
     options: c => [
       { label: 'משלם על ציוד', effect: { money: -at(c.tier, PITCH_KIT), morale: +1 }, outcome: 'כדורים, שערים, אור. הנערים מתאמנים כמו בני אדם, והמאמן מחייך.' },
       { label: 'אומר לחכות', effect: {}, outcome: 'המאמן מבין. הנערים ימשיכו לשחק על העפר, וזה חלק מהסיפור.' },

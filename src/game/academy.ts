@@ -69,8 +69,8 @@ export interface YouthOffer {
  * sells for, so nobody can buy and flip.
  */
 const PRICE: Record<number, [number, number][]> = {
-  4: [[63, 80_000], [71, 95_000], [78, 125_000], [85, 165_000], [99, 200_000]],
-  5: [[63, 110_000], [71, 170_000], [78, 270_000], [85, 380_000], [99, 480_000]],
+  4: [[63, 90_000], [71, 105_000], [78, 130_000], [85, 165_000], [99, 200_000]],
+  5: [[63, 160_000], [71, 180_000], [78, 270_000], [85, 380_000], [99, 480_000]],
 };
 export function youthPrice(tier: number, potMax: number): number {
   const table = PRICE[Math.max(4, Math.min(5, Math.round(tier)))];

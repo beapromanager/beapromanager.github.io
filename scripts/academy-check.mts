@@ -124,7 +124,7 @@ try {
   ok(FREE_POT_CAP[1] === 78 && FREE_POT_CAP[2] === 82, 'the free ceilings are not 78 and 82');
   ok(TRIP_FEE === 70_000, 'the trip is not 70,000');
   // the price table, the economist's, by the ceiling a boy truly has
-  const want: Record<number, number[]> = { 4: [80_000, 95_000, 125_000, 165_000, 200_000], 5: [110_000, 170_000, 270_000, 380_000, 480_000] };
+  const want: Record<number, number[]> = { 4: [90_000, 105_000, 130_000, 165_000, 200_000], 5: [160_000, 180_000, 270_000, 380_000, 480_000] };
   for (const tier of [4, 5]) {
     const got = [60, 66, 74, 80, 88].map(p => youthPrice(tier, p));
     ok(JSON.stringify(got) === JSON.stringify(want[tier]), `tier ${tier}: the price table is ${got.join(', ')}`);
@@ -177,7 +177,7 @@ try {
   const after = G.signYouthKid(sent, sent.youthPool[0].player.id);
   ok(after.youthPool.length === 0 && after.youth.players.length === sent.youth.players.length + 1, 'tier 3: one signing did not close the trip');
   const poor = { ...t3, meters: { ...t3.meters, money: TRIP_FEE - 1 } };
-  ok(G.youthTripBlockedReason(poor) === 'אין מספיק בקופה לנסיעה', 'tier 3: a scout went with no money');
+  ok(G.youthTripBlockedReason(poor) === 'אין מספיק כסף בקופה לנסיעה', 'tier 3: a scout went with no money');
   ok(G.youthTripBlockedReason(career(7004, 1)) === 'סקאוט לנוער רק בליגה א׳', 'tier 1: a scout can be sent');
 
   /* ----------------------------------------------------------- the paid divisions */
@@ -190,7 +190,7 @@ try {
     const bought = G.signYouthKid(g, dear.player.id);
     ok(bought.meters.money === before - dear.fee && dear.fee > 0, `tier ${tier}: the price did not leave the purse`);
     const broke = { ...g, meters: { ...g.meters, money: dear.fee - 1 } };
-    ok(G.signYouthBlockedReason(broke, dear.player.id) === 'אין מספיק בקופה', `tier ${tier}: a boy was bought without the money`);
+    ok(G.signYouthBlockedReason(broke, dear.player.id) === 'אין מספיק כסף בקופה', `tier ${tier}: a boy was bought without the money`);
   }
 
   /* ---------------------------------------------------- registered for the round */
@@ -204,8 +204,8 @@ try {
   ok([...G.mySquad(c1).bench].some(p => p.id === ids[0]) && !c1.youth.players.some(p => p.id === ids[0]), 'a registered boy is not on the bench');
   ok(G.squadSize(c1) === size0, 'a registered boy was counted in the squad');
   const c2 = G.callUpYouth(c1, ids[1]);
-  ok(G.callUpBlockedReason(c2, ids[2]) === `כבר רשמת ${CALL_UPS_PER_ROUND} למחזור` && G.callUpYouth(c2, ids[2]) === c2, 'a third boy was registered');
-  ok(G.sellBlockedReason(c2, ids[0]) === 'רשום למחזור מהנוער, אחריו הוא חוזר' && G.sellPlayer(c2, ids[0]) === c2, 'a registered boy was sold');
+  ok(G.callUpBlockedReason(c2, ids[2]) === `כבר צירפת ${CALL_UPS_PER_ROUND} נערים למחזור` && G.callUpYouth(c2, ids[2]) === c2, 'a third boy was registered');
+  ok(G.sellBlockedReason(c2, ids[0]) === 'הוא בסגל המחזור מהנוער, ואחריו חוזר למחלקה' && G.sellPlayer(c2, ids[0]) === c2, 'a registered boy was sold');
   const undone = G.undoCallUp(c2, ids[1]);
   ok(undone.youth.players.some(p => p.id === ids[1]) && !undone.youthUp.includes(ids[1]), 'taking a boy off the sheet did not send him down');
   /* a registered boy who is started gets his start, and goes back down after the round */
@@ -310,6 +310,14 @@ try {
 
 /* ---------------------------------------------------- the screen and the files, as written */
 {
+  // a boy of 16 is a נער, never a ילד (Itzik, 13.10): none of the academy's words says otherwise
+  for (const f of ['src/ui/screens/Academy.tsx', 'src/data/academyText.ts']) ok(!readFileSync(f, 'utf8').includes('ילד'), `${f} calls a boy of 16 a ילד`);
+  {
+    const d = readFileSync('src/data/dilemmas.ts', 'utf8');
+    const desk = d.slice(d.indexOf("the academy's own desk"));
+    const lines = desk.split('\n').filter(l => l.includes('ילד') && !l.includes('הבן שלי'));
+    ok(lines.length === 0, `the academy desk calls a boy a ילד: ${lines[0]?.slice(0, 60)}`);
+  }
   const scr = readFileSync('src/ui/screens/Academy.tsx', 'utf8');
   ok(scr.includes('rangeOf(') && !/potMaxOf|potentialOf\(/.test(scr), 'the academy screen reads the hidden ceiling instead of the range');
   ok(scr.includes('AcademyHubCard') && scr.includes('<Dusk />') && scr.includes('/youth/dusk-loop.mp4'), 'the academy has no door or no loop behind it');

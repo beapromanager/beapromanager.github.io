@@ -2279,7 +2279,7 @@ export function sellBlockedReason(gs: GameState, playerId?: string): string | nu
   // A club in the red is always allowed to sell. Without this the owner could
   // sack you for a debt you had no way to pay off, which is a trap, not pressure.
   if (playerId && isOnLoan(gs, playerId)) return 'מושאל, לא למכירה';
-  if (playerId && (gs.youthUp ?? []).includes(playerId)) return 'רשום למחזור מהנוער, אחריו הוא חוזר';
+  if (playerId && (gs.youthUp ?? []).includes(playerId)) return 'הוא בסגל המחזור מהנוער, ואחריו חוזר למחלקה';
   if (!transferWindow(gs).open && debt(gs).level === 'clear') return 'החלון סגור';
   if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר להיות פחות מ-${MIN_SQUAD} שחקנים בסגל`;
   if (playerId && isFriend(gs.friends, { id: playerId })) return 'חבר שלך. אפשר רק מהכרטיס המלא';
@@ -5833,7 +5833,7 @@ export function youthTripBlockedReason(gs: GameState): string | null {
   if (routeOf(club(gs).tier) !== 'trip') return 'סקאוט לנוער רק בליגה א׳';
   if (gs.youthTripSeason === gs.season) return 'הסקאוט כבר יצא העונה';
   if (!transferWindow(gs).open) return 'חלון ההעברות סגור. תחכה שייפתח ואז תשלח את הסקאוט.';
-  if (gs.meters.money < TRIP_FEE) return 'אין מספיק בקופה לנסיעה';
+  if (gs.meters.money < TRIP_FEE) return 'אין מספיק כסף בקופה לנסיעה';
   return null;
 }
 
@@ -5858,7 +5858,7 @@ export function signYouthBlockedReason(gs: GameState, id: string): string | null
   if (!offer) return 'הוא כבר לא ברשימה';
   if (!transferWindow(gs).open) return 'חלון ההעברות סגור. תחכה שייפתח ואז תביא נער.';
   if (gs.youth.players.length >= ACADEMY_MAX) return 'המחלקה מלאה. תעלה מישהו לבוגרים או תשחרר, ואז יהיה מקום.';
-  if (gs.meters.money < offer.fee) return 'אין מספיק בקופה';
+  if (gs.meters.money < offer.fee) return 'אין מספיק כסף בקופה';
   return null;
 }
 
@@ -5882,7 +5882,7 @@ export function callUpBlockedReason(gs: GameState, id: string): string | null {
   const kid = gs.youth.players.find(p => p.id === id);
   if (!kid) return 'הוא לא במחלקה';
   if (kid.age >= 18) return 'בן 18, מחליטים עליו בקיץ';
-  if (gs.youthUp.length >= CALL_UPS_PER_ROUND) return `כבר רשמת ${CALL_UPS_PER_ROUND} למחזור`;
+  if (gs.youthUp.length >= CALL_UPS_PER_ROUND) return `כבר צירפת ${CALL_UPS_PER_ROUND} נערים למחזור`;
   return null;
 }
 
@@ -5896,7 +5896,7 @@ export function callUpYouth(gs: GameState, id: string): GameState {
     ...next,
     youth: { ...gs.youth, players: gs.youth.players.filter(p => p.id !== id) },
     youthUp: [...gs.youthUp, id],
-    pendingOutcome: `${kid.name} רשום למחזור. תפתח אותו אם אתה רוצה שהוא ישחק.`,
+    pendingOutcome: `${kid.name} נוסף לסגל המחזור. תכניס אותו להרכב אם אתה רוצה שהוא ישחק.`,
   };
 }
 

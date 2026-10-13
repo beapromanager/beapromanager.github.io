@@ -22,9 +22,9 @@ import { asset } from '../asset.ts';
 const POSTER_BY_TIER = (tier: number) => (tier <= 2 ? '/youth/tier-1.webp' : tier <= 4 ? '/youth/tier-3.webp' : '/youth/tier-5.webp');
 
 const PITCH: Record<'free' | 'trip' | 'paid', string> = {
-  free: 'ילדים של 16 מחכים שמישהו יסמן אותם. בחינם. כל מה שהם צריכים זה משחק.',
-  trip: 'בליגה א׳ הכישרון לא מחכה בשוק. שולחים סקאוט, והוא חוזר עם שני שמות.',
-  paid: 'כל נער פה עולה כסף, ומי שנראה הכי טוב עולה הכי הרבה. תחשוב על מי שווה את זה.',
+  free: 'נערים בני 16 ו-17 מחכים שמישהו יחתים אותם. בחינם. כל מה שהם צריכים זה דקות משחק.',
+  trip: 'בליגה א׳ אין נערים בשוק. שולחים סקאוט, והוא חוזר עם שני שמות.',
+  paid: 'כל נער פה עולה כסף, והטוב ביותר עולה הכי הרבה. תבחר מי שווה את זה.',
 };
 
 /** the card on the hub: the door to the place. The division's own training ground moves slowly behind it, the floodlights breathe */
@@ -44,11 +44,11 @@ export function AcademyHubCard({ gs, onOpen }: { gs: G.GameState; onOpen: () => 
         <span className="acad-card-kick">המקום של הדור הבא</span>
         <span className="acad-card-t">מחלקת הנוער</span>
         <span className="acad-card-s">
-          {boys === 0 ? 'עוד אין לך נערים. תחפש מישהו לגדל.' : 'הנערים שלך מחכים לדקות. כנס לראות מי גדל.'}
+          {boys === 0 ? 'עוד אין לך נערים. תחתים מישהו ותגדל אותו.' : 'הנערים שלך מחכים לדקות. כנס לראות מי התקדם.'}
         </span>
         <span className="acad-card-stats">
           <span className="acad-pill"><b className="num">{boys}</b> נערים</span>
-          {up > 0 && <span className="acad-pill" data-hot="1"><b className="num">{up}</b> למחזור</span>}
+          {up > 0 && <span className="acad-pill" data-hot="1"><b className="num">{up}</b> בסגל המחזור</span>}
           {ready > 0 && <span className="acad-pill" data-hot="1"><b className="num">{ready}</b> מוכנים לעלות</span>}
         </span>
       </span>
@@ -138,10 +138,10 @@ export function AcademyScreen({ gs, onPromote, onRelease, onCallUp, onUndoCallUp
             <p className="acad-pitch">{PITCH[route]}</p>
             <div className="acad-stats">
               <div className="acad-stat"><b className="num">{boys}<small>/{ACADEMY_MAX}</small></b><span>נערים</span></div>
-              <div className="acad-stat" data-hot={up.length > 0 ? '1' : '0'}><b className="num">{up.length}<small>/{CALL_UPS_PER_ROUND}</small></b><span>למחזור</span></div>
+              <div className="acad-stat" data-hot={up.length > 0 ? '1' : '0'}><b className="num">{up.length}<small>/{CALL_UPS_PER_ROUND}</small></b><span>בסגל המחזור</span></div>
               <div className="acad-stat" data-hot={ready.length > 0 ? '1' : '0'}><b className="num">{ready.length}</b><span>מוכנים לעלות</span></div>
             </div>
-            <p className="acad-rule">הפוטנציאל נפתח רק עם דקות. נער שלא פותחים נשאר איפה שהוא.</p>
+            <p className="acad-rule">הפוטנציאל נפתח רק עם דקות משחק. נער שלא משחק נשאר איפה שהוא.</p>
           </header>
 
           {coach && (
@@ -153,10 +153,10 @@ export function AcademyScreen({ gs, onPromote, onRelease, onCallUp, onUndoCallUp
 
           {up.length > 0 && (
             <section className="stack" style={{ gap: 9 }}>
-              <h2 className="acad-h" data-hot="1">רשומים למחזור הזה</h2>
+              <h2 className="acad-h" data-hot="1">בסגל המחזור הזה</h2>
               {up.map((p, i) => (
-                <KidCard key={p.id} i={i} p={p} apps={apps(p)} tier={c.tier} note="על הספסל. הוא ישחק רק אם תפתח אותו"
-                  action={<button className="btn dark btn-sm acad-btn" onClick={() => onUndoCallUp(p.id)}>הוצא מהסגל</button>} />
+                <KidCard key={p.id} i={i} p={p} apps={apps(p)} tier={c.tier} note="על הספסל. הוא ישחק רק אם תכניס אותו להרכב."
+                  action={<button className="btn dark btn-sm acad-btn" onClick={() => onUndoCallUp(p.id)}>הסר מסגל המחזור</button>} />
               ))}
             </section>
           )}
@@ -168,7 +168,7 @@ export function AcademyScreen({ gs, onPromote, onRelease, onCallUp, onUndoCallUp
                 <KidCard key={p.id} i={i} p={p} apps={apps(p)} tier={c.tier} gold note={null} action={
                   <div className="stack" style={{ gap: 7, width: '100%' }}>
                     <button className="btn btn-sm" style={{ opacity: canTake ? 1 : 0.4 }} disabled={!canTake} onClick={() => onPromote(p.id)}>
-                      <Icon name="shirt" size={15} /> מעלה אותו לסגל הבוגר
+                      <Icon name="shirt" size={15} /> העלה לסגל הבוגר
                     </button>
                     <button className="btn dark btn-sm" onClick={() => onRelease(p.id)}>שחרר מהמחלקה</button>
                   </div>} />
@@ -181,21 +181,21 @@ export function AcademyScreen({ gs, onPromote, onRelease, onCallUp, onUndoCallUp
             <h2 className="acad-h">הנערים שלי</h2>
             {growing.length === 0 && up.length === 0
               ? <div className="acad-empty">
-                  {route === 'free' ? 'אין פה אף נער. תעבור על הרשימה למטה, הם בחינם.'
-                    : route === 'trip' ? 'אין פה אף נער. שלח סקאוט ותחכה לשני שמות.'
-                      : 'האקדמיה ריקה. מי שנראה הכי טוב עולה הכי הרבה.'}
+                  {route === 'free' ? 'אין לך אף נער. תבחר מהרשימה למטה, כולם בחינם.'
+                    : route === 'trip' ? 'אין לך אף נער. שלח סקאוט וחכה לשני שמות.'
+                      : 'אין לך אף נער. הטוב ביותר עולה הכי הרבה.'}
                 </div>
               : growing.map((p, i) => {
                 const why = G.callUpBlockedReason(gs, p.id);
                 return (
                   <KidCard key={p.id} i={i} p={p} apps={apps(p)} tier={c.tier} note={why && !why.startsWith('כבר') ? why : null} action={
                     <button className="btn btn-sm acad-btn" disabled={!!why} style={{ opacity: why ? 0.45 : 1 }} onClick={() => onCallUp(p.id)}>
-                      רשום למחזור
+                      צרף לסגל המחזור
                     </button>} releaseBtn={<button className="acad-link" onClick={() => onRelease(p.id)}>שחרר</button>} />
                 );
               })}
             {growing.length > 0 && gs.youthUp.length >= CALL_UPS_PER_ROUND && (
-              <p className="hint" style={{ margin: 0 }}>כבר רשמת {CALL_UPS_PER_ROUND} למחזור. השאר מחכים.</p>
+              <p className="hint" style={{ margin: 0 }}>כבר צירפת {CALL_UPS_PER_ROUND} נערים למחזור. השאר מחכים.</p>
             )}
           </section>
 
@@ -205,22 +205,22 @@ export function AcademyScreen({ gs, onPromote, onRelease, onCallUp, onUndoCallUp
               <span className="acad-door-shade" />
               <span className="acad-door-t">מצא כישרון</span>
               <span className="acad-door-s">
-                {route === 'free' ? 'ארבעה נערים בחינם, מתחדשים כשהחלון נפתח'
+                {route === 'free' ? 'ארבעה נערים בחינם. הרשימה מתחדשת כשחלון ההעברות נפתח'
                   : route === 'trip' ? 'הסקאוט יוצא פעם בעונה וחוזר עם שני שמות'
-                    : 'שישה נערים, כל אחד במחיר שלו'}
+                    : 'שישה נערים, לכל אחד מחיר משלו'}
               </span>
             </div>
             {route === 'trip' && gs.youthPool.length === 0 && (
               <div className="acad-kid stack" style={{ gap: 8 }}>
                 <div style={{ fontWeight: 800, fontSize: 15 }}>שלח סקאוט לחפש נער</div>
-                <div className="sub" style={{ fontSize: 14 }}>עולה <span className="num">{formatMoney(TRIP_FEE)}</span>, פעם בעונה. אתה חותם על אחד משני הנערים שהוא מוצא, בחינם.</div>
+                <div className="sub" style={{ fontSize: 14 }}>עולה <span className="num">{formatMoney(TRIP_FEE)}</span>, פעם בעונה. ואתה מחתים אחד משני הנערים שהוא מוצא, בחינם.</div>
                 <button className="btn btn-sm" disabled={!!tripWhy} style={{ opacity: tripWhy ? 0.45 : 1 }} onClick={onTrip}>שלח את הסקאוט</button>
                 {tripWhy && <div className="sub" style={{ fontSize: 12.5, color: 'var(--loss)', textAlign: 'center' }}>{tripWhy}</div>}
               </div>
             )}
             {gs.youthPool.map((o, i) => <OfferCard key={o.player.id} i={i} o={o} gs={gs} tier={c.tier} onSign={() => onSign(o.player.id)} />)}
             {route !== 'trip' && gs.youthPool.length === 0 && (
-              <div className="acad-empty">הרשימה ריקה. היא מתחדשת כשהחלון נפתח.</div>
+              <div className="acad-empty">הרשימה ריקה. היא מתחדשת כשחלון ההעברות נפתח.</div>
             )}
           </section>
         </div>
@@ -244,7 +244,7 @@ function Face({ p, apps, tier, i, gold, children }: { p: Player; apps: number; t
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="tcard-name">{p.name}</div>
-          <div className="tcard-sub">בן <span className="num">{p.age}</span> · פתח <span className="num">{apps}</span> העונה</div>
+          <div className="tcard-sub">בן <span className="num">{p.age}</span> · {apps === 0 ? 'עוד לא פתח' : apps === 1 ? 'פתח משחק אחד' : <>פתח <span className="num">{apps}</span> משחקים</>}</div>
         </div>
         <div className="tcard-badge" data-r={ra.key}>
           {ra.key === 'gem' ? <Gem size={20} /> : <Icon name="star" size={17} color="currentColor" />}
@@ -278,7 +278,7 @@ function OfferCard({ o, gs, tier, i, onSign }: { o: YouthOffer; gs: G.GameState;
       <div className="tcard-note">{o.via === 'scout' ? 'מצא הסקאוט. ' : ''}{reportOf(o.player, tier)}</div>
       <div className="row" style={{ gap: 10, marginTop: 11, alignItems: 'center' }}>
         <button className="btn btn-sm acad-btn" style={{ flex: 1, opacity: why ? 0.45 : 1 }} disabled={!!why} onClick={onSign}>
-          {o.fee > 0 ? <>החתם · <span className="num">{formatMoney(o.fee)}</span></> : 'החתם, בחינם'}
+          {o.fee > 0 ? <>החתם · <span className="num">{formatMoney(o.fee)}</span></> : 'החתם בחינם'}
         </button>
       </div>
       {why && <div className="tcard-note" style={{ color: 'var(--loss)' }}>{why}</div>}
