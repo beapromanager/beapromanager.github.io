@@ -6,6 +6,7 @@ import * as G from '../src/game/state.ts';
 import { overall, createRng } from '../src/engine/matchEngine.ts';
 import { seedYouth, advanceYouth, emptyYouth, outlook } from '../src/game/youth.ts';
 import { potentialBand } from '../src/game/career.ts';
+import { YOUTH_V2 } from '../src/game/academy.ts';
 
 const bad: string[] = [];
 const check = (n: string, ok: boolean, d = '') => { if (!ok) bad.push(`${n}  ${d}`); else console.log(`  ok    ${n}${d ? '  ' + d : ''}`); };
@@ -33,7 +34,8 @@ for (let s = 1; s <= 5; s++) {
   gs = G.startNextSeason(gs);
   if (gs.youth.graduated.length) graduations++;
   everReady += gs.youth.ready.length;
-  check(`season ${s}: a kid broke out`, gs.youth.graduated.length >= 1, gs.youth.graduated.join(', ') || 'none');
+  // the old academy let one boy break out every summer; the new one lets a boy grow with his starts and nothing else (academy-check holds that)
+  check(`season ${s}: ${YOUTH_V2 ? 'nobody breaks out, a boy grows with his starts' : 'a kid broke out'}`, YOUTH_V2 ? gs.youth.graduated.length === 0 : gs.youth.graduated.length >= 1, gs.youth.graduated.join(', ') || 'none');
   check(`season ${s}: academy still stocked`, gs.youth.players.length >= 4, `${gs.youth.players.length}`);
   check(`season ${s}: kids in band`, gs.youth.players.every(p => p.age >= 16 && p.age <= 18));
   // the eighteen year olds are on the list, and the summer opens on them
@@ -94,7 +96,8 @@ else {
   check('the summer goes on once every one is answered', noneLeft.phase === 'preseason');
 
   // "release everybody the coach does not recommend"
-  check('some summer had a kid the coach likes and one he does not, so the next claim is not empty', atMixed !== null);
+  // under the new rules a boy is held at what he can reach now, so a summer with both kinds is not promised
+  if (!YOUTH_V2) check('some summer had a kid the coach likes and one he does not, so the next claim is not empty', atMixed !== null);
   if (atMixed) {
     const grads = G.youthGraduates(atMixed);
     const rest = G.releaseUnrecommended(atMixed);

@@ -16,7 +16,7 @@ import { overall } from '../src/engine/matchEngine.ts';
 import type { Player } from '../src/engine/matchEngine.ts';
 import { potentialOf, potMaxOf, POT_TAU } from '../src/game/career.ts';
 import {
-  setYouthDoorForChecks, YOUTH_V2, ACADEMY_MAX, TRIP_FEE, STARTS_CAP, UNLOCK_AGE, CALL_UPS_PER_ROUND, FREE_POT_CAP,
+  setYouthDoorForChecks, YOUTH_LIVE, YOUTH_V2, ACADEMY_MAX, TRIP_FEE, STARTS_CAP, UNLOCK_AGE, CALL_UPS_PER_ROUND, FREE_POT_CAP,
   youthPrice, routeOf, rangeOf, reachNow, foldMinutes, makeYouthKid, drawPool,
 } from '../src/game/academy.ts';
 import { sellPrice } from '../src/game/transfers.ts';
@@ -61,7 +61,8 @@ const rich = (gs: G.GameState, money = 5_000_000): G.GameState => ({ ...gs, mete
 
 /* ---------------------------------------------------------------- the door is shut */
 {
-  ok(YOUTH_V2 === false, 'the academy door is not shut by default');
+  ok(YOUTH_LIVE === true && YOUTH_V2 === true, 'the academy door is not open for players');
+  setYouthDoorForChecks(false);   // the shut door is walked here, then the door goes back to what players have
   const gs = career(7001);
   const opened = G.openYouth(gs);
   ok(opened.youthPool.length === 0, 'a shut door still drew a list');
@@ -305,7 +306,7 @@ try {
     ok(!/Date\.now|new Date|Math\.random/.test(src), `${f} reads the clock or draws from Math.random`);
   }
 } finally {
-  setYouthDoorForChecks(false);
+  setYouthDoorForChecks(YOUTH_LIVE);
 }
 
 /* ---------------------------------------------------- the screen and the files, as written */
@@ -340,4 +341,4 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(`${checked} checks`);
-console.log('OK, a boy of 16 or 17 shows a range that opens only with his starts; free, a scout, or a price by the ceiling; eight at most; the door is shut');
+console.log('OK, a boy of 16 or 17 shows a range that opens only with his starts; free, a scout, or a price by the ceiling; eight at most; the door is open');

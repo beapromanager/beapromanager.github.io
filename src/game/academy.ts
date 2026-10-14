@@ -26,8 +26,9 @@ function devDoor(): boolean {
   try { return !!import.meta.env?.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('youth'); } catch { return false; }
 }
 
-/** Whether the new academy is live for players. Shut until Itzik opens it. */
-export let YOUTH_V2 = devDoor();
+/** Whether the new academy is live for players. Opened by Itzik on 14.10 ("תפתח את הנוער"). One line shuts it again. */
+export const YOUTH_LIVE = true;
+export let YOUTH_V2 = YOUTH_LIVE || devDoor();
 
 /** For the checks only, which walk the door open and shut: the game never calls it. */
 export function setYouthDoorForChecks(open: boolean): void { YOUTH_V2 = open; }
