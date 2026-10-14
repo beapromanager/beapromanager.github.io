@@ -14,6 +14,7 @@ import { PreSeasonMarket } from './screens/PreSeason.tsx';
 import { TransfersScreen } from './screens/Transfers.tsx';
 import { Hub } from './screens/Hub.tsx';
 import { DilemmaChat } from './screens/Dilemma.tsx';
+import { FixOfferScreen, FixedMatchScreen, FixVerdictScreen } from './screens/Fixing.tsx';
 import { TacticScreen } from './screens/Tactic.tsx';
 import { TeamsheetScreen } from './screens/Teamsheet.tsx';
 import { MatchBroadcast } from './screens/Match.tsx';
@@ -467,11 +468,11 @@ export function App() {
           onFire={() => setGs(G.fireAssistant(gs))}
           onBack={() => setGs(G.backToHub(gs))} />
       )}
-      {gs.phase === 'dilemma' && (
-        <DilemmaChat gs={gs}
-          onChoose={i => setGs(G.chooseDilemma(gs, i))}
-          onContinue={() => setGs(G.toTactic(gs))} />
-      )}
+      {gs.phase === 'dilemma' && (gs.dilemma?.image
+        ? <FixOfferScreen gs={gs} onChoose={i => setGs(G.chooseDilemma(gs, i))} onContinue={() => setGs(G.toTactic(gs))} />
+        : <DilemmaChat gs={gs}
+            onChoose={i => setGs(G.chooseDilemma(gs, i))}
+            onContinue={() => setGs(G.toTactic(gs))} />)}
       {gs.phase === 'tactic' && (
         <TacticScreen gs={gs}
           onSet={t => setGs(G.setTactic(gs, t))}
@@ -483,10 +484,14 @@ export function App() {
           onSwap={(a, b) => setGs(g => G.swapPlayers(g, a, b))}
           onMove={(a, b) => setGs(g => G.movePlayers(g, a, b))} />
       )}
-      {gs.phase === 'match' && (
+      {gs.phase === 'match' && gs.fix?.stage === 'agreed' && (
+        <FixedMatchScreen gs={gs} onDone={result => setGs(G.commitRound(gs, result))} />
+      )}
+      {gs.phase === 'match' && gs.fix?.stage !== 'agreed' && (
         <MatchBroadcast gs={gs} onDone={result => setGs(G.commitRound(gs, result))}
           onHalfTime={gs.season === 1 && gs.week === 1 && !adminKey ? () => track('match1_half') : undefined} />
       )}
+      {gs.phase === 'fix-verdict' && <FixVerdictScreen gs={gs} onResolve={() => setGs(G.resolveFix(gs))} />}
       {gs.phase === 'friendly' && <FriendlyScreen gs={gs} onDone={() => setGs(g => G.finishFriendly(g))} />}
       {gs.phase === 'euro-match' && (
         <MatchBroadcast gs={gs} live={G.euroMatchInput(gs)} clubs={G.euroMatchClubs(gs)} euroLines={G.euroEntranceLines(gs)} flare={null} doneLabel="סיום הערב"

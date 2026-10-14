@@ -20,6 +20,8 @@ export const DILEMMA_TIERS: Record<string, TierSpan> = {
   player_late_work: [1, 4],
   captain_miluim: [1, 4],
   student_exam: [1, 4],
+  // the owner's ten requests are rolled by their own rule (fixing.ts) and are in no pool
+  fix_01: [9, 9], fix_02: [9, 9], fix_03: [9, 9], fix_04: [9, 9], fix_05: [9, 9], fix_06: [9, 9], fix_07: [9, 9], fix_08: [9, 9], fix_09: [9, 9], fix_10: [9, 9],
   yd_father_low: [1, 3],
   yd_father_pro: [4, 5],
   yd_europe_17: [4, 5],

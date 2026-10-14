@@ -24,6 +24,7 @@ import type { FormationId } from './formations.ts';
 import type { ChatTrigger } from './chats.ts';
 import { DILEMMA_TIERS, SUM_SCALE, inTier, scaledSum, scaleSumsInText } from './leagueGate.ts';
 import { TOP_DILEMMA_REWRITE, TOP_DILEMMA_NEW } from './topFlightText.ts';
+import { FIX_SITUATIONS } from './fixingText.ts';
 
 export type Speaker =
   | 'owner' | 'veteran' | 'reporter' | 'ultras'
@@ -64,6 +65,8 @@ export type Act =
   | { kind: 'promote' }                                            // the academy kid joins the squad
   | { kind: 'sell'; who: Who }                                     // to a club in the league, story and all
   | { kind: 'follow'; weeks: number; title: string; body: string } // a word back at the hub, later
+  | { kind: 'fixDeal' }                                            // the owner's request to lose the next match, accepted (fixing.ts)
+  | { kind: 'fixRefuse' }                                          // and refused
   | { kind: 'youthLeaves' }                                        // the boy of the academy this is about leaves the club (a sale, a release)
   | { kind: 'youthBoost' }                                         // three kids grow faster in the summer
   | { kind: 'youthLeaveRisk'; p: number }                          // the kid may be gone by summer
@@ -92,6 +95,9 @@ export interface DilemmaTemplate {
   slots: Record<string, string[]>;
   /** slots that depend on the live save, laid over : the sponsor's own asks */
   slotsFor?: (c: Ctx) => Record<string, string[]>;
+  /** a picture and a line over it, for the questions that are an event and not a chat (the owner's request to sell a match) */
+  image?: string;
+  tag?: string;
   text: string;                 // uses {slot} and any Ctx field
   /** at most once a season, by Itzik's note on the referee's apology */
   oncePerSeason?: boolean;
@@ -1693,6 +1699,8 @@ export interface RolledDilemma {
   /** the actual player this is about, when the template names one */
   subjectName?: string;
   text: string;
+  image?: string;
+  tag?: string;
   options: DilemmaOption[];
 }
 
@@ -1769,7 +1777,7 @@ export function rollDilemma(tpl: DilemmaTemplate, ctx: Ctx, rng: Rng): RolledDil
     ? `${subjectName} · ${SPEAKER_LABEL.player}`
     : tpl.speaker === 'sponsor' && ctx.sponsor ? `${ctx.sponsor} · ${SPEAKER_LABEL.sponsor}`
     : SPEAKER_LABEL[tpl.speaker];
-  return { id: tpl.id, speaker: tpl.speaker, speakerLabel, subjectName, text, options };
+  return { id: tpl.id, speaker: tpl.speaker, speakerLabel, subjectName, text, image: tpl.image, tag: tpl.tag, options };
 }
 
 /* ---------------------------------------------------------------- ליגת העל only
@@ -1905,3 +1913,17 @@ const YD: DilemmaTemplate[] = [
   },
 ];
 for (const t of YD) TEMPLATES.push(t);
+
+/* ------------------------------------------------ the owner asks to sell a match (fixing.ts)
+ * Ten situations, one picture each. They are in no pool (the gate puts them out of every division) and come only by
+ * fixOfferDue in state.ts. Two answers: yes starts the deal, no refuses it.
+ */
+for (const s of FIX_SITUATIONS) {
+  TEMPLATES.push({
+    id: s.id, speaker: 'owner', slots: {}, text: s.text, image: s.image, tag: s.tag, when: () => false,
+    options: () => [
+      { label: s.yes, effect: {}, act: [{ kind: 'fixDeal' }], outcome: s.yesOutcome },
+      { label: s.no, effect: { prestige: +1 }, act: [{ kind: 'fixRefuse' }], outcome: s.noOutcome },
+    ],
+  });
+}

@@ -16,6 +16,7 @@ import { setDerbies } from '../data/clubs.ts';
 import { localRival } from '../data/cities.ts';
 import { newCoach } from './coach.ts';
 import { emptyDaily } from './daily.ts';
+import { emptyFixLog } from './fixing.ts';
 import { emptyInvite } from './invite.ts';
 import { emptyMate } from './mate.ts';
 import { emptyScout } from './scout.ts';
@@ -140,6 +141,8 @@ export function loadCareer(): GameState | null {
     pressHistory: s.pressHistory ?? [],
     suspensions: s.suspensions ?? {},
     emergencyYouth: s.emergencyYouth ?? null,
+    fix: s.fix ?? null,
+    fixLog: s.fixLog ?? emptyFixLog(),
     youthPool: s.youthPool ?? [],
     youthStamp: s.youthStamp ?? 0,
     youthUp: s.youthUp ?? [],

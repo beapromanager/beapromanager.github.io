@@ -42,6 +42,9 @@ import { debtState, debtLine, debtLimit } from './finance.ts';
 import { emptyYouth, seedYouth, advanceYouth, outlook } from './youth.ts';
 import type { Outlook } from './youth.ts';
 import type { Youth } from './youth.ts';
+import { emptyFixLog, FIX_LIVE, FIX_CAUGHT, FIX_TOP_TIER, FIX_ASKS_PER_LEAGUE, FIX_FIRST_WEEK, FIX_LAST_MARGIN, fixPayout } from './fixing.ts';
+import type { FixDeal, FixLog } from './fixing.ts';
+import { FIX_SITUATIONS, FIX_CLEAR_TEXT } from '../data/fixingText.ts';
 import { promotionText, COACH } from '../data/academyText.ts';
 import type { CoachNote } from '../data/academyText.ts';
 import { YOUTH_V2, ACADEMY_MAX, TRIP_FEE, CALL_UPS_PER_ROUND, OWN_INTAKE, FREE_POT_CAP, routeOf, drawPool, makeYouthKid, foldMinutes, toNewRules, rangeOf, reachNow } from './academy.ts';
@@ -121,7 +124,7 @@ export type Phase =
   | 'onboard-archetype' | 'onboard-manager' | 'onboard-club' | 'signing' | 'friends' | 'squad' | 'hub' | 'transfers' | 'invite'
   | 'dilemma' | 'tactic' | 'vs' | 'teamsheet' | 'match' | 'result' | 'press' | 'season-end' | 'chronicle'
   | 'captain' | 'assistant' | 'coach' | 'preseason' | 'preseason-market' | 'inbox' | 'chat' | 'table' | 'stadium'
-  | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit' | 'scout' | 'youth-decision'
+  | 'packs' | 'sacked' | 'sponsor' | 'ultimatum' | 'rescue' | 'youth' | 'kit' | 'scout' | 'youth-decision' | 'fix-verdict'
   /* the midweek match with the works team, told after the sheet is sent */
   | 'friendly'
   /* the European night, played live before the week's league round, and its shootout when the tie is level */
@@ -163,7 +166,8 @@ export interface Nemesis {
 
 /** The day it ended, kept so the letter can say what actually happened. */
 export interface Sacking {
-  reason: 'debt';
+  /** debt: the owner could not carry it. fixing: a match was sold and the federation closed the club (fixing.ts) */
+  reason: 'debt' | 'fixing';
   debt: number;
   limit: number;
   week: number;
@@ -377,6 +381,9 @@ export interface GameState {
    * to this round's match day squad, and the season the scout's trip was taken. A registered boy sits in the squad for
    * the round, is not counted in the sixteen to twenty, and goes back down when the week ends.
    */
+  /** a request to lose a match, agreed and waiting for the match or the verdict, and what has been asked so far (fixing.ts) */
+  fix: FixDeal | null;
+  fixLog: FixLog;
   youthPool: YouthOffer[];
   youthStamp: number;
   youthUp: string[];
@@ -573,6 +580,8 @@ export function newGame(seed = 12345): GameState {
     pressHistory: [],
     suspensions: {},
     emergencyYouth: null,
+    fix: null,
+    fixLog: emptyFixLog(),
     youthPool: [],
     youthStamp: 0,
     youthUp: [],
@@ -806,7 +815,8 @@ export interface RescueOffer {
 export function rescueOffer(gs: GameState): RescueOffer | null {
   const s = gs.sacking;
   if (!s) return null;
-  const tier = Math.max(1, s.tier - 1);
+  // a club closed for a sold match is followed by the bottom division, whatever season and league it was in
+  const tier = s.reason === 'fixing' ? 1 : Math.max(1, s.tier - 1);
   const club = siblingClub(s.city, tier, s.clubId);
   return {
     club, tier, league: LEAGUE_NAMES[tier],
@@ -921,7 +931,9 @@ export function takeRescue(gs: GameState): GameState {
       kind: 'sacked' as const,
       week: 0,
       title: `${c.name} התקשרו`,
-      body: `הקבוצה השנייה ב${s.city}, זאת שתמיד הייתה בצל של ${s.short}, רצתה דווקא את מי ש${s.short} זרקו. ${LEAGUE_NAMES[offer.tier]}, מהתחלה, ועם חשבון פתוח.`,
+      body: s.reason === 'fixing'
+        ? `${c.name} ב${s.city} נתנו הזדמנות שנייה למאמן של ${s.short}, שנסגר בגלל משחק שנמכר. ${LEAGUE_NAMES[offer.tier]}, מהתחלה.`
+        : `הקבוצה השנייה ב${s.city}, זאת שתמיד הייתה בצל של ${s.short}, רצתה דווקא את מי ש${s.short} זרקו. ${LEAGUE_NAMES[offer.tier]}, מהתחלה, ועם חשבון פתוח.`,
       icon: 'flag' as const,
       tint: 'gold' as const,
     }],
@@ -3765,8 +3777,12 @@ export function startWeek(gs: GameState): GameState {
   // the blocking one is about the match you are walking into. A talk booked
   // by an earlier answer comes first, and only that once
   const booked = ctx.queued ? TEMPLATES.find(t => t.id === ctx.queued) : undefined;
+  // the owner's request to lose a match, once in a league at the most, in place of the question of the week
+  const fixAsk = booked ? null : fixOfferDue(gs);
+  if (fixAsk) gs = fixAsk.gs;
   const urgent = booked
     ? rollDilemma(booked, ctx, rng)
+    : fixAsk ? rollDilemma(TEMPLATES.find(t => t.id === fixAsk.id)!, ctx, rng)
     : (pick('now') ?? (() => { const pool = templatesForTier(ctx.tier); return rollDilemma(pool[Math.floor(rng() * pool.length)], ctx, rng); })());
   if (booked) gs = { ...gs, queued: null };
 
@@ -4014,6 +4030,20 @@ function applyActs(gs: GameState, rolled: RolledDilemma, acts: Act[]): { gs: Gam
         break;
       }
       case 'follow': gs = { ...gs, followUps: [...gs.followUps, { season: gs.season, week: gs.week + a.weeks, title: a.title, body: a.body }] }; break;
+      case 'fixDeal': {
+        const sit = FIX_SITUATIONS.find(s => s.id === rolled.id);
+        if (!sit) break;
+        const tier = club(gs).tier;
+        // the verdict is drawn the moment he says yes, so quitting and coming back changes nothing
+        const caught = createRng(drawSeed(gs, 174_000))() < FIX_CAUGHT;
+        gs = {
+          ...gs,
+          fix: { id: sit.id, tier, season: gs.season, week: gs.week, payout: fixPayout(tier, sit.weight), caught, stage: 'agreed' },
+          fixLog: { ...gs.fixLog, done: true },
+        };
+        break;
+      }
+      case 'fixRefuse': break;
       case 'youthLeaves': {
         const name = rolled.subjectName;
         const gone = name ? [...gs.youth.players, ...[...mySquad(gs).starters, ...mySquad(gs).bench].filter(p => (gs.youthUp ?? []).includes(p.id))].find(p => surname(p.name) === name) : undefined;
@@ -4502,6 +4532,8 @@ export function continueFromResult(gs: GameState): GameState {
   gs = { ...gs, stadiumReveal: null };   // the unveil has had its moment
   // no press room, no next week: the owner is waiting
   if (gs.sacking) return { ...gs, phase: 'sacked', press: null, chat: null };
+  // a match that was sold: the whistle has gone and the verdict is next
+  if (gs.fix && gs.fix.stage === 'agreed') return { ...gs, phase: 'fix-verdict', fix: { ...gs.fix, stage: 'played' }, press: null, chat: null };
   // the warning he gets before it, delivered once, in person
   const lvl = debt(gs).level;
   if ((lvl === 'final' || lvl === 'sacked') && gs.ultimatumSeason !== gs.season) {
@@ -5752,14 +5784,14 @@ function summerAcademy(gs: GameState, newTier: number, seed: number, used: Set<s
  * For the checks, which need a particular question in front of the manager
  * rather than whichever the seed happens to draw.
  */
-export function rollNamedDilemma(gs: GameState, id: string, seed = 1): RolledDilemma | null {
+export function rollNamedDilemma(gs: GameState, id: string, seed = 1, force = false): RolledDilemma | null {
   const tpl = TEMPLATES.find(t => t.id === id);
   if (!tpl) return null;
   const fx = playerFixture(gs);
   const rivalId = fx ? (fx.homeId === gs.clubId ? fx.awayId : fx.homeId) : gs.clubId;
   const rival = gs.league.clubs.find(c => c.id === rivalId)!;
   const ctx = dilemmaCtx(gs, topPlayerName(mySquad(gs)), rival.short, rivalId);
-  if (tpl.when && !tpl.when(ctx)) return null;
+  if (!force && tpl.when && !tpl.when(ctx)) return null;
   return rollDilemma(tpl, ctx, createRng(seed));
 }
 
@@ -5985,4 +6017,88 @@ export function academyCoachNote(gs: GameState): CoachNote | null {
   const fresh = boys.find(p => p.joined === gs.season);
   if (fresh) return note('yc_new_arrival', fresh);
   return null;
+}
+
+/* ------------------------------------------ the owner asks to sell a match (fixing.ts) */
+
+/**
+ * The owner's request, if it is due now: ליגה ג׳ to א׳ only, never after a yes, never more than twice in a league (the first
+ * season in it, and again the season after if he was refused), one of ten situations he has not been shown. The week it
+ * comes is drawn once a season from the season's own seed, and it is counted the moment it is shown, so quitting and
+ * coming back does not give a second ask.
+ */
+export function fixOfferDue(gs: GameState): { id: string; gs: GameState } | null {
+  if (!FIX_LIVE || gs.fix) return null;
+  const tier = club(gs).tier;
+  if (tier > FIX_TOP_TIER) return null;
+  const log = gs.fixLog;
+  if (log.done) return null;
+  const n = log.offered[tier] ?? 0;
+  if (n >= FIX_ASKS_PER_LEAGUE) return null;
+  if (n >= 1 && gs.season <= log.lastOfferSeason) return null;
+  const rounds = gs.league.rounds;
+  const span = Math.max(1, rounds - FIX_FIRST_WEEK - FIX_LAST_MARGIN);
+  const when = FIX_FIRST_WEEK + Math.floor(createRng(gs.seasonSeed + 172_001 + tier)() * span);
+  if (gs.week < when || gs.week > rounds - 1 || !playerFixture(gs)) return null;
+  const unseen = FIX_SITUATIONS.filter(s => !log.seen.includes(s.id));
+  if (!unseen.length) return null;
+  const pick = unseen[Math.floor(createRng(drawSeed(gs, 173_000))() * unseen.length)];
+  return {
+    id: pick.id,
+    gs: { ...gs, fixLog: { ...log, offered: { ...log.offered, [tier]: n + 1 }, lastOfferSeason: gs.season, seen: [...log.seen, pick.id] } },
+  };
+}
+
+/**
+ * The match he sold, played for him: the same teams and the same squad, with the draw moved on until the club loses.
+ * A club that cannot lose in three hundred tries still loses, with the score written and no events.
+ */
+export function fixedMatchResult(gs: GameState): MatchResult {
+  const fx = playerFixture(gs)!;
+  const iAmHome = fx.homeId === gs.clubId;
+  const base = drawSeed(gs, 175_000);
+  let first: MatchResult | null = null;
+  for (let k = 0; k < 300; k++) {
+    const r = simulateMatch(teamInput(gs, fx.homeId, true), teamInput(gs, fx.awayId, false), base + k);
+    first = first ?? r;
+    const mine = iAmHome ? r.score[0] : r.score[1];
+    const theirs = iAmHome ? r.score[1] : r.score[0];
+    if (mine < theirs) return r;
+  }
+  return { ...first!, score: iAmHome ? [0, 1] : [1, 0], events: [] };
+}
+
+/**
+ * The verdict, after the whistle and the result screen. Caught: the federation closes the club, he is out, and the way
+ * back is the bottom division. Not caught: the sum lands in the club and the week goes on as any week.
+ */
+export function resolveFix(gs: GameState): GameState {
+  const f = gs.fix;
+  if (!f || f.stage !== 'played') return gs;
+  const c = club(gs);
+  if (f.caught) {
+    const table = sortedTable(gs.league);
+    const sacking: Sacking = {
+      reason: 'fixing', debt: 0, limit: 0, week: gs.week, season: gs.season, league: LEAGUE_NAMES[c.tier],
+      clubId: c.id, club: c.name, short: c.short, city: c.city, tier: c.tier,
+      position: Math.max(1, table.findIndex(x => x.clubId === gs.clubId) + 1), teams: table.length,
+    };
+    return {
+      ...gs, fix: null, sacking, phase: 'sacked', press: null, chat: null,
+      chronicle: [...gs.chronicle, {
+        id: `fixed-s${gs.season}`, kind: 'sacked' as const, week: gs.week, title: 'המועדון נסגר',
+        body: `משחק שנמכר מול הבעלים, ועדת משמעת, וסוף. ${c.name} נסגר, והמאמן מתחיל מחדש בליגה ג׳.`,
+        icon: 'alert' as const, tint: 'loss' as const,
+      }],
+    };
+  }
+  return continueFromResult({
+    ...gs, fix: null,
+    meters: { ...gs.meters, money: cash(gs.meters.money + f.payout) },
+    chronicle: [...gs.chronicle, {
+      id: `fixclear-s${gs.season}`, kind: 'sold' as const, week: gs.week, title: 'מכרת משחק',
+      body: `אף אחד לא דפק בדלת. ${FIX_CLEAR_TEXT.body.replace('{sum}', 'הכסף')}`.split('\n')[0],
+      icon: 'coins' as const, tint: 'draw' as const,
+    }],
+  });
 }
