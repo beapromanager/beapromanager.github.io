@@ -7,16 +7,8 @@ const c = JSON.parse(fs.readFileSync('PIC/team/fixing/content.json', 'utf8'));
 const WEIGHT = { fix_01: 1.0, fix_02: 1.2, fix_03: 1.5, fix_04: 1.5, fix_05: 1.2, fix_06: 1.8, fix_07: 1.0, fix_08: 2.0, fix_09: 1.3, fix_10: 2.5 };
 
 // polish: lines that were clumsy when read aloud
-const FIX = {
-  caught: {
-    title: 'דפקו בדלת',
-    body: 'האיגוד סגר את המועדון הבוקר. ועדת המשמעת פירסמה הודעה קצרה, והעיר קראה אותה בעמוד הראשון.\nאתה כבר לא המאמן. המועדון נסגר, ואתה מתחיל מחדש בליגה ג׳.',
-  },
-  rescue: {
-    title: 'מישהו עדיין מתקשר',
-    body: 'מועדון קטן בליגה ג׳ מתקשר בכל זאת. הם צריכים מאמן, והם יודעים שאתה יודע לנצח.\nכולם בעיר יודעים מה עשית, וכולם מתעלמים בנימוס.\nזו הזדמנות שנייה. אין שלישית.',
-  },
-};
+// the verdict and rescue texts now come from content.json as Itzik edited them in the Word of 15.10
+const FIX = { caught: {}, rescue: {} };
 
 const sits = c.situations.map((s, i) => ({
   id: s.id, title: s.title, tag: s.tag, text: s.text, yes: s.yes, no: s.no, yesOutcome: s.yesOutcome, noOutcome: s.noOutcome,
@@ -37,6 +29,8 @@ export const FIX_CAUGHT_TEXT = ${JSON.stringify({ ...c.caught, ...FIX.caught }, 
 export const FIX_CLEAR_TEXT = ${JSON.stringify(c.clear, null, 1)};
 export const FIX_SACKED_TEXT = ${JSON.stringify(c.sacked, null, 1)};
 export const FIX_RESCUE_TEXT = ${JSON.stringify({ ...c.rescue, ...FIX.rescue }, null, 1)};
+/** the six clips of the owner meeting someone, shown for five seconds before the request: a headline and the manager's thought */
+export const FIX_CLIPS: { title: string; thought: string }[] = ${JSON.stringify(c.clips, null, 1)};
 `;
 fs.writeFileSync('src/data/fixingText.ts', out);
 console.log(sits.length, 'situations');

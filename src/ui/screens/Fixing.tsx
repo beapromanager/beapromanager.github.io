@@ -5,7 +5,7 @@ import { Meters, formatMoney } from '../components/bits.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { Crest } from '../components/Crest.tsx';
 import { asset } from '../asset.ts';
-import { FIX_SITUATIONS, FIX_MATCH_LINES, FIX_SUSPENSE, FIX_CAUGHT_TEXT, FIX_CLEAR_TEXT } from '../../data/fixingText.ts';
+import { FIX_SITUATIONS, FIX_MATCH_LINES, FIX_SUSPENSE, FIX_CAUGHT_TEXT, FIX_CLEAR_TEXT, FIX_CLIPS } from '../../data/fixingText.ts';
 
 /**
  * "The owner asks to sell a match" (Itzik, 14.10). Three screens, one event:
@@ -18,6 +18,37 @@ import { FIX_SITUATIONS, FIX_MATCH_LINES, FIX_SUSPENSE, FIX_CAUGHT_TEXT, FIX_CLE
 const buzz = (p: number | number[]) => { try { navigator.vibrate?.(p); } catch { /* a phone that will not */ } };
 const slots = (t: string, s: Record<string, string>) => t.replace(/\{(\w+)\}/g, (_, k) => s[k] ?? '');
 
+const reducedMotion = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+
+/* ------------------------------------------- 0. the owner meets someone (five seconds, before the request) */
+
+const INTRO_MS = 5000;
+const THOUGHT_AT = 3200;
+
+function FixIntro({ n, onEnd }: { n: number; onEnd: () => void }) {
+  const c = FIX_CLIPS[n];
+  const [thought, setThought] = useState(false);
+  useEffect(() => {
+    const a = window.setTimeout(() => setThought(true), THOUGHT_AT);
+    const b = window.setTimeout(onEnd, INTRO_MS);
+    return () => { window.clearTimeout(a); window.clearTimeout(b); };
+  }, [onEnd]);
+  const name = `/fix/meet0${n + 1}`;
+  return (
+    <div className="fx-intro" onClick={onEnd}>
+      <video className="fx-intro-vid" src={asset(`${name}.mp4`)} poster={asset(`${name}.webp`)} autoPlay muted playsInline preload="auto" aria-hidden="true" />
+      <span className="fx-intro-shade" aria-hidden="true" />
+      <div className="fx-intro-copy">
+        <span className="fx-kick">הבעלים בדרך</span>
+        <p className="fx-intro-title">{c.title}</p>
+        {thought && <p className="fx-intro-thought">{c.thought}</p>}
+      </div>
+      <span className="fx-intro-bar" aria-hidden="true"><i style={{ animationDuration: `${INTRO_MS}ms` }} /></span>
+      <button className="fx-intro-skip" onClick={e => { e.stopPropagation(); onEnd(); }}>דלג</button>
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------- 1. the request */
 
 export function FixOfferScreen({ gs, onChoose, onContinue }: {
@@ -27,6 +58,10 @@ export function FixOfferScreen({ gs, onChoose, onContinue }: {
   if (!d || !d.image) return null;
   const answered = gs.pendingOutcome != null;
   const sit = FIX_SITUATIONS.find(s => s.id === d.id);
+  // a clip of the owner meeting someone comes first, once, and never twice in a row: it moves on with every request
+  const clip = (gs.fixLog.seen.length + gs.seasonSeed) % FIX_CLIPS.length;
+  const [intro, setIntro] = useState(!answered && !reducedMotion());
+  if (intro) return <FixIntro n={clip} onEnd={() => setIntro(false)} />;
   return (
     <>
       <Meters {...gs.meters} gems={gs.gems} />

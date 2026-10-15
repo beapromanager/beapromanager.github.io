@@ -34,8 +34,8 @@ export const FIX_ASKS_PER_LEAGUE = 2;
 /** The earliest round of a season he asks, and how many rounds before the end the window closes. */
 export const FIX_FIRST_WEEK = 4;
 export const FIX_LAST_MARGIN = 3;
-/** The sum for a situation of weight 1, by division, in shekels: a few rounds of wages and a bit more. */
-export const FIX_BASE: Record<number, number> = { 1: 90_000, 2: 110_000, 3: 600_000 };
+/** The sum for a situation of weight 1, by division, in shekels: a few rounds of wages and a bit more. ליגה א׳ was 600K and the economist (15.10) cut it to 300K: against a year's turnover 600K was 37% where the two lower leagues are 15%, and the biggest favour would have ended the debt problem outright. */
+export const FIX_BASE: Record<number, number> = { 1: 90_000, 2: 110_000, 3: 300_000 };
 
 /** How much a situation pays, by the weight it is given (the bigger the favour the bigger the envelope). */
 export function fixPayout(tier: number, weight: number): number {

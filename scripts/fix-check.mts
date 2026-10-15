@@ -112,6 +112,7 @@ try {
   ok(FIX_SITUATIONS.every(s => s.weight >= 1 && s.weight <= 2.5), 'a situation weighs outside 1 to 2.5');
   ok(fixPayout(1, 2.5) > fixPayout(1, 1) && fixPayout(3, 1) > fixPayout(2, 2.5), 'the money does not follow the situation and the league');
   ok(fixPayout(1, 1) >= 60_000 && fixPayout(3, 2.5) <= 2_000_000, 'the sums are out of the range of a club in these leagues');
+  ok(FIX_BASE[3] === 300_000 && fixPayout(3, 2.5) <= 750_000, 'the economist of 15.10: ליגה א׳ pays 300K for the lightest favour and 750K at most, not 600K to 1.5M');
 
   /* ------------------------------ a yes: the verdict, the match, and everything after */
   const deal = (tier: number, seed: number, wantCaught: boolean) => {
