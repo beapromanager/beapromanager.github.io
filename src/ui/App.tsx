@@ -336,7 +336,7 @@ export function App() {
           onRenew={id => setGs(g => G.renewContract(g, id))}
           onRelease={id => setGs(g => G.releasePlayer(g, id))}
           onDismissOutcome={() => setGs(G.clearPreseasonOutcome(gs))}
-          onTakeCourse={() => setGs(g => G.takeCourse(g))}
+          onTakeCourse={how => setGs(g => G.takeCourse(g, how))}
           onAdvance={() => {
             setGs(G.advancePreseason(gs));
           }} />
@@ -413,7 +413,7 @@ export function App() {
       )}
       {gs.phase === 'scout' && (
         <ScoutScreen gs={gs}
-          onHire={style => setGs(g => G.hireScout(g, style))}
+          onHire={(style, position) => setGs(g => G.hireScout(g, style, position))}
           onSign={() => setGs(g => G.signScoutOffer(g))}
           onBack={() => setGs(G.backToHub(gs))} />
       )}

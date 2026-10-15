@@ -26,6 +26,7 @@ import { sellPrice } from './transfers.ts';
 import { leagueCeiling } from '../data/clubs.ts';
 import { reachableCeiling } from './career.ts';
 import { rarityForOvr, type Rarity } from './cards.ts';
+import { maybeForeign } from '../data/foreignNames.ts';
 
 /* ------------------------------------------------------------------ gems */
 
@@ -72,6 +73,14 @@ export interface PackSpec {
   skew: number;
   /** hard age limit, keeps a premium "ready now" card from being a veteran */
   maxAge: number;
+  /**
+   * How far past the division's ceiling this pack may reach (Itzik, 15.10, "even the big packs bring nobody better than
+   * what I have"): none for the cheap one, a point for the star, three for the pro. A pack is still never a card of the
+   * division above, only a few points into its lower end.
+   */
+  capRaise: number;
+  /** what the card adds over the starter it is aimed at, from and to, in rating points */
+  lift: [number, number];
 }
 
 /**
@@ -85,17 +94,17 @@ export const PACKS: PackSpec[] = [
   {
     id: 'boost', name: 'חבילת חיזוק', cost: 10,
     blurb: 'צעיר שעוד ישתפר, ברמת הליגה שלך',
-    offset: -2, spread: 3, youth: 0.75, minUpside: 6, skew: 1, maxAge: 24,
+    offset: -2, spread: 3, youth: 0.75, minUpside: 6, skew: 1, maxAge: 24, capRaise: 0, lift: [-1, 1],
   },
   {
     id: 'star', name: 'חבילת כוכב', cost: 25,
     blurb: 'צעיר שכבר טוב, ויגדל עוד',
-    offset: +1.5, spread: 2.5, youth: 0.7, minUpside: 5, skew: 0.8, maxAge: 24,
+    offset: +1.5, spread: 2.5, youth: 0.7, minUpside: 5, skew: 0.8, maxAge: 24, capRaise: 1, lift: [1, 3],
   },
   {
     id: 'pro', name: 'חבילת פרו', cost: 40,
     blurb: 'מוכן עכשיו, ברמת הליגה שמעליך',
-    offset: +8, spread: 2, youth: 0.4, minUpside: 0, skew: 0.5, maxAge: 28,
+    offset: +8, spread: 2, youth: 0.4, minUpside: 0, skew: 0.5, maxAge: 28, capRaise: 3, lift: [3, 5],
   },
 ];
 
@@ -114,7 +123,7 @@ export const PACKS: PackSpec[] = [
 export const GIFT_PACK: PackSpec = {
   id: 'gift', name: 'חבילה מתנה BE A PRO', cost: 0,
   blurb: 'שוער, מעט מעל רמת הליגה שלך',
-  offset: +1.5, spread: 2.5, youth: 0.7, minUpside: 5, skew: 0.8, maxAge: 24,
+  offset: +1.5, spread: 2.5, youth: 0.7, minUpside: 5, skew: 0.8, maxAge: 24, capRaise: 0, lift: [0, 0],
 };
 
 export function packById(id: PackId): PackSpec {
@@ -159,12 +168,19 @@ export function openPack(
   spec: PackSpec,
   tier: number,
   rng: Rng,
-  opts: { position?: Position; taken?: Set<string> } = {},
+  opts: { position?: Position; taken?: Set<string>; slotOvr?: number } = {},
 ): PackPull {
-  const cap = packCeiling(tier);
-  const target = Math.min(leagueCeiling(tier) + spec.offset, cap);
-  const lo = target - spec.spread;
+  const cap = packCeiling(tier) + spec.capRaise;
+  let target = Math.min(leagueCeiling(tier) + spec.offset, cap);
+  let lo = target - spec.spread;
+  // aimed at the weakest place in the squad: the card is rolled over the man he would replace, by this pack's lift,
+  // so a pack opened by a good squad is still a card that plays
+  if (opts.slotOvr != null && spec.id !== 'gift') {
+    target = Math.max(target, Math.min(opts.slotOvr + (spec.lift[0] + spec.lift[1]) / 2, cap));
+    lo = Math.max(target - spec.spread, Math.min(opts.slotOvr + spec.lift[0], cap - 1));
+  }
   const hi = Math.min(target + spec.spread, cap);
+  lo = Math.min(lo, hi);
   const pos = opts.position ?? PACK_POSITIONS[Math.floor(rng() * PACK_POSITIONS.length)];
   const traits = { ...NEUTRAL_TRAITS, youth: spec.youth };
 
@@ -195,7 +211,8 @@ export function openPack(
   const player = best!;
   return finish(player, overall(player));
 
-  function finish(player: Player, o: number): PackPull {
+  function finish(card: Player, o: number): PackPull {
+    const player = maybeForeign(card, tier, opts.taken);
     return {
       player,
       rarity: rarityForOvr(o),

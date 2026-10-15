@@ -1,3 +1,4 @@
+import { nationLabel } from '../../data/foreignNames.ts';
 import { useEffect, useState } from 'react';
 import { surnameOf } from '../../data/names.ts';
 import type { Player } from '../../engine/matchEngine.ts';
@@ -94,6 +95,11 @@ export function PlayerCard({ p, club, tier, season, career, traits, friend, gave
             <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--ink-dim)' }}>
               גיל <span className="num">{p.age}</span>
             </span>
+            {p.nation && (
+              <span className="chip" style={{ background: 'rgba(111,168,255,.14)', color: 'var(--euro, #6FA8FF)' }}>
+                זר · {nationLabel(p.nation)}
+              </span>
+            )}
             <span className="chip" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--ink-dim)' }}>
               {formatMoney(playerValue(p))}
             </span>

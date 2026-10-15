@@ -32,7 +32,7 @@ import { transferFee } from '../src/game/transfers.ts';
 import { overall, createRng } from '../src/engine/matchEngine.ts';
 import { requiredCapacity, purseBase } from '../src/game/career.ts';
 import { sortedTable } from '../src/game/league.ts';
-import { pickSafe, feeRange, findOld, oldFee } from '../src/game/scout.ts';
+import { pickSafe, feeRange, findOld, oldFee, starterAt, weakestPosition, scoutReach } from '../src/game/scout.ts';
 import type { RivalKid } from '../src/game/scout.ts';
 import { WINTER_WEEKS } from '../src/game/transfers.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
@@ -591,6 +591,85 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
   const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
   ok(/SCOUT_LIVE\s*&&\s*G\.scoutAvailable\(gs\)/.test(hub), 'the hub does not gate the scout door on the flag and on the division');
   console.log('  the door is open, and only for a club with a scout to hire');
+}
+
+/* 15.10, Itzik: "the scout mostly offers players under the level of the teams", and "a good striker is a waste when I already have one":
+   he is sent for a place, and what he brings is an upgrade there, or is called a prospect */
+{
+  const tier = SCOUT_TIER;
+  const base = hubAt(tier);
+  const starters = G.mySquad(base).starters;
+  ok(starterAt(starters, 'ST') !== null && starterAt(starters, 'GK') !== null, 'the best of the eleven at a place is not read');
+  ok(weakestPosition(starters) !== 'GK', 'the weakest place is the keeper');
+
+  // the old one: three to seven above the best man there, and exactly at the place he was sent for
+  for (const pos of ['ST', 'CB', 'CM', 'RW', 'GK'] as const) {
+    const anchor = starterAt(starters, pos)!;
+    let wrongPlace = 0, notUpgrade = 0, outOfBand = 0;
+    for (let i = 0; i < 40; i++) {
+      const p = findOld(tier, createRng(7000 + i), new Set(), pos, anchor);
+      if (p.position !== pos) wrongPlace++;
+      const o = overall(p);
+      if (o < anchor + 3) notUpgrade++;
+      if (o > Math.max(anchor + 7, anchor + 4) && o > leagueCeiling(tier) + 10) outOfBand++;
+    }
+    ok(wrongPlace === 0, `the old one sent for a ${pos} brought a man of another place ${wrongPlace} times in 40`);
+    ok(notUpgrade <= 3, `the old one sent for a ${pos} (best there ${anchor}) was no upgrade ${notUpgrade} times in 40`);
+    ok(outOfBand === 0, `the old one sent for a ${pos} came above anything a man of that league can be`);
+  }
+  // and for a strong starter (the case the complaint is about) he is still an upgrade, as far as a man of that league goes
+  {
+    const strongAnchor = leagueCeiling(tier) + 5;
+    let notUpgrade = 0;
+    for (let i = 0; i < 40; i++) if (overall(findOld(tier, createRng(7500 + i), new Set(), 'ST', strongAnchor)) < strongAnchor + 3) notUpgrade++;
+    ok(notUpgrade <= 3, `against a starter of ${strongAnchor} the old one was no upgrade ${notUpgrade} times in 40`);
+  }
+  // with no place the old band is exactly what it was
+  const plain = findOld(tier, createRng(31), new Set());
+  ok(overall(plain) >= leagueCeiling(tier) + 4 && overall(plain) <= leagueCeiling(tier) + 10, 'with no place the old one left his old band');
+
+  // the keen one is at his place
+  for (const pos of ['GK', 'CB', 'ST'] as const) {
+    ok(findKeen(tier, createRng(70 + pos.length), new Set(), pos).position === pos, `the keen one sent for a ${pos} brought another place`);
+  }
+
+  // the safe one: the man at the place first, a wider search before a man who is no use there
+  {
+    const mk = (pos: 'ST' | 'CB' | 'CM', age: number, bump: number) => {
+      const p = findKeen(tier, createRng(900 + bump), new Set(), pos);
+      p.age = age;
+      return p;
+    };
+    const st = mk('ST', 19, 1), cb = mk('CB', 19, 2), cm = mk('CM', 21, 3);
+    const pool = (l: ReturnType<typeof mk>[]): RivalKid[] => l.map((player, i) => ({ clubId: `r${i}`, player }));
+    ok(pickSafe(pool([cb, st, cm]), 'ST', null)?.player === st, 'the safe one sent for a striker did not bring the striker');
+    ok(pickSafe(pool([cb, cm]), 'ST', null) !== null, 'a place nobody plays left him empty handed');
+    const weak = { ...st, attrs: Object.fromEntries(Object.entries(st.attrs).map(([k, v]) => [k, Math.max(10, (v as number) - 25)])) as typeof st.attrs };
+    const wide = mk('ST', 22, 4);
+    ok(pickSafe(pool([weak, wide]), 'ST', overall(wide) - 1)?.player === wide, 'a man who is no use at the place was taken while a wider search had one that was');
+    ok(pickSafe(pool([st, cb]))?.player !== undefined, 'with no place the old picker stopped working');
+  }
+
+  // sent through the real game: the place goes with the man from the hire to the window
+  for (const style of ['old', 'keen', 'safe'] as const) {
+    let gs = G.hireScout(hubAt(tier), style, 'ST');
+    ok(gs.scout.job?.position === 'ST', `${style}: the place was not kept on the job`);
+    for (let r = 0; r < SCOUT_ROUNDS; r++) gs = playRound(gs);
+    ok(gs.scout.found?.position === 'ST', `${style}: the place was lost on the way back`);
+    if (gs.scout.found?.player) ok(gs.scout.found.player.position === 'ST' || style === 'safe', `${style}: he found a man of another place`);
+    const open = playRound({ ...gs, week: 7, notices: [], meters: { ...gs.meters, money: 6_000_000 } });
+    const offer = open.scout.offer;
+    ok(!!offer && offer.position === 'ST', `${style}: the offer does not know the place he was sent for`);
+    if (offer && style === 'old') ok(overall(offer.player) >= starterAt(G.mySquad(gs).starters, 'ST')! + 3 && !offer.prospect, 'the old one at the window was no upgrade');
+    if (offer && style === 'keen') ok(offer.prospect === true, 'the keen one is not called a prospect');
+  }
+  ok(G.scoutBudgetFor(hubAt(tier), 'old', 'ST') !== null && G.scoutBudgetFor(hubAt(tier), 'keen', 'CB') !== null && G.scoutBudgetFor(hubAt(tier), 'safe', 'ST') !== null, 'a budget could not be quoted for a place');
+  // an old hire with no place still works, for a save from before this
+  ok(G.hireScout(hubAt(tier), 'old').scout.job?.position === undefined, 'a hire with no place gained one');
+  // the keen one's card no longer quotes a ceiling no career keeps
+  const boyReach = scoutReach('keen', findKeen(tier, createRng(5), new Set()));
+  ok(boyReach <= overall(findKeen(tier, createRng(5), new Set())) + 13, `the keen one's card quotes ${boyReach}`);
+  console.log('  sent for a place: he brings a man there, an upgrade or a prospect, and the place goes all the way to the window');
 }
 
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));

@@ -15,6 +15,7 @@
 import type { Player, Position, Rng } from '../engine/matchEngine.ts';
 import { overall, createRng } from '../engine/matchEngine.ts';
 import { makePlayer, NEUTRAL_TRAITS } from '../data/squadGen.ts';
+import { maybeForeign } from '../data/foreignNames.ts';
 import { leagueCeiling } from '../data/clubs.ts';
 import { potentialOf, reachableCeiling, growForYear, purseBase } from './career.ts';
 import { WINTER_WEEKS, transferFee, MARQUEE_SHARE } from './transfers.ts';
@@ -30,6 +31,28 @@ export const SCOUT_LIVE = true;
 export type ScoutStyle = 'keen' | 'safe' | 'old';
 export const SCOUT_STYLES: readonly ScoutStyle[] = ['keen', 'safe', 'old'];
 
+/**
+ * The places a manager can send him for (Itzik, 15.10: "a good striker is a waste when I already have a good striker").
+ * A keeper is a choice too.
+ */
+export const SCOUT_POSITIONS: Position[] = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
+const LINE_OF_POS: Record<string, string> = {
+  GK: 'GK', CB: 'DEF', LB: 'DEF', RB: 'DEF', CDM: 'MID', CM: 'MID', CAM: 'MID', LW: 'FWD', RW: 'FWD', ST: 'FWD',
+};
+
+/** What the best of the eleven is at that place, or at his line when nobody plays exactly there; null when nobody does. */
+export function starterAt(starters: Player[], position: Position): number | null {
+  const exact = starters.filter(p => p.position === position);
+  const pool = exact.length ? exact : starters.filter(p => LINE_OF_POS[p.position] === LINE_OF_POS[position]);
+  return pool.length ? Math.max(...pool.map(overall)) : null;
+}
+
+/** The place of the weakest man of the eleven who is not the keeper: where a scout is most worth sending. */
+export function weakestPosition(starters: Player[]): Position {
+  const out = starters.filter(p => p.position !== 'GK').sort((a, b) => overall(a) - overall(b))[0];
+  return (out?.position as Position) ?? 'ST';
+}
+
 /** ליגה א׳, where the amateur assistant leaves and the professional arrives. */
 export const SCOUT_TIER = 3;
 /** Paid once, on signing. The player he finds is paid for on top. */
@@ -41,12 +64,12 @@ export interface ScoutState {
   /** the season a scout was last hired in, 0 for never. One a season. */
   hiredSeason: number;
   /** the one at work, or null. Pinned to its season so it can never leak into the next. */
-  job: { style: ScoutStyle; startWeek: number; season: number } | null;
+  job: { style: ScoutStyle; startWeek: number; season: number; position?: Position } | null;
   /**
    * What he came back with, waiting for the next window to open. The player is
    * null for a style that cannot find one yet.
    */
-  found: { style: ScoutStyle; season: number; player: Player | null; fromClubId?: string } | null;
+  found: { style: ScoutStyle; season: number; player: Player | null; fromClubId?: string; position?: Position } | null;
   /**
    * The find, arrived, for as long as the window that brought him stays open.
    * The price is fixed on arrival, from the man as he is then, a year older.
@@ -63,7 +86,13 @@ export interface ScoutState {
 }
 
 /** `fromClubId` is the club he is being taken from, when he is somebody's already. */
-export interface ScoutOffer { player: Player; fee: number; style: ScoutStyle; fromClubId?: string }
+export interface ScoutOffer {
+  player: Player; fee: number; style: ScoutStyle; fromClubId?: string;
+  /** the place he was sent to find a man for (15.10), absent on an offer from before it */
+  position?: Position;
+  /** he is for later: below the man he would replace today, and the card says so */
+  prospect?: boolean;
+}
 
 export function emptyScout(): ScoutState {
   return { hiredSeason: 0, job: null, found: null, offer: null, seenKey: '', signedIds: [] };
@@ -116,6 +145,12 @@ export const SCOUT_TEXT = {
   oldNews: (name: string, age: number, level: number) =>
     `מצאתי שחקן: ${name}, בן ${age}, ברמה ${level}. הוא כבר הוכיח את עצמו בליגה בכירה. כשהחלון ייפתח, אפשר להחתים אותו.`,
   fromHigher: 'מליגה בכירה',
+  // the place he is sent for (15.10). DRAFT WORDING, Itzik's to correct.
+  choose: 'לאיזו עמדה הוא יחפש?',
+  chooseHint: 'המספר מתחת לכל עמדה הוא הפותח הכי טוב שלך שם. אין טעם לשלוח אותו אחרי חלוץ כשיש לך חלוץ טוב.',
+  yourStarter: (place: string, n: number | null) => (n == null ? `אין לך פותח ב${place}.` : `הפותח שלך ב${place}: ${n}.`),
+  forPlace: (place: string, n: number | null) => (n == null ? `ל${place}` : `ל${place} · הפותח שלך ${n}`),
+  prospect: 'צעיר לעתיד',
 } as const;
 
 export const SCOUT_STYLE_TEXT: Record<ScoutStyle, { name: string; blurb: string }> = {
@@ -155,11 +190,12 @@ const KEEN_POSITIONS: Position[] = ['CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 
  * be asked for: candidates are drawn until one has it, which is fast enough
  * (a couple of dozen draws) and, off a seeded stream, always the same man.
  */
-export function findKeen(tier: number, rng: Rng, taken: Set<string>): Player {
+export function findKeen(tier: number, rng: Rng, taken: Set<string>, position?: Position): Player {
   const level = leagueCeiling(tier);
+  const places = position ? [position] : KEEN_POSITIONS;
   let best: Player | null = null;
   for (let i = 0; i < 6000; i++) {
-    const pos = KEEN_POSITIONS[Math.floor(rng() * KEEN_POSITIONS.length)];
+    const pos = places[Math.floor(rng() * places.length)];
     const p = makePlayer(pos, level - 6, rng, { ...NEUTRAL_TRAITS, youth: 1 }, new Set(taken));
     p.age = KEEN_AGE;
     const o = overall(p);
@@ -188,20 +224,20 @@ const budgetMemo = new Map<string, [number, number] | null>();
  * fixed stream, so the card and the counter can never quote different figures.
  * Null for a style that does not find anybody yet.
  */
-export function scoutBudget(style: ScoutStyle, tier: number): [number, number] | null {
-  const key = `${style}:${tier}`;
+export function scoutBudget(style: ScoutStyle, tier: number, position?: Position, anchor?: number | null): [number, number] | null {
+  const key = `${style}:${tier}${position ? `:${position}:${anchor ?? ''}` : ''}`;
   if (budgetMemo.has(key)) return budgetMemo.get(key)!;
   let range: [number, number] | null = null;
   if (style === 'old') {
     const rng = createRng(9933 + tier);
     const fees: number[] = [];
-    for (let i = 0; i < 40; i++) fees.push(oldFee(findOld(tier, rng, new Set()), tier));
+    for (let i = 0; i < 40; i++) fees.push(oldFee(findOld(tier, rng, new Set(), position, anchor), tier));
     range = feeRange(fees);
   }
   if (style === 'keen') {
     const rng = createRng(9911 + tier);
     const fees: number[] = [];
-    for (let i = 0; i < 40; i++) fees.push(keenFee(findKeen(tier, rng, new Set()), tier));
+    for (let i = 0; i < 40; i++) fees.push(keenFee(findKeen(tier, rng, new Set(), position), tier));
     fees.sort((a, b) => a - b);
     const round = (n: number) => Math.round(n / 5000) * 5000;
     range = [round(fees[Math.floor(fees.length * 0.1)]), round(fees[Math.floor(fees.length * 0.9)])];
@@ -233,15 +269,35 @@ export interface RivalKid { clubId: string; player: Player }
  * back empty-handed while a boy that age exists. Ties go to whoever was listed
  * first, which is the order the squads are kept in.
  */
-export function pickSafe(pool: RivalKid[]): RivalKid | null {
-  const kids = pool.filter(k => k.player.age >= 19 && k.player.age <= 20 && k.player.position !== 'GK');
-  if (!kids.length) return null;
-  const band = kids.filter(k => {
-    const p = potentialOf(k.player);
-    return p >= SAFE_POTENTIAL[0] && p <= SAFE_POTENTIAL[1];
-  });
-  if (band.length) return band.reduce((a, b) => (overall(b.player) > overall(a.player) ? b : a));
-  return kids.reduce((a, b) => (potentialOf(b.player) > potentialOf(a.player) ? b : a));
+export function pickSafe(pool: RivalKid[], position?: Position, anchor?: number | null): RivalKid | null {
+  const bestOf = (kids: RivalKid[]): RivalKid | null => {
+    if (!kids.length) return null;
+    const band = kids.filter(k => {
+      const p = potentialOf(k.player);
+      return p >= SAFE_POTENTIAL[0] && p <= SAFE_POTENTIAL[1];
+    });
+    if (band.length) return band.reduce((a, b) => (overall(b.player) > overall(a.player) ? b : a));
+    return kids.reduce((a, b) => (potentialOf(b.player) > potentialOf(a.player) ? b : a));
+  };
+  const old = pool.filter(k => k.player.age >= 19 && k.player.age <= 20 && k.player.position !== 'GK');
+  if (!position) return bestOf(old);
+  // sent for a place (15.10): the man at that place first, then a year or two older, then his line, and only then anybody;
+  // a man who would not even be the weakest of the eleven there is passed over while a wider search can do better
+  const aged = (k: RivalKid, to: number) => k.player.age >= 19 && k.player.age <= to;
+  const steps: RivalKid[][] = [
+    pool.filter(k => aged(k, 20) && k.player.position === position),
+    pool.filter(k => aged(k, 22) && k.player.position === position),
+    pool.filter(k => aged(k, 22) && LINE_OF_POS[k.player.position] === LINE_OF_POS[position]),
+    old,
+  ];
+  let fallback: RivalKid | null = null;
+  for (const kids of steps) {
+    const pick = bestOf(kids);
+    if (!pick) continue;
+    if (anchor == null || overall(pick.player) >= anchor - 1) return pick;
+    fallback = fallback ?? pick;
+  }
+  return fallback;
 }
 
 /** The price of taking him, on the man as he is. */
@@ -255,7 +311,9 @@ export function safeFee(p: Player, tier: number): number {
  * ordinary one, what a season or two can realistically make of him.
  */
 export function scoutReach(style: ScoutStyle, p: Player): number {
-  return style === 'keen' ? potentialOf(p) : reachableCeiling(p);   // nothing left to grow at 24, so the old one's is his own level
+  // the boy's own ceiling is a promise no career keeps (measured: he reaches about 75 in four years, not 86), so the card
+  // quotes what a season or two can realistically make of him, like every other man; nothing left to grow at 24
+  return reachableCeiling(p);
 }
 
 /** A range from the fees of everybody he could take, rounded outward to five thousand. */
@@ -285,18 +343,26 @@ const OLD_REFERENCE_ABOVE = 7;
 
 const OLD_POSITIONS: Position[] = ['CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
 
-export function findOld(tier: number, rng: Rng, taken: Set<string>): Player {
+export function findOld(tier: number, rng: Rng, taken: Set<string>, position?: Position, anchor?: number | null): Player {
   const level = leagueCeiling(tier);
+  const places = position ? [position] : OLD_POSITIONS;
+  // sent for a place (15.10), he is three to seven better than the best man the club has there, never past what a man of
+  // that league can be; with no place, the old band over the division
+  const cap = level + OLD_ABOVE[1];
+  const lo = anchor != null ? Math.min(anchor + 3, cap - 1) : level + OLD_ABOVE[0];
+  const hi = anchor != null ? Math.min(Math.max(anchor + 7, lo + 1), cap) : cap;
   let last: Player | null = null;
   for (let i = 0; i < 2000; i++) {
-    const pos = OLD_POSITIONS[Math.floor(rng() * OLD_POSITIONS.length)];
-    const p = makePlayer(pos, level + 2 + Math.floor(rng() * 6), rng, { ...NEUTRAL_TRAITS, youth: 0 }, new Set(taken));
+    const pos = places[Math.floor(rng() * places.length)];
+    const nominal = anchor != null ? lo - 3 + Math.floor(rng() * 4) : level + 2 + Math.floor(rng() * 6);
+    const p = makePlayer(pos, nominal, rng, { ...NEUTRAL_TRAITS, youth: 0 }, new Set(taken));
     p.age = OLD_AGES[0] + Math.floor(rng() * 2);
     last = p;
     const o = overall(p);
-    if (o >= level + OLD_ABOVE[0] && o <= level + OLD_ABOVE[1]) return p;
+    // from a higher league: from the Leumit up he is often a foreigner (by his name, so no draw moves)
+    if (o >= lo && o <= hi) return maybeForeign(p, tier);
   }
-  return last!;
+  return maybeForeign(last!, tier);
 }
 
 /**

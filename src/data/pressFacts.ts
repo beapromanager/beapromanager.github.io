@@ -477,8 +477,8 @@ export function pickPressQuestions(
   // everything we have on the lead story was asked lately, a smaller story
   // with something fresh to ask beats hearing the big one again
   const pools = (f: MatchFact): QGen[] => [
-    ...BY_FACT[f.kind]!.map(g => (cc: PressContext) => g(cc, f)),
-    ...(FACT_EXTRA[f.kind] ?? []).filter(x => !x.when || x.when(c, f)).map(x => (cc: PressContext) => x.gen(cc, f)),
+    ...BY_FACT[f.kind]!.map(g => (cc: PressContext) => ({ ...g(cc, f), who: f.who })),
+    ...(FACT_EXTRA[f.kind] ?? []).filter(x => !x.when || x.when(c, f)).map(x => (cc: PressContext) => ({ ...x.gen(cc, f), who: f.who })),
   ];
   const unheard = (f: MatchFact) => pools(f).some(g => !recent.includes(g(c).id));
   let pick = usable[rng() > 0.72 && usable.length > 1 ? 1 : 0];

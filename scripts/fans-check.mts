@@ -314,6 +314,21 @@ const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
   console.log(`  the meter speaks at ${FANS_QUIET} and below, ${FANS_LOUD} and above: ${quiet.length} lines and ${loud.length}, silent in between`);
 }
 
+/* 15.10: on the eve of the opening round the terrace does not read a table that does not exist yet ("מקום 1 מתוך 8, ניצחון מחר וקופצים") */
+{
+  const open: FanContext = {
+    timing: 'pre', isDerby: false, isHome: true, rival: 'הפועל', city: 'חיפה',
+    coldStriker: null, coldWeeks: 0, youngster: null, approach: 'balanced',
+    tablePos: 1, totalTeams: 8, streak: 0, fans: FANS_MIDDLE, played: 0,
+  };
+  const quoting = everyFanLine().filter(l => l.when(open) && /מקום \d|מתוך \d/.test(l.text(open, createRng(1))));
+  checked++;
+  if (quoting.length) fails.push(`before a match is played a fan quotes the table: ${quoting.map(l => l.id).join(', ')}`);
+  const ranked = everyFanLine().filter(l => l.when({ ...open, played: 5 }) && /מקום \d|מתוך \d/.test(l.text({ ...open, played: 5 }, createRng(1))));
+  checked++;
+  if (!ranked.length) fails.push('a fan never quotes the table, even five rounds in');
+}
+
 console.log(`\n${checked} checks`);
 if (fails.length) console.log('\n  ' + fails.slice(0, 10).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, the terrace answers to the table, and forgets');

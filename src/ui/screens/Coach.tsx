@@ -123,7 +123,7 @@ export function CoachScreen({ gs, onBack, onReport }: { gs: G.GameState; onBack:
           })}
         </div>
 
-        <p className="hint">קורסים נלמדים בפרה־סיזן בלבד, בין העונות.</p>
+        <p className="hint">קורסים נלמדים בפרה־סיזן בלבד, בין העונות, ואפשר לקחת את הבא כבר לפני שצריך. ההסמכה הבינלאומית פתוחה למי שהגיע לליגת העל עם תעודת הפרו.</p>
 
         <div className="tile" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Icon name="alert" size={18} color="var(--gold)" />

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import * as G from '../../game/state.ts';
-import { SCOUT_FEE, SCOUT_STYLES, SCOUT_STYLE_TEXT, SCOUT_TEXT, scoutReach } from '../../game/scout.ts';
+import { SCOUT_FEE, SCOUT_STYLES, SCOUT_STYLE_TEXT, SCOUT_TEXT, SCOUT_POSITIONS, scoutReach, starterAt, weakestPosition } from '../../game/scout.ts';
+import type { Position } from '../../engine/matchEngine.ts';
 import { PlayerRow } from './Squad.tsx';
 import { overall } from '../../engine/matchEngine.ts';
 import { Crest } from '../components/Crest.tsx';
@@ -17,7 +19,7 @@ import { Meters, formatMoney } from '../components/bits.tsx';
  */
 export function ScoutScreen({ gs, onHire, onSign, onBack }: {
   gs: G.GameState;
-  onHire: (style: (typeof SCOUT_STYLES)[number]) => void;
+  onHire: (style: (typeof SCOUT_STYLES)[number], position: Position) => void;
   onSign: () => void;
   onBack: () => void;
 }) {
@@ -26,6 +28,13 @@ export function ScoutScreen({ gs, onHire, onSign, onBack }: {
   const found = gs.scout.found;
   const offer = gs.scout.offer;
   const win = G.transferWindow(gs);
+  // where he is sent: by default the place of the weakest man of the eleven (15.10)
+  const starters = G.mySquad(gs).starters;
+  const [place, setPlace] = useState<Position>(() => weakestPosition(starters));
+  const placeName: Record<string, string> = {
+    GK: 'שוער', CB: 'בלם', LB: 'מגן שמאלי', RB: 'מגן ימני', CDM: 'קשר הגנתי', CM: 'קשר', CAM: 'קשר התקפי',
+    LW: 'כנף שמאלית', RW: 'כנף ימנית', ST: 'חלוץ',
+  };
 
   return (
     <>
@@ -55,6 +64,12 @@ export function ScoutScreen({ gs, onHire, onSign, onBack }: {
               )}
               {win.open && <span className="chip" style={{ background: 'rgba(255,255,255,.07)', color: 'var(--ink-dim)' }}>נסגר בעוד <span className="num">{win.weeksLeft}</span> מחזורים</span>}
             </div>
+            {offer.position && (
+              <p className="hint" style={{ padding: '4px 8px 0', margin: 0 }}>
+                {SCOUT_TEXT.forPlace(placeName[offer.position] ?? offer.position, starterAt(starters, offer.position))}
+                {offer.prospect && <span style={{ color: 'var(--gold-hi)', fontWeight: 800 }}> · {SCOUT_TEXT.prospect}</span>}
+              </p>
+            )}
             <PlayerRow p={offer.player} tier={c.tier} />
             {scoutReach(offer.style, offer.player) > overall(offer.player) && (
               <p className="hint" style={{ padding: '0 8px' }}>יכול להגיע ל־<span className="num">{scoutReach(offer.style, offer.player)}</span></p>
@@ -90,6 +105,29 @@ export function ScoutScreen({ gs, onHire, onSign, onBack }: {
 
         {!gs.scout.job && !found && !offer && (
           <div className="stack" style={{ gap: 10 }}>
+            <div className="tile" style={{ padding: '12px 13px 13px' }}>
+              <div style={{ fontWeight: 900, fontSize: 16.5 }}>{SCOUT_TEXT.choose}</div>
+              <p className="hint" style={{ margin: '4px 0 9px' }}>{SCOUT_TEXT.chooseHint}</p>
+              <div className="row" style={{ gap: 7, flexWrap: 'wrap' }}>
+                {SCOUT_POSITIONS.map(pos => {
+                  const mine = starterAt(starters, pos);
+                  const on = pos === place;
+                  return (
+                    <button key={pos} onClick={() => setPlace(pos)} aria-pressed={on}
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, minWidth: 64, minHeight: 52, padding: '6px 9px',
+                        borderRadius: 12, cursor: 'pointer', color: 'var(--ink)',
+                        border: on ? '1px solid var(--gold)' : '1px solid var(--line-2)',
+                        background: on ? 'color-mix(in srgb, var(--gold) 16%, var(--surface-2))' : 'var(--surface-2)',
+                      }}>
+                      <span style={{ fontWeight: 900, fontSize: 14 }}>{placeName[pos]}</span>
+                      <span className="num" style={{ fontSize: 12, color: 'var(--ink-dim)' }}>{mine ?? '-'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="hint" style={{ margin: '9px 0 0' }}>{SCOUT_TEXT.yourStarter(placeName[place], starterAt(starters, place))}</p>
+            </div>
             {SCOUT_STYLES.map(style => {
               const t = SCOUT_STYLE_TEXT[style];
               const blocked = G.scoutBlockedReason(gs, style);
@@ -98,14 +136,14 @@ export function ScoutScreen({ gs, onHire, onSign, onBack }: {
                   <div style={{ fontWeight: 900, fontSize: 17 }}>{t.name}</div>
                   <p className="hint" style={{ margin: '5px 0 0' }}>{t.blurb}</p>
                   {(() => {
-                    const range = G.scoutBudgetFor(gs, style);
+                    const range = G.scoutBudgetFor(gs, style, place);
                     return range && (
                       <p className="hint" style={{ margin: '7px 0 0', color: 'var(--gold-hi)' }}>
                         {SCOUT_TEXT.budget} <span className="num">{formatMoney(range[0])}</span> ל־<span className="num">{formatMoney(range[1])}</span>. {SCOUT_TEXT.budgetTail}
                       </p>
                     );
                   })()}
-                  <button className="btn" style={{ marginTop: 11 }} disabled={!!blocked} onClick={() => onHire(style)}>
+                  <button className="btn" style={{ marginTop: 11 }} disabled={!!blocked} onClick={() => onHire(style, place)}>
                     {blocked ?? `${SCOUT_TEXT.hire} · ${formatMoney(SCOUT_FEE)}`}
                   </button>
                 </div>

@@ -2325,3 +2325,22 @@ a.btn{text-decoration:none;}
 .fx-intro-bar i{display:block; height:100%; width:100%; background:var(--gold); transform-origin:100% 50%; animation:fxIntroBar linear both;}
 @keyframes fxIntroBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .fx-intro-skip{position:absolute; top:calc(14px + env(safe-area-inset-top, 0px)); inset-inline-start:14px; padding:8px 16px; min-height:44px; border-radius:999px; border:1px solid rgba(255,255,255,.35); background:rgba(5,8,6,.55); color:#fff; font-weight:800; font-size:14px; cursor:pointer;}
+
+/* the coaching course (15.10): a lecture clip, a subject, three questions, a graduation clip */
+.cr{position:relative; min-height:100vh; min-height:100dvh; overflow:hidden; background:#050806;}
+.cr-vid{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+.cr-shade{position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,6,.4) 0%, rgba(5,8,6,.1) 24%, rgba(5,8,6,.78) 56%, #070d09 100%);}
+.cr-close{position:absolute; top:calc(14px + env(safe-area-inset-top, 0px)); inset-inline-start:14px; z-index:2; padding:8px 16px; min-height:44px; border-radius:999px; border:1px solid rgba(255,255,255,.35); background:rgba(5,8,6,.55); color:#fff; font-weight:800; font-size:14px; cursor:pointer;}
+.cr-panel{position:absolute; inset-inline:0; bottom:0; z-index:1; padding:20px 18px calc(22px + env(safe-area-inset-bottom, 0px)); gap:12px; max-height:78%; overflow-y:auto;}
+.cr-title{margin:0; font-family:var(--font-display); font-weight:900; font-size:27px; line-height:1.12; background:linear-gradient(180deg,#fff,var(--gold-hi) 60%,var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 3px 10px rgba(0,0,0,.8));}
+.cr-lead{margin:0; font-size:16px; line-height:1.55; color:var(--ink); text-shadow:0 2px 10px rgba(0,0,0,.9);}
+.cr-focus{display:flex; flex-direction:column; gap:3px; text-align:start; padding:13px 15px; border-radius:16px; border:1px solid var(--line-2); background:rgba(10,18,14,.84); color:var(--ink); cursor:pointer; min-height:44px;}
+.cr-focus b{font-size:16px; font-weight:900;}
+.cr-focus span{font-size:13px; color:var(--ink-dim); line-height:1.4;}
+.cr-focus[data-on="1"]{border-color:var(--gold); background:color-mix(in srgb,var(--gold) 14%,rgba(10,18,14,.9));}
+.cr-opt{padding:13px 15px; border-radius:16px; border:1px solid var(--line-2); background:rgba(10,18,14,.84); color:var(--ink); font-size:15.5px; font-weight:700; text-align:start; line-height:1.4; cursor:pointer; min-height:44px;}
+.cr-opt[data-state="right"]{border-color:var(--win); background:rgba(51,194,122,.16);}
+.cr-opt[data-state="wrong"]{border-color:var(--loss); background:rgba(255,92,92,.14);}
+.cr-opt[data-state="dim"]{opacity:.5;}
+.cr-verdict{margin:0; font-weight:900; font-size:15px; color:var(--loss);}
+.cr-verdict[data-ok="1"]{color:var(--win);}

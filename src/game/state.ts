@@ -46,12 +46,13 @@ import { emptyFixLog, FIX_LIVE, FIX_CAUGHT, FIX_TOP_TIER, FIX_ASKS_PER_LEAGUE, F
 import type { FixDeal, FixLog } from './fixing.ts';
 import { FIX_SITUATIONS, FIX_CLEAR_TEXT } from '../data/fixingText.ts';
 import { promotionText, COACH } from '../data/academyText.ts';
+import { makeForeignName, foreignCount, FOREIGN_MAX, isForeign } from '../data/foreignNames.ts';
 import type { CoachNote } from '../data/academyText.ts';
 import { YOUTH_V2, ACADEMY_MAX, TRIP_FEE, CALL_UPS_PER_ROUND, OWN_INTAKE, FREE_POT_CAP, routeOf, drawPool, makeYouthKid, foldMinutes, toNewRules, rangeOf, reachNow } from './academy.ts';
 import type { YouthOffer } from './academy.ts';
 import {
   emptyScout, scoutWindowKey, SCOUT_TIER, SCOUT_FEE, SCOUT_ROUNDS, SCOUT_TEXT, findKeen, arrivedKeen,
-  pickSafe, safeFee, feeRange, scoutBudget, SAFE_NEAREST, SAFE_POTENTIAL, findOld, oldFee,
+  pickSafe, safeFee, feeRange, scoutBudget, SAFE_NEAREST, SAFE_POTENTIAL, findOld, oldFee, starterAt,
 } from './scout.ts';
 import type { RivalKid } from './scout.ts';
 import type { ScoutState, ScoutStyle } from './scout.ts';
@@ -112,7 +113,7 @@ import type { Coach } from './coach.ts';
 import {
   newCoach, coachChemistry, coachAttBias, coachDefBias,
   coachMoraleBias, coachYouthGrowth, qualifiedFor, requiredLicence,
-  licence, applyCourse, coachFitnessBonus, coachCardBias,
+  licence, applyCourse, coachFitnessBonus, coachCardBias, nextLicence, licenceRank,
 } from './coach.ts';
 import type { PackPull, PackId } from './packs.ts';
 import {
@@ -1259,29 +1260,63 @@ export function courseRequired(gs: GameState): boolean {
   return !qualifiedFor(gs.coach.licence, club(gs).tier);
 }
 
-/** The badge on offer this summer, or null when there is nothing to take. */
+/**
+ * The badge on offer this summer, or null when there is nothing to take. The one the division demands comes first. After
+ * that, a manager may take the next badge early (Itzik, 15.10: a user with 45M could not buy the international badge,
+ * because it was never on offer to anyone): the badge for the division above his own, and at the top the international one.
+ */
 export function courseOnOffer(gs: GameState) {
-  const nextId = requiredLicence(club(gs).tier);
-  if (qualifiedFor(gs.coach.licence, club(gs).tier)) return null;
-  return licence(nextId);
+  const tier = club(gs).tier;
+  if (!qualifiedFor(gs.coach.licence, tier)) return licence(requiredLicence(tier));
+  const next = nextLicence(gs.coach.licence);
+  if (!next) return null;
+  const early = tier >= TOP_TIER ? next.id === 'international' : licenceRank(next.id) <= licenceRank(requiredLicence(tier + 1));
+  return early ? next : null;
+}
+
+/** True when the badge on offer is only a head start and nothing in the way of the season. */
+export function courseIsOptional(gs: GameState): boolean {
+  return !!courseOnOffer(gs) && !courseRequired(gs);
+}
+
+/**
+ * Money for the course. A required badge that the purse cannot pay may go on the club's account, as long as the debt it makes
+ * is still a warned one and not a final one (a season that cannot open because of a fee would be a trap, and the owner's rope
+ * is already the rule for every other debt). A head start is paid in cash only.
+ */
+export function courseFunding(gs: GameState): { fee: number; cash: number; onAccount: number; ok: boolean; reason: string | null } {
+  const l = courseOnOffer(gs);
+  if (!l) return { fee: 0, cash: 0, onAccount: 0, ok: false, reason: null };
+  const money = gs.meters.money;
+  if (money >= l.cost) return { fee: l.cost, cash: l.cost, onAccount: 0, ok: true, reason: null };
+  if (courseRequired(gs)) {
+    const after = debtState(money - l.cost, club(gs).tier, gs.meters.fans);
+    if (after.ratio < 0.75) return { fee: l.cost, cash: Math.max(0, money), onAccount: l.cost - Math.max(0, money), ok: true, reason: null };
+    return { fee: l.cost, cash: Math.max(0, money), onAccount: l.cost - Math.max(0, money), ok: false, reason: 'הקורס עולה יותר ממה שהמועדון יכול לשאת, גם על חשבון הבעלים. צריך למכור שחקן לפני' };
+  }
+  return { fee: l.cost, cash: Math.max(0, money), onAccount: 0, ok: false, reason: 'אין מספיק תקציב לקורס' };
 }
 
 export function courseBlockedReason(gs: GameState): string | null {
-  const l = courseOnOffer(gs);
-  if (!l) return null;
-  if (gs.meters.money < l.cost) return 'אין מספיק תקציב לקורס';
-  return null;
+  if (!courseOnOffer(gs)) return null;
+  return courseFunding(gs).reason;
 }
 
-/** Take the course. Costs money, upgrades the badge and the man. */
-export function takeCourse(gs: GameState): GameState {
+/**
+ * Take the course. Costs money, upgrades the badge and the man. The way he went through it counts: the subject he chose to
+ * dig into adds two points to that group, and a distinction in the exam adds one to each.
+ */
+export function takeCourse(gs: GameState, how: { focus?: 'training' | 'mental'; distinction?: boolean } = {}): GameState {
   const l = courseOnOffer(gs);
   if (!l || courseBlockedReason(gs)) return gs;
+  const extra = { training: 0, mental: 0 };
+  if (how.focus) extra[how.focus] += 2;
+  if (how.distinction) { extra.training += 1; extra.mental += 1; }
   return {
     ...gs,
     meters: { ...gs.meters, money: cash(gs.meters.money - l.cost) },
-    coach: applyCourse(gs.coach, l.id),
-    pendingOutcome: `סיימת את ${l.course}. מהיום אתה ${l.name}.`,
+    coach: applyCourse(gs.coach, l.id, extra),
+    pendingOutcome: `סיימת את ${l.course}${how.distinction ? ' בהצטיינות' : ''}. מהיום אתה ${l.name}.`,
   };
 }
 
@@ -2251,6 +2286,9 @@ export function signBlockedReason(gs: GameState, fa: FreeAgent): string | null {
   if (!transferWindow(gs).open) return 'החלון סגור';
   if (gs.meters.money < fa.fee) return 'אין מספיק תקציב';
   if (squadSize(gs) >= MAX_SQUAD) return `הסגל מלא, מקסימום ${MAX_SQUAD} שחקנים`;
+  if (isForeign(fa.player) && foreignCount([...mySquad(gs).starters, ...mySquad(gs).bench]) >= FOREIGN_MAX) {
+    return `אפשר עד ${FOREIGN_MAX} זרים בסגל`;
+  }
   return null;
 }
 
@@ -2801,14 +2839,29 @@ export function buyPack(gs: GameState, id: PackId): GameState {
   const rng = createRng(gs.seasonSeed + gs.season * 7919 + gs.gems * 131 + gs.adsWatched * 17);
   // the gift is always a keeper, because a missing keeper is what it is for.
   // Every other pack leans toward whichever line is thinnest
-  const position = id === 'gift' ? 'GK' : thinnestPosition(gs, rng);
-  const pull = openPack(spec, club(gs).tier, rng, { position, taken });
+  const spot = id === 'gift' ? { position: 'GK' as Position, slotOvr: undefined } : weakSpot(gs, rng);
+  const pull = openPack(spec, club(gs).tier, rng, { position: spot.position, slotOvr: spot.slotOvr, taken });
   return {
     ...gs,
     gems: gs.gems - spec.cost,
     gifts: id === 'gift' ? giftsWaiting(gs) - 1 : giftsWaiting(gs),
     pull,
   };
+}
+
+/**
+ * Where a pack should land: one of the three weakest men in the eleven (a keeper only when the squad holds fewer than two),
+ * and what that man is rated, so the card can be rolled above him. It used to be the line with the fewest heads, which sent a
+ * pack to a position that was already a strength (Itzik, 15.10).
+ */
+function weakSpot(gs: GameState, rng: Rng): { position: Position; slotOvr: number | undefined } {
+  const sq = mySquad(gs);
+  const keepers = [...sq.starters, ...sq.bench].filter(p => p.position === 'GK').length;
+  if (keepers < MIN_KEEPERS) return { position: 'GK', slotOvr: undefined };
+  const weakest = sq.starters.filter(p => p.position !== 'GK').sort((a, b) => overall(a) - overall(b)).slice(0, 3);
+  if (!weakest.length) return { position: thinnestPosition(gs, rng), slotOvr: undefined };
+  const pick = weakest[Math.floor(rng() * weakest.length)];
+  return { position: pick.position, slotOvr: overall(pick) };
 }
 
 /** The position the squad is shortest of, for biasing a pack roll. */
@@ -3002,6 +3055,7 @@ export function fanContext(gs: GameState, timing: FanTiming): FanContext {
     youngster: kid?.name ?? null,
     approach: gs.tactic.approach,
     tablePos, totalTeams: gs.league.clubs.length,
+    played: table.find(t => t.clubId === gs.clubId)?.played ?? 0,
     fans: gs.meters.fans,
     streak,
   };
@@ -3884,7 +3938,13 @@ function agentSigning(gs: GameState, profile: 'dropped' | 'brazilian' | 'veteran
     : makePlayer(['CB', 'CM'][Math.floor(rng() * 2)] as Position, ceiling + 2, rng, undefined, used);
   if (profile === 'dropped') p.age = 31;
   if (profile === 'veteran') p.age = 34;
-  if (profile === 'brazilian') { p.attrs.dribbling = Math.min(99, p.attrs.dribbling + 8); p.attrs.passing = Math.min(99, p.attrs.passing + 4); }
+  if (profile === 'brazilian') {
+    p.attrs.dribbling = Math.min(99, p.attrs.dribbling + 8); p.attrs.passing = Math.min(99, p.attrs.passing + 4);
+    // a Brazilian is called like one, with his country's names, and the squad screen says where he is from
+    used.delete(p.name);
+    p.nation = 'brazil';
+    p.name = makeForeignName(createRng(drawSeed(gs, 60_001)), 'brazil', used);
+  }
   return p;
 }
 
@@ -4744,12 +4804,12 @@ export function scoutBlockedReason(gs: GameState, _style: ScoutStyle): string | 
 }
 
 /** Sign him. The fee goes now, the report comes SCOUT_ROUNDS rounds from this week. */
-export function hireScout(gs: GameState, style: ScoutStyle): GameState {
+export function hireScout(gs: GameState, style: ScoutStyle, position?: Position): GameState {
   if (scoutBlockedReason(gs, style)) return gs;
   return {
     ...gs,
     meters: { ...gs.meters, money: cash(gs.meters.money - SCOUT_FEE) },
-    scout: { ...gs.scout, hiredSeason: gs.season, job: { style, startWeek: gs.week, season: gs.season } },
+    scout: { ...gs.scout, hiredSeason: gs.season, job: { style, startWeek: gs.week, season: gs.season, ...(position ? { position } : {}) } },
     pendingOutcome: SCOUT_TEXT.signed,
   };
 }
@@ -4764,7 +4824,7 @@ function scoutBack(gs: GameState, next: number): ScoutState | null {
   if (!job) return null;
   if (job.season !== gs.season) return { ...gs.scout, job: null };
   if (next < job.startWeek + SCOUT_ROUNDS) return null;
-  return { ...gs.scout, job: null, found: scoutFound(gs, job.style, job.season, next) };
+  return { ...gs.scout, job: null, found: scoutFound(gs, job.style, job.season, next, job.position) };
 }
 
 /**
@@ -4772,17 +4832,32 @@ function scoutBack(gs: GameState, next: number): ScoutState | null {
  * reported, so the same career always meets the same man however many times
  * the round is played. Null for a style that cannot find anybody yet.
  */
-function scoutFound(gs: GameState, style: ScoutStyle, season: number, week: number): NonNullable<ScoutState['found']> {
+function scoutFound(gs: GameState, style: ScoutStyle, season: number, week: number, position?: Position): NonNullable<ScoutState['found']> {
+  const at = position ? { position } : {};
+  const anchor = position ? starterAt(mySquad(gs).starters, position) : null;
   if (style === 'keen') {
     const sq = mySquad(gs);
     const taken = new Set<string>([...sq.starters, ...sq.bench, ...gs.youth.players, ...gs.market.map(f => f.player)].map(p => p.name));
-    return { style, season, player: findKeen(club(gs).tier, createRng(gs.seasonSeed * 971 + gs.season * 37 + week), taken) };
+    return { style, season, player: findKeen(club(gs).tier, createRng(gs.seasonSeed * 971 + gs.season * 37 + week), taken, position), ...at };
   }
   if (style === 'safe') {
-    const pick = pickSafe(rivalKids(gs, scoutRivals(gs))) ?? pickSafe(rivalKids(gs, allRivals(gs)));
-    return { style, season, player: pick?.player ?? null, fromClubId: pick?.clubId };
+    const pick = pickSafeFor(gs, position, anchor);
+    return { style, season, player: pick?.player ?? null, fromClubId: pick?.clubId, ...at };
   }
-  return { style, season, player: findOld(club(gs).tier, createRng(gs.seasonSeed * 977 + gs.season * 41 + week), takenNames(gs)) };
+  return { style, season, player: findOld(club(gs).tier, createRng(gs.seasonSeed * 977 + gs.season * 41 + week), takenNames(gs), position, anchor), ...at };
+}
+
+/**
+ * The safe one's man: from the clubs he looks in first, and when nobody there is right for the place (or is not even the
+ * weakest of the eleven there) from the whole division.
+ */
+function pickSafeFor(gs: GameState, position?: Position, anchor?: number | null): RivalKid | null {
+  const near = pickSafe(rivalKids(gs, scoutRivals(gs)), position, anchor);
+  const good = (k: RivalKid | null) => !!k && (!position || k.player.position === position) && (anchor == null || overall(k.player) >= anchor - 1);
+  if (good(near)) return near;
+  const all = pickSafe(rivalKids(gs, allRivals(gs)), position, anchor);
+  if (good(all)) return all;
+  return near ?? all;
 }
 
 /** Every name already in the club, the academy or the market. */
@@ -4852,18 +4927,25 @@ function scoutArrives(gs: GameState, scout: ScoutState): ScoutState {
     // summer may have moved him on, in which case the scout finds the next best
     const sq = f.fromClubId ? gs.league.squads[f.fromClubId] : undefined;
     const now = sq ? [...sq.starters, ...sq.bench].find(x => x.id === f.player!.id) : undefined;
+    const anchor = f.position ? starterAt(mySquad(gs).starters, f.position) : null;
     const pick: RivalKid | null = now && f.fromClubId
       ? { clubId: f.fromClubId, player: now }
-      : pickSafe(rivalKids(gs, scoutRivals(gs))) ?? pickSafe(rivalKids(gs, allRivals(gs)));
+      : pickSafeFor(gs, f.position, anchor);
     if (!pick) return { ...scout, found: null };
-    return { ...scout, found: null, offer: { player: pick.player, fee: safeFee(pick.player, club(gs).tier), style: 'safe', fromClubId: pick.clubId } };
+    return {
+      ...scout, found: null,
+      offer: {
+        player: pick.player, fee: safeFee(pick.player, club(gs).tier), style: 'safe', fromClubId: pick.clubId,
+        ...(f.position ? { position: f.position, prospect: anchor != null && overall(pick.player) < anchor } : {}),
+      },
+    };
   }
   if (f.style === 'old') {
     // a man of twenty four does not change in the months he was away
-    return { ...scout, found: null, offer: { player: f.player, fee: oldFee(f.player, club(gs).tier), style: 'old' } };
+    return { ...scout, found: null, offer: { player: f.player, fee: oldFee(f.player, club(gs).tier), style: 'old', ...(f.position ? { position: f.position } : {}) } };
   }
   const player = arrivedKeen(f.player, coachYouthGrowth(gs.coach));
-  return { ...scout, found: null, offer: { player, fee: transferFee(player, club(gs).tier), style: f.style } };
+  return { ...scout, found: null, offer: { player, fee: transferFee(player, club(gs).tier), style: f.style, ...(f.position ? { position: f.position, prospect: true } : {}) } };
 }
 
 /** Why the offer on the table cannot be signed right now, or null when it can. */
@@ -4896,9 +4978,12 @@ export function signScoutOffer(gs: GameState): GameState {
  * exists, so his is the fees of the men he could take right now, everybody in
  * the division the search could reach, and the man he brings is one of them.
  */
-export function scoutBudgetFor(gs: GameState, style: ScoutStyle): [number, number] | null {
-  if (style === 'keen' || style === 'old') return scoutBudget(style, club(gs).tier);
-  const kids = rivalKids(gs, allRivals(gs)).filter(k => k.player.age >= 19 && k.player.age <= 20 && k.player.position !== 'GK');
+export function scoutBudgetFor(gs: GameState, style: ScoutStyle, position?: Position): [number, number] | null {
+  if (style === 'keen') return scoutBudget(style, club(gs).tier, position);
+  if (style === 'old') return scoutBudget(style, club(gs).tier, position, position ? starterAt(mySquad(gs).starters, position) : null);
+  const all = rivalKids(gs, allRivals(gs)).filter(k => k.player.age >= 19 && k.player.age <= 20 && k.player.position !== 'GK');
+  const there = position ? all.filter(k => k.player.position === position) : all;
+  const kids = there.length ? there : all;
   const band = kids.filter(k => { const p = potentialOf(k.player); return p >= SAFE_POTENTIAL[0] && p <= SAFE_POTENTIAL[1]; });
   return feeRange((band.length ? band : kids).map(k => safeFee(k.player, club(gs).tier)));
 }
@@ -5292,8 +5377,8 @@ function dailyTaken(gs: GameState): Set<string> {
 /** the seventh gift: a boost pack of the club's own division, free, leaning toward the thinnest line like every pack */
 export function rollFreeBoost(gs: GameState): PackPull {
   const rng = createRng(drawSeed(gs, 161_000 + gs.daily.streak));
-  const position = thinnestPosition(gs, rng);
-  return openPack(packById('boost'), club(gs).tier, rng, { position, taken: dailyTaken(gs) });
+  const spot = weakSpot(gs, rng);
+  return openPack(packById('boost'), club(gs).tier, rng, { position: spot.position, slotOvr: spot.slotOvr, taken: dailyTaken(gs) });
 }
 
 /**

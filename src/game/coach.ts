@@ -109,15 +109,15 @@ const clamp20 = (n: number) => Math.max(1, Math.min(CAP, Math.round(n)));
  * is already good at, so a tactician grows into a better tactician rather than
  * every coach converging on the same numbers.
  */
-export function applyCourse(c: Coach, to: LicenceId): Coach {
+export function applyCourse(c: Coach, to: LicenceId, extra: { training?: number; mental?: number } = {}): Coach {
   const l = licence(to);
   const attrs = { ...c.attrs };
   const spread = (keys: readonly (keyof CoachAttrs)[], points: number) => {
     const total = keys.reduce((s, k) => s + attrs[k], 0) || 1;
     for (const k of keys) attrs[k] = clamp20(attrs[k] + points * (attrs[k] / total) * keys.length / 2 + points / (keys.length * 2));
   };
-  spread(TRAINING_KEYS, l.gain.training);
-  spread(MENTAL_KEYS, l.gain.mental);
+  spread(TRAINING_KEYS, l.gain.training + (extra.training ?? 0));
+  spread(MENTAL_KEYS, l.gain.mental + (extra.mental ?? 0));
   return { ...c, attrs, licence: to };
 }
 

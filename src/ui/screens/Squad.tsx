@@ -1,3 +1,4 @@
+import { nationLabel } from '../../data/foreignNames.ts';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
 import type { Player, Position } from '../../engine/matchEngine.ts';
@@ -124,8 +125,8 @@ export function PlayerRow({ p, traits, tier, state, onOpen, swap, onSwap, captai
           {trait
             ? <><span style={{ color: TONE_COLOR[trait.tone], fontWeight: 700 }}>{trait.label}</span>
                 <span style={{ opacity: .5 }}> · </span>
-                גיל <span className="num">{p.age}</span></>
-            : <>גיל <span className="num">{p.age}</span></>}
+                גיל <span className="num">{p.age}</span>{p.nation && <> · {nationLabel(p.nation)}</>}</>
+            : <>גיל <span className="num">{p.age}</span>{p.nation && <> · {nationLabel(p.nation)}</>}</>}
         </div>
       </div>
       <div className="score-face" style={{ fontSize: 26, color: ovrColor(shown), width: 34, textAlign: 'center' }}>{shown}</div>

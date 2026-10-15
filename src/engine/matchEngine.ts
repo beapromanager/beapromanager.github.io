@@ -59,6 +59,8 @@ export interface Player {
   lock0?: number;
   pu?: number;
   joined?: number;
+  /** a foreigner's country (data/foreignNames.ts); absent on every Israeli player and on every player from before it existed */
+  nation?: string;
 }
 
 /**

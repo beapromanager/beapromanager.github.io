@@ -70,6 +70,8 @@ export interface PressQuestion {
   tone: PressTone;
   text: string;
   answers: PressAnswer[];
+  /** the player a match question is about, so the top flight's rewording can name him */
+  who?: string;
 }
 
 export type QGen = (c: PressContext) => PressQuestion;
@@ -945,13 +947,15 @@ const SITUATION: Array<{ when: (c: PressContext) => boolean; gen: QGen }> = [
  * pool of one still yields a question rather than nothing.
  */
 /* ליגת העל has its own wording for part of the questions (topFlightText.ts). What an answer does stays with the old answer of the same place. */
-function topSlots(t: string, c: PressContext): string {
-  return t.replace(/{(star|rival|city)}/g, (_, k: 'star' | 'rival' | 'city') => c[k] || '');
+function topSlots(t: string, c: PressContext, who = ''): string {
+  return t.replace(/{(star|rival|city|who)}/g, (_, k: 'star' | 'rival' | 'city' | 'who') => (k === 'who' ? who : c[k]) || '');
 }
 function topWording(q: PressQuestion, c: PressContext): PressQuestion {
   const t = c.tier >= 5 ? TOP_PRESS_REWRITE[q.id] : undefined;
   if (!t) return q;
-  return { ...q, text: topSlots(t.text, c), answers: t.answers.map((a, i) => ({ ...(q.answers[i] ?? { effect: {} }), label: topSlots(a.label, c), reply: topSlots(a.reply, c) })) };
+  // a question about a named player (the hat trick, the red card) is rewritten with that player's name; with no name to put in, the old wording stays rather than a sentence about nobody
+  if (/{who}/.test(t.text) && !q.who) return q;
+  return { ...q, text: topSlots(t.text, c, q.who), answers: t.answers.map((a, i) => ({ ...(q.answers[i] ?? { effect: {} }), label: topSlots(a.label, c, q.who), reply: topSlots(a.reply, c, q.who) })) };
 }
 
 /** The questions only a professional top flight is asked, each with the night it fits. Ones that need a system the game lacks (national team, VAR, Europe) are not here. */

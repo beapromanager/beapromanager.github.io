@@ -699,6 +699,29 @@ if (seen.size < 12) fails.push(`only ${seen.size} distinct questions across ${ro
   console.log('  the 4.10 batch: sixty three new questions, every gate on its own night, the apology pays');
 }
 
+/* the hat trick in ליגת העל names the scorer (15.10: the reporter asked about "x" and a slot was empty) */
+{
+  const top: PressContext = {
+    result: 'win', isDerby: false, lowMorale: false, highPrestige: false, tablePos: 5, totalTeams: 10,
+    star: '', rival: '', city: '', isHome: true, fans: 50, lossRun: 0, gate: 0.7, justUp: false,
+    week: 5, season: 1, rounds: 14, tier: 5, firstSeasonAtTier: false, lead: 0,
+    margin: 3, gf: 3, ga: 0, oppPos: 6, nextIsDerby: false, unbeatenBefore: 0, winRun: 1,
+    scoutHired: false, scoutManPlayed: false, youthInSquad: false, youthDebut: false,
+    youthStar: false, injuryTonight: false, allGoalsFirstHalf: false,
+  };
+  const names = ['יוסי כהן', 'דני אביב', 'רועי לוי'];
+  let asked = 0;
+  for (let i = 0; i < 60; i++) {
+    const who = names[i % 3];
+    const q = pickPressQuestions(top, createRng(i + 1), [{ kind: 'hat_trick', who, minute: 80, n: 3 } as never], []).qs[0];
+    if (q.id !== 'hat_trick') continue;
+    asked++; checked++;
+    if (!q.text.includes(who) || /\{|x/.test(q.text)) fails.push(`the top flight hat trick does not name him: ${q.text}`);
+  }
+  checked++;
+  if (asked === 0) fails.push('the hat trick was never asked in ליגת העל, so the name was not tested');
+}
+
 console.log(`${checked} checks`);
 console.log(`${rounds} press conferences: ${twoQ} of two questions, ${oneQ} of one`);
 console.log(`${factLed} led with something that happened in the match`);

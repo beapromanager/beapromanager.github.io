@@ -3,6 +3,8 @@ import { scrollToTop } from '../scroll.ts';
 import { useState } from 'react';
 import * as G from '../../game/state.ts';
 import { sortedTable } from '../../game/league.ts';
+import { TOP_TIER } from '../../game/career.ts';
+import { EURO_LIVE } from '../../game/euro.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
 
@@ -67,7 +69,10 @@ const CELL: React.CSSProperties = { textAlign: 'center', fontWeight: 700, fontSi
 
 function FullTable({ gs }: { gs: G.GameState }) {
   const rows = sortedTable(gs.league);
-  const promo = 2;                                   // top two go up
+  // below the top flight the first two go up; in ליגת העל nobody goes up and only the champion opens the road to Europe
+  const top = (gs.league.clubs.find(x => x.id === gs.clubId)?.tier ?? 1) >= TOP_TIER;
+  const promo = top ? 1 : 2;
+  const topColor = EURO_LIVE ? 'var(--euro, #6FA8FF)' : 'var(--gold)';
   const drop = gs.league.clubs.length;               // last one falls
 
   return (
@@ -91,7 +96,7 @@ function FullTable({ gs }: { gs: G.GameState }) {
             const club = gs.league.clubs.find(x => x.id === s.clubId)!;
             const me = s.clubId === gs.clubId;
             const pos = i + 1;
-            const zone = pos <= promo ? 'var(--win)' : pos >= drop ? 'var(--loss)' : 'transparent';
+            const zone = pos <= promo ? (top ? topColor : 'var(--win)') : pos >= drop ? 'var(--loss)' : 'transparent';
             const gd = s.gf - s.ga;
             return (
               <tr key={s.clubId} style={{
@@ -130,7 +135,9 @@ function FullTable({ gs }: { gs: G.GameState }) {
       </table>
 
       <div className="row" style={{ gap: 14, marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--line-2)' }}>
-        <Legend color="var(--win)" label="עלייה" />
+        {top
+          ? <Legend color={topColor} label={EURO_LIVE ? 'אליפות ואירופה' : 'אליפות'} />
+          : <Legend color="var(--win)" label="עלייה" />}
         <Legend color="var(--loss)" label="ירידה" />
       </div>
     </div>

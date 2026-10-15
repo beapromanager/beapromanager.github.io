@@ -1,8 +1,9 @@
 import type { Club } from '../data/clubs.ts';
 import type { Squad } from '../data/squadGen.ts';
 import { makeSquad, squadAvgOvr } from '../data/squadGen.ts';
+import { FOREIGN_FROM_TIER, foreignizeSquad } from '../data/foreignNames.ts';
 import { sectorForCity } from '../data/names.ts';
-import { withLegend } from '../data/legends.ts';
+import { withLegend, isLegend } from '../data/legends.ts';
 import { nextPlayerId } from '../data/squadGen.ts';
 import { createRng } from '../engine/matchEngine.ts';
 import { leagueCeiling } from '../data/clubs.ts';
@@ -70,6 +71,12 @@ export function initLeague(clubs: Club[], seasonSeed: number, managerName?: stri
     const sq = withLegend(
       makeSquad(target, rng, c.traits, sectorForCity(c.city)),
       c.city, managerName, rng, nextPlayerId);
+    // from the Leumit up a club has up to three foreigners, drawn off a stream of its own
+    if (c.tier >= FOREIGN_FROM_TIER) {
+      let h = seasonSeed >>> 0;
+      for (let i = 0; i < c.id.length; i++) h = (Math.imul(h ^ c.id.charCodeAt(i), 16777619) >>> 0);
+      foreignizeSquad(sq, createRng(h), isLegend);
+    }
     squads[c.id] = sq;
     ovr[c.id] = squadAvgOvr(sq);
   });

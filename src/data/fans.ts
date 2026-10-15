@@ -83,6 +83,8 @@ export interface FanContext {
   streak?: number;        // losses in a row before this match
   tablePos: number;
   totalTeams: number;
+  /** how many league matches the club has played: before the league starts, and in its first rounds, there is no table to read (a context that leaves it out counts as mid-season) */
+  played?: number;
   /** the terrace meter itself, so the stand can talk about how full it is */
   fans: number;
 }
@@ -102,6 +104,9 @@ export type Line = {
 };
 
 /* ----------------------------------------------------------------- slots */
+
+/** the table means something only after a few rounds: a terrace never quotes a place on the eve of the opening round */
+const ranked = (c: FanContext) => (c.played ?? 99) >= 3;
 
 const pick = (r: Rng, arr: string[]) => arr[Math.floor(r() * arr.length)];
 
@@ -147,7 +152,7 @@ const PRE: Line[] = [
     when: c => c.isDerby,
     text: c => `דרבי מול ${c.rival}. יש דרך אחת לשחק את זה נכון, ואתה כנראה כרגיל תבחר בדרך הקשה. תוכיח לי שאני טועה.` },
   { id: 'sage-fav', voice: 'sage',
-    when: c => c.tablePos <= 2,
+    when: c => ranked(c) && c.tablePos <= 2,
     text: () => `מקום ראשון ומשחקים ככה. תאר לך איפה היינו אם היו מקשיבים לי מההתחלה.` },
 
   // doom
@@ -174,7 +179,7 @@ const PRE: Line[] = [
     when: () => true,
     text: () => `יש לי הרגשה טובה השבוע. הכנתי אפילו ג'חנונים וסמבוסקים לחבר׳ה. הולכים על שלוש נקודות, אני מאמין בך.` },
   { id: 'hope-top', voice: 'hope',
-    when: c => c.tablePos <= 4,
+    when: c => ranked(c) && c.tablePos <= 4,
     text: c => `מקום ${c.tablePos}, ואתה יודע מה, זו השנה שלנו. אני מרגיש את זה בעצמות.` },
 
   // superstition
@@ -182,7 +187,7 @@ const PRE: Line[] = [
     when: c => c.isDerby,
     text: () => `לובש את אותה חולצה מהניצחון הקודם בדרבי, לא כיבסתי בכוונה. אתה תעשה את שלך, אני אעשה את שלי.` },
   { id: 'super-top', voice: 'super',
-    when: c => c.tablePos <= 2,
+    when: c => ranked(c) && c.tablePos <= 2,
     text: c => `לא רוצה לדבר ולהגיד באיזה מקום אנחנו שחס וחלילה לא נעשה עין הרע. רק תמשיך, בשקט, בלי לספר לאף אחד. טפו טפו טפו חמסה!` },
 
   // hot head
@@ -192,7 +197,7 @@ const PRE: Line[] = [
 
   // numbers
   { id: 'num-table', voice: 'numbers',
-    when: () => true,
+    when: c => ranked(c),
     text: c => `מקום ${c.tablePos} מתוך ${c.totalTeams}. ניצחון מחר וקופצים, תיקו ונשארים תקועים. אני כבר חישבתי הכל, סמוך עליי.` },
   { id: 'num-away', voice: 'numbers',
     when: c => !c.isHome,
@@ -287,7 +292,7 @@ const POST: Line[] = [
 
   // numbers
   { id: 'num-win', voice: 'numbers',
-    when: c => c.result === 'win',
+    when: c => c.result === 'win' && ranked(c),
     text: c => `שלוש נקודות, ${c.scoreLine}, ועכשיו אנחנו במקום ${c.tablePos}. עשיתי את החשבון בראש עוד לפני השריקה.` },
   { id: 'num-loss', voice: 'numbers',
     when: c => c.result === 'loss',
@@ -394,10 +399,10 @@ export function fanMessage(ctx: FanContext, rng: Rng, recent: string[] = []): Fa
 const TOP_FAN_WHEN: Record<string, (c: FanContext) => boolean> = {
   'ultras-derby-police': c => c.isDerby,
   'ultras-away-convoy': c => !c.isHome,
-  'fans-euro-place': c => c.tablePos >= 3 && c.tablePos <= 5,
-  'fans-title-race': c => c.tablePos <= 2,
+  'fans-euro-place': c => ranked(c) && c.tablePos >= 3 && c.tablePos <= 5,
+  'fans-title-race': c => ranked(c) && c.tablePos <= 2,
   'fans-win-linger': c => c.isHome && c.result === 'win',
-  'fans-relegation-fear': c => c.result !== 'win' && c.tablePos >= c.totalTeams - 3,
+  'fans-relegation-fear': c => ranked(c) && c.result !== 'win' && c.tablePos >= c.totalTeams - 3,
 };
 for (const [id, when] of Object.entries(TOP_FAN_WHEN)) {
   const n = TOP_FAN_NEW[id];

@@ -2,6 +2,7 @@ import type { Player, Position, Rng } from '../engine/matchEngine.ts';
 import { overall } from '../engine/matchEngine.ts';
 import { makePlayer, playerValue, NEUTRAL_TRAITS } from '../data/squadGen.ts';
 import { leagueCeiling } from '../data/clubs.ts';
+import { maybeForeign } from '../data/foreignNames.ts';
 import { playerWage, purseBase } from './career.ts';
 
 /**
@@ -87,7 +88,7 @@ export function makeMarket(
     const pos = i < MARKET_SPINE.length ? MARKET_SPINE[i] : POOL_POSITIONS[Math.floor(rng() * POOL_POSITIONS.length)];
     const base = ceiling - 10 + Math.round(rng() * 12);
     const traits = { ...NEUTRAL_TRAITS, youth: i < 3 ? 0.75 : 0.1 };
-    const player = makePlayer(pos, base, rng, traits, used);
+    const player = maybeForeign(makePlayer(pos, base, rng, traits, used), tier, used);
     const notes = player.age <= 21 ? NOTES_YOUNG : player.age >= 31 ? NOTES_OLD : NOTES_PRIME;
     out.push({
       player,
@@ -139,7 +140,7 @@ const MARQUEE_NOTES = [
 function marqueeAgent(tier: number, rng: Rng, used: Set<string>): FreeAgent {
   const ceiling = leagueCeiling(tier);
   const pos = MARKET_SPINE[Math.floor(rng() * 7)];   // a spine role, never a spare
-  const player = makePlayer(pos, ceiling + 6 + Math.round(rng() * 4), rng, NEUTRAL_TRAITS, used);
+  const player = maybeForeign(makePlayer(pos, ceiling + 6 + Math.round(rng() * 4), rng, NEUTRAL_TRAITS, used), tier, used, 50);
   player.age = 24 + Math.floor(rng() * 6);           // in his prime, not a project
   return {
     player,

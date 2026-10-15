@@ -16,6 +16,7 @@ import { RoundTurn } from '../components/RoundTurn.tsx';
 import { Stepper } from '../components/Stepper.tsx';
 import { PlayerCard } from '../components/PlayerCard.tsx';
 import { ovrColor, LINE_OF, LINE_LABEL, LINE_COLOR } from './Squad.tsx';
+import { CourseScreen } from './Course.tsx';
 
 /**
  * The summer board, and the first screen a new manager really works with. It has
@@ -33,7 +34,7 @@ export function PreSeasonMarket({
   onRenew: (playerId: string) => void;
   onRelease: (playerId: string) => void;
   onDismissOutcome: () => void;
-  onTakeCourse: () => void;
+  onTakeCourse: (how: { focus: 'training' | 'mental'; distinction: boolean }) => void;
   onAdvance: () => void;
 }) {
   const c = G.club(gs);
@@ -70,6 +71,7 @@ export function PreSeasonMarket({
   }
 
   const [card, setCard] = useState<Player | null>(null);
+  const [inCourse, setInCourse] = useState(false);
   const traits = useMemo(() => assignTraits([...sq.starters, ...sq.bench], gs.friends, G.club(gs).tier), [sq, gs.friends, gs]);
 
   // an answered piece of business shows its outcome, same grammar as the inbox
@@ -95,6 +97,10 @@ export function PreSeasonMarket({
         </div>
       </>
     );
+  }
+
+  if (inCourse) {
+    return <CourseScreen gs={gs} onCancel={() => setInCourse(false)} onFinish={how => { setInCourse(false); onTakeCourse(how); }} />;
   }
 
   return (
@@ -140,7 +146,7 @@ export function PreSeasonMarket({
         </div>
 
         {/* the badge you are missing for this division, the summer's first job */}
-        <CourseCard gs={gs} onTake={onTakeCourse} />
+        <CourseCard gs={gs} onTake={() => setInCourse(true)} />
 
         {/* the squad, so the manager can see what he has and where the holes are */}
         <SquadPanel squad={sq} onOpen={setCard} onNeed={onOpenMarket} />
@@ -402,20 +408,23 @@ function CourseCard({ gs, onTake }: { gs: G.GameState; onTake: () => void }) {
   const course = G.courseOnOffer(gs);
   if (!course) return null;
   const blocked = G.courseBlockedReason(gs);
+  const funding = G.courseFunding(gs);
+  const optional = G.courseIsOptional(gs);
   const tierName = LEAGUE_NAMES[G.club(gs).tier];
+  const tone = optional ? 'var(--gold)' : 'var(--loss)';
 
   return (
     <div className="tile" style={{
       padding: '14px 15px',
-      borderColor: 'color-mix(in srgb, var(--loss) 45%, transparent)',
-      background: 'linear-gradient(180deg, color-mix(in srgb, var(--loss) 9%, var(--surface-2)), var(--surface))',
+      borderColor: `color-mix(in srgb, ${tone} 45%, transparent)`,
+      background: `linear-gradient(180deg, color-mix(in srgb, ${tone} 9%, var(--surface-2)), var(--surface))`,
     }}>
       <div className="row" style={{ gap: 10, marginBottom: 8 }}>
-        <Icon name="clipboard" size={19} color="var(--loss)" />
+        <Icon name="clipboard" size={19} color={tone} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 900, fontSize: 16.5 }}>{course.course}</div>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--loss)', marginTop: 2 }}>
-            חובה כדי לפתוח עונה ב{tierName}
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: tone, marginTop: 2 }}>
+            {optional ? 'אפשר לקחת כבר עכשיו, לפני שצריך' : `חובה כדי לפתוח עונה ב${tierName}`}
           </div>
         </div>
       </div>
@@ -425,6 +434,9 @@ function CourseCard({ gs, onTake }: { gs: G.GameState; onTake: () => void }) {
         <StatBox label="אימון" value={`+${course.gain.training}`} />
         <StatBox label="מנטלי" value={`+${course.gain.mental}`} />
       </div>
+      {funding.onAccount > 0 && !blocked && (
+        <p className="hint" style={{ margin: '9px 0 0' }}>הקופה לא מספיקה, והחלק החסר נרשם על חשבון המועדון.</p>
+      )}
       <button className="btn" style={{ marginTop: 11 }} disabled={!!blocked} onClick={onTake}>
         {blocked ?? `צא ל${course.course} · הפוך ל${course.name}`}
       </button>
