@@ -43,9 +43,10 @@ function walk(gs: G.GameState): { week: number; id: string; gs: G.GameState } | 
   return null;
 }
 
-/* ---------------------------------------------------------------- the door is shut */
+/* ------------------------------------------- the door is open for players, and shuts with one line */
 {
-  ok(FIX_LIVE === false, 'the owner\'s request is not shut by default');
+  ok(FIX_LIVE === true, 'the owner\'s request is not open for players (Itzik opened it, 15.10)');
+  setFixDoorForChecks(false);
   ok(walk(career(8001, 1)) === null, 'a shut door still asked');
 }
 setFixDoorForChecks(true);

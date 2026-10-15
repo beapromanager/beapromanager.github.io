@@ -11,16 +11,17 @@
  *  - said yes (caught or not), the owner never asks again;
  *  - the money depends on the situation, never on the odds: the odds are always 60 to 40.
  *
- * The door is shut (FIX_LIVE false) until it has been looked at. One line opens it.
+ * The door is open (FIX_LIVE true) since Itzik said so, 15.10: "תפתח את הדלת". One line shuts it again.
  */
 
-/** On a developer's machine only, ?fix in the address opens the door. A built game never does. */
+/** On a developer's machine only, ?fix in the address opens the door even while it is shut for players. A built game never does. */
 function devDoor(): boolean {
   try { return !!import.meta.env?.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('fix'); } catch { return false; }
 }
 
-/** Whether the owner's request is live for players. Shut until Itzik opens it. */
-export let FIX_LIVE = devDoor();
+/** Whether the owner's request is live for players. Open since 15.10; false shuts it again, and ?fix still opens it on a developer's machine. */
+const FIX_OPEN = true;
+export let FIX_LIVE = FIX_OPEN || devDoor();
 
 /** For the checks only, which walk the door open and shut: the game never calls it. */
 export function setFixDoorForChecks(open: boolean): void { FIX_LIVE = open; }
