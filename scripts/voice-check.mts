@@ -324,7 +324,8 @@ const state = readFileSync('src/game/state.ts', 'utf8');
   };
   const said = everyFanLine().map(l => ({ id: l.id, s: l.text({ ...bareFan, timing: l.pool }, createRng(9)) }));
   checked++;
-  if (said.length !== 67) fails.push(`${said.length} lines in the terrace's mouth, the document had 67`);
+  // 67 of the document, and the 55 of the opening rounds Itzik approved on 15.10
+  if (said.length !== 122) fails.push(`${said.length} lines in the terrace's mouth, the document had 67 and the opening rounds 55`);
   const bad: string[] = [];
   for (const { id, s } of said) {
     if (/\s[,.!?]/.test(s)) bad.push(`${id}: a space before punctuation in "${s}"`);

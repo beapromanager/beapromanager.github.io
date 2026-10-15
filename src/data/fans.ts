@@ -12,6 +12,7 @@
 
 import type { Rng, Approach } from '../engine/matchEngine.ts';
 import { FAN_TIERS, inTier } from './leagueGate.ts';
+import { OPENERS } from './openersText.ts';
 import { TOP_FAN_REWRITE, TOP_FAN_NEW } from './topFlightText.ts';
 
 /** The head a fan watches football with. Drives which lines are his to say. */
@@ -85,6 +86,11 @@ export interface FanContext {
   totalTeams: number;
   /** how many league matches the club has played: before the league starts, and in its first rounds, there is no table to read (a context that leaves it out counts as mid-season) */
   played?: number;
+  /** the first rounds after a promotion or a title, and a season that is not the first and not after one (for the opening lines) */
+  justUp?: boolean;
+  newSeason?: boolean;
+  /** our club's short name, for a fan who speaks of it */
+  club?: string;
   /** the terrace meter itself, so the stand can talk about how full it is */
   fans: number;
 }
@@ -407,4 +413,20 @@ const TOP_FAN_WHEN: Record<string, (c: FanContext) => boolean> = {
 for (const [id, when] of Object.entries(TOP_FAN_WHEN)) {
   const n = TOP_FAN_NEW[id];
   if (n) (n.when === 'pre' ? PRE : POST).push({ id, when, text: () => n.text });
+}
+
+/* ----------------------------------------------------------------- the opening rounds
+   Itzik, 15.10: on the eve of the first round a fan talked of a table that did not exist. The opening rounds have lines of
+   their own, written for them and approved by him, that never read a table, a score or a result. */
+const opens = (c: FanContext) => (c.played ?? 99) <= 2;
+for (const o of OPENERS) {
+  PRE.push({
+    id: o.id,
+    voice: o.voice as Voice,
+    when: c => opens(c)
+      && (o.when === 'any' || (o.when === 'home' ? c.isHome : !c.isHome))
+      && (o.season === 'any' || (o.season === 'promoted' ? !!c.justUp : !!c.newSeason))
+      && (c.tier === undefined || c.tier < 5 || o.top),
+    text: c => o.text.replace(/\{rival\}/g, c.rival).replace(/\{city\}/g, c.city).replace(/\{club\}/g, c.club ?? c.city),
+  });
 }

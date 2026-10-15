@@ -13,7 +13,8 @@ import * as G from '../src/game/state.ts';
 import { debtState, debtLimit, debtLine } from '../src/game/finance.ts';
 import { fansAfterResult, fansDrift, fansAfterSeason, crowdMultiplier, ownerRope, FANS_MIDDLE, ROPE_SHORT, ROPE_LONG, FANS_WIN, FANS_LOSS, FANS_BIG_WIN, FANS_THRASHING, FANS_DERBY, FANS_CHAMPION, FANS_PROMOTED, FANS_RELEGATED, FANS_STAR_SOLD, FANS_DRIFT } from '../src/game/fans.ts';
 import { isDerby } from '../src/data/clubs.ts';
-import { everyFanLine, FANS_LOUD, FANS_QUIET } from '../src/data/fans.ts';
+import { everyFanLine, FANS_LOUD, FANS_QUIET, fanMessage } from '../src/data/fans.ts';
+import { OPENERS } from '../src/data/openersText.ts';
 import type { FanContext } from '../src/data/fans.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
@@ -327,6 +328,66 @@ const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
   const ranked = everyFanLine().filter(l => l.when({ ...open, played: 5 }) && /מקום \d|מתוך \d/.test(l.text({ ...open, played: 5 }, createRng(1))));
   checked++;
   if (!ranked.length) fails.push('a fan never quotes the table, even five rounds in');
+}
+
+/* 15.10: the opening rounds have fan lines of their own (55, approved by Itzik), and they stay in the opening rounds */
+{
+  const OPEN = OPENERS;
+  checked++;
+  if (OPEN.length !== 55) fails.push(`${OPEN.length} opening lines, Itzik approved 55`);
+  checked++;
+  if (new Set(OPEN.map(o => o.id)).size !== OPEN.length) fails.push('an opening line repeats its id');
+  const bare = (played: number, over: Partial<FanContext> = {}): FanContext => ({
+    timing: 'pre', isDerby: false, isHome: true, rival: 'הפועל', city: 'חיפה', club: 'ראש העין',
+    coldStriker: null, coldWeeks: 0, youngster: null, approach: 'balanced',
+    tablePos: 1, totalTeams: 8, streak: 0, fans: FANS_MIDDLE, played, tier: 2, ...over,
+  });
+  // not a word of a table, a score or a result, and every slot filled
+  for (const o of OPEN) {
+    const t = o.text.replace(/\{rival\}/g, 'הפועל').replace(/\{city\}/g, 'חיפה').replace(/\{club\}/g, 'ראש העין');
+    checked++;
+    if (/\{|\}/.test(t)) fails.push(`${o.id}: a slot was left open`);
+    checked++;
+    if (/מקום \d|מתוך \d|ניצחון מחר|\d:\d/.test(t)) fails.push(`${o.id}: speaks of a table, a score or a result: ${t}`);
+  }
+  const seen = (ctx: FanContext, n = 400) => {
+    const ids = new Map<string, number>();
+    for (let i = 1; i <= n; i++) { const m = fanMessage(ctx, createRng(i), []); ids.set(m.id, (ids.get(m.id) ?? 0) + 1); }
+    return ids;
+  };
+  const isOpen = (id: string) => OPEN.some(o => o.id === id);
+  const share = (ids: Map<string, number>) => [...ids].filter(([id]) => isOpen(id)).reduce((a, [, n]) => a + n, 0) / 400;
+  const eve = seen(bare(0));
+  checked++;
+  if (share(eve) < 0.2) fails.push(`on the eve of the opening round only ${(share(eve) * 100).toFixed(0)} in a hundred fan lines are opening lines`);
+  // not in the middle of a season
+  checked++;
+  if (share(seen(bare(6))) > 0) fails.push('an opening line was said after three rounds');
+  // home and away, and the start after a promotion
+  for (const o of OPEN) {
+    const away = bare(0, { isHome: false });
+    const home = bare(0, { isHome: true });
+    checked++;
+    if (o.when === 'home' && o.id && seen(away, 400).has(o.id)) fails.push(`${o.id}: a home line was said on an away night`);
+    checked++;
+    if (o.when === 'away' && seen(home, 400).has(o.id)) fails.push(`${o.id}: an away line was said at home`);
+  }
+  const plain = seen(bare(0), 600);
+  checked++;
+  if (OPEN.filter(o => o.season === 'promoted').some(o => plain.has(o.id))) fails.push('a line about the promotion was said to a club that was not promoted');
+  checked++;
+  if (OPEN.filter(o => o.season === 'newSeason').some(o => plain.has(o.id))) fails.push('a line about a new season was said in a first season');
+  const up = seen(bare(0, { justUp: true, newSeason: false }), 600);
+  checked++;
+  if (!OPEN.filter(o => o.season === 'promoted').some(o => up.has(o.id))) fails.push('the promotion lines are never said after a promotion');
+  checked++;
+  if (OPEN.filter(o => o.season === 'newSeason').some(o => up.has(o.id))) fails.push('a new season line was said right after a promotion');
+  // the top flight gets only the lines written for a professional club
+  const top = seen(bare(0, { tier: 5, newSeason: true }), 800);
+  checked++;
+  if (OPEN.filter(o => !o.top).some(o => top.has(o.id))) fails.push('a neighbourhood opening line was said in ליגת העל');
+  checked++;
+  if (!OPEN.filter(o => o.top).some(o => top.has(o.id))) fails.push('ליגת העל never hears an opening line');
 }
 
 console.log(`\n${checked} checks`);

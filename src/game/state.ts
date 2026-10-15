@@ -3056,6 +3056,9 @@ export function fanContext(gs: GameState, timing: FanTiming): FanContext {
     approach: gs.tactic.approach,
     tablePos, totalTeams: gs.league.clubs.length,
     played: table.find(t => t.clubId === gs.clubId)?.played ?? 0,
+    justUp: gs.chronicle.some(e => e.id === `season-${gs.season - 1}-promoted` || (club(gs).tier < TOP_TIER && e.id === `season-${gs.season - 1}-champion`)),
+    newSeason: gs.season > 1 && !gs.chronicle.some(e => e.id === `season-${gs.season - 1}-promoted` || (club(gs).tier < TOP_TIER && e.id === `season-${gs.season - 1}-champion`)),
+    club: club(gs).short,
     fans: gs.meters.fans,
     streak,
   };
