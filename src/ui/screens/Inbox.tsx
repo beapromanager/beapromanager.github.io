@@ -4,6 +4,8 @@ import * as G from '../../game/state.ts';
 import { Meters } from '../components/bits.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { SPEAKER_META } from './Dilemma.tsx';
+import { Face } from '../components/Face.tsx';
+import { faceFor } from '../faces.ts';
 
 /**
  * The manager's inbox. Everything that wants an answer but is not about the
@@ -77,13 +79,7 @@ export function InboxScreen({ gs, onAnswer, onDismissOutcome, onBack }: {
                       textAlign: 'start', padding: '12px 13px', minHeight: 64,
                     }}
                     aria-expanded={isOpen}>
-                    <span style={{
-                      width: 38, height: 38, borderRadius: 12, display: 'grid', placeItems: 'center', flex: 'none',
-                      background: 'linear-gradient(180deg,var(--surface-3),var(--surface))',
-                      border: `1px solid ${sp.color}44`,
-                    }}>
-                      <Icon name={sp.icon} size={19} color={sp.color} />
-                    </span>
+                    <Face src={faceFor(m.speaker, G.club(gs).tier, gs.seasonSeed + i * 13)} icon={sp.icon} color={sp.color} size={44} />
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: sp.color, marginBottom: 3 }}>{m.speakerLabel}</span>
                       <span style={{

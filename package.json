@@ -26,6 +26,7 @@
     "check:course": "node --experimental-strip-types scripts/course-check.mts",
     "check:packsquad": "node --experimental-strip-types scripts/pack-squad-check.mts",
     "check:momentart": "node --experimental-strip-types scripts/moment-art-check.mts",
+    "check:faces": "node --experimental-strip-types scripts/faces-check.mts",
     "check:fix": "node --experimental-strip-types scripts/fix-check.mts",
     "check:youth": "node --experimental-strip-types scripts/youth-check.mts",
     "check:kits": "node --experimental-strip-types scripts/kit-check.mts",

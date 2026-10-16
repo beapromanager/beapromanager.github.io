@@ -5,6 +5,8 @@ import { Icon } from '../components/Icon.tsx';
 import type { IconName } from '../components/Icon.tsx';
 import type { Speaker } from '../../data/dilemmas.ts';
 import { AssistantNote } from '../components/AssistantNote.tsx';
+import { Face } from '../components/Face.tsx';
+import { faceFor } from '../faces.ts';
 
 /** Shared with the inbox, so one sender always looks like the same person. */
 export const SPEAKER_META: Record<Speaker, { icon: IconName; color: string }> = {
@@ -68,13 +70,7 @@ export function DilemmaChat({ gs, onChoose, onContinue }: {
 
         {/* incoming message */}
         <div className="row" style={{ alignItems: 'flex-start', gap: 11, animation: 'riseIn var(--t-mid) var(--ease-out)' }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 14, display: 'grid', placeItems: 'center', flex: 'none',
-            background: 'linear-gradient(180deg,var(--surface-3),var(--surface))',
-            border: `1px solid ${sp.color}44`,
-          }}>
-            <Icon name={sp.icon} size={22} color={sp.color} />
-          </div>
+          <Face src={faceFor(d.speaker, G.club(gs).tier, gs.seasonSeed + gs.week * 7)} icon={sp.icon} color={sp.color} size={56} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 800, color: sp.color, marginBottom: 5, letterSpacing: '.02em' }}>{d.speakerLabel}</div>
             <div style={{
