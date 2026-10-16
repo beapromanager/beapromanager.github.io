@@ -574,7 +574,7 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
   // the batch landed whole: 30 originals plus 69 of the 70 drafts, with the
   // the midweek friendly came in with its own mechanism (friendly-check holds that)
   checked += 3;
-  if (TEMPLATES.length !== 132) fails.push(`${TEMPLATES.length} templates, the agreed count is 132 (30 + 69 + the reporter's three columns + the works friendly + ten that only the top flight has + nine of the academy + ten requests of the owner)`);
+  if (TEMPLATES.length !== 133) fails.push(`${TEMPLATES.length} templates, the agreed count is 133 (30 + 69 + the reporter's three columns + the works friendly + eleven that only the top flight has (the agent of the foreigner who sat, 16.10) + nine of the academy + ten requests of the owner)`);
   if (!TEMPLATES.some(t => t.id === 'midweek_friendly')) fails.push('the midweek friendly is missing');
   if (!TEMPLATES.some(t => t.id === 'team_dog') || !TEMPLATES.some(t => t.id === 'derby_police_cut')) fails.push('the batch is missing members');
 

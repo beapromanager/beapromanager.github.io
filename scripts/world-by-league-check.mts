@@ -56,7 +56,7 @@ for (const id of Object.keys(TRAIT_TIERS)) ok(traitIds.has(id), `trait gate name
 /* ליגת העל from the ground up: the new ones are in unless their night is one the game cannot see yet. That list is exact,
    so building a system for one of them has to take it off the list on purpose. */
 const HELD = {
-  dilemma: ['national_team_callup_clash', 'ultras_flares_fine', 'foreign_player_agent_minutes', 'var_storm_reporter', 'european_qualifier_rotation', 'star_contract_bonuses', 'star_medical_key_match'],
+  dilemma: ['national_team_callup_clash', 'ultras_flares_fine', 'var_storm_reporter', 'european_qualifier_rotation', 'star_contract_bonuses', 'star_medical_key_match'],
   press: ['euro_qualifier_draw', 'euro_gap_lost', 'natl_callup_star', 'natl_snub_star', 'var_goal_disallowed', 'var_penalty_win', 'transfer_saga_star'],
   chat: ['club_doctor_star', 'owner_title_race', 'video_analyst_clips', 'press_officer_prep', 'team_manager_charter', 'childhood_friend_tickets'],
 };

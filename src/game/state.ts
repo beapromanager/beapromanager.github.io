@@ -3434,6 +3434,12 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
     star, rival: rivalShort, club: club(gs).short, money: cash(gs.meters.money),
     benched: forgotten && minutes(forgotten) <= 1 ? surname(forgotten.name) : '',
     benchedApps: forgotten ? minutes(forgotten) : 0,
+    benchedForeign: (() => {
+      const played = table.find(t => t.clubId === gs.clubId)?.played ?? 0;
+      const man = sq.bench.filter(p => isForeign(p) && !isLegend(p) && played >= 3 && apps(p) <= played - 3)
+        .sort((a, b) => apps(a) - apps(b) || overall(b) - overall(a))[0];
+      return man ? surname(man.name) : '';
+    })(),
     youngster: kid ? surname(kid.name) : '',
     veteranName: old ? surname(old.name) : '',
     scorer: scorer && goals(scorer) > 0 ? surname(scorer.name) : '',

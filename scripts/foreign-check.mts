@@ -14,6 +14,8 @@ import { makeMarket } from '../src/game/transfers.ts';
 import { findOld } from '../src/game/scout.ts';
 import { isLegend } from '../src/data/legends.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
+import { TEMPLATES } from '../src/data/dilemmas.ts';
+import { DILEMMA_TIERS } from '../src/data/leagueGate.ts';
 import { POOLS } from '../src/data/names.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 
@@ -119,6 +121,49 @@ ok(nationLabel(undefined) === '' && nationLabel('nowhere') === '', 'an Israeli p
   ok(reasonF === `אפשר עד ${FOREIGN_MAX} זרים בסגל` || (reasonF ?? '').includes('הסגל מלא'), `a fourth foreigner was not stopped: ${reasonF}`);
   const reasonI = G.signBlockedReason(withThree, anyone());
   ok(!(reasonI ?? '').includes('זרים'), 'an Israeli was stopped by the foreigner rule');
+}
+
+// the agent of a foreigner who has sat three matches (16.10): the night can be read now that the game has foreigners
+{
+  const tpl = TEMPLATES.find(t => t.id === 'foreign_player_agent_minutes');
+  ok(!!tpl, 'the agent of the foreigner is not in the game');
+  const ctx0 = { week: 8, benchedForeign: '' } as never;
+  ok(!!tpl && !tpl.when(ctx0) && tpl.when({ week: 8, benchedForeign: 'סילבה' } as never) && !tpl.when({ week: 2, benchedForeign: 'סילבה' } as never), 'the agent is not asked for exactly when a foreigner sits on the bench');
+  ok(!!tpl && tpl.subject === 'benchedForeign' && tpl.speaker === 'agent', 'the agent does not speak about the man himself');
+  ok(DILEMMA_TIERS.foreign_player_agent_minutes?.[0] === 5, 'the agent of the foreigner is not ליגת העל only');
+
+  let g = G.newGame(31);
+  g = G.setProfile(g, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+  g = G.pickCity(g, LEGEND_TOWN);
+  g = G.afterSigning(g, {});
+  g = { ...G.enterPreseason({ ...g, phase: 'preseason-market' } as never), phase: 'hub', week: 8, friends: [], notices: [] } as G.GameState;
+  const clubId = g.clubId;
+  const sq0 = G.mySquad(g);
+  const man = sq0.bench.find(p => !isLegend(p) && p.position !== 'GK')!;
+  const foreign = { ...man, nation: 'ghana', name: makeForeignName(createRng(5), 'ghana', new Set()) };
+  const withHim = {
+    ...g,
+    league: {
+      ...g.league,
+      clubs: g.league.clubs.map(c => (c.id === clubId ? { ...c, tier: 5 } : c)),
+      squads: { ...g.league.squads, [clubId]: { starters: sq0.starters, bench: sq0.bench.map(p => (p.id === man.id ? foreign : p)) } },
+      table: { ...g.league.table, [clubId]: { ...g.league.table[clubId], played: 7 } },
+    },
+    seasonStats: { ...g.seasonStats, [man.id]: { ...(g.seasonStats[man.id] ?? {}), apps: 1 } },
+  } as G.GameState;
+  const surname = foreign.name.split(' ').slice(-1)[0];
+  const rolled = G.rollNamedDilemma(withHim, 'foreign_player_agent_minutes', 3, true);
+  ok(!!rolled && rolled.text.includes('מייצג את') && !/\{/.test(rolled.text), `the agent's words were not filled: ${rolled?.text}`);
+  ok(!!rolled && rolled.subjectName !== undefined && foreign.name.includes(rolled.subjectName ?? '??'), `he is not about the foreigner who sat: ${rolled?.subjectName} against ${foreign.name}`);
+  void surname;
+
+  // what the answers do, for real
+  const choose = (i: number) => G.chooseDilemma({ ...withHim, phase: 'dilemma', dilemma: rolled! } as G.GameState, i);
+  const inSquad = (st: G.GameState) => [...G.mySquad(st).starters, ...G.mySquad(st).bench].some(p => p.id === man.id);
+  ok(!inSquad(choose(1)), 'the answer "he stays on the bench, he is sold" left him at the club');
+  ok(!inSquad(choose(2)), 'the answer "a month on loan" left him at the club');
+  ok(inSquad(choose(0)) && G.mySquad(choose(0)).starters.some(p => p.id === man.id), 'the answer "he plays tomorrow" did not put him in the eleven');
+  ok(choose(1).meters.money > withHim.meters.money, 'the sale paid nothing');
 }
 
 console.log(`${checked} checks`);

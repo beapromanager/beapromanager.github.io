@@ -91,7 +91,7 @@ export interface DilemmaTemplate {
    * it "שחקן בסגל" asked for minutes, you promised or refused, and there was no
    * way to ever know whether your answer meant anything, because it did not.
    */
-  subject?: 'star' | 'benched' | 'youngster' | 'veteranName' | 'scorer' | 'dry' | 'academy' | 'newcomer' | 'gk' | 'boy';
+  subject?: 'star' | 'benched' | 'youngster' | 'veteranName' | 'scorer' | 'dry' | 'academy' | 'newcomer' | 'gk' | 'boy' | 'benchedForeign';
   slots: Record<string, string[]>;
   /** slots that depend on the live save, laid over : the sponsor's own asks */
   slotsFor?: (c: Ctx) => Record<string, string[]>;
@@ -115,6 +115,8 @@ export interface Ctx {
   /** the man with the fewest appearances, empty when the squad is fresh */
   benched: string;
   benchedApps: number;
+  /** a foreigner on the bench who has missed at least three of the club's league matches, empty when there is none (16.10) */
+  benchedForeign?: string;
   /** a young prospect, a long serving veteran, the top scorer, a striker in a drought */
   youngster: string;
   veteranName: string;
@@ -1795,6 +1797,12 @@ const TOP_WHEN: Record<string, { speaker: Speaker; when: (c: Ctx) => boolean; on
   foreign_coach_rumour: { speaker: 'reporter', when: c => c.pos > 3 && c.lostLast && c.week >= 8, oncePerSeason: true },
   owner_birthday_pre_derby: { speaker: 'owner', when: c => c.isDerby, oncePerSeason: true },
   training_leak_press: { speaker: 'director', when: c => c.week >= 5, oncePerSeason: true },
+  // the agent of a foreigner who has sat three matches (16.10: the game has foreigners now, so the night can be read)
+  foreign_player_agent_minutes: { speaker: 'agent', when: c => !!c.benchedForeign && c.week >= 4, oncePerSeason: true },
+};
+/** what an answer really does, in the order of the options: he plays, he is sold in the window, he is loaned out */
+const TOP_ACTS: Record<string, Act[][]> = {
+  foreign_player_agent_minutes: [[{ kind: 'play', who: 'subject' }], [{ kind: 'sell', who: 'subject' }], [{ kind: 'loanOut', who: 'subject' }]],
 };
 export const TOP_NEW_IDS = Object.keys(TOP_WHEN);
 for (const id of TOP_NEW_IDS) {
@@ -1802,7 +1810,11 @@ for (const id of TOP_NEW_IDS) {
   if (!d) continue;
   TEMPLATES.push({
     id, speaker: TOP_WHEN[id].speaker, slots: {}, text: d.text, when: TOP_WHEN[id].when, oncePerSeason: TOP_WHEN[id].oncePerSeason,
-    options: () => d.options.map(o => ({ label: o.label, outcome: o.outcome, effect: { money: o.money, morale: o.morale, fans: o.fans, prestige: o.prestige } })),
+    ...(id === 'foreign_player_agent_minutes' ? { subject: 'benchedForeign' as const } : {}),
+    options: () => d.options.map((o, i) => ({
+      label: o.label, outcome: o.outcome, effect: { money: o.money, morale: o.morale, fans: o.fans, prestige: o.prestige },
+      ...(TOP_ACTS[id]?.[i] ? { act: TOP_ACTS[id][i] } : {}),
+    })),
   });
 }
 

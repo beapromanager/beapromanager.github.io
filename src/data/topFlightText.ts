@@ -1355,7 +1355,7 @@ export const TOP_DILEMMA_NEW: Record<string, TopDilemma> = {
  },
  "foreign_player_agent_minutes": {
   "speaker": "agent",
-  "text": "שלום מאמן. אני מייצג את {benched}. הוא בא אליכם מחו״ל כדי לשחק, ולא שיחק בשלושה משחקים. או שהוא מקבל דקות, או שאני מוציא אותו בחלון הקרוב.",
+  "text": "שלום מאמן. אני מייצג את {benchedForeign}. הוא בא אליכם מחו״ל כדי לשחק, ולא שיחק בשלושה משחקים. או שהוא מקבל דקות, או שאני מוציא אותו בחלון הקרוב.",
   "variants": [],
   "options": [
    {
