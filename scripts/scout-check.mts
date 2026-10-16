@@ -32,7 +32,7 @@ import { transferFee } from '../src/game/transfers.ts';
 import { overall, createRng } from '../src/engine/matchEngine.ts';
 import { requiredCapacity, purseBase } from '../src/game/career.ts';
 import { sortedTable } from '../src/game/league.ts';
-import { pickSafe, feeRange, findOld, oldFee, starterAt, weakestPosition, scoutReach } from '../src/game/scout.ts';
+import { pickSafe, feeRange, findOld, oldFee, starterAt, weakestPosition, scoutReach, placeInfo, SCOUT_POSITIONS } from '../src/game/scout.ts';
 import type { RivalKid } from '../src/game/scout.ts';
 import { WINTER_WEEKS } from '../src/game/transfers.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
@@ -670,6 +670,57 @@ const scoutNotices = (gs: G.GameState) => gs.notices.filter(n => n.kind === 'sco
   const boyReach = scoutReach('keen', findKeen(tier, createRng(5), new Set()));
   ok(boyReach <= overall(findKeen(tier, createRng(5), new Set())) + 13, `the keen one's card quotes ${boyReach}`);
   console.log('  sent for a place: he brings a man there, an upgrade or a prospect, and the place goes all the way to the window');
+}
+
+/* 16.10, a user's report: the scout offered a right back "better than your 88" while the club had no right back at all (the 88 was a
+   centre back standing in on the same line). What the scout says about the squad is read from that squad, exactly. */
+{
+  const base = hubAt(SCOUT_TIER);
+  const sq = G.mySquad(base);
+  const all = [...sq.starters, ...sq.bench];
+  // a squad with a monster centre back and no right back, on the field or on the bench
+  const noRb = (squad: typeof sq) => ({
+    starters: squad.starters.filter(p => p.position !== 'RB'),
+    bench: squad.bench.filter(p => p.position !== 'RB'),
+  });
+  const cb = sq.starters.find(p => p.position === 'CB')!;
+  const strong = { ...cb, attrs: Object.fromEntries(Object.entries(cb.attrs).map(([k, v]) => [k, Math.min(99, (v as number) + 25)])) as typeof cb.attrs };
+  const bare = noRb({ starters: sq.starters.map(p => (p === cb ? strong : p)), bench: sq.bench });
+  const bareAll = [...bare.starters, ...bare.bench];
+  ok(starterAt(bareAll, 'RB') === null, 'a squad with no right back was told it has one (a centre back stood in for him)');
+  ok(placeInfo(bare.starters, bare.bench, 'RB').where === 'none' && placeInfo(bare.starters, bare.bench, 'RB').ovr === null, 'the place of a missing right back is not "nobody"');
+  ok(!/\d/.test(SCOUT_TEXT.yourStarter('מגן ימני', placeInfo(bare.starters, bare.bench, 'RB'))), 'the line about a missing right back quotes a number');
+  ok(!/\d/.test(SCOUT_TEXT.forPlace('מגן ימני', placeInfo(bare.starters, bare.bench, 'RB'))), 'the offer card about a missing right back quotes a number');
+  ok(SCOUT_TEXT.yourStarter('מגן ימני', placeInfo(bare.starters, bare.bench, 'RB')).includes('אין לך'), 'the line about a missing right back does not say so');
+
+  // through the real game: the club has no right back, the scout is sent for one, nothing is promised against a starter
+  let g = hubAt(SCOUT_TIER);
+  g = { ...g, league: { ...g.league, squads: { ...g.league.squads, [g.clubId]: bare } } };
+  g = G.hireScout(g, 'old', 'RB');
+  for (let r = 0; r < SCOUT_ROUNDS; r++) g = playRound(g);
+  ok(g.scout.found?.position === 'RB' && g.scout.found.player?.position === 'RB', 'the scout sent for a right back did not find one');
+  const open = playRound({ ...g, week: 7, notices: [], meters: { ...g.meters, money: 6_000_000 } });
+  ok(!!open.scout.offer && open.scout.offer.position === 'RB' && !open.scout.offer.prospect, 'the offer for a place nobody holds was called a prospect, or was lost');
+  // the bench counts as the squad, the line does not: a right back on the bench is read as sitting there
+  const benchRb = bare.bench.length ? { starters: bare.starters, bench: [...bare.bench, { ...sq.starters.find(p => p.position === 'RB')!, id: 'rb-bench' }] } : bare;
+  ok(placeInfo(benchRb.starters, benchRb.bench, 'RB').where === 'bench', 'a right back on the bench was not found there');
+
+  // for every place, in a hundred squads: what it says is exactly the best man there, on the field first
+  let wrong = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const h = hubAt(SCOUT_TIER);
+    const sqd = G.mySquad({ ...h, seasonSeed: h.seasonSeed + seed });
+    for (const pos of SCOUT_POSITIONS) {
+      const info = placeInfo(sqd.starters, sqd.bench, pos);
+      const onField = sqd.starters.filter(p => p.position === pos).map(overall);
+      const onBench = sqd.bench.filter(p => p.position === pos).map(overall);
+      const want = onField.length ? { ovr: Math.max(...onField), where: 'start' } : onBench.length ? { ovr: Math.max(...onBench), where: 'bench' } : { ovr: null, where: 'none' };
+      if (info.ovr !== want.ovr || info.where !== want.where) wrong++;
+    }
+  }
+  ok(wrong === 0, `the scout's reading of the squad was wrong ${wrong} times`);
+  void all;
+  console.log('  what the scout says about the squad is read from the squad: a right back you do not have is not "your starter, 88"');
 }
 
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));

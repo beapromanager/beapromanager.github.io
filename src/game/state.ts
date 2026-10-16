@@ -4837,7 +4837,7 @@ function scoutBack(gs: GameState, next: number): ScoutState | null {
  */
 function scoutFound(gs: GameState, style: ScoutStyle, season: number, week: number, position?: Position): NonNullable<ScoutState['found']> {
   const at = position ? { position } : {};
-  const anchor = position ? starterAt(mySquad(gs).starters, position) : null;
+  const anchor = position ? starterAt([...mySquad(gs).starters, ...mySquad(gs).bench], position) : null;
   if (style === 'keen') {
     const sq = mySquad(gs);
     const taken = new Set<string>([...sq.starters, ...sq.bench, ...gs.youth.players, ...gs.market.map(f => f.player)].map(p => p.name));
@@ -4930,7 +4930,7 @@ function scoutArrives(gs: GameState, scout: ScoutState): ScoutState {
     // summer may have moved him on, in which case the scout finds the next best
     const sq = f.fromClubId ? gs.league.squads[f.fromClubId] : undefined;
     const now = sq ? [...sq.starters, ...sq.bench].find(x => x.id === f.player!.id) : undefined;
-    const anchor = f.position ? starterAt(mySquad(gs).starters, f.position) : null;
+    const anchor = f.position ? starterAt([...mySquad(gs).starters, ...mySquad(gs).bench], f.position) : null;
     const pick: RivalKid | null = now && f.fromClubId
       ? { clubId: f.fromClubId, player: now }
       : pickSafeFor(gs, f.position, anchor);
@@ -4983,7 +4983,7 @@ export function signScoutOffer(gs: GameState): GameState {
  */
 export function scoutBudgetFor(gs: GameState, style: ScoutStyle, position?: Position): [number, number] | null {
   if (style === 'keen') return scoutBudget(style, club(gs).tier, position);
-  if (style === 'old') return scoutBudget(style, club(gs).tier, position, position ? starterAt(mySquad(gs).starters, position) : null);
+  if (style === 'old') return scoutBudget(style, club(gs).tier, position, position ? starterAt([...mySquad(gs).starters, ...mySquad(gs).bench], position) : null);
   const all = rivalKids(gs, allRivals(gs)).filter(k => k.player.age >= 19 && k.player.age <= 20 && k.player.position !== 'GK');
   const there = position ? all.filter(k => k.player.position === position) : all;
   const kids = there.length ? there : all;

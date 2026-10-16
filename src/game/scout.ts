@@ -40,11 +40,23 @@ const LINE_OF_POS: Record<string, string> = {
   GK: 'GK', CB: 'DEF', LB: 'DEF', RB: 'DEF', CDM: 'MID', CM: 'MID', CAM: 'MID', LW: 'FWD', RW: 'FWD', ST: 'FWD',
 };
 
-/** What the best of the eleven is at that place, or at his line when nobody plays exactly there; null when nobody does. */
-export function starterAt(starters: Player[], position: Position): number | null {
-  const exact = starters.filter(p => p.position === position);
-  const pool = exact.length ? exact : starters.filter(p => LINE_OF_POS[p.position] === LINE_OF_POS[position]);
-  return pool.length ? Math.max(...pool.map(overall)) : null;
+/**
+ * The best man the squad has at exactly that place, or null when it has nobody there. Never a man of the same line standing
+ * in for him (16.10: a right back was offered over "your starter, 88" while the club had no right back, and the 88 was a
+ * centre back).
+ */
+export function starterAt(players: Player[], position: Position): number | null {
+  const exact = players.filter(p => p.position === position);
+  return exact.length ? Math.max(...exact.map(overall)) : null;
+}
+
+/** Who holds the place: the best of the eleven there, else the best on the bench, else nobody. */
+export interface PlaceInfo { ovr: number | null; where: 'start' | 'bench' | 'none' }
+export function placeInfo(starters: Player[], bench: Player[], position: Position): PlaceInfo {
+  const s = starterAt(starters, position);
+  if (s !== null) return { ovr: s, where: 'start' };
+  const b = starterAt(bench, position);
+  return b !== null ? { ovr: b, where: 'bench' } : { ovr: null, where: 'none' };
 }
 
 /** The place of the weakest man of the eleven who is not the keeper: where a scout is most worth sending. */
@@ -148,8 +160,15 @@ export const SCOUT_TEXT = {
   // the place he is sent for (15.10). DRAFT WORDING, Itzik's to correct.
   choose: 'לאיזו עמדה הוא יחפש?',
   chooseHint: 'המספר מתחת לכל עמדה הוא הפותח הכי טוב שלך שם. אין טעם לשלוח אותו אחרי חלוץ כשיש לך חלוץ טוב.',
-  yourStarter: (place: string, n: number | null) => (n == null ? `אין לך פותח ב${place}.` : `הפותח שלך ב${place}: ${n}.`),
-  forPlace: (place: string, n: number | null) => (n == null ? `ל${place}` : `ל${place} · הפותח שלך ${n}`),
+  yourStarter: (place: string, i: PlaceInfo) =>
+    i.where === 'start' ? `הפותח שלך ב${place}: ${i.ovr}.`
+      : i.where === 'bench' ? `אין לך פותח ב${place}. הכי טוב שיש לך שם יושב על הספסל: ${i.ovr}.`
+        : `אין לך אף שחקן ב${place}. הסקאוט יחפש אחד.`,
+  forPlace: (place: string, i: PlaceInfo) =>
+    i.where === 'start' ? `ל${place} · הפותח שלך ${i.ovr}`
+      : i.where === 'bench' ? `ל${place} · הכי טוב שיש לך שם יושב על הספסל: ${i.ovr}`
+        : `ל${place} · אין לך שחקן בעמדה`,
+  none: 'אין',
   prospect: 'צעיר לעתיד',
 } as const;
 
