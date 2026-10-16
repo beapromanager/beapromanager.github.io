@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
-import { DAILY_WEEK, GOLD_EVERY, GOLD_LIFT, rewardFor } from '../../game/daily.ts';
+import { DAILY_WEEK, GOLD_EVERY, GOLD_LIFT, rewardFor, gemsAWeek, weekMoney, dailyPackFor } from '../../game/daily.ts';
+import { LEAGUE_NAMES } from '../../data/clubs.ts';
+import { TOP_TIER } from '../../game/career.ts';
 import type { DailyReward } from '../../game/daily.ts';
 import { Icon } from '../components/Icon.tsx';
 import { Gem } from '../components/Gem.tsx';
@@ -61,7 +63,7 @@ function Glyph({ r, size = 22 }: { r: DailyReward; size?: number }) {
 function Lines({ r }: { r: DailyReward }) {
   return (
     <span className="daily-lab">
-      {r.pack && <span>חבילת חיזוק</span>}
+      {r.pack && <span>{r.packId === 'star' ? 'חבילת כוכב' : 'חבילת חיזוק'}</span>}
       {r.money > 0 && <span dir="ltr">+₪{moneyShort(r.money)}</span>}
       {r.gems > 0 && <span>{r.gems === 1 ? 'יהלום' : `${r.gems} יהלומים`}</span>}
     </span>
@@ -77,6 +79,8 @@ export function DailyGiftSheet({ gs, onClaim, onClose }: {
   const tier = G.club(gs).tier;
   const days = Array.from({ length: DAILY_WEEK }, (_, i) => i + 1);
   const toGold = v.goldIn;
+  // the first three rounds after a promotion (a title is a promotion below the top)
+  const justUp = gs.week <= 3 && tier > 1 && G.wentUpLastSeason(gs);
   const shown = v.claimedToday ? gs.daily.streak : v.nextStreak - 1;   // days of the run already in the bank
   const goldPct = Math.min(100, ((shown % GOLD_EVERY) / GOLD_EVERY) * 100);
   const [lit, setLit] = useState(false);
@@ -92,8 +96,8 @@ export function DailyGiftSheet({ gs, onClaim, onClose }: {
         <div className="daily-wrap">
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 className="daily-title">המתנה היומית</h1>
-              <p className="daily-sub">מנשיא המועדון, על כל יום שאתה מגיע ומשחק</p>
+              <h1 className="daily-title">המתנה היומית של {LEAGUE_NAMES[tier]}</h1>
+              <p className="daily-sub">מנשיא המועדון, על כל יום שאתה מגיע ומשחק. <span className="num">{gemsAWeek(tier)}</span> יהלומים בשבוע</p>
             </div>
             <button className="daily-x" onClick={onClose} aria-label="סגור">✕</button>
           </div>
@@ -135,6 +139,14 @@ export function DailyGiftSheet({ gs, onClaim, onClose }: {
             })}
           </div>
 
+          {/* the gift grows with the club (16.10): the first rounds after going up say so, and below the top the next division is a pull */}
+          {justUp && (
+            <div className="daily-up">עלית ליגה. השבוע שווה עכשיו <b className="num" dir="ltr">₪{moneyShort(weekMoney(tier))}</b> במקום <span className="num" dir="ltr">₪{moneyShort(weekMoney(tier - 1))}</span>{dailyPackFor(tier) === 'star' && dailyPackFor(tier - 1) !== 'star' ? ', וביום השביעי חבילת כוכב' : ''}</div>
+          )}
+          {!justUp && tier < TOP_TIER && (
+            <div className="daily-next">ב{LEAGUE_NAMES[tier + 1]}: <b className="num" dir="ltr">₪{moneyShort(weekMoney(tier + 1))}</b> בשבוע, <span className="num">{gemsAWeek(tier + 1)}</span> יהלומים{dailyPackFor(tier + 1) === 'star' ? ', וחבילת כוכב ביום השביעי' : ''}</div>
+          )}
+
           <div className="daily-gold">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="daily-gold-t"><Icon name="trophy" size={16} color="var(--gold)" /> <b className="num">{GOLD_EVERY}</b> ימים ברצף, בלי להחמיץ אחד</span>
@@ -142,7 +154,7 @@ export function DailyGiftSheet({ gs, onClaim, onClose }: {
             </div>
             <div className="daily-bar"><span style={{ width: `${goldPct}%` }} /></div>
             <div className="daily-gold-s">
-              {toGold === 0 ? 'שחקן זהב מחכה לך היום' : `עוד ${toGold} ${toGold === 1 ? 'יום' : 'ימים'} לשחקן זהב, ${GOLD_LIFT} נקודות מעל הליגה שלך`}
+              {toGold === 0 ? 'שחקן זהב מחכה לך היום' : `עוד ${toGold} ${toGold === 1 ? 'יום' : 'ימים'} לשחקן זהב, שחקן ${G.leagueAvgOvr(gs) + GOLD_LIFT}, ${GOLD_LIFT} נקודות מעל הליגה שלך`}
             </div>
           </div>
 
@@ -230,7 +242,7 @@ export function DailyClaim({ reward, streak, gold, onDone }: {
 
   const what: string[] = [];
   if (reward.gems > 0) what.push(reward.gems === 1 ? 'יהלום אחד' : `${reward.gems} יהלומים`);
-  if (reward.pack && !gold) what.push('חבילת חיזוק');
+  if (reward.pack && !gold) what.push(reward.packId === 'star' ? 'חבילת כוכב' : 'חבילת חיזוק');
   if (gold) what.push('שחקן זהב');
 
   return (

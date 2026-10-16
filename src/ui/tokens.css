@@ -2344,3 +2344,7 @@ a.btn{text-decoration:none;}
 .cr-opt[data-state="dim"]{opacity:.5;}
 .cr-verdict{margin:0; font-weight:900; font-size:15px; color:var(--loss);}
 .cr-verdict[data-ok="1"]{color:var(--win);}
+
+/* the daily gift grows with the club (16.10): the line after a promotion, and the pull of the next division */
+.daily-up{padding:10px 13px; border-radius:14px; font-size:14px; line-height:1.5; color:var(--ink); background:color-mix(in srgb,var(--gold) 16%,var(--surface-2)); border:1px solid rgba(233,185,73,.5);}
+.daily-next{padding:9px 13px; border-radius:14px; font-size:13.5px; line-height:1.5; color:var(--ink-dim); background:rgba(255,255,255,.04); border:1px dashed var(--line-2);}

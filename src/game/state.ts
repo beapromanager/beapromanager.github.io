@@ -5,7 +5,7 @@ import { getManager } from '../data/managers.ts';
 import type { Squad } from '../data/squadGen.ts';
 import { playerValue, squadAvgOvr, nextPlayerId, makePlayer, makeSquad, NEUTRAL_TRAITS } from '../data/squadGen.ts';
 import { rarityForOvr } from './cards.ts';
-import { DAILY_LIVE, GOLD_EVERY, GOLD_LIFT, emptyDaily, dailyView, today as dailyDay } from './daily.ts';
+import { DAILY_LIVE, GOLD_EVERY, GOLD_LIFT, emptyDaily, dailyView, today as dailyDay, dailyPackFor } from './daily.ts';
 import type { DailyState } from './daily.ts';
 import { FACTORIES, describeFriendly } from '../data/friendly.ts';
 import { moneyShort } from '../data/money.ts';
@@ -5383,11 +5383,11 @@ function dailyTaken(gs: GameState): Set<string> {
   return new Set([...sq.starters, ...sq.bench].map(p => p.name));
 }
 
-/** the seventh gift: a boost pack of the club's own division, free, leaning toward the thinnest line like every pack */
+/** the seventh gift: a pack of the club's own division, free, a boost up to ליגה א׳ and a star from the Leumit up (16.10), aimed at the weakest place like every pack */
 export function rollFreeBoost(gs: GameState): PackPull {
   const rng = createRng(drawSeed(gs, 161_000 + gs.daily.streak));
   const spot = weakSpot(gs, rng);
-  return openPack(packById('boost'), club(gs).tier, rng, { position: spot.position, slotOvr: spot.slotOvr, taken: dailyTaken(gs) });
+  return openPack(packById(dailyPackFor(club(gs).tier)), club(gs).tier, rng, { position: spot.position, slotOvr: spot.slotOvr, taken: dailyTaken(gs) });
 }
 
 /**
@@ -5772,6 +5772,16 @@ function seasonChronicle(gs: GameState, r: SeasonReport, clubShort: string): Chr
   const id = `season-${r.season}-${r.result}`;
   if (gs.chronicle.some(e => e.id === id)) return [];
   const league = LEAGUE_NAMES[r.newTier] ?? '';
+  // a title that climbs says so; a title in ליגת העל (or one the ground held back) is a title and nothing more (16.10)
+  if (r.result === 'champion' && r.newTier === r.tier) {
+    return [{
+      id, kind: 'season_end', week: r.season, icon: 'trophy', tint: 'gold',
+      title: r.tier >= TOP_TIER ? 'אלופי המדינה' : 'אלופים',
+      body: r.tier >= TOP_TIER
+        ? `${clubShort} סיימה ראשונה. אין למעלה מזה, ועונה הבאה כולם באים לקחת לך את זה.`
+        : `${clubShort} סיימה ראשונה, אבל האצטדיון קטן מדי ל${LEAGUE_NAMES[r.tier + 1] ?? ''}. נשארים, ובונים.`,
+    }];
+  }
   if (r.result === 'champion' || r.result === 'promoted') {
     return [{
       id, kind: 'season_end', week: r.season, icon: 'trophy', tint: 'gold',
@@ -5787,6 +5797,12 @@ function seasonChronicle(gs: GameState, r: SeasonReport, clubShort: string): Chr
     }];
   }
   return [];
+}
+
+/** did the club climb a division last summer: the chapter of a promotion, or of a title that climbed (its title says עולים; a title without a climb does not) */
+export function wentUpLastSeason(gs: GameState): boolean {
+  const s = gs.season - 1;
+  return gs.chronicle.some(e => e.id === `season-${s}-promoted` || (e.id === `season-${s}-champion` && e.title.includes('עולים ל')));
 }
 
 /** The owner ended it over debt. Read by the App for the money counting, numbers only. */

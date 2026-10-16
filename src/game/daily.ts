@@ -11,10 +11,14 @@
  *  - miss a day and the run starts again from the first gift, and so does the count to thirty;
  *  - the seventh gift is a boost pack, the thirtieth day brings a gold player, five above his league.
  *
- * The money is scaled to the division, because wages differ about six times between them: the same sum is a
- * fortune in ליגה ג׳ and a rounding error in ליגת העל. The table is the economist's, measured on the real game
- * with a bot (PIC/sim-money/daily-gift): a week is worth between about one and a half and one round's wage bill.
- * The gems are three a week and the pack is the rest, because a whole season brings about four gems.
+ * The money is scaled to the division, because wages differ about twenty times between the bottom and the top: the same
+ * sum is a fortune in ליגה ג׳ and a rounding error in ליגת העל. The table is the economist's, measured on the real game
+ * with a bot (PIC/sim-money/daily-gift), and since 16.10 it follows one principle Itzik chose ("תלך על 1.5"): a week of
+ * gifts is worth one and a half rounds of wages in every division, so the gift grows with the club. Before that a week
+ * in ליגת העל bought less than one round of wages. The gems are three a week in ליגה ג׳ and ב׳, four in א׳ and the
+ * Leumit and five in ליגת העל, where the packs are the one upgrade path that scales; and the seventh day is a boost
+ * pack up to ליגה א׳ and a star pack from the Leumit up, because the free boost was a bench kid two times in three at
+ * the top.
  *
  * The door was opened by Itzik on 12.10 ("תפתח"). One line shuts it again.
  */
@@ -51,26 +55,47 @@ export function emptyDaily(): DailyState {
 export interface DailyReward {
   money: number;
   gems: number;
-  /** a boost pack of the club's own division */
+  /** a pack of the club's own division on the seventh day */
   pack: boolean;
+  /** which pack: a boost up to ליגה א׳, a star from the Leumit up; null on the other days */
+  packId: DailyPack | null;
 }
 
-/** money for the seven days, by division, ליגה ג׳ first. Measured, see the top. */
+/** money for the seven days, by division, ליגה ג׳ first: a week is 1.5 rounds of wages everywhere (the economist, 16.10) */
 const MONEY: Record<number, readonly number[]> = {
   1: [2_000, 2_000, 4_000, 5_000, 7_000, 8_000, 12_000],
   2: [2_000, 3_000, 5_000, 6_000, 7_000, 9_000, 14_000],
-  3: [9_000, 13_000, 22_000, 26_000, 35_000, 44_000, 66_000],
-  4: [10_000, 14_000, 24_000, 29_000, 38_000, 48_000, 72_000],
-  5: [18_000, 28_000, 46_000, 55_000, 73_000, 92_000, 138_000],
+  3: [10_000, 15_000, 26_000, 30_000, 41_000, 51_000, 77_000],
+  4: [15_000, 21_000, 36_000, 43_000, 57_000, 71_000, 107_000],
+  5: [37_000, 57_000, 94_000, 112_000, 149_000, 188_000, 283_000],
 };
-/** one gem on the third, fifth and sixth days: three a week, which is most of what a whole season brings */
-const GEMS: readonly number[] = [0, 0, 1, 0, 1, 1, 0];
+/** gems by day, by division: three a week at the bottom, four in ליגה א׳ and the Leumit, five in ליגת העל */
+const GEMS: Record<number, readonly number[]> = {
+  1: [0, 0, 1, 0, 1, 1, 0],
+  2: [0, 0, 1, 0, 1, 1, 0],
+  3: [0, 1, 1, 0, 1, 1, 0],
+  4: [0, 1, 1, 0, 1, 1, 0],
+  5: [0, 1, 1, 1, 1, 1, 0],
+};
+/** the pack of the seventh day: a boost up to ליגה א׳, a star from the Leumit up */
+export const STAR_FROM_TIER = 4;
+export type DailyPack = 'boost' | 'star';
+export function dailyPackFor(tier: number): DailyPack {
+  return tier >= STAR_FROM_TIER ? 'star' : 'boost';
+}
+export function gemsAWeek(tier: number): number {
+  return GEMS[Math.max(1, Math.min(5, Math.round(tier)))].reduce((a, b) => a + b, 0);
+}
+export function weekMoney(tier: number): number {
+  return MONEY[Math.max(1, Math.min(5, Math.round(tier)))].reduce((a, b) => a + b, 0);
+}
 
 /** the gift of a day (1 to 7) for a club in a division */
 export function rewardFor(tier: number, pos: number): DailyReward {
-  const t = MONEY[Math.max(1, Math.min(5, Math.round(tier)))];
+  const t = Math.max(1, Math.min(5, Math.round(tier)));
   const i = Math.max(1, Math.min(DAILY_WEEK, Math.round(pos))) - 1;
-  return { money: t[i], gems: GEMS[i], pack: i === DAILY_WEEK - 1 };
+  const pack = i === DAILY_WEEK - 1;
+  return { money: MONEY[t][i], gems: GEMS[t][i], pack, packId: pack ? dailyPackFor(t) : null };
 }
 
 /** where a run of this length sits in the week: 1 to 7 */

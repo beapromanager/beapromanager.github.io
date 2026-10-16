@@ -13,9 +13,10 @@
 import { readFileSync } from 'node:fs';
 import * as G from '../src/game/state.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
-import { overall } from '../src/engine/matchEngine.ts';
+import { overall, createRng } from '../src/engine/matchEngine.ts';
+import { openPack, packById } from '../src/game/packs.ts';
 import {
-  DAILY_WEEK, GOLD_EVERY, GOLD_LIFT, rewardFor, posOfStreak, dayKey, addDays, emptyDaily, dailyView, today,
+  DAILY_WEEK, GOLD_EVERY, GOLD_LIFT, rewardFor, posOfStreak, dayKey, addDays, emptyDaily, dailyView, today, gemsAWeek, dailyPackFor, STAR_FROM_TIER,
 } from '../src/game/daily.ts';
 
 const fails: string[] = [];
@@ -51,7 +52,8 @@ function liveAndClear(gs: G.GameState, d: number): G.GameState {
 /* 1. THE TABLE: the economist's money per division, three gems a week, the pack on the seventh */
 {
   checked += 5 * 3 + 3;
-  const WEEK = { 1: 40_000, 2: 46_000, 3: 215_000, 4: 235_000, 5: 450_000 } as Record<number, number>;
+  // 16.10, Itzik: "תלך על 1.5": a week is one and a half rounds of wages in every division
+  const WEEK = { 1: 40_000, 2: 46_000, 3: 250_000, 4: 350_000, 5: 920_000 } as Record<number, number>;
   for (let tier = 1; tier <= 5; tier++) {
     const days = Array.from({ length: DAILY_WEEK }, (_, i) => rewardFor(tier, i + 1));
     const total = days.reduce((a, r) => a + r.money, 0);
@@ -59,8 +61,18 @@ function liveAndClear(gs: G.GameState, d: number): G.GameState {
     for (let i = 1; i < DAILY_WEEK; i++) if (days[i].money < days[i - 1].money) fails.push(`tier ${tier}: day ${i + 1} gives less money than day ${i}`);
     if (days.some((r, i) => r.pack !== (i === DAILY_WEEK - 1))) fails.push(`tier ${tier}: the pack is not on the seventh day alone`);
   }
-  const g = Array.from({ length: DAILY_WEEK }, (_, i) => rewardFor(3, i + 1).gems).join(',');
-  if (g !== '0,0,1,0,1,1,0') fails.push(`the gems of the week are ${g}, wanted 0,0,1,0,1,1,0`);
+  const gemRow = (t: number) => Array.from({ length: DAILY_WEEK }, (_, i) => rewardFor(t, i + 1).gems).join(',');
+  for (const [t, want] of [[1, '0,0,1,0,1,1,0'], [2, '0,0,1,0,1,1,0'], [3, '0,1,1,0,1,1,0'], [4, '0,1,1,0,1,1,0'], [5, '0,1,1,1,1,1,0']] as const) {
+    if (gemRow(t) !== want) fails.push(`tier ${t}: the gems of the week are ${gemRow(t)}, wanted ${want}`);
+  }
+  for (const [t, want] of [[1, 3], [2, 3], [3, 4], [4, 4], [5, 5]] as const) if (gemsAWeek(t) !== want) fails.push(`tier ${t}: ${gemsAWeek(t)} gems a week, wanted ${want}`);
+  // the seventh day is a boost up to ליגה א׳ and a star from the Leumit up, never a star below it
+  for (const t of [1, 2, 3]) if (rewardFor(t, 7).packId !== 'boost' || dailyPackFor(t) !== 'boost') fails.push(`tier ${t}: the seventh day is not a boost pack`);
+  for (const t of [4, 5]) if (rewardFor(t, 7).packId !== 'star' || dailyPackFor(t) !== 'star') fails.push(`tier ${t}: the seventh day is not a star pack`);
+  if (STAR_FROM_TIER !== 4) fails.push('the star pack does not start at the Leumit');
+  for (let t = 1; t <= 5; t++) for (let p = 1; p < 7; p++) if (rewardFor(t, p).packId !== null) fails.push(`tier ${t} day ${p}: a pack on a day that is not the seventh`);
+  const st = readFileSync('src/game/state.ts', 'utf8');
+  if (!st.includes("openPack(packById(dailyPackFor(club(gs).tier))")) fails.push('the seventh day opens the same pack in every division');
   if (rewardFor(1, 7).money >= rewardFor(5, 1).money * 10) fails.push('the top flight gift is nothing next to the bottom one');
   if (rewardFor(2, 1).money < 1000 || rewardFor(1, 1).money < 1000) fails.push('the first gift is under a thousand, which nobody would feel');
 }
@@ -119,7 +131,7 @@ for (const seed of [6161, 77, 4040]) {
   }
   w = liveAndClear(six, 6);
   const sum = [1, 2, 3, 4, 5, 6, 7].reduce((a, p) => a + rewardFor(tier, p).money, 0);
-  if (w.gems - gems0 !== 3) fails.push(`${tag}: a week gave ${w.gems - gems0} gems, wanted 3`);
+  if (w.gems - gems0 !== gemsAWeek(tier)) fails.push(`${tag}: a week gave ${w.gems - gems0} gems, wanted ${gemsAWeek(tier)}`);
   if (w.meters.money - money0 !== sum) fails.push(`${tag}: a week paid ${w.meters.money - money0}, the table's seven are ${sum}`);
   // the eighth day is the first again
   const w8 = liveAndClear(w, 7);
@@ -160,6 +172,24 @@ for (const seed of [6161, 5151, 31, 9091, 555, 12007]) {
   for (let d = 0; d < 29; d++) if (d !== 14) broken = liveAndClear(broken, d);
   const late = live(broken, 29);
   if (late.pull && late.daily.streak !== 15) fails.push(`#${seed}: a broken run still got the gold player`);
+}
+
+/* 4b. THE SEVENTH DAY: from the Leumit up the free card is a star pack, and it shows in the player it brings (16.10) */
+{
+  const gap = (tier: number, free: boolean) => {
+    let sum = 0;
+    for (let s = 1; s <= 40; s++) {
+      const c = career(900 + s, tier);
+      const p = free ? G.rollFreeBoost(c) : openPack(packById('boost'), tier, createRng(900 + s), {});
+      sum += overall(p.player) - G.leagueAvgOvr(c);
+    }
+    return sum / 40;
+  };
+  checked += 2;
+  const topFree = gap(5, true), topBoost = gap(5, false);
+  if (topFree - topBoost < 1.5) fails.push(`in ליגת העל the seventh day brings a card ${topFree.toFixed(1)} over the league, a boost pack ${topBoost.toFixed(1)}: the star pack does not show`);
+  const lowFree = gap(3, true), lowBoost = gap(3, false);
+  if (Math.abs(lowFree - lowBoost) > 1.5) fails.push(`in ליגה א׳ the seventh day brings a card ${lowFree.toFixed(1)} over the league, a boost pack ${lowBoost.toFixed(1)}: it is not a boost`);
 }
 
 /* 5. THE SCREENS: only today's gift is a button, and nothing else can be pressed */
