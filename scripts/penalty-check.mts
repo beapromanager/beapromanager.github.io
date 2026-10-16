@@ -248,7 +248,7 @@ const everyN = 1 / perMatch;
   // the screen may ask for them only with a fallback that hides a missing one
   checked++;
   const defPenFrames = src.indexOf('function defPenOutcomeImg');
-  if (defPenFrames >= 0 && !/defPenOutcomeImg\(aim, saved\)\}[^]*?onError=/.test(src)) {
+  if (defPenFrames >= 0 && !/defPenOutcomeImg\((world, )?aim, saved\)\}[^]*?onError=/.test(src)) {
     fails.push('Match.tsx asks for a def-penalty reaction frame with no onError fallback, so a missing file shows a hole');
   }
   const drawn = ['goal-left', 'goal-center', 'goal-right', 'save-left', 'save-center', 'save-right']

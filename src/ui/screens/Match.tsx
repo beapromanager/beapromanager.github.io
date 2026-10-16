@@ -1,5 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { asset } from '../asset.ts';
+import { momentWorld, buildupImg, outcomeImg, buildupsOf, outcomesOf } from '../momentArt.ts';
+import type { MomentWorld } from '../momentArt.ts';
 import * as G from '../../game/state.ts';
 import * as L from '../../game/liveMatch.ts';
 import type { LiveState, Corner } from '../../game/liveMatch.ts';
@@ -35,8 +37,8 @@ const MS_PER_MIN = 780;
 const PEN_BUILDUP = asset('/moments/penalty/buildup.webp');
 /** the fourth official's board, the hero of the bench sheet (style A, Itzik's pick of 9.10) */
 const SUB_BOARD = asset('/moments/subs/board.webp');
-function penOutcomeImg(corner: Corner, scored: boolean): string {
-  return asset(`/moments/penalty/${scored ? 'goal' : 'save'}-${corner}.webp`);
+function penOutcomeImg(world: MomentWorld, corner: Corner, scored: boolean): string {
+  return asset(outcomeImg('penalty', world, `${scored ? 'goal' : 'save'}-${corner}`));
 }
 
 /**
@@ -57,44 +59,44 @@ const DEF_PEN_BUILDUP = asset('/moments/def-penalty/buildup.webp');
  * his hands on his head, at the corner the shot went to. Until Itzik's pictures
  * land the card falls back to the build-up frame washed with the outcome.
  */
-function defPenOutcomeImg(aim: Corner, saved: boolean): string {
-  return asset(`/moments/def-penalty/${saved ? 'save' : 'goal'}-${aim}.webp`);
+function defPenOutcomeImg(world: MomentWorld, aim: Corner, saved: boolean): string {
+  return asset(outcomeImg('def_penalty', world, `${saved ? 'save' : 'goal'}-${aim}`));
 }
 
 /** Same shape for free kicks, with a third outcome, hitting the wall. */
 const FK_BUILDUP = asset('/moments/free-kick/buildup.webp');
-function fkOutcomeImg(corner: Corner, outcome: L.FreeKickOutcome): string {
-  if (outcome === 'wall') return asset('/moments/free-kick/wall.webp');
-  return asset(`/moments/free-kick/${outcome === 'goal' ? 'goal' : 'save'}-${corner}.webp`);
+function fkOutcomeImg(world: MomentWorld, corner: Corner, outcome: L.FreeKickOutcome): string {
+  if (outcome === 'wall') return asset(outcomeImg('free_kick', world, 'wall'));
+  return asset(outcomeImg('free_kick', world, `${outcome === 'goal' ? 'goal' : 'save'}-${corner}`));
 }
 
 /** Open-play shot, three outcomes. Wide has no centre image, we pick a side. */
 const SHOT_BUILDUP = asset('/moments/shot/buildup.webp');
-function shotOutcomeImg(corner: Corner, outcome: L.ShotOutcome): string {
+function shotOutcomeImg(world: MomentWorld, corner: Corner, outcome: L.ShotOutcome): string {
   if (outcome === 'wide') {
     // Wide of centre is not a visual we shot; fall back to a side deterministically.
     const side = corner === 'right' ? 'right' : 'left';
-    return asset(`/moments/shot/wide-${side}.webp`);
+    return asset(outcomeImg('shot', world, `wide-${side}`));
   }
-  return asset(`/moments/shot/${outcome}-${corner}.webp`);
+  return asset(outcomeImg('shot', world, `${outcome}-${corner}`));
 }
 
 /** One-on-one, four outcomes keyed by choice-outcome. */
 const ONE_ON_ONE_BUILDUP = asset('/moments/one-on-one/buildup.webp');
-function oneOnOneOutcomeImg(outcome: L.OneOnOneOutcome): string {
-  return asset(`/moments/one-on-one/${outcome}.webp`);
+function oneOnOneOutcomeImg(world: MomentWorld, outcome: L.OneOnOneOutcome): string {
+  return asset(outcomeImg('one_on_one', world, outcome));
 }
 
 /** Danger vs our keeper, four outcomes: rush/stay × save/goal. */
 const DEF_KEEPER_BUILDUP = asset('/moments/def-keeper/buildup.webp');
-function defKeeperOutcomeImg(outcome: L.DefKeeperOutcome): string {
-  return asset(`/moments/def-keeper/${outcome}.webp`);
+function defKeeperOutcomeImg(world: MomentWorld, outcome: L.DefKeeperOutcome): string {
+  return asset(outcomeImg('def_keeper', world, outcome));
 }
 
 /** Danger vs our defender at the box edge, six outcomes. */
 const DEF_TACKLE_BUILDUP = asset('/moments/def-tackle/buildup.webp');
-function defTackleOutcomeImg(outcome: L.DefTackleOutcome): string {
-  return asset(`/moments/def-tackle/${outcome}.webp`);
+function defTackleOutcomeImg(world: MomentWorld, outcome: L.DefTackleOutcome): string {
+  return asset(outcomeImg('def_tackle', world, outcome));
 }
 
 /** The manager pondering the shout, dressed for the stage his club is on. */
@@ -129,7 +131,7 @@ let momentsPrefetched = false;
  * but the dark fallback. The build ups are what a moment opens on, so they go
  * first and alone; the outcome frames trickle in behind them, a few at a time.
  */
-function preloadMoments() {
+function preloadMoments(world: MomentWorld) {
   if (momentsPrefetched || typeof document === 'undefined') return;
   momentsPrefetched = true;
 
@@ -139,9 +141,11 @@ function preloadMoments() {
     i.src = src;
   });
 
-  const rest = MOMENT_IMAGES.filter(s => !BUILDUP_IMAGES.includes(s));
+  // the world this club plays in comes first; the old list keeps the touchline and the night set for a club about to go up
+  const first = [...buildupsOf(world).map(asset), ...BUILDUP_IMAGES.filter(s => s.includes('/tactic/'))];
+  const rest = [...outcomesOf(world).map(asset), ...MOMENT_IMAGES].filter(s => !first.includes(s));
   void (async () => {
-    await Promise.all(BUILDUP_IMAGES.map(load));
+    await Promise.all(first.map(load));
     for (let i = 0; i < rest.length; i += 4) {
       await Promise.all(rest.slice(i, i + 4).map(load));
     }
@@ -168,7 +172,9 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   const st = liveRef.current;
   // a European night: Itzik wants a goal felt in the hand, not only seen
   const euro = !!clubs;
-  useEffect(preloadMoments, []);
+  // ליגה ג׳ to א׳ play by day at a neighbourhood ground, the Leumit and ליגת העל at night; Europe has its own pictures
+  const world = momentWorld(G.club(gs).tier);
+  useEffect(() => preloadMoments(world), [world]);
 
   const [, force] = useReducer(x => x + 1, 0);
   const [speed, setSpeed] = useState<1 | 2 | 3 | 5>(1);
@@ -383,25 +389,25 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
       )}
 
       {/* decisions, each pops up as a full-screen moment (portaled) */}
-      {pending?.kind === 'penalty' && <MomentPopup m={pending} kind="penalty" imgOverride={euro ? EURO_MOMENT.penalty : undefined} onPickCorner={c => { const scored = L.resolvePenalty(st, c); setPenOutcome({ corner: c, scored }); force(); }} />}
-      {penOutcome && <PenaltyOutcome corner={penOutcome.corner} scored={penOutcome.scored} onDone={() => setPenOutcome(null)} />}
-      {pending?.kind === 'def_penalty' && <MomentPopup m={pending} kind="def_penalty" imgOverride={euro ? EURO_MOMENT.def_penalty : undefined} onPickCorner={c => {
+      {pending?.kind === 'penalty' && <MomentPopup m={pending} kind="penalty" imgOverride={euro ? EURO_MOMENT.penalty : asset(buildupImg('penalty', world, st.seed))} onPickCorner={c => { const scored = L.resolvePenalty(st, c); setPenOutcome({ corner: c, scored }); force(); }} />}
+      {penOutcome && <PenaltyOutcome world={euro ? 'night' : world} corner={penOutcome.corner} scored={penOutcome.scored} onDone={() => setPenOutcome(null)} />}
+      {pending?.kind === 'def_penalty' && <MomentPopup m={pending} kind="def_penalty" imgOverride={euro ? EURO_MOMENT.def_penalty : asset(buildupImg('def_penalty', world, st.seed))} onPickCorner={c => {
         const keeper = L.playerKeeperName(st);
         const { saved, aim } = L.resolveDefPenalty(st, c);
         setDefPenOutcome({ saved, keeper, aim });
         force();
       }} />}
-      {defPenOutcome && <DefPenaltyOutcome saved={defPenOutcome.saved} keeper={defPenOutcome.keeper} aim={defPenOutcome.aim} onDone={() => setDefPenOutcome(null)} />}
-      {pending?.kind === 'shot' && <MomentPopup m={pending} kind="shot" imgOverride={euro ? EURO_MOMENT.shot : undefined} onPickCorner={c => { const outcome = L.resolveShot(st, c); setShotOutcome({ corner: c, outcome }); force(); }} />}
-      {shotOutcome && <ShotOutcomeCard corner={shotOutcome.corner} outcome={shotOutcome.outcome} onDone={() => setShotOutcome(null)} />}
-      {pending?.kind === 'free_kick' && <MomentPopup m={pending} kind="free_kick" imgOverride={euro ? EURO_MOMENT.free_kick : undefined} onPickCorner={c => { const outcome = L.resolveFreeKick(st, c); setFkOutcome({ corner: c, outcome }); force(); }} />}
-      {fkOutcome && <FreeKickOutcomeCard corner={fkOutcome.corner} outcome={fkOutcome.outcome} onDone={() => setFkOutcome(null)} />}
-      {pending?.kind === 'one_on_one' && <MomentPopup m={pending} kind="one_on_one" imgOverride={euro ? EURO_MOMENT.one_on_one : undefined} onPickOption={id => { const outcome = L.resolveOneOnOne(st, id); setOneOnOneOutcome(outcome); force(); }} />}
-      {oneOnOneOutcome && <OneOnOneOutcomeCard outcome={oneOnOneOutcome} onDone={() => setOneOnOneOutcome(null)} />}
-      {pending?.kind === 'def_keeper' && <MomentPopup m={pending} kind="def_keeper" imgOverride={euro ? EURO_MOMENT.def_keeper : undefined} onPickOption={id => { const outcome = L.resolveDefKeeper(st, id); setDefKeeperOutcome(outcome); force(); }} />}
-      {defKeeperOutcome && <DefKeeperOutcomeCard outcome={defKeeperOutcome} onDone={() => setDefKeeperOutcome(null)} />}
-      {pending?.kind === 'def_tackle' && <MomentPopup m={pending} kind="def_tackle" imgOverride={euro ? EURO_MOMENT.def_tackle : undefined} onPickOption={id => { const outcome = L.resolveDefTackle(st, id); setDefTackleOutcome(outcome); force(); }} />}
-      {defTackleOutcome && <DefTackleOutcomeCard outcome={defTackleOutcome} onDone={() => setDefTackleOutcome(null)} />}
+      {defPenOutcome && <DefPenaltyOutcome world={euro ? 'night' : world} saved={defPenOutcome.saved} keeper={defPenOutcome.keeper} aim={defPenOutcome.aim} onDone={() => setDefPenOutcome(null)} />}
+      {pending?.kind === 'shot' && <MomentPopup m={pending} kind="shot" imgOverride={euro ? EURO_MOMENT.shot : asset(buildupImg('shot', world, st.seed))} onPickCorner={c => { const outcome = L.resolveShot(st, c); setShotOutcome({ corner: c, outcome }); force(); }} />}
+      {shotOutcome && <ShotOutcomeCard world={euro ? 'night' : world} corner={shotOutcome.corner} outcome={shotOutcome.outcome} onDone={() => setShotOutcome(null)} />}
+      {pending?.kind === 'free_kick' && <MomentPopup m={pending} kind="free_kick" imgOverride={euro ? EURO_MOMENT.free_kick : asset(buildupImg('free_kick', world, st.seed))} onPickCorner={c => { const outcome = L.resolveFreeKick(st, c); setFkOutcome({ corner: c, outcome }); force(); }} />}
+      {fkOutcome && <FreeKickOutcomeCard world={euro ? 'night' : world} corner={fkOutcome.corner} outcome={fkOutcome.outcome} onDone={() => setFkOutcome(null)} />}
+      {pending?.kind === 'one_on_one' && <MomentPopup m={pending} kind="one_on_one" imgOverride={euro ? EURO_MOMENT.one_on_one : asset(buildupImg('one_on_one', world, st.seed))} onPickOption={id => { const outcome = L.resolveOneOnOne(st, id); setOneOnOneOutcome(outcome); force(); }} />}
+      {oneOnOneOutcome && <OneOnOneOutcomeCard world={euro ? 'night' : world} outcome={oneOnOneOutcome} onDone={() => setOneOnOneOutcome(null)} />}
+      {pending?.kind === 'def_keeper' && <MomentPopup m={pending} kind="def_keeper" imgOverride={euro ? EURO_MOMENT.def_keeper : asset(buildupImg('def_keeper', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefKeeper(st, id); setDefKeeperOutcome(outcome); force(); }} />}
+      {defKeeperOutcome && <DefKeeperOutcomeCard world={euro ? 'night' : world} outcome={defKeeperOutcome} onDone={() => setDefKeeperOutcome(null)} />}
+      {pending?.kind === 'def_tackle' && <MomentPopup m={pending} kind="def_tackle" imgOverride={euro ? EURO_MOMENT.def_tackle : asset(buildupImg('def_tackle', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefTackle(st, id); setDefTackleOutcome(outcome); force(); }} />}
+      {defTackleOutcome && <DefTackleOutcomeCard world={euro ? 'night' : world} outcome={defTackleOutcome} onDone={() => setDefTackleOutcome(null)} />}
       {pending?.kind === 'tactic' && <MomentPopup m={pending} kind="tactic" imgOverride={euro ? EURO_MOMENT.tactic : tacticImg(G.club(gs).tier)} onPickOption={id => { L.resolveTactic(st, id); force(); }} />}
 
       {st.phase === 'done' ? (
@@ -1139,8 +1145,8 @@ const MOMENT_LOOK: Record<MomentKind, { img: string; accent: string; kicker: str
  * on a full frame of the outcome, the ball in the net or the keeper's save, so
  * the choice lands before the feed moves on. One tap continues.
  */
-function PenaltyOutcome({ corner, scored, onDone }: { corner: Corner; scored: boolean; onDone: () => void }) {
-  const img = penOutcomeImg(corner, scored);
+function PenaltyOutcome({ world, corner, scored, onDone }: { world: MomentWorld; corner: Corner; scored: boolean; onDone: () => void }) {
+  const img = penOutcomeImg(world, corner, scored);
   const accent = scored ? 'var(--win)' : 'var(--loss)';
   return (
     <Portal>
@@ -1169,8 +1175,8 @@ function PenaltyOutcome({ corner, scored, onDone }: { corner: Corner; scored: bo
  * moment in the game where the good outcome is nothing happening: the keeper
  * guessed with you and the scoreboard did not move.
  */
-function DefPenaltyOutcome({ saved, keeper, aim, onDone }: {
-  saved: boolean; keeper: string; aim: Corner; onDone: () => void;
+function DefPenaltyOutcome({ world, saved, keeper, aim, onDone }: {
+  world: MomentWorld; saved: boolean; keeper: string; aim: Corner; onDone: () => void;
 }) {
   const accent = saved ? 'var(--win)' : 'var(--loss)';
   const [hasFrame, setHasFrame] = useState(true);
@@ -1178,8 +1184,8 @@ function DefPenaltyOutcome({ saved, keeper, aim, onDone }: {
     <Portal>
       <div className="moment-scrim" onClick={onDone}>
         <div className="moment" style={{ borderColor: `${accent}55` }} onClick={e => e.stopPropagation()}>
-          <div className="moment-hero" style={{ backgroundImage: `url('${DEF_PEN_BUILDUP}')`, aspectRatio: '9 / 12', backgroundPosition: 'center 34%' }} aria-hidden="true">
-            {hasFrame && <img src={defPenOutcomeImg(aim, saved)} alt="" onError={() => setHasFrame(false)}
+          <div className="moment-hero" style={{ backgroundImage: `url('${world === 'day' ? asset(buildupImg('def_penalty', 'day', 0)) : DEF_PEN_BUILDUP}')`, aspectRatio: '9 / 12', backgroundPosition: 'center 34%' }} aria-hidden="true">
+            {hasFrame && <img src={defPenOutcomeImg(world, aim, saved)} alt="" onError={() => setHasFrame(false)}
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 34%' }} />}
             {/* the outcome is the colour: the same goal mouth washed green when he
                 keeps it out and red when it goes in, so the frame reads before a
@@ -1205,8 +1211,8 @@ function DefPenaltyOutcome({ saved, keeper, aim, onDone }: {
 }
 
 /** Free-kick payoff card, three outcomes, same shape as the penalty one. */
-function FreeKickOutcomeCard({ corner, outcome, onDone }: { corner: Corner; outcome: L.FreeKickOutcome; onDone: () => void }) {
-  const img = fkOutcomeImg(corner, outcome);
+function FreeKickOutcomeCard({ world, corner, outcome, onDone }: { world: MomentWorld; corner: Corner; outcome: L.FreeKickOutcome; onDone: () => void }) {
+  const img = fkOutcomeImg(world, corner, outcome);
   const accent = outcome === 'goal' ? 'var(--win)' : 'var(--loss)';
   const head = outcome === 'goal' ? 'גוווול!' : outcome === 'save' ? 'נעצר.' : 'בחומה.';
   const sub = outcome === 'goal' ? 'מסובב מעל החומה, היציע בטירוף'
@@ -1231,8 +1237,8 @@ function FreeKickOutcomeCard({ corner, outcome, onDone }: { corner: Corner; outc
 }
 
 /** Open-play shot payoff, three outcomes. */
-function ShotOutcomeCard({ corner, outcome, onDone }: { corner: Corner; outcome: L.ShotOutcome; onDone: () => void }) {
-  const img = shotOutcomeImg(corner, outcome);
+function ShotOutcomeCard({ world, corner, outcome, onDone }: { world: MomentWorld; corner: Corner; outcome: L.ShotOutcome; onDone: () => void }) {
+  const img = shotOutcomeImg(world, corner, outcome);
   const accent = outcome === 'goal' ? 'var(--win)' : 'var(--loss)';
   const head = outcome === 'goal' ? 'גוווול!' : outcome === 'save' ? 'נעצר.' : 'החמצה.';
   const sub = outcome === 'goal' ? 'הכדור ברשת, היציע מתפוצץ'
@@ -1257,8 +1263,8 @@ function ShotOutcomeCard({ corner, outcome, onDone }: { corner: Corner; outcome:
 }
 
 /** One-on-one payoff, four combinations of choice and outcome. */
-function OneOnOneOutcomeCard({ outcome, onDone }: { outcome: L.OneOnOneOutcome; onDone: () => void }) {
-  const img = oneOnOneOutcomeImg(outcome);
+function OneOnOneOutcomeCard({ world, outcome, onDone }: { world: MomentWorld; outcome: L.OneOnOneOutcome; onDone: () => void }) {
+  const img = oneOnOneOutcomeImg(world, outcome);
   const scored = outcome === 'dribble-goal' || outcome === 'finish-goal';
   const accent = scored ? 'var(--win)' : 'var(--loss)';
   const head = scored ? 'גוווול!' : outcome === 'dribble-save' ? 'השוער אסף.' : 'החטאה.';
@@ -1285,8 +1291,8 @@ function OneOnOneOutcomeCard({ outcome, onDone }: { outcome: L.OneOnOneOutcome; 
 }
 
 /** Danger vs our keeper payoff, four choice-outcome combinations. */
-function DefKeeperOutcomeCard({ outcome, onDone }: { outcome: L.DefKeeperOutcome; onDone: () => void }) {
-  const img = defKeeperOutcomeImg(outcome);
+function DefKeeperOutcomeCard({ world, outcome, onDone }: { world: MomentWorld; outcome: L.DefKeeperOutcome; onDone: () => void }) {
+  const img = defKeeperOutcomeImg(world, outcome);
   const saved = outcome === 'rush-save' || outcome === 'stay-save';
   const accent = saved ? 'var(--win)' : 'var(--loss)';
   const head = saved ? 'הצלה!' : 'ספגנו שער';
@@ -1313,8 +1319,8 @@ function DefKeeperOutcomeCard({ outcome, onDone }: { outcome: L.DefKeeperOutcome
 }
 
 /** Danger vs our defender payoff, six outcomes. */
-function DefTackleOutcomeCard({ outcome, onDone }: { outcome: L.DefTackleOutcome; onDone: () => void }) {
-  const img = defTackleOutcomeImg(outcome);
+function DefTackleOutcomeCard({ world, outcome, onDone }: { world: MomentWorld; outcome: L.DefTackleOutcome; onDone: () => void }) {
+  const img = defTackleOutcomeImg(world, outcome);
   const good = outcome === 'slide-clear' || outcome === 'hold-contain';
   const accent = good ? 'var(--win)' : 'var(--loss)';
   const head = outcome === 'slide-clear' ? 'תיקול נקי!'

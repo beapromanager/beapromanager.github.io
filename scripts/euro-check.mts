@@ -638,7 +638,8 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   // the moments wear the night's own pictures, every one of the eight, and the files are there
   checked += 2;
   const kinds = ['penalty', 'def_penalty', 'shot', 'free_kick', 'one_on_one', 'def_keeper', 'def_tackle'];
-  if (!kinds.every(k => match.includes(`kind="${k}" imgOverride={euro ? EURO_MOMENT.${k} : undefined}`)) || !match.includes('imgOverride={euro ? EURO_MOMENT.tactic : tacticImg(G.club(gs).tier)}')) fails.push('a moment on a European night still shows the league picture');
+  // 16.10: the league's picture is now one of two worlds by division (momentArt.ts); Europe still gets its own before any of that
+  if (!kinds.every(k => match.includes(`kind="${k}" imgOverride={euro ? EURO_MOMENT.${k} : asset(buildupImg('${k}', world, st.seed))}`)) || !match.includes('imgOverride={euro ? EURO_MOMENT.tactic : tacticImg(G.club(gs).tier)}')) fails.push('a moment on a European night still shows the league picture');
   const files = ['penalty', 'def-penalty', 'shot', 'one-on-one', 'tactic', 'free-kick', 'def-keeper', 'def-tackle'];
   const missingPic = files.filter(f => !existsSync(`public/moments/euro/${f}.webp`) || !match.includes(`asset('/moments/euro/${f}.webp')`));
   if (missingPic.length) fails.push(`European moment pictures missing or unwired: ${missingPic.join(', ')}`);
