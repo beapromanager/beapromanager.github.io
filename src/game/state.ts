@@ -385,6 +385,8 @@ export interface GameState {
   /** a request to lose a match, agreed and waiting for the match or the verdict, and what has been asked so far (fixing.ts) */
   fix: FixDeal | null;
   fixLog: FixLog;
+  /** the weekend league's prizes already in this career (by nonce), and how many weekends it won. Absent on saves from before */
+  weekend?: { applied: string[]; titles: number };
   youthPool: YouthOffer[];
   youthStamp: number;
   youthUp: string[];
@@ -2748,6 +2750,34 @@ export function acceptInvite(gs: GameState, ref: string): GameState {
 }
 
 export interface RedeemResult { gs: GameState; ok: boolean; message: string; }
+
+/**
+ * The weekend league's prize comes home (WEEKEND.md, section 7): money in wage
+ * rounds of THIS career's division, gems, and a line in the chronicle. The
+ * token was signed by the server and handed out once; the career applies it
+ * once more by its nonce, so a backup put back does not pay twice.
+ */
+export function applyWeekendPrize(gs: GameState, token: { nonce: string; place: number; wageRounds: number; gems: number; finished: boolean; nick: string; leagueName: string; final: number }): RedeemResult {
+  const had = gs.weekend ?? { applied: [], titles: 0 };
+  if (had.applied.includes(token.nonce)) return { gs, ok: false, message: 'הפרס הזה כבר בקופה' };
+  if (!gs.clubId) return { gs, ok: false, message: 'צריך קריירה כדי לקבל את הפרס' };
+  const round = wageBill(mySquad(gs), club(gs).tier);
+  const money = Math.round(token.wageRounds * round / 1000) * 1000;
+  const date = new Date(token.final).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', year: '2-digit' });
+  const title = token.place === 1 ? `אלוף הסופשבוע ${date}` : token.place === 2 ? `סגן אלוף הסופשבוע ${date}` : token.place === 3 ? `מקום שלישי בסופשבוע ${date}` : token.finished ? `שיחקת את הסופשבוע ${date}` : `הסופשבוע ${date}`;
+  const what = [money > 0 ? `₪${money.toLocaleString('en-US')}` : '', token.gems > 0 ? `${token.gems} ${token.gems === 1 ? 'יהלום' : 'יהלומים'}` : ''].filter(Boolean).join(' ו-');
+  const body = money > 0 || token.gems > 0
+    ? `${token.leagueName}: מקום ${token.place}. ${what} נכנסו לקופה של ${club(gs).name}. הבעלים שמע.`
+    : `${token.leagueName}: מקום ${token.place}. העוזר שיחק במקומך, אז הפעם בלי מעטפה.`;
+  const next: GameState = {
+    ...gs,
+    meters: { ...gs.meters, money: gs.meters.money + money },
+    gems: gs.gems + token.gems,
+    weekend: { applied: [...had.applied, token.nonce], titles: had.titles + (token.place === 1 ? 1 : 0) },
+    chronicle: [...gs.chronicle, { id: `weekend-${token.nonce}`, kind: 'season_end' as const, week: gs.week, title, body, icon: 'trophy' as const, tint: token.place === 1 ? 'gold' as const : 'win' as const }],
+  };
+  return { gs: next, ok: true, message: money > 0 || token.gems > 0 ? `${what} בקופה. ${title}.` : title };
+}
 
 /** Read a friend's thank you code and pay for him if it holds up. */
 export function redeemThanks(gs: GameState, text: string): RedeemResult {

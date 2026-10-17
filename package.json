@@ -37,6 +37,7 @@
     "check:press": "node --experimental-strip-types scripts/press-check.mts",
     "check:invite": "node --experimental-strip-types scripts/invite-check.mts",
     "check:gems": "node --experimental-strip-types scripts/gem-economy.mts",
+    "check:weekend": "node --experimental-strip-types scripts/weekend-check.mts",
     "check:duel": "node --experimental-strip-types scripts/duel-check.mts",
     "check:coach": "node --experimental-strip-types scripts/coach-check.mts",
     "check:install": "node --experimental-strip-types scripts/install-check.mts",

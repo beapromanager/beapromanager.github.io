@@ -14,3 +14,6 @@ IMG_*.MOV
 
 # wrangler local state (the weekend match server under wrangler dev)
 worker/.wrangler/
+
+# a planted save for browser checks, never shipped
+public/_devsave.json

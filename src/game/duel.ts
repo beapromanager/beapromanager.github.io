@@ -56,6 +56,8 @@ export interface DuelInput {
   tier?: number;
   /** a faster clock, for a smoke run only; the league never sets it */
   clock?: Partial<Clock>;
+  /** the weekend league has no draws: a level match goes to penalties, both managers deciding every kick */
+  shootoutOnDraw?: boolean;
 }
 
 export interface Clock { minuteMs: number; decisionMs: number; halfMs: number }
@@ -69,6 +71,8 @@ export interface Decision {
   perspective: Who;
   /** the managers asked, in order: the first is the perspective's manager */
   deciders: Who[];
+  /** a kick of the shootout, when the match went to penalties: its number and who takes it */
+  kick?: { n: number; taker: Who };
   /** the clock when it froze, ms */
   frozenAt: number;
   deadlineAt: number;
@@ -98,7 +102,20 @@ export interface Duel {
   log: LogEntry[];
   done: boolean;
   clock: Clock;
+  /** penalties after a draw: the tally and every kick, null while the match is on or when it had a winner */
+  shootout: Shootout | null;
+  shootoutOnDraw: boolean;
 }
+
+export interface Shootout {
+  home: number;
+  away: number;
+  kicks: { n: number; taker: Who; corner: string; dive: string; scored: boolean }[];
+  /** the shootout is over and this side won it */
+  winner: Who | null;
+}
+/** five kicks each, then one at a time until someone misses */
+export const SHOOTOUT_KICKS = 5;
 
 /* ------------------------------------------------------------------ build */
 
@@ -121,7 +138,7 @@ export function createDuel(input: DuelInput, nowMs: number): Duel {
   st.away.isPlayer = true;
   st.away.tactic = { ...input.away.tactic };
   st.away.onPitch = fillFormation(st.away.onPitch, formation(input.away.tactic.formation));
-  return { st, startedAt: nowMs, frozenMs: 0, decision: null, halfUntil: null, halfFrom: null, log: [], done: false, clock: { ...DEFAULT_CLOCK, ...(input.clock ?? {}) } };
+  return { st, startedAt: nowMs, frozenMs: 0, decision: null, halfUntil: null, halfFrom: null, log: [], done: false, clock: { ...DEFAULT_CLOCK, ...(input.clock ?? {}) }, shootout: null, shootoutOnDraw: !!input.shootoutOnDraw };
 }
 
 /* ------------------------------------------------------------------ clock */
@@ -168,15 +185,74 @@ function openDecision(d: Duel, m: Moment, perspective: Who) {
 /** the assistant's choice when a manager did not make one: deterministic off the match, never random on the server */
 export function assistantChoice(d: Duel, who: Who): string {
   const dec = d.decision!;
-  const r = createRng(d.st.seed + dec.minute * 7919 + (who === 'home' ? 11 : 13))();
+  const r = createRng(d.st.seed + dec.minute * 7919 + (dec.kick?.n ?? 0) * 131 + (who === 'home' ? 11 : 13))();
+  if (dec.kick) return CORNERS[Math.floor(r * 3)];
   const m = d.st.pending!;
   if (dec.kind === 'tactic') return 'balanced';
   if (m.options && dec.deciders[0] === who) return m.options[Math.floor(r * m.options.length)].id;
   return CORNERS[Math.floor(r * 3)];
 }
 
+/* --------------------------------------------------------------- shootout */
+
+/** whose kick is next: home first, alternating; n counts from 1 */
+function kickTaker(n: number): Who { return n % 2 === 1 ? 'home' : 'away'; }
+
+/** the shootout is decided when one side cannot be caught, or in sudden death when a pair ends unequal */
+function shootoutWinner(so: Shootout): Who | null {
+  const taken = (w: Who) => so.kicks.filter(k => k.taker === w).length;
+  const th = taken('home'), ta = taken('away');
+  const left = (w: Who) => Math.max(0, SHOOTOUT_KICKS - (w === 'home' ? th : ta));
+  if (so.home > so.away + left('away')) return 'home';
+  if (so.away > so.home + left('home')) return 'away';
+  if (th >= SHOOTOUT_KICKS && ta >= SHOOTOUT_KICKS && th === ta && so.home !== so.away) return so.home > so.away ? 'home' : 'away';
+  return null;
+}
+
+function openKick(d: Duel, nowMs: number) {
+  const so = d.shootout!;
+  const n = so.kicks.length + 1;
+  const taker = kickTaker(n);
+  const frozenAt = Math.max(nowMs, d.decision?.deadlineAt ?? 0);
+  d.decision = {
+    kind: 'penalty', minute: 90 + d.st.addedTime, perspective: taker,
+    deciders: [taker, other(taker)], kick: { n, taker },
+    frozenAt, deadlineAt: frozenAt + d.clock.decisionMs, choices: {},
+  };
+}
+
+function resolveKick(d: Duel) {
+  const dec = d.decision!;
+  const so = d.shootout!;
+  const taker = dec.kick!.taker;
+  const corner = dec.choices[taker]!, dive = dec.choices[other(taker)]!;
+  const r = createRng(d.st.seed + 70_000 + dec.kick!.n * 977)();
+  const scored = corner !== dive ? r < 0.85 : r < 0.25;
+  so.kicks.push({ n: dec.kick!.n, taker, corner, dive, scored });
+  if (scored) { if (taker === 'home') so.home++; else so.away++; }
+  const side = taker === 'home' ? d.st.home : d.st.away;
+  const kicker = pickKicker(d, taker, dec.kick!.n);
+  d.st.events.push({
+    minute: dec.minute, type: 'ambient', teamId: side.id, playerName: kicker,
+    text: scored ? `פנדלים: ${kicker} כובש. ${so.home}-${so.away}` : `פנדלים: ${kicker} מחמיץ! ${so.home}-${so.away}`,
+    big: true,
+  });
+  d.decision = null;
+  so.winner = shootoutWinner(so);
+  if (so.winner) { d.done = true; d.st.events.push({ minute: dec.minute, type: 'ambient', teamId: '', text: `נגמר בפנדלים ${so.home}-${so.away}`, big: true }); }
+}
+
+/** the n-th kicker of a side: the outfield eleven in order, round and round */
+function pickKicker(d: Duel, who: Who, n: number): string {
+  const side = who === 'home' ? d.st.home : d.st.away;
+  const out = side.onPitch.filter(p => p.position !== 'GK');
+  const i = Math.floor((n - 1) / 2) % Math.max(1, out.length);
+  return out[i]?.name ?? 'הבועט';
+}
+
 function resolveDecision(d: Duel) {
   const dec = d.decision!;
+  if (dec.kick) { resolveKick(d); return; }
   const st = d.st;
   setPerspective(st, dec.perspective);
   const mine = dec.choices[dec.deciders[0]]!;
@@ -198,6 +274,7 @@ function resolveDecision(d: Duel) {
 export function validChoice(d: Duel, who: Who, choice: string): boolean {
   const dec = d.decision;
   if (!dec || !dec.deciders.includes(who) || dec.choices[who] !== undefined) return false;
+  if (dec.kick) return CORNERS.includes(choice as Corner);
   const m = d.st.pending!;
   const cornerKinds: MomentKind[] = ['penalty', 'def_penalty', 'shot', 'free_kick'];
   if (cornerKinds.includes(dec.kind)) return CORNERS.includes(choice as Corner);
@@ -225,6 +302,7 @@ export function advance(d: Duel, nowMs: number) {
       resolveDecision(d);
       continue;
     }
+    if (d.shootout && !d.shootout.winner) { openKick(d, nowMs); continue; }
     if (d.halfUntil !== null) {
       if (nowMs < d.halfUntil) return;
       d.frozenMs += d.halfUntil - d.halfFrom!;
@@ -232,7 +310,7 @@ export function advance(d: Duel, nowMs: number) {
       L.resumeFromHalfTime(st);
       continue;
     }
-    if (st.phase === 'done') { d.done = true; return; }
+    if (st.phase === 'done') { finish(d, nowMs); return; }
     if (st.minute >= targetMinute(d, nowMs)) return;
     const perspective = perspectiveFor(st.minute + 1);
     setPerspective(st, perspective);
@@ -240,8 +318,18 @@ export function advance(d: Duel, nowMs: number) {
     const phase = (st as { phase: LiveState['phase'] }).phase;   // step() may have moved it; read it afresh
     if (phase === 'moment' && st.pending) openDecision(d, st.pending, perspective);
     else if (phase === 'halftime') { d.halfFrom = minuteAt(d, st.minute); d.halfUntil = d.halfFrom + d.clock.halfMs; }
-    else if (phase === 'done') d.done = true;
+    else if (phase === 'done') finish(d, nowMs);
   }
+}
+
+/** the whistle: a winner is done; a draw in the weekend goes to penalties */
+function finish(d: Duel, nowMs: number) {
+  if (d.shootout) return;
+  const [h, a] = d.st.score;
+  if (h !== a || !d.shootoutOnDraw) { d.done = true; return; }
+  d.shootout = { home: 0, away: 0, kicks: [], winner: null };
+  d.st.events.push({ minute: d.st.minute, type: 'ambient', teamId: '', text: 'תיקו. הולכים לפנדלים', big: true });
+  openKick(d, nowMs);
 }
 
 /** a manager's choice, if it is his to make right now; the clock runs on when every decider has chosen */
@@ -293,6 +381,8 @@ export interface DuelView {
   done: boolean;
   /** the clock as the server sees it, so a client can place the countdowns */
   now: number;
+  /** the penalties, once the match went there */
+  shootout: Shootout | null;
 }
 
 export function view(d: Duel, who: Who, since: number, nowMs: number): DuelView {
@@ -301,7 +391,23 @@ export function view(d: Duel, who: Who, since: number, nowMs: number): DuelView 
   const dec = d.decision;
   let decision: DecisionView | null = null;
   let waiting: DuelView['waiting'] = null;
-  if (dec) {
+  if (dec && dec.kick) {
+    const asked = dec.deciders.includes(who) && dec.choices[who] === undefined;
+    const taker = dec.kick.taker;
+    const kicker = pickKicker(d, taker, dec.kick.n);
+    if (asked) {
+      const own = taker === who;
+      decision = {
+        kind: 'penalty', minute: dec.minute,
+        title: own ? `פנדל ${dec.kick.n}. אתה בועט` : `פנדל ${dec.kick.n}. הוא בועט`,
+        subtitle: own ? `${kicker} על הכדור. לאן?` : `${kicker} על הכדור. לאן השוער שלך קופץ?`,
+        shooterName: kicker, corners: CORNERS, deadlineAt: dec.deadlineAt, role: own ? 'own' : 'dive',
+      };
+    } else {
+      const pendingWho = dec.deciders.find(w => dec.choices[w] === undefined) ?? dec.deciders[0];
+      waiting = { who: pendingWho, deadlineAt: dec.deadlineAt };
+    }
+  } else if (dec) {
     const m = st.pending!;
     const asked = dec.deciders.includes(who) && dec.choices[who] === undefined;
     if (asked) {
@@ -328,7 +434,7 @@ export function view(d: Duel, who: Who, since: number, nowMs: number): DuelView 
     minute: st.minute, phase: st.phase, score: [st.score[0], st.score[1]],
     home: st.home.name, away: st.away.name,
     events: st.events.slice(from), next: st.events.length,
-    decision, waiting, halfUntil: d.halfUntil, done: d.done, now: nowMs,
+    decision, waiting, halfUntil: d.halfUntil, done: d.done, now: nowMs, shootout: d.shootout,
   };
 }
 
@@ -350,10 +456,12 @@ export function deserialize(raw: string): Duel {
 }
 
 /** the match as a result: who won, on goals, and the log that made it */
-export function result(d: Duel): { score: [number, number]; winner: Who | 'draw'; decisions: number; auto: number } {
+export function result(d: Duel): { score: [number, number]; winner: Who | 'draw'; shootout: [number, number] | null; decisions: number; auto: number; chose: Record<Who, number> } {
   const [h, a] = d.st.score;
+  const winner: Who | 'draw' = h > a ? 'home' : a > h ? 'away' : d.shootout?.winner ?? 'draw';
   return {
-    score: [h, a], winner: h > a ? 'home' : a > h ? 'away' : 'draw',
+    score: [h, a], winner, shootout: d.shootout ? [d.shootout.home, d.shootout.away] : null,
     decisions: d.log.length, auto: d.log.filter(l => l.auto).length,
+    chose: { home: d.log.filter(l => l.who === 'home' && !l.auto).length, away: d.log.filter(l => l.who === 'away' && !l.auto).length },
   };
 }

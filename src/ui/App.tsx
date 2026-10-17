@@ -3,6 +3,9 @@ import * as G from '../game/state.ts';
 import { saveCareer, loadCareer, savedSummary, clearCareer } from '../game/save.ts';
 import type { SaveSummary } from '../game/save.ts';
 import { TitleScreen } from './screens/Title.tsx';
+import { WeekendEntry, WeekendRoot } from './weekend/Weekend.tsx';
+import { WEEKEND_ON, local as weekendLocal, setLocal as setWeekendLocal } from '../game/weekend.ts';
+import type { PrizeToken } from '../game/weekend.ts';
 import { IntroCinematic } from './screens/Intro.tsx';
 import { Tutorial } from './components/Tutorial.tsx';
 import { OnboardManager, OnboardClub } from './screens/Onboard.tsx';
@@ -87,6 +90,16 @@ export function App() {
   const [gs, setGs] = useState<G.GameState>(() => G.newGame());
   const [squadFromHub, setSquadFromHub] = useState(false);
   const [saved, setSaved] = useState<SaveSummary | null>(() => savedSummary());
+  // the weekend league: its own screen off the title, and the prize that comes home to the career
+  const [weekendOpen, setWeekendOpen] = useState(false);
+  function applyWeekendPrize(token: PrizeToken): string | null {
+    const loaded = loadCareer();
+    if (!loaded) return null;
+    const r = G.applyWeekendPrize(loaded, token);
+    saveCareer(r.gs);
+    setSaved(savedSummary());
+    return r.message;
+  }
   const [fromPreseason, setFromPreseason] = useState(false);   // market opened from the summer board
   // who sent this link, kept for the moment a career actually starts. Read once
   // on load, because the url is tidied straight afterwards
@@ -272,7 +285,10 @@ export function App() {
   }
 
   function continueCareer() {
-    const loaded = loadCareer();
+    let loaded = loadCareer();
+    // a prize fetched while the career was not open comes in now, once
+    const pending = weekendLocal().pendingPrize;
+    if (loaded && pending) { const r = G.applyWeekendPrize(loaded, pending); if (r.ok) { loaded = r.gs; saveCareer(loaded); } setWeekendLocal({ pendingPrize: null }); }
     if (loaded) setGs(loaded);
     setBooted(true);
   }
@@ -289,11 +305,20 @@ export function App() {
     );
   }
 
+  if (!booted && weekendOpen && WEEKEND_ON) {
+    return (
+      <div className="frame">
+        <WeekendRoot saved={saved} onBack={() => setWeekendOpen(false)} onPrize={applyWeekendPrize} />
+      </div>
+    );
+  }
+
   if (!booted) {
     return (
       <div className="frame">
         <>
-          <TitleScreen saved={saved} onNew={startNew} onContinue={continueCareer} onInstall={() => setInstallOpen(true)} />
+          <TitleScreen saved={saved} onNew={startNew} onContinue={continueCareer} onInstall={() => setInstallOpen(true)}
+            extra={WEEKEND_ON ? <WeekendEntry hasCareer={!!saved} onOpen={() => setWeekendOpen(true)} /> : undefined} />
           {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
         </>
       </div>

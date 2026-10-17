@@ -19,8 +19,10 @@ import { watchInstall, isInstalled } from '../install.ts';
  * confetti in the light, the manager walking. The still is the poster, so the first frame is on screen before
  * the loop has arrived, and it is all a phone that will not autoplay, or a person who asked for less motion, gets.
  */
-export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
+export function TitleScreen({ saved, onNew, onContinue, onInstall, extra }: {
   saved: SaveSummary | null;
+  /** the weekend league's ticket, when its door is open */
+  extra?: React.ReactNode;
   onNew: () => void;
   onContinue: () => void;
   /** open the "put it on your home screen" sheet */
@@ -100,6 +102,7 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
           </button>
 
           {saved && <p className="hint" style={{ textAlign: 'center', margin: 0 }}>קריירה חדשה תמחק את הקריירה השמורה.</p>}
+          {extra}
 
           {/* The install belongs HERE, before a career, not buried in the game.
               Shown whatever the device says: the sheet knows the right route for
