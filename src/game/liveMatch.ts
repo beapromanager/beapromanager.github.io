@@ -944,6 +944,50 @@ function clearMoment(st: LiveState) {
   st.phase = st.minute >= fullTime ? 'done' : 'play';
 }
 
+
+/* ------------------------------------------- two managers (the weekend league) */
+
+/**
+ * A penalty with a human at each end (the weekend league, 17.10): the taker's
+ * manager picks the corner and the keeper's manager picks the dive, so neither
+ * side rolls a hidden guess. The odds are resolvePenalty's exactly, only the
+ * dive is a choice and not actualDive. The career's single-manager penalty is
+ * untouched.
+ */
+export function resolvePenaltyDuel(st: LiveState, pick: Corner, dive: Corner): boolean {
+  const m = st.pending!;
+  const beats = pick !== dive;
+  const scored = beats ? rand(st) < 0.85 : rand(st) < 0.25;
+  const idx = st.iAmHome ? 0 : 1;
+  st.xg[idx] += 0.76;
+  if (scored) scoreForPlayer(st, m.shooterId!, m.shooterName!, `פנדל! ${m.shooterName} לא מפספס מ-11 מטר`, true);
+  else st.events.push({ minute: st.minute, type: 'penalty_miss', teamId: playerSide(st).id, playerName: m.shooterName, text: `פנדל מבוזבז, ${m.shooterName} יזכור את זה` });
+  clearMoment(st);
+  return scored;
+}
+
+/** The same penalty seen from the keeper's end: his manager dives, the taker's manager aimed. resolveDefPenalty's odds. */
+export function resolveDefPenaltyDuel(st: LiveState, dive: Corner, aim: Corner): DefPenaltyOutcome {
+  const m = st.pending!;
+  const gk = playerSide(st).onPitch.find(p => p.position === 'GK');
+  const gkq = gk ? overall(gk) : 55;
+  const right = dive === aim;
+  const saved = rand(st) < (right ? 0.55 + (gkq - 60) / 250 : 0.06 + (gkq - 60) / 500);
+  const idx = st.iAmHome ? 1 : 0;
+  st.shots[idx]++; st.xg[idx] += 0.76;
+  if (saved) {
+    st.events.push({
+      minute: st.minute, type: 'penalty_miss', teamId: oppSide(st).id, playerName: m.shooterName,
+      text: right ? `${gk?.name ?? 'השוער'} הלך לפינה הנכונה ועצר פנדל!` : `${gk?.name ?? 'השוער'} הלך לצד השני והספיק להחזיר יד. איזו הצלה!`,
+      big: true,
+    });
+  } else {
+    concede(st, m.shooterName!, `פנדל. ${m.shooterName} כובש מ-11 מטר`);
+  }
+  clearMoment(st);
+  return { saved, aim };
+}
+
 /* ---------------------------------------------------------------- halftime */
 
 export type TalkId = 'calm' | 'fire' | 'praise';

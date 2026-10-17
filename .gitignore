@@ -11,3 +11,6 @@ PIC/
 
 # reference screen recordings, not part of the app
 IMG_*.MOV
+
+# wrangler local state (the weekend match server under wrangler dev)
+worker/.wrangler/

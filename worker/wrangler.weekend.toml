@@ -1,0 +1,15 @@
+# The weekend league's match server. Phase 1 (17.10): local only, run with
+#   npx wrangler dev -c wrangler.weekend.toml --port 8788
+# and exercised by scripts/duel-smoke.mts. Not deployed until the league (phase 2)
+# signs each manager in; see WEEKEND.md in the project root.
+name = "beapro-weekend"
+main = "src/weekend.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+
+[durable_objects]
+bindings = [{ name = "MATCH", class_name = "MatchDO" }]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["MatchDO"]
