@@ -97,10 +97,11 @@ export function WeekendMatch({ leagueId, matchId, side, opponent, me, onDone }: 
 
         <div className="wk-board">
           <span className="club">{us}</span>
-          <span className="sc">{score[0]} : {score[1]}</span>
+          {/* we are on the right and they are on the left; the digits run left to right, so theirs is written first and each number sits by its own name */}
+          <span className="sc">{score[1]} : {score[0]}</span>
           <span className="club">{them}</span>
         </div>
-        {soMine && <div className="wk-clock"><span>פנדלים</span><b className="num">{soMine[0]} - {soMine[1]}</b></div>}
+        {soMine && <div className="wk-clock"><span>פנדלים</span><b className="num">{soMine[1]} - {soMine[0]}</b></div>}
         <div className="wk-clock">
           {!so && <b className="num">{v ? `${v.minute}'` : '…'}</b>}
           {frozen && !v?.done && <span className="wk-frozen">השעון עצר</span>}

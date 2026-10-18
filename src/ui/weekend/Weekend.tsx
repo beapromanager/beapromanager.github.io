@@ -439,9 +439,10 @@ function LiveRound({ live, me }: { live: LiveView; me: string }) {
           return (
             <div key={i} className={`wk-m ${goal ? 'goal' : ''} ${mine ? 'mine' : ''}`}>
               <span className="r">{m.home}</span>
-              <span className="s">{sc[0]}-{sc[1]}</span>
+              {/* the row reads right to left, home on the right; the digits run left to right, so the away score is written first */}
+              <span className="s">{sc[1]}-{sc[0]}</span>
               <span className="l">{m.away}</span>
-              <span className="mm">{m.result ? (m.result.shootout ? `נגמר בפנדלים ${m.result.shootout[0]}-${m.result.shootout[1]}` : m.result.technical ? 'הפסד טכני' : 'נגמר') : m.live ? (m.live.done ? 'נגמר' : m.live.shootout ? `פנדלים ${m.live.shootout[0]}-${m.live.shootout[1]}` : `דקה ${m.live.minute}${m.live.deciding.length ? ' · מחליטים' : ''}`) : 'עוד לא התחיל'}</span>
+              <span className="mm">{m.result ? (m.result.shootout ? `נגמר בפנדלים ${m.result.shootout[1]}-${m.result.shootout[0]}` : m.result.technical ? 'הפסד טכני' : 'נגמר') : m.live ? (m.live.done ? 'נגמר' : m.live.shootout ? `פנדלים ${m.live.shootout[1]}-${m.live.shootout[0]}` : `דקה ${m.live.minute}${m.live.deciding.length ? ' · מחליטים' : ''}`) : 'עוד לא התחיל'}</span>
             </div>
           );
         })}

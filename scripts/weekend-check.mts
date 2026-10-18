@@ -280,6 +280,19 @@ function tenLeague(n = 10) {
   }
 }
 
+/* 11. the screens: every number sits by its own name. The rows read right to left (home, us, on the right) and the
+   digits run left to right, so the far side's number is written first (Itzik, 18.10: "איציק ניצח וכתוב גל 3:0") */
+{
+  const { readFileSync } = await import('node:fs');
+  const m = readFileSync('src/ui/weekend/WeekendMatch.tsx', 'utf8');
+  const w = readFileSync('src/ui/weekend/Weekend.tsx', 'utf8');
+  claim(m.includes('<span className="club">{us}</span>') && m.indexOf('<span className="club">{us}</span>') < m.indexOf('<span className="club">{them}</span>'), 'the match board no longer puts us first, on the right');
+  claim(m.includes('<span className="sc">{score[1]} : {score[0]}</span>'), 'the match board writes our score first, beside their name');
+  claim(m.includes('{soMine[1]} - {soMine[0]}'), 'the shootout tally writes our kicks first, beside their name');
+  claim(w.includes('<span className="r">{m.home}</span>') && w.includes('<span className="s">{sc[1]}-{sc[0]}</span>'), 'a live row writes the home score first, beside the away name');
+  claim(w.includes('shootout[1]}-${m.result.shootout[0]}') && w.includes('shootout[1]}-${m.live.shootout[0]}'), 'a live row shootout writes the home kicks first');
+}
+
 console.log(`${checked} checks`);
 if (fails.length) {
   console.log(`FAIL (${fails.length} of ${checked})`);

@@ -234,12 +234,18 @@ function resolveKick(d: Duel) {
   const kicker = pickKicker(d, taker, dec.kick!.n);
   d.st.events.push({
     minute: dec.minute, type: 'ambient', teamId: side.id, playerName: kicker,
-    text: scored ? `פנדלים: ${kicker} כובש. ${so.home}-${so.away}` : `פנדלים: ${kicker} מחמיץ! ${so.home}-${so.away}`,
+    // a bare "1-0" in a Hebrew sentence is read either way; the tally names its teams (Itzik, 18.10)
+    text: scored ? `פנדלים: ${kicker} כובש. ${tally(d, so)}` : `פנדלים: ${kicker} מחמיץ! ${tally(d, so)}`,
     big: true,
   });
   d.decision = null;
   so.winner = shootoutWinner(so);
-  if (so.winner) { d.done = true; d.st.events.push({ minute: dec.minute, type: 'ambient', teamId: '', text: `נגמר בפנדלים ${so.home}-${so.away}`, big: true }); }
+  if (so.winner) { d.done = true; d.st.events.push({ minute: dec.minute, type: 'ambient', teamId: '', text: `נגמר בפנדלים. ${tally(d, so)}`, big: true }); }
+}
+
+/** the shootout as words, each number by its own name */
+function tally(d: Duel, so: Shootout): string {
+  return `${d.st.home.name} ${so.home}, ${d.st.away.name} ${so.away}`;
 }
 
 /** the n-th kicker of a side: the outfield eleven in order, round and round */
