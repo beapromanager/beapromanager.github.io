@@ -93,7 +93,7 @@ export function WeekendMatch({ leagueId, matchId, side, opponent, me, onDone }: 
           <button className="wk-back" onClick={onDone}><Icon name="chevron" size={16} />{v?.done ? 'לליגה' : 'הליגה'}</button>
           <span className="wk-pill">{v?.halfUntil ? 'מחצית' : so ? 'פנדלים' : v?.done ? 'נגמר' : 'חי'}</span>
         </div>
-        <div style={{ height: 110 }} />
+        <div style={{ height: 150 }} />
 
         <div className="wk-board">
           <span className="club">{us}</span>

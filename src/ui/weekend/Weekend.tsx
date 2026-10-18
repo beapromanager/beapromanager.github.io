@@ -10,7 +10,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SaveSummary } from '../../game/save.ts';
-import { WeekendApi, ApiError, local, setLocal, serverNow, countdown, slotLabel, dateLabel, POSITION_WORDS, type LeagueView, type LiveView, type PrizeToken } from '../../game/weekend.ts';
+import { WeekendApi, ApiError, local, setLocal, serverNow, slotLabel, dateLabel, POSITION_WORDS, type LeagueView, type LiveView, type PrizeToken } from '../../game/weekend.ts';
 import { cycleOf, cyclePhase, SLOT_GRID, DAY_NAME, slotsNeeded, slotsProblem, MIN_MEMBERS, MAX_MEMBERS, PACK_EVERY, type SlotDay } from '../../game/weekendCore.ts';
 import { fillFormation, formation, FORMATIONS, type FormationId } from '../../data/formations.ts';
 import { overall } from '../../engine/matchEngine.ts';
@@ -19,6 +19,24 @@ import { asset } from '../asset.ts';
 import { Icon } from '../components/Icon.tsx';
 import { WeekendMatch } from './WeekendMatch.tsx';
 import './weekend.css';
+
+/* ------------------------------------------------------------------ the clock */
+
+/**
+ * A countdown that reads right in Hebrew: the days as words, the clock as an
+ * isolated left-to-right run, so "2 ימים ו-04:59" never comes out scrambled.
+ */
+export function Count({ to, now, className, style }: { to: number; now: number; className?: string; style?: React.CSSProperties }) {
+  const s = Math.max(0, Math.floor((to - now) / 1000));
+  const d = Math.floor(s / 86_400), h = Math.floor((s % 86_400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const two = (n: number) => String(n).padStart(2, '0');
+  return (
+    <span className={className} style={style}>
+      {d > 0 && <span style={{ fontSize: '.62em', marginInlineEnd: '.35em' }}>{d === 1 ? 'יום' : `${d} ימים`} ו־</span>}
+      <bdi dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>{d > 0 ? `${two(h)}:${two(m)}` : `${two(h)}:${two(m)}:${two(sec)}`}</bdi>
+    </span>
+  );
+}
 
 /* ------------------------------------------------------------ the ticket at the door */
 
@@ -30,9 +48,9 @@ export function WeekendEntry({ onOpen, hasCareer }: { onOpen: () => void; hasCar
   const c = cycleOf(now);
   const phase = cyclePhase(c, now);
   const mine = local().leagueId;
-  const line = phase === 'open' ? { k: 'ההרשמה פתוחה', c: countdown(c.locks, now), m: 'עד חמישי 17:00' }
-    : phase === 'locked' ? { k: 'הרשימות נסגרו', c: countdown(c.kickoff, now), m: 'חמישי 20:00, המחזור הראשון' }
-    : { k: 'משחקים עכשיו', c: countdown(c.final, now), m: 'עד הגמר, ראשון 20:00' };
+  const line = phase === 'open' ? { k: 'ההרשמה פתוחה', to: c.locks, m: 'עד חמישי 17:00' }
+    : phase === 'locked' ? { k: 'הרשימות נסגרו', to: c.kickoff, m: 'חמישי 20:00, המחזור הראשון' }
+    : { k: 'משחקים עכשיו', to: c.final, m: 'עד הגמר, ראשון 20:00' };
   return (
     <button className="wk-entry" onClick={onOpen} aria-label="ליגת השכונה">
       <div className="stub"><span>סופשבוע · {dateLabel(c.kickoff)}</span></div>
@@ -40,7 +58,7 @@ export function WeekendEntry({ onOpen, hasCareer }: { onOpen: () => void; hasCar
       <div className="k">{line.k}</div>
       <div className="h">ליגת השכונה</div>
       <div className="wk-row" style={{ gap: 10, alignItems: 'baseline' }}>
-        <span className="c" dir="auto">{line.c}</span>
+        <Count className="c" to={line.to} now={now} />
         <span className="m">{line.m}</span>
       </div>
       {!hasCareer && <div className="m" style={{ marginTop: 4 }}>קודם קריירה, אחר כך הליגה</div>}
@@ -109,14 +127,14 @@ function Home({ saved, booting, err, go }: { saved: SaveSummary | null; booting:
   return (
     <>
       <div className="wk-frame"><img src={asset('/weekend/entrance.webp')} alt="" /></div>
-      <div style={{ height: 150 }} />
+      <div style={{ height: 230 }} />
       <div className="wk-kick">חמישי 20:00 עד ראשון 20:00</div>
       <h1>ליגת השכונה</h1>
       <p className="wk-muted">סגל חדש, שווה לכולם. משחק אחד מול כל חבר, בשעות שקבעתם. אין תיקו. המנצח לוקח הביתה לקריירה.</p>
       <div className="wk-card soft wk-row" style={{ justifyContent: 'space-between' }}>
         <div>
           <div className="wk-muted">{open ? 'ההרשמה נסגרת בעוד' : phase === 'locked' ? 'המחזור הראשון בעוד' : 'הגמר בעוד'}</div>
-          <div className="wk-count num" style={{ fontSize: 34 }}>{countdown(open ? c.locks : phase === 'locked' ? c.kickoff : c.final, now)}</div>
+          <Count className="wk-count" style={{ fontSize: 34, display: 'block' }} to={open ? c.locks : phase === 'locked' ? c.kickoff : c.final} now={now} />
         </div>
         <span className="wk-pill red">{dateLabel(c.kickoff)}</span>
       </div>
@@ -330,9 +348,9 @@ function Lobby({ id, league, setLeague, onMatch, onLeave, onPrize, hasCareer }: 
         <div className={`wk-ticket ${L.code ? 'has-stub' : ''} wk-in`}>
           {L.code && <div className="wk-stub"><span>{L.name} · {L.code}</span></div>}
           <div className="wk-stamp">{L.status === 'done' ? 'נגמר' : L.status === 'cancelled' ? 'בוטל' : L.status === 'open' ? 'נרשם' : 'נכנס'}</div>
-          <div className="wk-kick">{L.status === 'open' ? `${L.members.length} מתוך ${L.capacity}` : L.status === 'playing' ? `מחזור ${(L.current?.index ?? L.rounds.length - 1) + 1} מתוך ${L.rounds.length}` : L.status}</div>
+          <div className="wk-kick">{L.status === 'open' ? `${L.members.length} מתוך ${L.capacity}` : L.status === 'playing' ? `מחזור ${(L.current?.index ?? L.rounds.length - 1) + 1} מתוך ${L.rounds.length}` : L.status === 'locked' ? 'הסגלים הוגרלו' : L.status === 'done' ? 'הסופשבוע נגמר' : 'לא יצאה לדרך'}</div>
           <h1 style={{ marginTop: 4 }}>{L.name}</h1>
-          {next && <div style={{ marginTop: 8 }}><div className="wk-muted">{next.label}</div><div className="wk-count num">{countdown(next.at, now)}</div></div>}
+          {next && <div style={{ marginTop: 8 }}><div className="wk-muted">{next.label}</div><Count className="wk-count" style={{ display: 'block' }} to={next.at} now={now} /></div>}
           {L.code && L.status === 'open' && <div className="wk-muted" style={{ marginTop: 8 }}>הקוד לחבר׳ה: <b className="num" style={{ fontFamily: 'var(--font-wk)', fontSize: 22, letterSpacing: '.12em' }}>{L.code}</b></div>}
           <div className="wk-barcode" />
         </div>
@@ -344,7 +362,7 @@ function Lobby({ id, league, setLeague, onMatch, onLeave, onPrize, hasCareer }: 
           <button className="wk-btn red wk-in" style={{ minHeight: 64, fontSize: 19 }} onClick={onMatch}>למגרש, מול {L.mine!.opponent}</button>
         )}
         {L.current && !canPlay && !myDone && now >= L.current.at && now < L.current.startsAt && L.mine && (
-          <button className="wk-btn wk-in" onClick={() => WeekendApi.ready(id).then(refresh).catch(() => {})}>מוכן? מול {L.mine.opponent} בעוד {countdown(L.current.startsAt, now)}</button>
+          <button className="wk-btn wk-in" onClick={() => WeekendApi.ready(id).then(refresh).catch(() => {})}>מוכן? מול {L.mine.opponent} בעוד <Count to={L.current.startsAt} now={now} /></button>
         )}
         {L.status === 'cancelled' && <div className="wk-card"><b>לא הגעתם לשישה.</b> <span className="wk-muted">הליגה לא יצאה לדרך. בשבוע הבא, או הליגה הפתוחה.</span></div>}
 

@@ -29,9 +29,9 @@
 .wk-paper::before{content:""; position:absolute; inset-inline:0; top:0; height:30px; pointer-events:none;
   background:radial-gradient(circle at 11px 0, var(--bg,#0B0E14) 9px, transparent 10px) 0 -4px/22px 22px repeat-x;}
 .wk-paper[data-frame]{background-size:100% 100%}
-.wk-frame{position:absolute; inset:0; pointer-events:none; z-index:0}
+.wk-frame{position:absolute; inset:0; bottom:auto; height:min(48vh,400px); pointer-events:none; z-index:0}
 .wk-frame img{width:100%; height:100%; object-fit:cover; object-position:center top; display:block}
-.wk-frame::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(242,234,219,.1) 0%, rgba(242,234,219,.55) 45%, var(--wk-paper) 78%);}
+.wk-frame::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(242,234,219,0) 0%, rgba(242,234,219,0) 45%, rgba(242,234,219,.7) 78%, var(--wk-paper) 100%);}
 .wk-paper > *:not(.wk-frame){position:relative; z-index:1}
 
 /* type */
@@ -92,7 +92,8 @@
 .wk .wk-code{font-family:var(--font-wk); font-size:40px; letter-spacing:.14em; direction:ltr; unicode-bidi:isolate; text-align:center; color:var(--wk-ink); line-height:1}
 .wk .wk-pill{display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px; font-size:12.5px; font-weight:700; border:1.5px solid var(--wk-ink); color:var(--wk-ink)}
 .wk .wk-pill.red{background:var(--wk-red); border-color:var(--wk-red); color:#fff}
-.wk .wk-back{display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 10px; font-weight:700; color:var(--wk-ink-dim); background:none; border:none; cursor:pointer; font-size:14px}
+.wk .wk-back{display:inline-flex; align-items:center; gap:6px; min-height:40px; padding:0 14px; font-weight:800; color:var(--wk-ink); background:var(--wk-paper); border:1.5px solid var(--wk-line-2); border-radius:999px; cursor:pointer; font-size:14px}
+.wk .wk-pill{background:var(--wk-paper)}
 
 /* the entrance card on the title screen */
 .wk-entry{position:relative; width:100%; text-align:start; border:2px solid #F2EADB; border-radius:6px; background:#F2EADB; color:#1B2A4A; padding:14px 16px; padding-inline-start:70px; box-shadow:0 10px 30px rgba(0,0,0,.35); cursor:pointer; font-family:var(--font-body); overflow:visible; min-height:92px}
@@ -109,10 +110,10 @@
 @keyframes wkPulse{50%{opacity:.35}}
 
 /* the match */
-.wk-board{display:flex; align-items:center; justify-content:center; gap:12px; font-family:var(--font-display); font-weight:900}
+.wk-board{display:flex; align-items:center; justify-content:center; gap:12px; font-family:var(--font-display); font-weight:900; background:var(--wk-paper); border:2px solid var(--wk-ink); border-radius:6px; padding:10px 12px; box-shadow:4px 4px 0 var(--wk-ink)}
 .wk-board .club{font-size:14px; color:var(--wk-ink); max-width:112px; text-align:center; line-height:1.2}
 .wk-board .sc{font-family:var(--font-wk); font-size:40px; color:var(--wk-ink); direction:ltr; unicode-bidi:isolate; background:var(--wk-paper-2); padding:0 14px; border-radius:4px; border:2px dashed var(--wk-ink); line-height:1.25}
-.wk-clock{display:flex; justify-content:center; gap:8px; align-items:center; color:var(--wk-ink-dim); font-weight:700; font-size:13px; min-height:28px}
+.wk-clock{display:flex; justify-content:center; gap:8px; align-items:center; color:var(--wk-ink-dim); font-weight:700; font-size:13px; min-height:28px; background:var(--wk-paper); border-radius:6px; padding:2px 10px; align-self:center}
 .wk-clock b{font-family:var(--font-wk); font-size:24px; color:var(--wk-ink)}
 .wk-frozen{background:var(--wk-red); color:#fff; font-size:12px; font-weight:900; border-radius:4px; padding:3px 9px}
 .wk-ring{position:relative; width:140px; height:140px; margin:4px auto 0; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--wk-red) 0 var(--p,100%), rgba(27,42,74,.15) var(--p,100%) 100%)}
