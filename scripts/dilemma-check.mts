@@ -57,6 +57,11 @@ function atFloor(gs: G.GameState): G.GameState {
 }
 
 /** Put a named dilemma in front of the manager and answer it. */
+/** a club whose till covers less than three rounds of wages, so "the money is tight" is true of it */
+const poor = (gs: G.GameState): G.GameState => ({ ...gs, meters: { ...gs.meters, money: 0 } });
+/** a club sitting on a fortune, like the user's ₪119.4M of 20.10 */
+const rich = (gs: G.GameState): G.GameState => ({ ...gs, meters: { ...gs.meters, money: 119_400_000 } });
+
 function answer(gs: G.GameState, id: string, option: number, seed = 1): { gs: G.GameState; rolled: RolledDilemma } {
   const rolled = G.rollNamedDilemma(gs, id, seed);
   if (!rolled) throw new Error(`${id} is not eligible on this save`);
@@ -257,7 +262,7 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
 
 /* SELL: the owner's buyer is a club in this league, and the outcome names it */
 {
-  let gs = career(37);
+  let gs = poor(career(37));
   // The owner only asks when there is a man to spare. Both sides of that are
   // worth holding, and until squads opened above the floor only one of them
   // could be: a new squad was built to exactly the floor, so this line read as
@@ -428,7 +433,7 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
     while (next.phase === 'press') next = G.answerPress(next, 0);
     return next;
   };
-  let gs = career(61);
+  let gs = poor(career(61));
   ({ gs } = answer(gs, 'director_budget', 1));
   const all = [...G.mySquad(gs).starters, ...G.mySquad(gs).bench];
   checked += 4;
@@ -730,6 +735,53 @@ const inXI = (gs: G.GameState, id: string) => G.mySquad(gs).starters.some(p => p
     if (dash.length) fails.push(`long dashes in: ${dash.map(t => t.id).join(', ')}`);
   }
   console.log("  Itzik's batch: 69 in, the friendly with them, eleven gates hold, the loan, the bonus and the poisoning behave");
+}
+
+/* TIGHT: a line that says the money is short is only said when it is (Itzik, 20.10: a user with ₪119.4M was told
+   "הקופה לא מבריקה"). The two that claim it, the CEO's cuts and the owner's "we need the cash", hold when the till covers
+   less than three rounds of wages and never above; and the week's fallback, which used to ignore every condition, does too */
+{
+  const SAYS_TIGHT = ['director_budget', 'owner_sell_star'];
+  for (const seed of [71, 72, 73]) {
+    const base = career(seed);
+    for (const id of SAYS_TIGHT) {
+      checked += 2;
+      if (G.rollNamedDilemma(rich(base), id, 1)) fails.push(`${id} is said to a club with ₪119.4M`);
+      if (!G.rollNamedDilemma(poor(base), id, 1)) fails.push(`${id} is never said to a club with an empty till`);
+    }
+    // right at the line: three rounds of wages is not short, a shekel under it is
+    const wages = G.mySquad(base).starters.concat(G.mySquad(base).bench).length > 0 ? (await import('../src/game/career.ts')).wageBill(G.mySquad(base), G.club(base).tier) : 0;
+    const at = (m: number) => ({ ...base, meters: { ...base.meters, money: m } });
+    checked += 2;
+    if (G.rollNamedDilemma(at(G.TIGHT_ROUNDS * wages), 'director_budget', 1)) fails.push('the CEO cuts with exactly three rounds of wages in the till');
+    if (!G.rollNamedDilemma(at(G.TIGHT_ROUNDS * wages - 1), 'director_budget', 1)) fails.push('the CEO does not cut a shekel under three rounds of wages');
+  }
+  // the week's question for a rich club, many draws, the fallback included: never one of the two
+  let drawn = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    let gs = rich(career(100 + seed));
+    for (let w = 0; w < 6; w++) {
+      let next: G.GameState;
+      try { next = G.startWeek({ ...gs, seasonSeed: gs.seasonSeed + w * 31 }); } catch { break; }
+      const ids = [next.dilemma?.id, ...next.inbox.map(m => m.id)].filter(Boolean) as string[];
+      drawn += ids.length;
+      checked++;
+      const bad = ids.find(id => SAYS_TIGHT.includes(id));
+      if (bad) { fails.push(`a club with ₪119.4M drew ${bad} in week ${gs.week} (seed ${100 + seed})`); break; }
+      gs = { ...gs, inbox: [] };
+    }
+  }
+  // the fallback is rare in a sweep, so its rule is held in the source: it filters by the condition before it draws
+  {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync('src/game/state.ts', 'utf8');
+    const fb = src.slice(src.indexOf("(pick('now') ??"), src.indexOf("(pick('now') ??") + 700);
+    checked++;
+    if (!fb.includes('all.filter(t => !t.when || t.when(ctx))') || !fb.includes('const pool = fits.length ? fits : all;')) fails.push('the weekly fallback draws without checking the condition');
+  }
+  checked++;
+  if (drawn < 100) fails.push(`only ${drawn} questions drawn for the rich clubs, the sweep is too thin`);
+  console.log(`  the money is short only when it is: the CEO and the owner hold below three rounds of wages, ${drawn} draws for a rich club never say it`);
 }
 
 console.log('');

@@ -104,7 +104,7 @@ import type { IconName } from '../ui/components/Icon.tsx';
 import { chronicleAfterRound, chronicleAtSeasonEnd } from './chronicle.ts';
 import type { SeasonReport } from './career.ts';
 import {
-  buildNextSeason, matchPrize, roundCosts, fillWithYouth, TOP_TIER, playerWage, potentialOf,
+  buildNextSeason, matchPrize, roundCosts, fillWithYouth, TOP_TIER, playerWage, potentialOf, wageBill,
   STADIUM_START, FANS_START, requiredCapacity, stadiumImageTier, gateIncome, crowdDemand, signageRound, expansionOptions,
   purseInstalment, seasonPurse,
 } from './career.ts';
@@ -3405,6 +3405,9 @@ const surname = surnameOf;
  * the live save, so the reserve who corners you really is the man you have not
  * picked, and the table position he quotes is the one on your screen.
  */
+/** a club is short of money when its till covers fewer than this many rounds of its wages (20.10) */
+export const TIGHT_ROUNDS = 3;
+
 function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: string): DilemmaCtx {
   const sq = mySquad(gs);
   // The ראש העין regulars are never the man asking to leave or demanding a move.
@@ -3432,6 +3435,7 @@ function dilemmaCtx(gs: GameState, star: string, rivalShort: string, rivalId: st
 
   return {
     star, rival: rivalShort, club: club(gs).short, money: cash(gs.meters.money),
+    tight: gs.meters.money < TIGHT_ROUNDS * wageBill(mySquad(gs), club(gs).tier),
     benched: forgotten && minutes(forgotten) <= 1 ? surname(forgotten.name) : '',
     benchedApps: forgotten ? minutes(forgotten) : 0,
     benchedForeign: (() => {
@@ -3846,7 +3850,14 @@ export function startWeek(gs: GameState): GameState {
   const urgent = booked
     ? rollDilemma(booked, ctx, rng)
     : fixAsk ? rollDilemma(TEMPLATES.find(t => t.id === fixAsk.id)!, ctx, rng)
-    : (pick('now') ?? (() => { const pool = templatesForTier(ctx.tier); return rollDilemma(pool[Math.floor(rng() * pool.length)], ctx, rng); })());
+    : (pick('now') ?? (() => {
+      // nothing urgent fits: take any of the league's questions, but still only one whose condition holds, so a fallback
+      // never tells a club with ₪119M that the till is empty (20.10); the whole league only if nothing at all fits
+      const all = templatesForTier(ctx.tier);
+      const fits = all.filter(t => !t.when || t.when(ctx));
+      const pool = fits.length ? fits : all;
+      return rollDilemma(pool[Math.floor(rng() * pool.length)], ctx, rng);
+    })());
   if (booked) gs = { ...gs, queued: null };
 
   // and something that can wait lands in the inbox, capped so it never piles up

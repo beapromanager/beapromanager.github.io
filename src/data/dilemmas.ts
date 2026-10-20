@@ -112,6 +112,12 @@ export interface Ctx {
   rival: string;
   club: string;
   money: number;
+  /**
+   * The till is genuinely short: it covers less than TIGHT_ROUNDS rounds of the squad's wages. A line that says the
+   * money is tight ("הקופה לא מבריקה", "אנחנו צריכים את המזומן") is only said when this holds. A user with ₪119M was
+   * told the till was not shining (Itzik, 20.10). Absent in old contexts reads as not tight.
+   */
+  tight?: boolean;
   /** the man with the fewest appearances, empty when the squad is fresh */
   benched: string;
   benchedApps: number;
@@ -323,6 +329,8 @@ export const TEMPLATES: DilemmaTemplate[] = [
   {
     id: 'director_budget',
     speaker: 'director',
+    // "המצב בקופה לא מבריק": only when it is not
+    when: c => !!c.tight,
     slots: {
       cut: ['לקצץ בכביסה ובאוטובוסים', 'לוותר על מאמן הכושר', 'לצמצם ימי אימון', 'לצמצם בדוד של המים החמים'],
     },
@@ -683,7 +691,8 @@ export const TEMPLATES: DilemmaTemplate[] = [
     id: 'owner_sell_star',
     speaker: 'owner',
     subject: 'star',
-    when: c => c.squadSize > 16,
+    // "אנחנו צריכים את המזומן": only when the club does
+    when: c => c.squadSize > 16 && !!c.tight,
     slots: { buyer: ['קבוצה מהליגה שמעלינו', 'קבוצה מקפריסין', 'סוכן עשיר מהמרכז'] },
     text: '{buyer} מציעה כסף רציני על {star}. אנחנו צריכים את המזומן. מוכרים?',
     options: (ctx) => [
