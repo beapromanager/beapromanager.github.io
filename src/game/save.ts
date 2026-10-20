@@ -127,6 +127,7 @@ export function loadCareer(): GameState | null {
     seasonDilemmas: s.seasonDilemmas ?? [],
     seasonChatEvents: s.seasonChatEvents ?? [],
     euro: s.euro ?? null,
+    cup: s.cup ?? null,
     daily: s.daily ?? emptyDaily(),
     loyalGift: s.loyalGift ?? null,
     loans: s.loans ?? {},
@@ -270,6 +271,10 @@ export function loadCareer(): GameState | null {
   if (patched.phase === 'euro-match' || patched.phase === 'euro-pens') return { ...patched, phase: 'hub' };
   // the draw is owed again until it was watched; the bracket is a room
   if (patched.phase === 'euro-draw' || patched.phase === 'euro-bracket') return { ...patched, phase: 'hub' };
+  // the cup night closed mid-match, or mid-shootout, or standing on its draw or its bracket: all four go back to the
+  // hub exactly like Europe's, which asks for them again off cupNight/cupPensDue/cupDrawDue
+  if (patched.phase === 'cup-match' || patched.phase === 'cup-pens') return { ...patched, phase: 'hub' };
+  if (patched.phase === 'cup-draw' || patched.phase === 'cup-bracket') return { ...patched, phase: 'hub' };
   // the crest card between the tactics and the dressing room is gone; a save
   // that was left standing on it opens on the board that followed it
   if (patched.phase === 'vs') return { ...patched, phase: 'teamsheet' };

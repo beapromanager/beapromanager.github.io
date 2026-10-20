@@ -4,6 +4,7 @@ import { ROUND_NAMES, PEN_CORNERS, hintFor, diveFor, myKickScores, theirKickSave
 import type { PenCorner } from '../../game/euro.ts';
 import { createRng, overall } from '../../engine/matchEngine.ts';
 import { asClub } from '../../data/europeClubs.ts';
+import type { Club } from '../../data/clubs.ts';
 import { asset } from '../asset.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
@@ -65,13 +66,18 @@ type Stage =
   | { kind: 'their-play'; kick: Kick; ended: boolean }
   | { kind: 'done' };
 
-export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score: [number, number]) => void }) {
-  const sides = useMemo(() => G.euroPensSides(gs), [gs]);
-  const rng = useRef(createRng(G.drawSeed(gs, 152_000 + (gs.euro?.round ?? 0))));
+export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState; onDone: (score: [number, number]) => void; /** which cup this shootout belongs to */ comp?: 'euro' | 'cup' }) {
+  const cup = comp === 'cup';
+  const sides = useMemo(() => cup ? G.cupPensSides(gs) : G.euroPensSides(gs), [gs, cup]);
+  const round = cup ? (gs.cup?.round ?? 0) : (gs.euro?.round ?? 0);
+  const rng = useRef(createRng(G.drawSeed(gs, (cup ? 173_000 : 152_000) + round)));
   const [kicks, setKicks] = useState<Kick[]>([]);
   const [stage, setStage] = useState<Stage>({ kind: 'intro' });
   const me = G.club(gs);
   const opp = sides.opp;
+  // cupPensSides already hands back a full Club; euroPensSides hands back a EuroClub, which needs asClub for the crest
+  const oppClub: Club | undefined = opp ? (cup ? (opp as Club) : asClub(opp as never)) : undefined;
+  const compLabel = cup ? 'גביע' : 'אירופה';
   const mine = kicks.filter(k => k.side === 'me').map(k => k.scored);
   const theirs = kicks.filter(k => k.side === 'them').map(k => k.scored);
   const status = shootoutStatus(mine, theirs);
@@ -111,7 +117,7 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
     <div className="screen pad stack pad-b" style={{ gap: 14, minHeight: '100%' }}>
       <div className="eu-board" data-lit="1" role="img" aria-label={`${me.short} ${status.score[0]}, ${opp?.short ?? ''} ${status.score[1]}`}>
         <div className="eu-board-top">
-          <span>פנדלים · {ROUND_NAMES[gs.euro?.round ?? 0]}</span>
+          <span>פנדלים · {compLabel} · {ROUND_NAMES[round]}</span>
           <span className="eu-ft">{status.winner ? 'הוכרע' : stage.kind === 'intro' ? '' : status.next === 'me' ? 'אנחנו בועטים' : 'הם בועטים'}</span>
         </div>
         <div className="eu-board-row">
@@ -126,7 +132,7 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
             <i>{status.score[0]}</i>
           </div>
           <div className="eu-team">
-            {opp && <Crest club={asClub(opp)} size={38} />}
+            {oppClub && <Crest club={oppClub} size={38} />}
             <span className="eu-name">{opp?.short ?? ''}</span>
             <KickDots kicks={theirs} />
           </div>
@@ -142,7 +148,7 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
       )}
 
       {stage.kind === 'my-pick' && (
-        <PovCard img={ON_THE_SPOT} kicker={`בעיטה ${mine.length + 1}`} title={`${takerName('me', mine.length)} מול השוער`}
+        <PovCard img={ON_THE_SPOT} tone={cup ? 'cup' : 'euro'} kicker={`בעיטה ${mine.length + 1}`} title={`${takerName('me', mine.length)} מול השוער`}
           sub={`המודיעין: השוער ${TEND_KEEPER[stage.hint]}.`} ask="לאן בועטים?" onPick={c => myPick(c, stage.hint)} />
       )}
 
@@ -162,7 +168,7 @@ export function ShootoutScreen({ gs, onDone }: { gs: G.GameState; onDone: (score
       )}
 
       {stage.kind === 'their-pick' && (
-        <PovCard img={IN_GOAL} kicker={`בעיטה ${theirs.length + 1}`} title={`${takerName('them', theirs.length)} על הנקודה`}
+        <PovCard img={IN_GOAL} tone={cup ? 'cup' : 'euro'} kicker={`בעיטה ${theirs.length + 1}`} title={`${takerName('them', theirs.length)} על הנקודה`}
           sub={`המודיעין: ${takerName('them', theirs.length)} ${TEND_TAKER[stage.hint]}.`} ask={`לאן ${keeperName} קופץ?`} onPick={c => theirPick(c, stage.hint)} />
       )}
 
@@ -248,19 +254,24 @@ function KickDots({ kicks }: { kicks: boolean[] }) {
 }
 
 /** The point of view card: the frame, the word, and the three corners. */
-function PovCard({ img, kicker, title, sub, ask, onPick }: {
+function PovCard({ img, kicker, title, sub, ask, onPick, tone = 'euro' }: {
   img: string; kicker: string; title: string; sub: string; ask: string; onPick: (c: PenCorner) => void;
+  /** Europe's blue, or גביע המדינה's amber */
+  tone?: 'euro' | 'cup';
 }) {
+  const badge = tone === 'cup'
+    ? { background: 'rgba(217,138,61,.14)', borderColor: 'rgba(217,138,61,.38)', color: '#F6D3A1' }
+    : { background: 'rgba(111,168,255,.14)', borderColor: 'rgba(111,168,255,.35)', color: '#CFE0FF' };
   return (
     <div className="eu-pov">
       <div className="eu-still" style={{ backgroundImage: `url('${img}')` }}>
         <div className="moment-hero-fade" />
-        <div className="moment-hero-badge" style={{ background: 'rgba(111,168,255,.14)', borderColor: 'rgba(111,168,255,.35)', color: '#CFE0FF' }}>
+        <div className="moment-hero-badge" style={{ background: badge.background, borderColor: badge.borderColor, color: badge.color }}>
           <span style={{ fontSize: 11.5, fontWeight: 800 }}>{kicker}</span>
         </div>
       </div>
       <div className="eu-pov-word">
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.1, color: '#CFE0FF' }}>{title}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.1, color: badge.color }}>{title}</div>
         <div className="sub" style={{ marginTop: 6 }}>{sub}</div>
         <div className="label-cap" style={{ marginTop: 14 }}>{ask}</div>
         {/* ltr on purpose: 'שמאל' must sit on screen left, matching the frame */}

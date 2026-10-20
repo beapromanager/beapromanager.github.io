@@ -42,6 +42,7 @@ const ADDED_SINCE = [
   'daily',                          // the daily gift's run
   'loyalGift', 'loans',             // the loyalty gift past ten seasons, and the loan it brings
   'euro',                           // ליגת אירופה, null until a title opens it
+  'cup',                            // גביע המדינה, null until tier 4/5 opens it (CUP_LIVE in cup.ts)
   'seasonChatEvents',               // the season nights the phone rang for
   'seasonDilemmas',                 // the once-a-season questions' memory
   'purseEarlier',                   // the purse paid round by round

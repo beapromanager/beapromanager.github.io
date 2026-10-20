@@ -152,26 +152,30 @@ function preloadMoments(world: MomentWorld) {
   })();
 }
 
-export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines, flare, doneLabel }: {
+export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines, flare, doneLabel, comp }: {
   gs: G.GameState;
   /** the result, and the ids of his men on the grass or sent off at the whistle (the European night needs who played) */
   onDone: (r: MatchResult, onPitchIds: string[]) => void;
   /** fired once when the first half ends, so the App can count how far first matches get */
   onHalfTime?: () => void;
-  /** a match that is not the week's league fixture: the European night hands its own engine input and two clubs */
+  /** a match that is not the week's league fixture: the European (or cup) night hands its own engine input and two clubs */
   live?: Parameters<typeof L.createLive>[0];
   clubs?: { home: Club; away: Club };
   /** the round, the two towns and the ground, for the entrance and the bar */
   euroLines?: EntranceLines | null;
-  /** null to light no flares: the flare reasons are the league's nights, not Europe's */
+  /** null to light no flares: the flare reasons are the league's nights, not a cup night's */
   flare?: G.FlareReason | null;
   doneLabel?: string;
+  /** which cup this is, when `clubs` is set: Europe (the default, for every existing call site) or גביע המדינה */
+  comp?: 'euro' | 'cup';
 }) {
   const liveRef = useRef<LiveState | null>(null);
   if (!liveRef.current) liveRef.current = L.createLive(live ?? G.liveMatchInput(gs));
   const st = liveRef.current;
-  // a European night: Itzik wants a goal felt in the hand, not only seen
+  // a cup night: Itzik wants a goal felt in the hand, not only seen. comp tells Europe's blue apart from the cup's amber
   const euro = !!clubs;
+  const cup = euro && comp === 'cup';
+  const momentSet = cup ? CUP_MOMENT : euro ? EURO_MOMENT : null;
   // ליגה ג׳ to א׳ play by day at a neighbourhood ground, the Leumit and ליגת העל at night; Europe has its own pictures
   const world = momentWorld(G.club(gs).tier);
   useEffect(() => preloadMoments(world), [world]);
@@ -324,12 +328,12 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   return (
     <div className="screen pad stack pad-b" style={{ gap: 12, minHeight: '100%' }}>
       {/* broadcast bar */}
-      <div className="tile-hero" data-euro={euro ? '1' : undefined} style={{ padding: '14px 14px 12px' }}>
+      <div className="tile-hero" data-euro={euro && !cup ? '1' : undefined} data-cup={cup ? '1' : undefined} style={{ padding: '14px 14px 12px' }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <TeamSide club={homeClub} kit={hdrKits.home} />
           <div style={{ textAlign: 'center', minWidth: 104 }}>
-            <div className={euro ? 'eu-glow' : undefined}><ScorePair h={shownScore.current[0]} a={shownScore.current[1]} size={44} /></div>
-            {euro && euroLines && <div className="eu-venue">{euroLines.venue}</div>}
+            <div className={cup ? 'cup-glow' : euro ? 'eu-glow' : undefined}><ScorePair h={shownScore.current[0]} a={shownScore.current[1]} size={44} /></div>
+            {euro && euroLines && <div className={cup ? 'cup-venue' : 'eu-venue'}>{euroLines.venue}</div>}
             <div className="pill" style={{
               marginTop: 7,
               background: st.phase === 'done' ? 'rgba(255,255,255,.06)' : 'rgba(226,72,77,.16)',
@@ -389,26 +393,26 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
       )}
 
       {/* decisions, each pops up as a full-screen moment (portaled) */}
-      {pending?.kind === 'penalty' && <MomentPopup m={pending} kind="penalty" imgOverride={euro ? EURO_MOMENT.penalty : asset(buildupImg('penalty', world, st.seed))} onPickCorner={c => { const scored = L.resolvePenalty(st, c); setPenOutcome({ corner: c, scored }); force(); }} />}
+      {pending?.kind === 'penalty' && <MomentPopup m={pending} kind="penalty" imgOverride={momentSet ? momentSet.penalty : asset(buildupImg('penalty', world, st.seed))} onPickCorner={c => { const scored = L.resolvePenalty(st, c); setPenOutcome({ corner: c, scored }); force(); }} />}
       {penOutcome && <PenaltyOutcome world={euro ? 'night' : world} corner={penOutcome.corner} scored={penOutcome.scored} onDone={() => setPenOutcome(null)} />}
-      {pending?.kind === 'def_penalty' && <MomentPopup m={pending} kind="def_penalty" imgOverride={euro ? EURO_MOMENT.def_penalty : asset(buildupImg('def_penalty', world, st.seed))} onPickCorner={c => {
+      {pending?.kind === 'def_penalty' && <MomentPopup m={pending} kind="def_penalty" imgOverride={momentSet ? momentSet.def_penalty : asset(buildupImg('def_penalty', world, st.seed))} onPickCorner={c => {
         const keeper = L.playerKeeperName(st);
         const { saved, aim } = L.resolveDefPenalty(st, c);
         setDefPenOutcome({ saved, keeper, aim });
         force();
       }} />}
       {defPenOutcome && <DefPenaltyOutcome world={euro ? 'night' : world} saved={defPenOutcome.saved} keeper={defPenOutcome.keeper} aim={defPenOutcome.aim} onDone={() => setDefPenOutcome(null)} />}
-      {pending?.kind === 'shot' && <MomentPopup m={pending} kind="shot" imgOverride={euro ? EURO_MOMENT.shot : asset(buildupImg('shot', world, st.seed))} onPickCorner={c => { const outcome = L.resolveShot(st, c); setShotOutcome({ corner: c, outcome }); force(); }} />}
+      {pending?.kind === 'shot' && <MomentPopup m={pending} kind="shot" imgOverride={momentSet ? momentSet.shot : asset(buildupImg('shot', world, st.seed))} onPickCorner={c => { const outcome = L.resolveShot(st, c); setShotOutcome({ corner: c, outcome }); force(); }} />}
       {shotOutcome && <ShotOutcomeCard world={euro ? 'night' : world} corner={shotOutcome.corner} outcome={shotOutcome.outcome} onDone={() => setShotOutcome(null)} />}
-      {pending?.kind === 'free_kick' && <MomentPopup m={pending} kind="free_kick" imgOverride={euro ? EURO_MOMENT.free_kick : asset(buildupImg('free_kick', world, st.seed))} onPickCorner={c => { const outcome = L.resolveFreeKick(st, c); setFkOutcome({ corner: c, outcome }); force(); }} />}
+      {pending?.kind === 'free_kick' && <MomentPopup m={pending} kind="free_kick" imgOverride={momentSet ? momentSet.free_kick : asset(buildupImg('free_kick', world, st.seed))} onPickCorner={c => { const outcome = L.resolveFreeKick(st, c); setFkOutcome({ corner: c, outcome }); force(); }} />}
       {fkOutcome && <FreeKickOutcomeCard world={euro ? 'night' : world} corner={fkOutcome.corner} outcome={fkOutcome.outcome} onDone={() => setFkOutcome(null)} />}
-      {pending?.kind === 'one_on_one' && <MomentPopup m={pending} kind="one_on_one" imgOverride={euro ? EURO_MOMENT.one_on_one : asset(buildupImg('one_on_one', world, st.seed))} onPickOption={id => { const outcome = L.resolveOneOnOne(st, id); setOneOnOneOutcome(outcome); force(); }} />}
+      {pending?.kind === 'one_on_one' && <MomentPopup m={pending} kind="one_on_one" imgOverride={momentSet ? momentSet.one_on_one : asset(buildupImg('one_on_one', world, st.seed))} onPickOption={id => { const outcome = L.resolveOneOnOne(st, id); setOneOnOneOutcome(outcome); force(); }} />}
       {oneOnOneOutcome && <OneOnOneOutcomeCard world={euro ? 'night' : world} outcome={oneOnOneOutcome} onDone={() => setOneOnOneOutcome(null)} />}
-      {pending?.kind === 'def_keeper' && <MomentPopup m={pending} kind="def_keeper" imgOverride={euro ? EURO_MOMENT.def_keeper : asset(buildupImg('def_keeper', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefKeeper(st, id); setDefKeeperOutcome(outcome); force(); }} />}
+      {pending?.kind === 'def_keeper' && <MomentPopup m={pending} kind="def_keeper" imgOverride={momentSet ? momentSet.def_keeper : asset(buildupImg('def_keeper', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefKeeper(st, id); setDefKeeperOutcome(outcome); force(); }} />}
       {defKeeperOutcome && <DefKeeperOutcomeCard world={euro ? 'night' : world} outcome={defKeeperOutcome} onDone={() => setDefKeeperOutcome(null)} />}
-      {pending?.kind === 'def_tackle' && <MomentPopup m={pending} kind="def_tackle" imgOverride={euro ? EURO_MOMENT.def_tackle : asset(buildupImg('def_tackle', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefTackle(st, id); setDefTackleOutcome(outcome); force(); }} />}
+      {pending?.kind === 'def_tackle' && <MomentPopup m={pending} kind="def_tackle" imgOverride={momentSet ? momentSet.def_tackle : asset(buildupImg('def_tackle', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefTackle(st, id); setDefTackleOutcome(outcome); force(); }} />}
       {defTackleOutcome && <DefTackleOutcomeCard world={euro ? 'night' : world} outcome={defTackleOutcome} onDone={() => setDefTackleOutcome(null)} />}
-      {pending?.kind === 'tactic' && <MomentPopup m={pending} kind="tactic" imgOverride={euro ? EURO_MOMENT.tactic : tacticImg(G.club(gs).tier)} onPickOption={id => { L.resolveTactic(st, id); force(); }} />}
+      {pending?.kind === 'tactic' && <MomentPopup m={pending} kind="tactic" imgOverride={momentSet ? momentSet.tactic : tacticImg(G.club(gs).tier)} onPickOption={id => { L.resolveTactic(st, id); force(); }} />}
 
       {st.phase === 'done' ? (
         <button className="btn" onClick={() => onDone(L.finalize(st), [...L.mySide(st).onPitch, ...L.mySide(st).sentOff.map(x => x.player), ...L.mySide(st).replaced.map(x => x.player)].map(p => p.id))}>
@@ -457,7 +461,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
       {/* the terrace, before a ball is kicked. Portalled for the same reason the
           moment cards are: .screen animates in with a transform, and a fixed
           layer inside it would pin itself to the screen instead of the viewport */}
-      {entrance && clubs && euroLines && <EuroEntrance home={clubs.home} away={clubs.away} lines={euroLines} onDone={() => setEntrance(false)} />}
+      {entrance && clubs && euroLines && <EuroEntrance home={clubs.home} away={clubs.away} lines={euroLines} kind={cup ? 'cup' : 'euro'} onDone={() => setEntrance(false)} />}
       {flares && (
         <Portal>
           <FlareBeat reason={flares} onDone={() => setFlares(null)} />
@@ -1127,6 +1131,26 @@ const EURO_MOMENT: Record<MomentKind, string> = {
   free_kick: asset('/moments/euro/free-kick.webp'),
   def_keeper: asset('/moments/euro/def-keeper.webp'),
   def_tackle: asset('/moments/euro/def-tackle.webp'),
+};
+
+/**
+ * גביע המדינה's own eight decision frames (ב.8's `public/moments/cup/*.webp`,
+ * warm amber floodlights) do not exist yet — no Higgsfield asset generation
+ * ran for stage 1. Until they do, the cup falls back to the league's own
+ * night pictures (the Leumit/ליגת העל's own stadium, already real assets),
+ * exactly the precedent Europe itself set before its pictures existed. The
+ * colour difference still reads through the amber tint of data-stage="cup"
+ * on the frame around it.
+ */
+const CUP_MOMENT: Record<MomentKind, string> = {
+  penalty: asset(buildupImg('penalty', 'night', 0)),
+  def_penalty: asset(buildupImg('def_penalty', 'night', 0)),
+  shot: asset(buildupImg('shot', 'night', 0)),
+  one_on_one: asset(buildupImg('one_on_one', 'night', 0)),
+  tactic: tacticImg(5),
+  free_kick: asset(buildupImg('free_kick', 'night', 0)),
+  def_keeper: asset(buildupImg('def_keeper', 'night', 0)),
+  def_tackle: asset(buildupImg('def_tackle', 'night', 0)),
 };
 
 const MOMENT_LOOK: Record<MomentKind, { img: string; accent: string; kicker: string }> = {

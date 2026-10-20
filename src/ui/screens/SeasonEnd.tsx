@@ -35,6 +35,7 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
   // Europe is promised only while its door is open for players; shut, the title is simply the title
   const europe = G.euroDoorOpen();
   const euroVerdict = G.euroSeasonVerdict(gs);
+  const cupVerdict = G.cupSeasonVerdict(gs);
   const headline = blocked
     ? `${champion ? 'אלופים, אבל ה' : 'ה'}אצטדיון קטן מדי ל${LEAGUE_NAMES[gate!.nextTier]}. נשארים לעוד עונה.`
     : champion && c.tier >= TOP_TIER
@@ -57,7 +58,7 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
   const [celebrating, setCelebrating] = useState((champion || promoted) && !blocked);
 
   // the moment worth sending to a friend: the cup, the title, the promotion
-  const shareKind = blocked ? null : shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won' });
+  const shareKind = blocked ? null : shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won', cupWon: cupVerdict?.outcome === 'won' });
   const share = shareKind ? {
     text: shareText(shareKind, { club: c.name, league: LEAGUE_NAMES[c.tier], nextLeague: LEAGUE_NAMES[nextTier], season: gs.season }),
     link: shareLink(),
@@ -101,6 +102,7 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
       </div>
 
       {euroVerdict && <EuroSeasonCard v={euroVerdict} />}
+      {cupVerdict && <CupSeasonCard v={cupVerdict} />}
 
       <div className="label-cap">הטבלה הסופית</div>
       <div className="tile-flat" style={{ padding: 0, overflow: 'hidden' }}>
@@ -165,6 +167,27 @@ function EuroSeasonCard({ v }: { v: NonNullable<ReturnType<typeof G.euroSeasonVe
     }}>
       <div className="label-cap" style={{ color: '#7f93b4' }}>ליגת אירופה</div>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.1, marginTop: 5, color: won ? 'var(--gold)' : '#CFE0FF' }}>{headline}</div>
+      <div className="sub" style={{ marginTop: 6 }}>
+        {legs}{v.prize > 0 ? ` · פרסים ${formatMoney(v.prize)}` : ''}
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------------------------------------- the season in the cup */
+
+/** How the season in גביע המדינה went, in the cup's own dark brown and amber. */
+function CupSeasonCard({ v }: { v: NonNullable<ReturnType<typeof G.cupSeasonVerdict>> }) {
+  const won = v.outcome === 'won';
+  const legs = v.played === 1 ? 'משחק אחד' : `${v.played} משחקים`;
+  const headline = won ? 'הגביע אצלנו' : v.outcome === 'cut' ? `העונה נגמרה ${ROUND_IN[v.round]}` : `הדרך נגמרה ${ROUND_IN[v.round]}`;
+  return (
+    <div className="tile-flat" style={{
+      padding: '13px 15px', textAlign: 'center',
+      background: 'linear-gradient(180deg,#26180F,#1C120B)', border: `1px solid ${won ? 'var(--gold)' : 'rgba(217,138,61,.32)'}`,
+    }}>
+      <div className="label-cap" style={{ color: '#D8BE9E' }}>גביע המדינה</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.1, marginTop: 5, color: won ? 'var(--gold)' : '#F6D3A1' }}>{headline}</div>
       <div className="sub" style={{ marginTop: 6 }}>
         {legs}{v.prize > 0 ? ` · פרסים ${formatMoney(v.prize)}` : ''}
       </div>

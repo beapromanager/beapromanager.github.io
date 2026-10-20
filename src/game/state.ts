@@ -18,13 +18,22 @@ import {
 import type { EuroState, EuroNight, EuroTie } from './euro.ts';
 import { euroClub, asClub } from '../data/europeClubs.ts';
 import { makeEuroName } from '../data/europeNames.ts';
+import {
+  CUP_LIVE, CUP_MIN_TIER, CUP_TIRED, CUP_INJURY_RISK, CUP_GATE_SHARE, CUP_TRAVEL,
+  cupEntry, drawCup, nightFor as cupNightFor,
+  strengthOf as cupStrengthOf, recordMyLeg as cupRecordMyLeg, needsPens as cupNeedsPens, settleMyPens as cupSettleMyPens,
+  serveBans as cupServeBans, banFor as cupBanFor, playAiRound as cupPlayAiRound, advanceRound as cupAdvanceRound,
+  playOutWithoutMe as cupPlayOutWithoutMe, stepAiRound as cupStepAiRound, prizeFor as cupPrizeFor, myTie as cupMyTieOf,
+  cupWeeks, closeCupSeason, cupVerdict, cupMarks, isUpset, roundDone as cupRoundDone,
+} from './cup.ts';
+import type { CupState, CupNight, CupTie } from './cup.ts';
 import type { FriendlyReport, FriendlyEvent } from '../data/friendly.ts';
 import type { MatchResult, TeamInput, Approach, Press, Player, Position, Rng } from '../engine/matchEngine.ts';
 import { simulateMatch, overall, createRng } from '../engine/matchEngine.ts';
 import type { LeagueState, Fixture, Standing } from './league.ts';
 import { initLeague, applyResult, sortedTable, buildFixtures, emptyTable } from './league.ts';
 import { LEAGUE_C, isDerby, LEAGUE_NAMES, setDerbies, leagueCeiling } from '../data/clubs.ts';
-import { buildRegionLeague, buildSiblingLeague, siblingClub, localRival, furthestFrom, isRealTown, LOCAL_KM } from '../data/cities.ts';
+import { buildRegionLeague, buildSiblingLeague, siblingClub, localRival, furthestFrom, isRealTown, LOCAL_KM, cityClubsForTier } from '../data/cities.ts';
 import type { LocalKind, LocalRival } from '../data/cities.ts';
 export type { LocalKind, LocalRival };
 import { kitColor, type KitColorId } from '../data/palette.ts';
@@ -106,7 +115,7 @@ import type { SeasonReport } from './career.ts';
 import {
   buildNextSeason, matchPrize, roundCosts, fillWithYouth, TOP_TIER, playerWage, potentialOf, wageBill,
   STADIUM_START, FANS_START, requiredCapacity, stadiumImageTier, gateIncome, crowdDemand, signageRound, expansionOptions,
-  purseInstalment, seasonPurse,
+  purseInstalment, seasonPurse, SECURITY_HOME,
 } from './career.ts';
 import type { RoundCosts, ExpansionOption } from './career.ts';
 import type { Coach } from './coach.ts';
@@ -131,7 +140,10 @@ export type Phase =
   /* the European night, played live before the week's league round, and its shootout when the tie is level */
   | 'euro-match' | 'euro-pens'
   /* the draw from his seat, once a season, and the competition as it stands */
-  | 'euro-draw' | 'euro-bracket';
+  | 'euro-draw' | 'euro-bracket'
+  /* גביע המדינה: the same shape as Europe's, one knockout leg at a time */
+  | 'cup-match' | 'cup-pens'
+  | 'cup-draw' | 'cup-bracket';
 
 export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
 
@@ -347,6 +359,8 @@ export interface GameState {
   seasonChatEvents: string[];
   /** ליגת אירופה this season, when the title opened the door; null otherwise */
   euro: EuroState | null;
+  /** גביע המדינה this season, drawn every summer a club lands in tier 4 or 5; null otherwise */
+  cup: CupState | null;
   /** the loyalty gift past ten seasons: null until it is shown, then the season and the man it brought */
   loyalGift: { season: number; playerId: string | null } | null;
   /** men here on loan, by the league rounds they have left */
@@ -570,6 +584,7 @@ export function newGame(seed = 12345): GameState {
     seasonDilemmas: [],
     seasonChatEvents: [],
     euro: null,
+    cup: null,
     loyalGift: null,
     loans: {},
     daily: emptyDaily(),
@@ -889,6 +904,7 @@ export function takeRescue(gs: GameState): GameState {
     ...gs,
     sacking: null,
     euro: null,
+    cup: null,
     loans: {},
     ultimatumSeason: null,
     // he does not move while you are away, and the day you get back he is there.
@@ -3808,11 +3824,370 @@ function euroNightNotice(gs: GameState, night: EuroNight, goals: [number, number
   return { kind: 'story', title, body: parts.join(' ') };
 }
 
+/* ----------------------------------------------------------------- the cup night */
+
+/**
+ * גביע המדינה, the domestic cup. Built the same way as the European block
+ * above, with the differences the product spec asks for: one leg a round
+ * (no aggregate to wait on), entry from tier 4 and 5 every season rather than
+ * only the reigning top-tier champion, and a staged entrant (seeded) who
+ * joins at the semi. Salts for drawSeed live at 170_000 and up, each purpose
+ * at least 1000 apart, the same discipline as Europe's 140_000/150_000s.
+ */
+
+/** The cup night due this week, before the league round, or null. */
+export function cupNight(gs: GameState, live: boolean = CUP_LIVE): CupNight | null {
+  if (!live || !gs.cup) return null;
+  return cupNightFor(gs.cup, gs.clubId, gs.league.rounds, gs.week);
+}
+
+/** His leg is in, level, and the shootout is due. */
+export function cupPensDue(gs: GameState, live: boolean = CUP_LIVE): boolean {
+  return live && !!gs.cup && gs.cup.status === 'on' && cupNeedsPens(gs.cup, gs.clubId);
+}
+
+/** The staged entrant before the quarter is decided and he is paired into the semi: nothing to play yet, just a wait. */
+export function cupWaiting(gs: GameState, live: boolean = CUP_LIVE): boolean {
+  return live && !!gs.cup && gs.cup.status === 'waiting';
+}
+
+/** The men banned from this cup match: a red here costs the next match here, nowhere else. */
+export function cupBanned(gs: GameState): Set<string> {
+  return new Set(Object.entries(gs.cup?.bans ?? {}).filter(([, n]) => n > 0).map(([id]) => id));
+}
+
+/**
+ * The real club behind a cup opponent id: his own league's rival when the
+ * draw happens to meet one, otherwise the city it was drawn from (ב.3's
+ * roster, tier 4 and 5). The crest and colours come from the same component
+ * as every Israeli club, so a cup night never looks invented.
+ */
+export function cupClub(gs: GameState, id: string): Club {
+  if (id === gs.clubId) return club(gs);
+  const real = gs.league.clubs.find(c => c.id === id);
+  if (real) return real;
+  const tier = gs.cup?.clubs.find(c => c.id === id)?.tier ?? CUP_MIN_TIER;
+  return cityClubsForTier(tier).find(c => c.id === id)
+    ?? cityClubsForTier(CUP_MIN_TIER + 1).find(c => c.id === id)
+    ?? club(gs);
+}
+
+/**
+ * The other side for a cup leg, keyed on the opponent and the round alone
+ * (never the night object), so the same squad and names come back whether
+ * this is called for the live match input or, after the leg is already
+ * recorded, for the shootout screen. The real squad when the draw met a club
+ * from the manager's own league ("meeting Maccabi X again"), otherwise a
+ * fresh one at the round's strength (ב.3: the cup is hard regardless of which
+ * division the shirt plays in day to day). Israeli names throughout —
+ * makeSquad's own default — never makeEuroName.
+ */
+function cupOpponentSquad(gs: GameState, oppId: string, round: number): Squad {
+  const real = gs.league.squads[oppId];
+  if (real) return real;
+  const rng = createRng(drawSeed(gs, 171_000 + round));
+  const sq = makeSquad(cupStrengthOf(gs.cup!, oppId, round), rng);
+  const named = (p: Player, i: number): Player => ({ ...p, id: `${oppId}-${i}` });
+  return { starters: sq.starters.map(named), bench: sq.bench.map((p, i) => named(p, i + 11)) };
+}
+
+/** The live engine's input for the cup night: the same shape as the league's and Europe's. */
+export function cupMatchInput(gs: GameState, live: boolean = CUP_LIVE) {
+  const night = cupNight(gs, live);
+  if (!night) throw new Error('no cup night this week');
+  const banned = cupBanned(gs);
+  const ok = (p: Player) => !isUnavailable(gs, p.id) && !banned.has(p.id);
+  const sq = mySquad(gs);
+  let starters = lineup(gs).filter(ok);
+  let bench = sq.bench.filter(ok);
+  if (starters.length < 11) {
+    starters = fillFormation([...starters, ...bench], formation(gs.tactic.formation)).slice(0, 11);
+    bench = bench.filter(p => !starters.includes(p));
+  }
+  const opp = cupOpponentSquad(gs, night.oppId, night.round);
+  const me = club(gs);
+  const them = cupClub(gs, night.oppId);
+  const iAmHome = night.host !== false;        // the final sits him at home for the indexes; the ground is neutral
+  return {
+    seed: drawSeed(gs, 170_000 + night.round),
+    homeId: iAmHome ? me.id : them.id, homeName: iAmHome ? me.name : them.name,
+    awayId: iAmHome ? them.id : me.id, awayName: iAmHome ? them.name : me.name,
+    iAmHome,
+    neutral: night.host === null,
+    playerStarters: starters, playerBench: bench, playerTactic: gs.tactic, seated: true,
+    oppStarters: opp.starters, oppBench: opp.bench,
+    guestId: null,
+    moraleBias: (gs.meters.morale - 65) / 100,
+    friends: gs.friends, tier: me.tier,
+    captainId: currentCaptainId(gs),
+    coach: {
+      chemistry: coachChemistry(gs.coach),
+      att: coachAttBias(gs.coach),
+      def: coachDefBias(gs.coach),
+      cards: coachCardBias(gs.coach),
+    },
+  };
+}
+
+/** The two clubs on the broadcast bar, home first; the final seats him home on neutral ground. */
+export function cupMatchClubs(gs: GameState, live: boolean = CUP_LIVE): { home: Club; away: Club } {
+  const night = cupNight(gs, live);
+  const me = club(gs);
+  if (!night) return { home: me, away: me };
+  const them = cupClub(gs, night.oppId);
+  return night.host === false ? { home: them, away: me } : { home: me, away: them };
+}
+
+/** His tie this round, for the screens. */
+export function cupMyTie(gs: GameState): CupTie | null {
+  return gs.cup ? cupMyTieOf(gs.cup, gs.clubId) ?? null : null;
+}
+
+/** Who stands where in his cup shootout: his takers, his keeper, and the other side's names off the same squad that played the leg. */
+export function cupPensSides(gs: GameState): { opp: Club | undefined; takers: Player[]; keeper: Player | undefined; theirNames: string[] } {
+  const tie = cupMyTie(gs);
+  const opp = tie ? cupClub(gs, tie.a === gs.clubId ? tie.b : tie.a) : undefined;
+  const banned = cupBanned(gs);
+  const eleven = lineup(gs).filter(p => !isUnavailable(gs, p.id) && !banned.has(p.id));
+  const keeper = eleven.find(p => p.position === 'GK') ?? mySquad(gs).starters.find(p => p.position === 'GK');
+  const takers = eleven.filter(p => p.position !== 'GK').sort((a, b) => overall(b) - overall(a));
+  const oppSquad = tie && gs.cup ? cupOpponentSquad(gs, opp!.id, gs.cup.round) : null;
+  const theirNames = oppSquad ? [...oppSquad.starters, ...oppSquad.bench].filter(p => p.position !== 'GK').map(p => p.name) : [];
+  return { opp, takers, keeper, theirNames };
+}
+
+/** The words on the entrance and the broadcast bar: a domestic ground, never a foreign one. */
+export function cupEntranceLines(gs: GameState, live: boolean = CUP_LIVE): { round: string; leg: string; homePlace: string; awayPlace: string; venue: string } | null {
+  const night = cupNight(gs, live);
+  if (!night) return null;
+  const them = cupClub(gs, night.oppId);
+  const myPlace = `${club(gs).city}, ישראל`;
+  const theirPlace = `${them.city}, ישראל`;
+  const venue = night.host === null ? 'מגרש ניטרלי' : night.host ? `בבית, ${myPlace}` : `בחוץ, אצל ${them.name}, ${theirPlace}`;
+  const iAmHome = night.host !== false;
+  return {
+    round: ROUND_NAMES[night.round],
+    leg: night.host === null ? 'הגמר, מגרש ניטרלי' : 'משחק אחד, קובע',
+    homePlace: iAmHome ? myPlace : theirPlace,
+    awayPlace: iAmHome ? theirPlace : myPlace,
+    venue,
+  };
+}
+
+/** The draw was made in the summer (or, for a staged entrant, the semi's pairing was made after the quarter); the ceremony is owed once. */
+export function cupDrawDue(gs: GameState, live: boolean = CUP_LIVE): boolean {
+  return live && !!gs.cup && !gs.cup.seen && gs.cup.status === 'on';
+}
+export function openCupDraw(gs: GameState, live: boolean = CUP_LIVE): GameState {
+  if (gs.phase !== 'hub' || !cupDrawDue(gs, live)) return gs;
+  return { ...gs, phase: 'cup-draw' };
+}
+/** Watched or skipped, either way it is not owed again — until the next time he is freshly paired in. */
+export function finishCupDraw(gs: GameState): GameState {
+  if (!gs.cup) return { ...gs, phase: 'hub' };
+  return { ...gs, cup: { ...gs.cup, seen: true }, phase: 'hub' };
+}
+/** The cup as it stands, from the hub's room; shut with the door. */
+export function openCupBracket(gs: GameState, live: boolean = CUP_LIVE): GameState {
+  if (gs.phase !== 'hub' || !live || !gs.cup) return gs;
+  return { ...gs, phase: 'cup-bracket' };
+}
+
+/** From the hub to the cup night (or its shootout), only when one is due. */
+export function startCupNight(gs: GameState, live: boolean = CUP_LIVE): GameState {
+  if (gs.phase !== 'hub') return gs;
+  if (cupPensDue(gs, live)) return { ...gs, phase: 'cup-pens' };
+  if (!cupNight(gs, live)) return gs;
+  return { ...gs, phase: 'cup-match' };
+}
+
+/** Who the night hurt, for this week's league match: seeded on the round, one roll a man. */
+function cupInjuries(gs: GameState, night: CupNight, played: string[]): string[] {
+  const rng = createRng(drawSeed(gs, 172_000 + night.round));
+  return played.filter(() => rng() < CUP_INJURY_RISK);
+}
+
+/** His tie is settled: the round's other ties are played, the round moves on, the next round's prize is paid. */
+function cupAfterTie(gs: GameState, cup: CupState, money: number): { cup: CupState; money: number; line: string } {
+  const me = gs.clubId;
+  const mine = cupMyTieOf(cup, me);
+  if (!mine?.winner) return { cup, money, line: '' };
+  let e = cupPlayAiRound(cup, me, drawSeed(gs, 175_000 + cup.round));
+  e = cupAdvanceRound(e, me, drawSeed(gs, 178_000 + cup.round));
+  let line = '';
+  if (e.status === 'won') {
+    money += cupPrizeFor(4);
+    line = 'גביע המדינה שלכם. הפרס על הזכייה נכנס לקופה.';
+  } else if (e.status === 'on') {
+    money += cupPrizeFor(e.round);
+    line = `עליתם ל${ROUND_NAMES[e.round]} בגביע. הפרס על ההעפלה נכנס לקופה.`;
+  } else {
+    e = cupPlayOutWithoutMe(e, me, drawSeed(gs, 176_000));
+    line = 'הדרך בגביע המדינה נגמרה העונה.';
+  }
+  return { cup: e, money, line };
+}
+
+/**
+ * The cup night is over. Mirrors commitEuroLeg's contract: nothing of the
+ * league is touched beyond what carries into its match this week (fitness,
+ * injury, a red as a cup-only ban), and the money goes straight to the purse.
+ * Two differences from Europe: a single leg, so the winner (or the need for
+ * penalties) is already known the moment the goals are written, and security
+ * at home is the club's own real cost for its tier (SECURITY_HOME) rather
+ * than a flat cup number — a domestic night, priced like one.
+ */
+export function commitCupLeg(gs: GameState, r: MatchResult, onPitchIds: string[], live: boolean = CUP_LIVE): GameState {
+  const night = cupNight(gs, live);
+  if (!night || !gs.cup) return gs;
+  const me = gs.clubId;
+  const goals = myGoals(gs, r);
+  let cup = cupServeBans(gs.cup).next;
+  for (const e of r.events ?? []) if (e.type === 'red' && e.teamId === me && e.playerId) cup = cupBanFor(cup, e.playerId);
+  cup = cupRecordMyLeg(cup, me, goals);
+  const starters = cupMatchInput(gs, live).playerStarters.map(p => p.id);
+  const played = [...new Set([...starters, ...onPitchIds])];
+  const fitness = { ...(gs.matchMods.fitness ?? {}) };
+  for (const id of played) fitness[id] = (fitness[id] ?? 0) + CUP_TIRED;
+  const sitOut = { ...gs.sitOut };
+  const hurt = cupInjuries(gs, night, played);
+  for (const id of hurt) sitOut[id] = 'פצוע';
+  let money = gs.meters.money;
+  const myTier = club(gs).tier;
+  if (night.host === true) money += Math.round(gateIncome(homeAttendance(gs, false), myTier) * CUP_GATE_SHARE) - SECURITY_HOME[myTier];
+  else if (night.host === false) money -= CUP_TRAVEL;
+  const pensDue = cupNeedsPens(cup, me);
+  const after = pensDue ? { cup, money, line: '' } : cupAfterTie(gs, cup, money);
+  const notice = cupNightNotice(gs, night, goals, cupMyTieOf(cup, me), after.line, hurt);
+  return markPlayed({
+    ...gs,
+    cup: after.cup,
+    meters: { ...gs.meters, money: after.money },
+    matchMods: { ...gs.matchMods, fitness },
+    sitOut,
+    notices: pensDue ? gs.notices : [...gs.notices, notice],
+    phase: pensDue ? 'cup-pens' : 'hub',
+  });
+}
+
+/** The shootout he took is in: the tie has its winner and the round moves on. */
+export function finishCupPens(gs: GameState, score: [number, number]): GameState {
+  if (!gs.cup || !cupNeedsPens(gs.cup, gs.clubId)) return { ...gs, phase: 'hub' };
+  const cup = cupSettleMyPens(gs.cup, gs.clubId, score);
+  const after = cupAfterTie(gs, cup, gs.meters.money);
+  const tie = cupMyTieOf(cup, gs.clubId)!;
+  const opp = cupClub(gs, tie.a === gs.clubId ? tie.b : tie.a);
+  const won = tie.winner === gs.clubId;
+  const title = won ? 'עברתם בפנדלים בגביע' : 'הודחתם בפנדלים מהגביע';
+  const body = `${score[0]}:${score[1]} בפנדלים מול ${opp.name}. ${after.line}`.trim();
+  return {
+    ...gs,
+    cup: after.cup,
+    meters: { ...gs.meters, money: after.money },
+    notices: [...gs.notices, { kind: 'story', title, body }],
+    phase: 'hub',
+  };
+}
+
+/**
+ * A cup round whose week has arrived while the manager has no tie of his own
+ * in it: the staged entrant's pre-bracket (before the semi pairs him in), or
+ * any round after he has already been knocked out. Played by the AI alone
+ * and told on the Hub, exactly as the product spec asks (ב.4); nothing of his
+ * own money, fitness or squad is touched. Called once a week, from startWeek,
+ * before anything blocks on a night of his own.
+ */
+function advanceCupAiWeek(gs: GameState, live: boolean = CUP_LIVE): GameState {
+  if (!live || !gs.cup) return gs;
+  const c = gs.cup;
+  if (c.status === 'on' || c.status === 'won') return gs;
+  const weeks = cupWeeks(gs.league.rounds);
+  if (!weeks || weeks[c.round] !== gs.week || cupRoundDone(c)) return gs;
+  const after = cupStepAiRound(c, gs.clubId, drawSeed(gs, 179_000 + c.round));
+  if (c.status === 'waiting' && after.status === 'on') {
+    const tie = cupMyTieOf(after, gs.clubId);
+    const opp = tie ? cupClub(gs, tie.a === gs.clubId ? tie.b : tie.a) : null;
+    const notice: SquadNotice = {
+      kind: 'story',
+      title: 'הגביע: אתם מצטרפים לחצי הגמר',
+      body: opp ? `הרבע הוכרע, ואתם נכנסים ישר לחצי הגמר מול ${opp.name}. ההגרלה מחכה בלובי.` : 'הרבע הוכרע, ואתם נכנסים ישר לחצי הגמר.',
+    };
+    return { ...gs, cup: after, notices: [...gs.notices, notice] };
+  }
+  const upsets = after.ties[c.round].filter(t => t.winner && isUpset(after, t));
+  const notice: SquadNotice = {
+    kind: 'story',
+    title: `תוצאות הגביע: ${ROUND_NAMES[c.round]}`,
+    body: upsets.length
+      ? `הסיבוב הוכרע. הפתעה: ${upsets.map(t => cupClub(gs, t.winner!).short).join(', ')} עברו קבוצה מדרג גבוה יותר.`
+      : 'הסיבוב הוכרע, בלי הפתעות.',
+  };
+  return { ...gs, cup: after, notices: [...gs.notices, notice] };
+}
+
+/**
+ * The season is over: the cup is closed if it is not already, and the way it
+ * went is written in the chronicle once. No money moves here — every round
+ * already paid its own prize on the night it was reached.
+ */
+export function settleCupSeason(gs: GameState): GameState {
+  if (!gs.cup || gs.cup.season !== gs.season) return gs;
+  const cup = closeCupSeason(gs.cup, gs.clubId, drawSeed(gs, 177_000));
+  const v = cupVerdict(cup, gs.clubId);
+  const id = `cup-s${gs.season}`;
+  // the cup belongs to tier 4 and 5 and to nothing below: closed quietly for anyone else, never written down
+  if (!v || club(gs).tier < CUP_MIN_TIER || gs.chronicle.some(c => c.id === id)) return { ...gs, cup };
+  const legs = v.played === 1 ? 'משחק אחד' : `${v.played} משחקים`;
+  const paid = v.prize > 0 ? ` הפרסים שנכנסו לקופה: ${formatShekels(v.prize)}.` : '';
+  const entry: ChronicleEntry = v.outcome === 'won'
+    ? { id, kind: 'season_end', week: gs.week, icon: 'trophy', tint: 'gold',
+        title: 'גביע המדינה אצלנו', body: `${legs}, ובסוף הגביע.${paid}` }
+    : v.outcome === 'cut'
+      ? { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: 'draw',
+          title: `גביע המדינה: העונה נגמרה ${ROUND_IN[v.round]}`, body: `הסיבוב לא הוכרע בזמן ונחשב הפסד.${paid}` }
+      : { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: 'draw',
+          title: `גביע המדינה: הדרך נגמרה ${ROUND_IN[v.round]}`, body: `${legs} בגביע.${paid}` };
+  return { ...gs, cup, chronicle: [...gs.chronicle, entry] };
+}
+
+/** How the manager's season in the cup went, for the season-end screen. Null when there was none, or outside tier 4/5. */
+export function cupSeasonVerdict(gs: GameState): ReturnType<typeof cupVerdict> {
+  return club(gs).tier >= CUP_MIN_TIER ? cupVerdict(gs.cup, gs.clubId) : null;
+}
+
+/** What this career reports about the cup: nothing below tier 4, and nothing while there is no cup. */
+export function cupMarksFor(gs: GameState): ReturnType<typeof cupMarks> {
+  return club(gs).tier >= CUP_MIN_TIER ? cupMarks(gs.cup, gs.clubId) : [];
+}
+
+/** Is the door open for players? */
+export const cupDoorOpen = (): boolean => CUP_LIVE;
+
+/** The word on the hub after the cup night: the score, where it leaves the tie, and who is hurt. */
+function cupNightNotice(gs: GameState, night: CupNight, goals: [number, number], tie: CupTie | undefined, line: string, hurt: string[]): SquadNotice {
+  const opp = cupClub(gs, night.oppId);
+  const where = night.host === null ? 'במגרש ניטרלי' : night.host ? `בבית, ב${club(gs).city}` : `בחוץ, אצל ${opp.name} ב${opp.city}`;
+  const title = `גביע המדינה, ${ROUND_NAMES[night.round]}: ${goals[0]}:${goals[1]} מול ${opp.name}`;
+  const parts: string[] = [`${where}.`];
+  if (tie && !tie.winner) parts.push('הפנדלים יכריעו.');
+  if (line) parts.push(line);
+  const names = hurt.map(id => [...mySquad(gs).starters, ...mySquad(gs).bench].find(p => p.id === id)?.name).filter(Boolean);
+  if (names.length === 1) parts.push(`${names[0]} נפצע ויחמיץ את משחק הליגה השבוע.`);
+  else if (names.length > 1) parts.push(`${names.join(', ')} נפצעו ויחמיצו את משחק הליגה השבוע.`);
+  parts.push('מי ששיחק הערב יגיע עייף למחזור.');
+  return { kind: 'story', title, body: parts.join(' ') };
+}
+
 export function startWeek(gs: GameState): GameState {
   // the sheet has to be in order first: nobody banned in the eleven, sixteen names
   if (weekBlockedReason(gs)) return gs;
+  // a cup round the manager has no part in this week (a staged entrant still waiting, or a round after he was
+  // knocked out) plays itself out quietly here, before anything checks whether his own night is due
+  gs = advanceCupAiWeek(gs);
   // and a European night that is due is played first: the league waits for it, in the engine as well as on the Hub button
   if (euroNight(gs)) return gs;
+  // the cup night waits for nobody either; there is never a week with both (cupWeeks never overlaps euroWeeks)
+  if (cupNight(gs)) return gs;
   // a shirt promised on the phone last week lands on this week's sheet
   if (gs.mate.promiseNext) {
     gs = {
@@ -4774,8 +5149,8 @@ function endOfWeek(gs: GameState): GameState {
     : gs.fanHistory;
   if (gs.seasonOver) {
     const finale = chronicleAtSeasonEnd(gs);
-    // the league's line first, then the cup's: the competition is closed and written down before the summer draws the next
-    const settled = settleLoans(settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs), 'season');
+    // the league's line first, then Europe's, then the domestic cup's: each competition is closed and written down before the summer draws the next
+    const settled = settleLoans(settleCupSeason(settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs)), 'season');
     return { ...settled, phase: 'season-end', press: null, chat: null, fanHistory };
   }
   // the winter window opens with a word, not silently behind a green dot
@@ -5562,6 +5937,20 @@ export function settleLoans(gs: GameState, reason: 'round' | 'season'): GameStat
  * replaced "new career" at the end of a season, so a save is a real climb from
  * ליגה ג' rather than a fourteen round loop.
  */
+/**
+ * Every club eligible for the cup draw: tier 4 and 5's own city rosters
+ * (cities.ts's TIER_ROSTER, after א.3's expansion). A few town names list in
+ * both tiers (clubFromCity's id is the town's name hash alone, independent of
+ * tier) — deduped by id, tier 5's own listing winning the rare clash, since a
+ * giant city is a giant city whichever list wrote it down first.
+ */
+function cupPool(): Array<{ id: string; tier: number }> {
+  const byId = new Map<string, number>();
+  for (const c of cityClubsForTier(CUP_MIN_TIER)) byId.set(c.id, CUP_MIN_TIER);
+  for (const c of cityClubsForTier(CUP_MIN_TIER + 1)) byId.set(c.id, CUP_MIN_TIER + 1);
+  return Array.from(byId, ([id, tier]) => ({ id, tier }));
+}
+
 export function startNextSeason(gs: GameState): GameState {
   // the starts of the season open the potential of the boys of the new academy, before anything reads the squad
   gs = foldYouthMinutes(gs);
@@ -5667,6 +6056,16 @@ export function startNextSeason(gs: GameState): GameState {
   const brokeIt = gs.meters.money <= 0;
   const moraleDelta = (r.result === 'relegated' ? -12 : +6) + (brokeIt ? -10 : 0);
 
+  // the door to Europe opens on a ליגת העל title and on nothing else. The five clubs rested last season come first in the new draw
+  const nextEuro = euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null
+    ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])
+    : null;
+  // the door to the cup opens on landing in tier 4 or 5, every season, whatever the road that got there. A club also
+  // in Europe this season (nextEuro !== null) is seeded in at the semi, per ב.1.2's rule for the reigning champion
+  const nextCup = cupEntry(CUP_LIVE, r.newTier) && cupWeeks(league.rounds) !== null
+    ? drawCup(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 170_000), gs.clubId, gs.season + 1, r.newTier, nextEuro !== null, cupPool())
+    : null;
+
   const summer: GameState = {
     ...gs,
     // the summer sits between the seasons, where the report of who aged, who
@@ -5674,11 +6073,8 @@ export function startNextSeason(gs: GameState): GameState {
     phase: 'preseason',
     season: gs.season + 1,
     lastReport: report,
-    // the door to Europe opens on a ליגת העל title and on nothing else. The five
-    // clubs rested last season come first in the new draw
-    euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null
-      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])
-      : null,
+    euro: nextEuro,
+    cup: nextCup,
     purseEarlier: 0,
     week: 1,
     league,

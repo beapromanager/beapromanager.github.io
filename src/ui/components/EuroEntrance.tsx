@@ -27,7 +27,7 @@ export interface EntranceLines {
   venue: string;
 }
 
-export function EuroEntrance({ home, away, lines, onDone }: { home: Club; away: Club; lines: EntranceLines; onDone: () => void }) {
+export function EuroEntrance({ home, away, lines, onDone, kind = 'euro' }: { home: Club; away: Club; lines: EntranceLines; onDone: () => void; /** which cup this is: Europe's blue, or גביע המדינה's amber */ kind?: 'euro' | 'cup' }) {
   const [leaving, setLeaving] = useState(false);
   useEffect(() => {
     const out = window.setTimeout(() => setLeaving(true), ENTRANCE_BEAT - ENTRANCE_OUT);
@@ -36,11 +36,11 @@ export function EuroEntrance({ home, away, lines, onDone }: { home: Club; away: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <div className="eu-entrance" data-leaving={leaving ? '1' : '0'} onClick={onDone} role="presentation">
+    <div className="eu-entrance" data-kind={kind} data-leaving={leaving ? '1' : '0'} onClick={onDone} role="presentation">
       <div className="eu-entrance-light eu-entrance-light-a" aria-hidden="true" />
       <div className="eu-entrance-light eu-entrance-light-b" aria-hidden="true" />
       <div className="eu-entrance-round">
-        <span className="chip chip-euro">{lines.round}</span>
+        <span className={kind === 'cup' ? 'chip chip-cup' : 'chip chip-euro'}>{lines.round}</span>
         <span className="eu-entrance-leg">{lines.leg}</span>
       </div>
       <div className="eu-entrance-face">
