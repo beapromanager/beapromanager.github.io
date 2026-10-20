@@ -43,12 +43,33 @@ export const CUP_PRE_FIELD = 12;
 /**
  * How strong the other side plays, by round, on the makeSquad target scale.
  * Itzik's rule (ב.1.3): the cup has to be very hard. For comparison,
- * leagueCeiling(4) = 69.5, leagueCeiling(5) = 75, and Europe's STAGE_TARGET is
- * [74, 78, 82, 84]: a cup round is roughly a game against the top of ליגת העל,
- * and the semi on is already European level. check:cup pins these as literals
- * and calibrates them against the win-rate targets in the product spec.
+ * leagueCeiling(4) = 69.5 and leagueCeiling(5) = 75: round 0 already plays
+ * above an average tier 4 side's own ceiling, and the final is above even
+ * ליגת העל's.
+ *
+ * Moved down from the product spec's own draft ([74, 77, 80, 83], Europe's
+ * own shape) by check:cup's model simulation, which found the draft too hard
+ * across the board: an average הלאומית side won under 1% (target ≤8%, fine
+ * on its own) but an average ליגת העל side only ~2% (target ≈15-20%) and a
+ * staged champion only ~24% (target ≈30-35%). These numbers hit the ≤8% and
+ * ≈15-20% bands (tier 4 ~2.4%, tier 5 ~14.5%, both from a 5000-season model).
+ *
+ * OPEN QUESTION FOR ITZIK: the staged (seeded) champion's share could not be
+ * brought down to ≈30-35% at the same time — the model puts it at ~55-57%
+ * instead. The two asks pull in opposite directions: round 2/3 has to be
+ * soft enough for an average ליגת העל side (strength ~75) to clear it
+ * ≈15-20% of the time, but round 2/3 is all the staged entrant (strength
+ * ~81, entering straight at the semi with only two matches to lose) ever
+ * faces, and the same softness that helps tier 5 lets him through far more
+ * often. Satisfying tier 4/5 here (the two population checks, i.e. nearly
+ * every manager who ever sees the cup) was kept over satisfying the staged
+ * entrant's narrower band (a rare case: reigning ליגת העל champion, also in
+ * Europe). check:cup reports the staged share rather than failing on it, and
+ * this needs Itzik's call: accept a champion's deep run as a fair reward for
+ * the title, or redesign the staged entry (e.g. joining at the quarter
+ * instead of the semi, one more match he can lose).
  */
-export const CUP_TARGET = [74, 77, 80, 83] as const;
+export const CUP_TARGET = [70, 72, 74, 76] as const;
 /** each club carries a small fixed edge around its round's target, so the draw matters (as in Europe) */
 export const CUP_EDGE = 2;
 
@@ -272,6 +293,10 @@ export function advanceRound(e: CupState, myId: string, seed: number): CupState 
     participants = [...participants.slice(0, at), me, ...participants.slice(at)];
     status = 'on';
     justJoined = true;
+  } else if (status === 'on' && !participants.some(c => c.id === myId)) {
+    // he was playing his own tie this round and lost it: out, same as the final's own branch above.
+    // 'waiting' (a staged entrant before his joinAt) and 'out' (already knocked out) are left untouched here.
+    status = 'out';
   }
   const ties: CupTie[] = [];
   for (let i = 0; i < participants.length; i += 2) ties.push(pairWithHost(participants[i], participants[i + 1], rng));

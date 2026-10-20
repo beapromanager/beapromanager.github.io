@@ -626,7 +626,8 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
 {
   checked += 6;
   const app = readFileSync('src/ui/App.tsx', 'utf8');
-  if (!app.includes("data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : undefined}")) fails.push('the frame does not turn European for the night, the shootout, the draw and the bracket');
+  // the same four phases still turn the frame European, whatever else the expression now also checks for the cup (stage 1, 20.10)
+  if (!app.includes("data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : gs.phase === 'cup-match' || gs.phase === 'cup-pens' || gs.phase === 'cup-draw' || gs.phase === 'cup-bracket' ? 'cup' : undefined}")) fails.push('the frame does not turn European for the night, the shootout, the draw and the bracket');
   const css = readFileSync('src/ui/tokens.css', 'utf8');
   if (!css.includes('.frame[data-stage="euro"]{') || !css.includes('.eu-entrance{') || !css.includes('.eu-entrance-vs{')) fails.push('the European frame or the entrance has no css');
   if (!css.includes('.eu-entrance-light,.eu-entrance-round,.eu-entrance-home,.eu-entrance-away,.eu-entrance-vs,.eu-entrance-venue{animation:none;}')) fails.push('the entrance does not honour reduced motion');
@@ -870,7 +871,9 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   // the wiring: the cup is closed where the season ends, before the summer draws the next, and only on a calendar that can play it
   checked += 8;
   const src = readFileSync('src/game/state.ts', 'utf8');
-  if (!src.includes("const settled = settleLoans(settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs), 'season');") || !src.includes("return { ...settled, phase: 'season-end', press: null, chat: null, fanHistory };")) fails.push('the cup is not closed where the last league round ends');
+  // settleEuroSeason still takes the exact same argument and still feeds settleLoans; the domestic cup (stage 1,
+  // 20.10) now wraps the same point in the pipeline, closed on the same night Europe is, before the summer draws either
+  if (!src.includes("const settled = settleLoans(settleCupSeason(settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs)), 'season');") || !src.includes("return { ...settled, phase: 'season-end', press: null, chat: null, fanHistory };")) fails.push('the cup is not closed where the last league round ends');
   if (!src.includes('euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null')) fails.push('a cup is drawn for a league too short to play it');
   if (euroWeeks(10) !== null || euroWeeks(14) === null) fails.push('the calendar guard does not say which leagues can play the cup');
   const end = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');

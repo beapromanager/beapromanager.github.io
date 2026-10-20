@@ -3832,7 +3832,7 @@ function euroNightNotice(gs: GameState, night: EuroNight, goals: [number, number
  * (no aggregate to wait on), entry from tier 4 and 5 every season rather than
  * only the reigning top-tier champion, and a staged entrant (seeded) who
  * joins at the semi. Salts for drawSeed live at 170_000 and up, each purpose
- * at least 1000 apart, the same discipline as Europe's 140_000/150_000s.
+ * at least 1000 apart, the same discipline Europe's own salt blocks keep.
  */
 
 /** The cup night due this week, before the league round, or null. */
@@ -6056,14 +6056,12 @@ export function startNextSeason(gs: GameState): GameState {
   const brokeIt = gs.meters.money <= 0;
   const moraleDelta = (r.result === 'relegated' ? -12 : +6) + (brokeIt ? -10 : 0);
 
-  // the door to Europe opens on a ליגת העל title and on nothing else. The five clubs rested last season come first in the new draw
-  const nextEuro = euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null
-    ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])
-    : null;
   // the door to the cup opens on landing in tier 4 or 5, every season, whatever the road that got there. A club also
-  // in Europe this season (nextEuro !== null) is seeded in at the semi, per ב.1.2's rule for the reigning champion
+  // drawn into Europe this season is seeded in at the semi, per ב.1.2's rule for the reigning champion; read off
+  // the same entry rule as the euro field just below, so the two can never disagree about who is seeded
+  const seededForCup = euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null;
   const nextCup = cupEntry(CUP_LIVE, r.newTier) && cupWeeks(league.rounds) !== null
-    ? drawCup(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 170_000), gs.clubId, gs.season + 1, r.newTier, nextEuro !== null, cupPool())
+    ? drawCup(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 170_000), gs.clubId, gs.season + 1, r.newTier, seededForCup, cupPool())
     : null;
 
   const summer: GameState = {
@@ -6073,7 +6071,11 @@ export function startNextSeason(gs: GameState): GameState {
     phase: 'preseason',
     season: gs.season + 1,
     lastReport: report,
-    euro: nextEuro,
+    // the door to Europe opens on a ליגת העל title and on nothing else. The five
+    // clubs rested last season come first in the new draw
+    euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null
+      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])
+      : null,
     cup: nextCup,
     purseEarlier: 0,
     week: 1,

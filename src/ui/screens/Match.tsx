@@ -175,7 +175,9 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   // a cup night: Itzik wants a goal felt in the hand, not only seen. comp tells Europe's blue apart from the cup's amber
   const euro = !!clubs;
   const cup = euro && comp === 'cup';
-  const momentSet = cup ? CUP_MOMENT : euro ? EURO_MOMENT : null;
+  // shadows the module's own EURO_MOMENT_ASSETS: every `euro ? EURO_MOMENT.x : ...` line below reads whichever
+  // table actually belongs to this night, Europe's or the cup's own (ב.8), without a second ternary at each line
+  const EURO_MOMENT = cup ? CUP_MOMENT : EURO_MOMENT_ASSETS;
   // ליגה ג׳ to א׳ play by day at a neighbourhood ground, the Leumit and ליגת העל at night; Europe has its own pictures
   const world = momentWorld(G.club(gs).tier);
   useEffect(() => preloadMoments(world), [world]);
@@ -328,12 +330,14 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   return (
     <div className="screen pad stack pad-b" style={{ gap: 12, minHeight: '100%' }}>
       {/* broadcast bar */}
-      <div className="tile-hero" data-euro={euro && !cup ? '1' : undefined} data-cup={cup ? '1' : undefined} style={{ padding: '14px 14px 12px' }}>
+      <div className="tile-hero" data-euro={euro ? '1' : undefined} style={{ padding: '14px 14px 12px' }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <TeamSide club={homeClub} kit={hdrKits.home} />
           <div style={{ textAlign: 'center', minWidth: 104 }}>
             <div className={cup ? 'cup-glow' : euro ? 'eu-glow' : undefined}><ScorePair h={shownScore.current[0]} a={shownScore.current[1]} size={44} /></div>
-            {euro && euroLines && <div className={cup ? 'cup-venue' : 'eu-venue'}>{euroLines.venue}</div>}
+            {euro && euroLines && (cup
+              ? <div className="cup-venue">{euroLines.venue}</div>
+              : <div className="eu-venue">{euroLines.venue}</div>)}
             <div className="pill" style={{
               marginTop: 7,
               background: st.phase === 'done' ? 'rgba(255,255,255,.06)' : 'rgba(226,72,77,.16)',
@@ -393,26 +397,26 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
       )}
 
       {/* decisions, each pops up as a full-screen moment (portaled) */}
-      {pending?.kind === 'penalty' && <MomentPopup m={pending} kind="penalty" imgOverride={momentSet ? momentSet.penalty : asset(buildupImg('penalty', world, st.seed))} onPickCorner={c => { const scored = L.resolvePenalty(st, c); setPenOutcome({ corner: c, scored }); force(); }} />}
+      {pending?.kind === 'penalty' && <MomentPopup m={pending} kind="penalty" imgOverride={euro ? EURO_MOMENT.penalty : asset(buildupImg('penalty', world, st.seed))} onPickCorner={c => { const scored = L.resolvePenalty(st, c); setPenOutcome({ corner: c, scored }); force(); }} />}
       {penOutcome && <PenaltyOutcome world={euro ? 'night' : world} corner={penOutcome.corner} scored={penOutcome.scored} onDone={() => setPenOutcome(null)} />}
-      {pending?.kind === 'def_penalty' && <MomentPopup m={pending} kind="def_penalty" imgOverride={momentSet ? momentSet.def_penalty : asset(buildupImg('def_penalty', world, st.seed))} onPickCorner={c => {
+      {pending?.kind === 'def_penalty' && <MomentPopup m={pending} kind="def_penalty" imgOverride={euro ? EURO_MOMENT.def_penalty : asset(buildupImg('def_penalty', world, st.seed))} onPickCorner={c => {
         const keeper = L.playerKeeperName(st);
         const { saved, aim } = L.resolveDefPenalty(st, c);
         setDefPenOutcome({ saved, keeper, aim });
         force();
       }} />}
       {defPenOutcome && <DefPenaltyOutcome world={euro ? 'night' : world} saved={defPenOutcome.saved} keeper={defPenOutcome.keeper} aim={defPenOutcome.aim} onDone={() => setDefPenOutcome(null)} />}
-      {pending?.kind === 'shot' && <MomentPopup m={pending} kind="shot" imgOverride={momentSet ? momentSet.shot : asset(buildupImg('shot', world, st.seed))} onPickCorner={c => { const outcome = L.resolveShot(st, c); setShotOutcome({ corner: c, outcome }); force(); }} />}
+      {pending?.kind === 'shot' && <MomentPopup m={pending} kind="shot" imgOverride={euro ? EURO_MOMENT.shot : asset(buildupImg('shot', world, st.seed))} onPickCorner={c => { const outcome = L.resolveShot(st, c); setShotOutcome({ corner: c, outcome }); force(); }} />}
       {shotOutcome && <ShotOutcomeCard world={euro ? 'night' : world} corner={shotOutcome.corner} outcome={shotOutcome.outcome} onDone={() => setShotOutcome(null)} />}
-      {pending?.kind === 'free_kick' && <MomentPopup m={pending} kind="free_kick" imgOverride={momentSet ? momentSet.free_kick : asset(buildupImg('free_kick', world, st.seed))} onPickCorner={c => { const outcome = L.resolveFreeKick(st, c); setFkOutcome({ corner: c, outcome }); force(); }} />}
+      {pending?.kind === 'free_kick' && <MomentPopup m={pending} kind="free_kick" imgOverride={euro ? EURO_MOMENT.free_kick : asset(buildupImg('free_kick', world, st.seed))} onPickCorner={c => { const outcome = L.resolveFreeKick(st, c); setFkOutcome({ corner: c, outcome }); force(); }} />}
       {fkOutcome && <FreeKickOutcomeCard world={euro ? 'night' : world} corner={fkOutcome.corner} outcome={fkOutcome.outcome} onDone={() => setFkOutcome(null)} />}
-      {pending?.kind === 'one_on_one' && <MomentPopup m={pending} kind="one_on_one" imgOverride={momentSet ? momentSet.one_on_one : asset(buildupImg('one_on_one', world, st.seed))} onPickOption={id => { const outcome = L.resolveOneOnOne(st, id); setOneOnOneOutcome(outcome); force(); }} />}
+      {pending?.kind === 'one_on_one' && <MomentPopup m={pending} kind="one_on_one" imgOverride={euro ? EURO_MOMENT.one_on_one : asset(buildupImg('one_on_one', world, st.seed))} onPickOption={id => { const outcome = L.resolveOneOnOne(st, id); setOneOnOneOutcome(outcome); force(); }} />}
       {oneOnOneOutcome && <OneOnOneOutcomeCard world={euro ? 'night' : world} outcome={oneOnOneOutcome} onDone={() => setOneOnOneOutcome(null)} />}
-      {pending?.kind === 'def_keeper' && <MomentPopup m={pending} kind="def_keeper" imgOverride={momentSet ? momentSet.def_keeper : asset(buildupImg('def_keeper', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefKeeper(st, id); setDefKeeperOutcome(outcome); force(); }} />}
+      {pending?.kind === 'def_keeper' && <MomentPopup m={pending} kind="def_keeper" imgOverride={euro ? EURO_MOMENT.def_keeper : asset(buildupImg('def_keeper', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefKeeper(st, id); setDefKeeperOutcome(outcome); force(); }} />}
       {defKeeperOutcome && <DefKeeperOutcomeCard world={euro ? 'night' : world} outcome={defKeeperOutcome} onDone={() => setDefKeeperOutcome(null)} />}
-      {pending?.kind === 'def_tackle' && <MomentPopup m={pending} kind="def_tackle" imgOverride={momentSet ? momentSet.def_tackle : asset(buildupImg('def_tackle', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefTackle(st, id); setDefTackleOutcome(outcome); force(); }} />}
+      {pending?.kind === 'def_tackle' && <MomentPopup m={pending} kind="def_tackle" imgOverride={euro ? EURO_MOMENT.def_tackle : asset(buildupImg('def_tackle', world, st.seed))} onPickOption={id => { const outcome = L.resolveDefTackle(st, id); setDefTackleOutcome(outcome); force(); }} />}
       {defTackleOutcome && <DefTackleOutcomeCard world={euro ? 'night' : world} outcome={defTackleOutcome} onDone={() => setDefTackleOutcome(null)} />}
-      {pending?.kind === 'tactic' && <MomentPopup m={pending} kind="tactic" imgOverride={momentSet ? momentSet.tactic : tacticImg(G.club(gs).tier)} onPickOption={id => { L.resolveTactic(st, id); force(); }} />}
+      {pending?.kind === 'tactic' && <MomentPopup m={pending} kind="tactic" imgOverride={euro ? EURO_MOMENT.tactic : tacticImg(G.club(gs).tier)} onPickOption={id => { L.resolveTactic(st, id); force(); }} />}
 
       {st.phase === 'done' ? (
         <button className="btn" onClick={() => onDone(L.finalize(st), [...L.mySide(st).onPitch, ...L.mySide(st).sentOff.map(x => x.player), ...L.mySide(st).replaced.map(x => x.player)].map(p => p.id))}>
@@ -1122,7 +1126,7 @@ type MomentKind = 'penalty' | 'shot' | 'one_on_one' | 'tactic' | 'free_kick' | '
  * deep blue floodlit sky in plain kits. Only the frame the question is asked
  * on changes; the outcome frames are the league's own until theirs are made.
  */
-const EURO_MOMENT: Record<MomentKind, string> = {
+const EURO_MOMENT_ASSETS: Record<MomentKind, string> = {
   penalty: asset('/moments/euro/penalty.webp'),
   def_penalty: asset('/moments/euro/def-penalty.webp'),
   shot: asset('/moments/euro/shot.webp'),

@@ -309,11 +309,7 @@ export function App() {
   }
 
   return (
-    <div className="frame" data-stage={
-      gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro'
-        : gs.phase === 'cup-match' || gs.phase === 'cup-pens' || gs.phase === 'cup-draw' || gs.phase === 'cup-bracket' ? 'cup'
-        : undefined
-    }>
+    <div className="frame" data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : gs.phase === 'cup-match' || gs.phase === 'cup-pens' || gs.phase === 'cup-draw' || gs.phase === 'cup-bracket' ? 'cup' : undefined}>
       {gs.phase === 'onboard-archetype' && (
         <ArchetypeScreen gs={gs} onPick={id => setGs(G.setArchetype(gs, id))} />
       )}

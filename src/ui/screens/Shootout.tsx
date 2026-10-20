@@ -70,7 +70,7 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
   const cup = comp === 'cup';
   const sides = useMemo(() => cup ? G.cupPensSides(gs) : G.euroPensSides(gs), [gs, cup]);
   const round = cup ? (gs.cup?.round ?? 0) : (gs.euro?.round ?? 0);
-  const rng = useRef(createRng(G.drawSeed(gs, (cup ? 173_000 : 152_000) + round)));
+  const rng = useRef(cup ? createRng(G.drawSeed(gs, 173_000 + (gs.cup?.round ?? 0))) : createRng(G.drawSeed(gs, 152_000 + (gs.euro?.round ?? 0))));
   const [kicks, setKicks] = useState<Kick[]>([]);
   const [stage, setStage] = useState<Stage>({ kind: 'intro' });
   const me = G.club(gs);
