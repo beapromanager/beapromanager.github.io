@@ -17,8 +17,8 @@ import { Icon } from '../components/Icon.tsx';
  * timer underneath it.
  *
  * The draw itself was made in the summer (or, for the staged entrant who
- * joins at the semi, right after the quarter is decided — see cupDrawDue in
- * state.ts, which is owed again at that exact moment) and lives in the save;
+ * joins at the quarter, right after the pre-bracket is decided — see
+ * cupDrawDue in state.ts, which is owed again at that exact moment) and lives in the save;
  * this screen only reveals it, one tie at a time, and never changes it. A
  * reload shows the same ties in the same order, same as Europe's.
  */
@@ -55,7 +55,7 @@ export function CupDrawScreen({ gs, onDone }: { gs: G.GameState; onDone: () => v
           <span className="chip chip-cup">{title}</span>
         </div>
         <p className="hint" style={{ margin: 0 }}>
-          {done ? 'ההגרלה הושלמה.' : bracing ? 'הכדור הבא... זה אתם.' : round === 0 ? 'שישה עשר כדורים בקערה. לוחצים ומושכים.' : 'הקערה נפתחת שוב, אחרי הרבע.'}
+          {done ? 'ההגרלה הושלמה.' : bracing ? 'הכדור הבא... זה אתם.' : round === 0 ? 'שישה עשר כדורים בקערה. לוחצים ומושכים.' : 'הקערה נפתחת שוב, אחרי השמינית.'}
         </p>
       </div>
 

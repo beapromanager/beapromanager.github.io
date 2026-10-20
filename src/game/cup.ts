@@ -6,8 +6,9 @@
  * goals, no second leg — straight to penalties on a level match), entry from
  * the two top divisions only (tier 4, הלאומית, and tier 5, ליגת העל), a
  * "staged" entry for the reigning ליגת העל champion who is also in Europe
- * this season (he joins at the semi-final, after the quarter is played out
- * by the AI alone), and a host rule by division rather than by leg: the lower
+ * this season (he joins at the quarter-final, after the pre-bracket is
+ * played out by the AI alone, so his run is three matches — the quarter, the
+ * semi and the final — not two), and a host rule by division rather than by leg: the lower
  * tier hosts, a coin toss on equal tiers, nobody at the final.
  *
  * The door (CUP_LIVE) stays shut until Itzik opens it, exactly like Europe's.
@@ -37,8 +38,8 @@ export const CUP_MIN_TIER = 4;
 export const CUP_ROUNDS = 4;
 /** the manager plus fifteen others, the usual way in */
 export const CUP_FIELD = 16;
-/** the AI-only pre-bracket a staged (seeded) entrant skips: twelve clubs, two rounds, down to three */
-export const CUP_PRE_FIELD = 12;
+/** the AI-only pre-bracket a staged (seeded) entrant skips: fourteen clubs, one round, down to seven, so he makes an even eight at the quarter */
+export const CUP_PRE_FIELD = 14;
 
 /**
  * How strong the other side plays, by round, on the makeSquad target scale.
@@ -54,24 +55,29 @@ export const CUP_PRE_FIELD = 12;
  * staged champion only ~24% (target ≈30-35%). These numbers hit the ≤8% and
  * ≈15-20% bands (tier 4 ~2.4%, tier 5 ~14.5%, both from a 5000-season model).
  *
- * OPEN QUESTION FOR ITZIK: the staged (seeded) champion's share could not be
- * brought down to ≈30-35% at the same time — the model puts it at ~55-57%
- * instead. The two asks pull in opposite directions: round 2/3 has to be
- * soft enough for an average ליגת העל side (strength ~75) to clear it
- * ≈15-20% of the time, but round 2/3 is all the staged entrant (strength
- * ~81, entering straight at the semi with only two matches to lose) ever
- * faces, and the same softness that helps tier 5 lets him through far more
- * often. Satisfying tier 4/5 here (the two population checks, i.e. nearly
- * every manager who ever sees the cup) was kept over satisfying the staged
- * entrant's narrower band (a rare case: reigning ליגת העל champion, also in
- * Europe). check:cup reports the staged share rather than failing on it, and
- * this needs Itzik's call: accept a champion's deep run as a fair reward for
- * the title, or redesign the staged entry (e.g. joining at the quarter
- * instead of the semi, one more match he can lose).
+ * Itzik's decision (20.10, on the question this comment used to leave open):
+ * the staged (seeded) champion now joins at the quarter instead of the semi
+ * — one more match he can lose (quarter, semi, final) rather than two. That
+ * alone pulled his model share down from ~55-57% to ~49%, still above the
+ * agreed ≈30-35%; the rest came from CUP_STAGED_EDGE just below, a bonus
+ * that only ever touches the staged entrant's own pre-bracket field, so
+ * round 2/3's own softness — and tier 4/5's shares, the two population
+ * checks that cover nearly every manager who ever sees the cup — are
+ * untouched by either change.
  */
 export const CUP_TARGET = [70, 72, 74, 76] as const;
 /** each club carries a small fixed edge around its round's target, so the draw matters (as in Europe) */
 export const CUP_EDGE = 2;
+/**
+ * A flat bonus added only to the pre-bracket field's edge when the draw is a
+ * staged (seeded) one, so only the clubs that can end up facing the staged
+ * entrant himself (in the quarter, the semi or the final) play harder —
+ * check:cup's model found his share needing a staged-only trim down to the
+ * agreed ≈30-35%, and this was the one knob that could not also be reached
+ * through CUP_TARGET/CUP_EDGE without pushing tier 4/5's own ≤8%/≈15-20%
+ * shares (an ordinary, non-staged draw never touches this constant).
+ */
+export const CUP_STAGED_EDGE = 3;
 
 /**
  * Money. Itzik's note of 20.10: lower than the spec's own draft, because the
@@ -131,8 +137,8 @@ export interface CupState {
   season: number;
   /** every club in the draw, the manager included, whatever round he joins in */
   clubs: CupClub[];
-  /** 0: in from the first round, like everyone else. 2: joins at the semi (the reigning champion also in Europe) */
-  joinAt: 0 | 2;
+  /** 0: in from the first round, like everyone else. 1: joins at the quarter (the reigning champion also in Europe) */
+  joinAt: 0 | 1;
   round: number;
   ties: CupTie[][];
   status: CupStatus;
@@ -140,7 +146,7 @@ export interface CupState {
   bans: Record<string, number>;
   /** every match the manager has personally played */
   played: number;
-  /** the draw ceremony watched or skipped; flipped back to false when a staged entrant is paired in at the semi */
+  /** the draw ceremony watched or skipped; flipped back to false when a staged entrant is paired in at the quarter */
   seen?: boolean;
   /** the season ended with his tie still open, so it was closed against him */
   cut?: boolean;
@@ -174,8 +180,9 @@ function pairWithHost(x: CupClub, y: CupClub, rng: () => number): CupTie {
  * The draw. `pool` is every eligible club outside the manager's own, built by
  * the caller from the two divisions' city rosters (state.ts, cities.ts) so
  * this module stays free of city data. `seeded` is the staged entry: the
- * reigning ליגת העל champion who is also in Europe this season plays only the
- * semi and the final, while twelve others fight it out without him.
+ * reigning ליגת העל champion who is also in Europe this season plays the
+ * quarter, the semi and the final — three matches — while fourteen others
+ * fight it out without him in the pre-bracket.
  */
 export function drawCup(
   seed: number, myId: string, season: number, myTier: number, seeded: boolean,
@@ -183,10 +190,11 @@ export function drawCup(
 ): CupState {
   const rng = createRng(seed);
   const others = shuffle(pool.filter(c => c.id !== myId), rng);
-  const joinAt: 0 | 2 = seeded ? 2 : 0;
+  const joinAt: 0 | 1 = seeded ? 1 : 0;
   const fieldSize = seeded ? CUP_PRE_FIELD : CUP_FIELD - 1;
+  const stagedBonus = seeded ? CUP_STAGED_EDGE : 0;
   const field: CupClub[] = others.slice(0, fieldSize).map(c => ({
-    id: c.id, tier: c.tier, edge: Math.round((rng() * 2 - 1) * CUP_EDGE),
+    id: c.id, tier: c.tier, edge: Math.round((rng() * 2 - 1) * CUP_EDGE) + stagedBonus,
   }));
   const clubs: CupClub[] = [{ id: myId, tier: myTier, edge: ME_EDGE }, ...field];
   const participants = joinAt === 0 ? shuffle(clubs, rng) : shuffle(field, rng);

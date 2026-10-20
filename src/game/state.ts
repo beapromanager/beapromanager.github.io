@@ -3831,7 +3831,7 @@ function euroNightNotice(gs: GameState, night: EuroNight, goals: [number, number
  * above, with the differences the product spec asks for: one leg a round
  * (no aggregate to wait on), entry from tier 4 and 5 every season rather than
  * only the reigning top-tier champion, and a staged entrant (seeded) who
- * joins at the semi. Salts for drawSeed live at 170_000 and up, each purpose
+ * joins at the quarter. Salts for drawSeed live at 170_000 and up, each purpose
  * at least 1000 apart, the same discipline Europe's own salt blocks keep.
  */
 
@@ -3846,7 +3846,7 @@ export function cupPensDue(gs: GameState, live: boolean = CUP_LIVE): boolean {
   return live && !!gs.cup && gs.cup.status === 'on' && cupNeedsPens(gs.cup, gs.clubId);
 }
 
-/** The staged entrant before the quarter is decided and he is paired into the semi: nothing to play yet, just a wait. */
+/** The staged entrant before the pre-bracket is decided and he is paired into the quarter: nothing to play yet, just a wait. */
 export function cupWaiting(gs: GameState, live: boolean = CUP_LIVE): boolean {
   return live && !!gs.cup && gs.cup.status === 'waiting';
 }
@@ -3974,7 +3974,7 @@ export function cupEntranceLines(gs: GameState, live: boolean = CUP_LIVE): { rou
   };
 }
 
-/** The draw was made in the summer (or, for a staged entrant, the semi's pairing was made after the quarter); the ceremony is owed once. */
+/** The draw was made in the summer (or, for a staged entrant, the quarter's pairing was made after the pre-bracket); the ceremony is owed once. */
 export function cupDrawDue(gs: GameState, live: boolean = CUP_LIVE): boolean {
   return live && !!gs.cup && !gs.cup.seen && gs.cup.status === 'on';
 }
@@ -4091,7 +4091,7 @@ export function finishCupPens(gs: GameState, score: [number, number]): GameState
 
 /**
  * A cup round whose week has arrived while the manager has no tie of his own
- * in it: the staged entrant's pre-bracket (before the semi pairs him in), or
+ * in it: the staged entrant's pre-bracket (before the quarter pairs him in), or
  * any round after he has already been knocked out. Played by the AI alone
  * and told on the Hub, exactly as the product spec asks (ב.4); nothing of his
  * own money, fitness or squad is touched. Called once a week, from startWeek,
@@ -4109,8 +4109,8 @@ function advanceCupAiWeek(gs: GameState, live: boolean = CUP_LIVE): GameState {
     const opp = tie ? cupClub(gs, tie.a === gs.clubId ? tie.b : tie.a) : null;
     const notice: SquadNotice = {
       kind: 'story',
-      title: 'הגביע: אתם מצטרפים לחצי הגמר',
-      body: opp ? `הרבע הוכרע, ואתם נכנסים ישר לחצי הגמר מול ${opp.name}. ההגרלה מחכה בלובי.` : 'הרבע הוכרע, ואתם נכנסים ישר לחצי הגמר.',
+      title: 'הגביע: אתם מצטרפים לרבע הגמר',
+      body: opp ? `השמינית הוכרעה, ואתם נכנסים ישר לרבע הגמר מול ${opp.name}. ההגרלה מחכה בלובי.` : 'השמינית הוכרעה, ואתם נכנסים ישר לרבע הגמר.',
     };
     return { ...gs, cup: after, notices: [...gs.notices, notice] };
   }
@@ -6057,7 +6057,7 @@ export function startNextSeason(gs: GameState): GameState {
   const moraleDelta = (r.result === 'relegated' ? -12 : +6) + (brokeIt ? -10 : 0);
 
   // the door to the cup opens on landing in tier 4 or 5, every season, whatever the road that got there. A club also
-  // drawn into Europe this season is seeded in at the semi, per ב.1.2's rule for the reigning champion; read off
+  // drawn into Europe this season is seeded in at the quarter, per ב.1.2's rule for the reigning champion; read off
   // the same entry rule as the euro field just below, so the two can never disagree about who is seeded
   const seededForCup = euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null;
   const nextCup = cupEntry(CUP_LIVE, r.newTier) && cupWeeks(league.rounds) !== null

@@ -9,9 +9,9 @@ import { Crest } from '../components/Crest.tsx';
 import { TopBack } from '../components/TopBack.tsx';
 import { Meters } from '../components/bits.tsx';
 
-/** How many ties a round holds before it is played: 16 clubs normally, or the 12-club AI pre-bracket for a staged (seeded) entrant. */
+/** How many ties a round holds before it is played: 16 clubs normally, or the 14-club AI pre-bracket for a staged (seeded) entrant. */
 const NORMAL_SLOTS = [8, 4, 2, 1];
-const STAGED_SLOTS = [6, 3, 2, 1];
+const STAGED_SLOTS = [7, 4, 2, 1];
 
 /**
  * The cup as it stands: a tab a round, that round's ties, his own tie marked,
@@ -27,10 +27,10 @@ export function CupBracketScreen({ gs, onBack }: { gs: G.GameState; onBack: () =
   const clubOf = (id: string) => (id === gs.clubId ? me : G.cupClub(gs, id));
   const ties: CupTie[] = e?.ties[round] ?? [];
   const champ = e ? champion(e) : null;
-  const slots = ties.length || (e?.joinAt === 2 ? STAGED_SLOTS : NORMAL_SLOTS)[round] || 1;
+  const slots = ties.length || (e?.joinAt === 1 ? STAGED_SLOTS : NORMAL_SLOTS)[round] || 1;
   const status = !e ? '' : e.status === 'won' ? 'הגביע שלכם'
     : e.status === 'out' ? 'הודחתם העונה'
-    : e.status === 'waiting' ? 'ממתינים לחצי הגמר'
+    : e.status === 'waiting' ? 'ממתינים לרבע הגמר'
     : `עדיין בפנים, ${ROUND_NAMES[e.round]}`;
   return (
     <div className="screen pad stack pad-b" style={{ gap: 14, minHeight: '100%' }}>
@@ -74,7 +74,7 @@ export function CupBracketScreen({ gs, onBack }: { gs: G.GameState; onBack: () =
         })}
       </div>
       {e && round === CUP_ROUNDS - 1 && e.status !== 'on' && e.status !== 'waiting' && !champ && <p className="hint">הגמר ישוחק אחרי חצי הגמר.</p>}
-      {e && e.joinAt === 2 && e.status === 'waiting' && round < 2 && <p className="hint">אתם נכנסים ישר לחצי הגמר; הסיבובים האלה משוחקים בלעדיכם.</p>}
+      {e && e.joinAt === 1 && e.status === 'waiting' && round < 1 && <p className="hint">אתם נכנסים ישר לרבע הגמר; הסיבוב הזה משוחק בלעדיכם.</p>}
     </div>
   );
 }

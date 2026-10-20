@@ -426,7 +426,7 @@ function CupHero({ gs, night, onGo }: { gs: G.GameState; night: CupNight; onGo: 
   );
 }
 
-/** The cup's draw was made in the summer (or, for a staged entrant, after the quarter); the ceremony is owed once. */
+/** The cup's draw was made in the summer (or, for a staged entrant, after the pre-bracket); the ceremony is owed once. */
 function CupDrawCard({ onGo }: { onGo: () => void }) {
   return (
     <div className="match-hero" data-cup="1">
@@ -463,15 +463,15 @@ function CupPensCard({ gs, onGo }: { gs: G.GameState; onGo: () => void }) {
   );
 }
 
-/** The staged entrant (reigning champion also in Europe): nothing to play until the quarter is decided elsewhere. */
+/** The staged entrant (reigning champion also in Europe): nothing to play until the pre-bracket is decided elsewhere. */
 function CupWaitingCard() {
   return (
     <div className="match-hero" data-cup="1">
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
         <span className="label-cap" style={{ color: 'var(--cup, #D98A3D)' }}>גביע המדינה</span>
-        <span className="chip chip-cup">ממתינים לחצי</span>
+        <span className="chip chip-cup">ממתינים לרבע</span>
       </div>
-      <p className="hint" style={{ margin: 0 }}>אתם נכנסים ישר לחצי הגמר. הרבע משוחק בלעדיכם, ותודיעו לכם כשהוא יוכרע.</p>
+      <p className="hint" style={{ margin: 0 }}>אתם נכנסים ישר לרבע הגמר. השמינית משוחקת בלעדיכם, ותודיעו לכם כשהיא תוכרע.</p>
     </div>
   );
 }

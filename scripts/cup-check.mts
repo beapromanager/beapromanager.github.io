@@ -10,14 +10,14 @@
  *      length the product spec names
  *   3. eligibility: tier 4 and 5 only, every season, whatever the road there
  *   4. the draw: sixteen with the manager always in for a normal entry,
- *      twelve AI alone for a staged (seeded) entrant, seeded so a reload
+ *      fourteen AI alone for a staged (seeded) entrant, seeded so a reload
  *      draws the same ties
  *   5. the host rule: the lower division hosts, a coin toss on equal tiers,
  *      nobody at the final
  *   6. ties and penalties: one leg, no aggregate to wait on, a level match
  *      goes to a shootout that always ends
  *   7. advancing: winners paired in order, a staged entrant spliced into the
- *      semi exactly once, the final crowns a champion
+ *      quarter exactly once, the final crowns a champion
  *   8. bans: a red here costs the next cup match only
  *   9. hard but possible, by model: the win shares the product spec sets
  *      (≤8% from tier 4, 15-20% from tier 5, 30-35% for a seeded champion)
@@ -31,7 +31,7 @@
  *  13. the door shut: no path above changes, and the flag itself is off
  */
 import {
-  CUP_LIVE, CUP_MIN_TIER, CUP_ROUNDS, CUP_FIELD, CUP_PRE_FIELD, ROUND_NAMES, CUP_TARGET, CUP_EDGE,
+  CUP_LIVE, CUP_MIN_TIER, CUP_ROUNDS, CUP_FIELD, CUP_PRE_FIELD, ROUND_NAMES, CUP_TARGET, CUP_EDGE, CUP_STAGED_EDGE,
   CUP_PRIZE, CUP_GATE_SHARE, CUP_TRAVEL, CUP_TIRED, CUP_INJURY_RISK, cupWeeks, drawCup, playAiRound,
   recordMyLeg, advanceRound, needsPens, settleMyPens, strengthOf, myTie, iHost, banFor, serveBans,
   allWinners, prizeFor, prizeTotal, playOutWithoutMe, stepAiRound, champion, cupEntry, nightFor,
@@ -84,15 +84,16 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
 
 /* -------------------------------------------- 1. the door and the agreed numbers */
 {
-  checked += 11;
+  checked += 12;
   if (CUP_LIVE !== false) fails.push('the cup door is open; it must stay shut (false) until Itzik lights it');
   if (CUP_MIN_TIER !== 4) fails.push('the cup floor moved off tier 4 (הלאומית)');
-  if (CUP_ROUNDS !== 4 || CUP_FIELD !== 16 || CUP_PRE_FIELD !== 12) fails.push('rounds, field or the staged pre-field moved off 4 / 16 / 12');
+  if (CUP_ROUNDS !== 4 || CUP_FIELD !== 16 || CUP_PRE_FIELD !== 14) fails.push('rounds, field or the staged pre-field moved off 4 / 16 / 14');
   // the spec's own draft ([74,77,80,83]) proved too hard across the board by the model in section 9; moved down to
   // [70,72,74,76], which clears the ≤8%/≈15-20% bands for an average tier 4/5 side (see cup.ts's own long comment
-  // on CUP_TARGET for the open question this leaves for Itzik about the staged champion's share)
+  // on CUP_TARGET; the staged champion's own ≈30-35% band is reached separately, through CUP_STAGED_EDGE, not this curve)
   if (JSON.stringify(CUP_TARGET) !== '[70,72,74,76]') fails.push(`cup targets are ${JSON.stringify(CUP_TARGET)}, calibrated to 70 / 72 / 74 / 76`);
   if (CUP_EDGE !== 2) fails.push('the club edge moved off Europe\'s own 2');
+  if (CUP_STAGED_EDGE <= 0) fails.push('the staged entrant\'s pre-bracket carries no extra edge; his own matches would play at the same difficulty as tier 4/5\'s');
   // money: lower than the spec's own draft (120K/250K/500K/1M, a 1.87M full run) and a fraction of Europe's own run (4.5M)
   if (JSON.stringify(CUP_PRIZE) !== '[0,30000,60000,120000,250000]') fails.push(`cup prizes are ${JSON.stringify(CUP_PRIZE)}, agreed 0 / 30K / 60K / 120K / 250K`);
   if (prizeTotal(CUP_ROUNDS) >= 1_870_000) fails.push('a full cup run pays as much as the spec draft Itzik asked to lower');
@@ -145,9 +146,9 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
   if (d1.status !== 'on') fails.push('a normal entry does not start "on"');
   if (d1.clubs.find(c => c.id === ME)!.edge !== 0) fails.push('the manager carries an edge of his own, he should play as his real squad');
   const staged = drawCup(555, ME, 2, 5, true, p);
-  if (staged.joinAt !== 2) fails.push('a staged (seeded) entrant does not join at the semi (round 2)');
+  if (staged.joinAt !== 1) fails.push('a staged (seeded) entrant does not join at the quarter (round 1)');
   if (staged.status !== 'waiting') fails.push('a staged entrant does not start "waiting"');
-  if (staged.ties[0].length !== 6 || staged.ties[0].some(t => t.a === ME || t.b === ME)) fails.push('a staged entrant\'s pre-bracket is not six AI-only ties');
+  if (staged.ties[0].length !== 7 || staged.ties[0].some(t => t.a === ME || t.b === ME)) fails.push('a staged entrant\'s pre-bracket is not seven AI-only ties');
   if (staged.ties[1]) fails.push('a staged entrant\'s quarter is drawn before the pre-bracket is even played');
   if (staged.clubs.length !== CUP_PRE_FIELD + 1) fails.push(`a staged draw carries ${staged.clubs.length} clubs, agreed ${CUP_PRE_FIELD} AI plus the manager`);
 }
@@ -201,7 +202,7 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
 
 /* -------------------------------------------------------------------- 7. advancing */
 {
-  checked += 8;
+  checked += 7;
   let e = drawCup(61, ME, 2, 5, false, pool(24));
   for (let r = 0; r < CUP_ROUNDS; r++) {
     e = playAiRound(e, ME, 900 + r);
@@ -219,15 +220,13 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
     if (e.round !== before + 1) fails.push(`advancing round ${before} did not move the round forward`);
   }
   if (allWinners(drawCup(61, ME, 2, 5, false, pool(24))).length !== 0) fails.push('a freshly drawn cup already has winners');
-  // a staged entrant: played out alone until the quarter, spliced into the semi exactly once, never twice
+  // a staged entrant: played out alone through the pre-bracket, spliced into the quarter exactly once, never twice
   let s = drawCup(61, ME, 2, 5, true, pool(24));
-  s = playAiRound(s, ME, 1); s = advanceRound(s, ME, 2);   // round 0 -> 1 (still AI only)
-  if (s.status !== 'waiting' || s.ties[1]?.some(t => t.a === ME || t.b === ME)) fails.push('a staged entrant appears before the quarter is even drawn');
-  s = playAiRound(s, ME, 3); s = advanceRound(s, ME, 4);   // round 1 -> 2, the manager must appear now
-  if (s.status !== 'on') fails.push('a staged entrant is not pulled "on" the moment the quarter settles');
-  if (!s.ties[2].some(t => t.a === ME || t.b === ME)) fails.push('a staged entrant has no tie in his own semi');
-  if (s.ties[2].length !== 2) fails.push(`the semi has ${s.ties[2].length} ties with a staged entrant, agreed two (three AI winners plus the manager)`);
-  if (s.seen !== false) fails.push('a staged entrant freshly paired into the semi is not owed a fresh draw reveal (seen must flip back to false)');
+  s = playAiRound(s, ME, 1); s = advanceRound(s, ME, 2);   // round 0 -> 1, the manager must appear now
+  if (s.status !== 'on') fails.push('a staged entrant is not pulled "on" the moment the pre-bracket settles');
+  if (!s.ties[1].some(t => t.a === ME || t.b === ME)) fails.push('a staged entrant has no tie in his own quarter');
+  if (s.ties[1].length !== 4) fails.push(`the quarter has ${s.ties[1].length} ties with a staged entrant, agreed four (seven AI winners plus the manager)`);
+  if (s.seen !== false) fails.push('a staged entrant freshly paired into the quarter is not owed a fresh draw reveal (seen must flip back to false)');
 }
 
 /* ----------------------------------------------------------------------- 8. bans */
@@ -269,22 +268,20 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
     }
     return { won, played: N };
   };
-  checked += 2;
+  checked += 3;
   const N = 3000;
   const tier4 = share(69.5, false, N);            // leagueCeiling(4), an average הלאומית side
   const tier5 = share(75, false, N);              // leagueCeiling(5), an average ליגת העל side
-  const seededChampion = share(81, true, N);      // a first-year champion's eleven, staged straight into the semi
+  const seededChampion = share(81, true, N);      // a first-year champion's eleven, staged straight into the quarter
   const t4Share = tier4.won / N, t5Share = tier5.won / N, scShare = seededChampion.won / N;
   if (t4Share > 0.08) fails.push(`an average הלאומית side wins the cup ${(t4Share * 100).toFixed(1)}% of the time, agreed at most 8%`);
   // 13% rather than a hard 15%, for the model's own seed-to-seed noise at this N; see cup.ts's CUP_TARGET comment
   if (t5Share < 0.13 || t5Share > 0.22) fails.push(`an average ליגת העל side wins the cup ${(t5Share * 100).toFixed(1)}% of the time, agreed ≈15-20%`);
   console.log(`  model shares: tier4 ${(t4Share * 100).toFixed(1)}%, tier5 ${(t5Share * 100).toFixed(1)}%, seeded champion ${(scShare * 100).toFixed(1)}%`);
-  // OPEN QUESTION FOR ITZIK (cup.ts's own CUP_TARGET comment has the full reasoning): the staged champion's share
-  // could not be brought to ≈30-35% at the same time as the two bands above — the model lands near 55-57% instead,
-  // because round 2/3 has to be soft enough for an average tier 5 side to clear it ≈15-20% of the time, and that
-  // same softness is all the staged entrant (two matches, no earlier rounds to risk) ever has to get through. Not
-  // failed here on purpose: it is reported, not silently hidden, and needs a product decision, not a code fix.
-  if (scShare < 0.30 || scShare > 0.35) console.log(`  OPEN QUESTION: a staged champion wins the cup ${(scShare * 100).toFixed(1)}% of the time, spec asked ≈30-35% — see cup.ts's CUP_TARGET comment`);
+  // Itzik's 20.10 decision closed the question this comment used to leave open: the staged entrant now joins at the
+  // quarter (three matches to lose, not two — see cup.ts's joinAt), and CUP_STAGED_EDGE trims his opponents' strength
+  // specifically for those three matches, without moving CUP_TARGET/CUP_EDGE and so without touching the two bands above.
+  if (scShare < 0.30 || scShare > 0.35) fails.push(`a staged champion wins the cup ${(scShare * 100).toFixed(1)}% of the time, agreed ≈30-35%`);
 }
 
 /* --------------------------------------------- 10. the cup night in the real engine */
