@@ -189,14 +189,16 @@ function CupSeasonCard({ v }: { v: NonNullable<ReturnType<typeof G.cupSeasonVerd
   const bg = won && trophyBgReady[CUP_TROPHY_BG] ? CUP_TROPHY_BG : null;
   return (
     <div className="tile-flat" style={{
-      padding: '13px 15px', textAlign: 'center',
-      background: bg ? `linear-gradient(180deg, rgba(38,24,15,.55), rgba(28,18,11,.88)), url('${bg}')` : 'linear-gradient(180deg,#26180F,#1C120B)',
-      backgroundSize: 'cover', backgroundPosition: 'center',
+      position: 'relative', overflow: 'hidden', padding: '13px 15px', textAlign: 'center', minHeight: bg ? 210 : undefined,
+      display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+      background: 'linear-gradient(180deg,#26180F,#1C120B)',
       border: `1px solid ${won ? 'var(--gold)' : 'rgba(217,138,61,.32)'}`,
     }}>
-      <div className="label-cap" style={{ color: '#D8BE9E' }}>גביע המדינה</div>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.1, marginTop: 5, color: won ? 'var(--gold)' : '#F6D3A1' }}>{headline}</div>
-      <div className="sub" style={{ marginTop: 6 }}>
+      {bg && <img src={bg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 18%' }} />}
+      {bg && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(28,18,11,0) 22%, rgba(28,18,11,.9) 78%)' }} />}
+      <div className="label-cap" style={{ color: '#D8BE9E', position: 'relative' }}>גביע המדינה</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.1, marginTop: 5, position: 'relative', color: won ? 'var(--gold)' : '#F6D3A1' }}>{headline}</div>
+      <div className="sub" style={{ marginTop: 6, position: 'relative' }}>
         {legs}{v.prize > 0 ? ` · פרסים ${formatMoney(v.prize)}` : ''}
       </div>
     </div>

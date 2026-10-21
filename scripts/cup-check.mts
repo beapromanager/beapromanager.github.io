@@ -470,6 +470,9 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
   for (const [label, text] of Object.entries(cupArt)) {
     if (/\/moments\/euro/.test(text)) fails.push(`${label} points at Europe's own art (/moments/euro*); the cup must never show a frame of Europe's`);
   }
+  // the won card paints the trophy picture as a real image layer, not a background that the card's own shape can hide (21.10: the first version showed only sky)
+  checked += 1;
+  if (!/\{bg && <img src=\{bg\}[^>]*objectFit: 'cover'/.test(seasonEndSrc)) fails.push('the cup season card no longer draws the trophy as an image layer (objectFit cover)');
   // and every one of them instead points under the cup's own folders, not somewhere unrelated
   const allCupPaths = Object.values(cupArt).join(' ');
   if (!/\/moments\/cup(-penalty)?\//.test(allCupPaths)) fails.push('none of the cup\'s own art constants point under /moments/cup/ or /moments/cup-penalty/');
