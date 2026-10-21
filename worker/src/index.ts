@@ -60,7 +60,7 @@ const KNOWN = new Set<string>(STEPS);
  * career that won the top division. The same pattern as MILESTONE in src/game/telemetry.ts, and telemetry-check
  * compares the two, because a copy nobody compares is a copy that drifts.
  */
-const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|gift10|share_tap|daily_1|daily_7|daily_30)$/;
+const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|daily_1|daily_7|daily_30)$/;
 
 /**
  * What the dashboard asks of the milestones. Plain SQL over the same table as the funnel, one row per device per
