@@ -574,24 +574,27 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   if (missingClip.length) fails.push(`his kick's clips missing or unwired: ${missingClip.join(', ')}`);
   if (clips.some(c => existsSync(`public/moments/euro-penalty/${c}.mp4`) && statSync(`public/moments/euro-penalty/${c}.mp4`).size > 900_000)) fails.push('a shootout clip is heavier than the game allows (900K)');
   if (!scr.includes('src={stage.kick.scored ? CLIP.goalBehind : CLIP.saveBehind}')) fails.push('his clip is not chosen by whether he scored');
-  if (scr.includes('/moments/penalty/')) fails.push('the shootout still reaches for the league penalty clips Itzik rejected');
+  // Europe's own clip table must never reach for the league's penalty clips Itzik rejected; the cup's own fallback
+  // (21.10, a separate table used only until the cup's own art exists) is allowed to, and does, reach for them instead
+  const europeClipTable = (scr.match(/const EURO_CLIP = \{[\s\S]*?\n\};/) ?? [''])[0];
+  if (europeClipTable.includes('/moments/penalty/')) fails.push('the shootout still reaches for the league penalty clips Itzik rejected');
   if (['goal-ingoal', 'save-ingoal'].some(c => scr.includes(c) || existsSync(`public/moments/euro-penalty/${c}.mp4`))) fails.push('the in-goal clips Itzik rejected (the cut in the middle) are still wired or shipped');
   // the keeper's frames: five approved pictures, each shipped and light, and the sequence cut by the clock in the right order
   const frames = ['keeper-set', 'keeper-wrong', 'keeper-near', 'keeper-right', 'keeper-goal', 'keeper-near-end', 'keeper-save'];
   const missingFrame = frames.filter(f => !scr.includes(`asset('/moments/euro-penalty/${f}.webp')`) || !existsSync(`public/moments/euro-penalty/${f}.webp`));
   if (missingFrame.length) fails.push(`keeper frames missing or unwired: ${missingFrame.join(', ')}`);
   if (frames.some(f => existsSync(`public/moments/euro-penalty/${f}.webp`) && statSync(`public/moments/euro-penalty/${f}.webp`).size > 160_000)) fails.push('a keeper frame is heavier than the game allows (160K)');
-  if (!scr.includes("const layers = [{ key: 'set', src: KEEPER.set }, { key: 'contact', src: !scored ? KEEPER.right : reached ? KEEPER.near : KEEPER.wrong }, { key: 'end', src: !scored ? KEEPER.save : reached ? KEEPER.nearEnd : KEEPER.goal }] as const;") || !scr.includes("data-on={step === l.key ? '1' : '0'}")) fails.push('the keeper sequence does not go set, then his dive, then how it ended, with all three frames in the box from the first beat');
+  if (!scr.includes("const layers = [{ key: 'set', src: keeper.set }, { key: 'contact', src: !scored ? keeper.right : reached ? keeper.near : keeper.wrong }, { key: 'end', src: !scored ? keeper.save : reached ? keeper.nearEnd : keeper.goal }] as const;") || !scr.includes("data-on={step === l.key ? '1' : '0'}")) fails.push('the keeper sequence does not go set, then his dive, then how it ended, with all three frames in the box from the first beat');
   // the picture must not argue with the words: when the words say he reached the corner, he is not shown diving away from the ball
   if (!scr.includes("reached={stage.kick.dive === stage.kick.pick}")) fails.push('the sequence is not told whether the keeper guessed the corner right');
-  if (!scr.includes('reached ? KEEPER.near : KEEPER.wrong') || !scr.includes('reached ? KEEPER.nearEnd : KEEPER.goal')) fails.push('a goal where the keeper guessed right does not show him stretched and just short, and then beaten on his own side');
+  if (!scr.includes('reached ? keeper.near : keeper.wrong') || !scr.includes('reached ? keeper.nearEnd : keeper.goal')) fails.push('a goal where the keeper guessed right does not show him stretched and just short, and then beaten on his own side');
   if (!scr.includes("setTimeout(() => setStep('contact'), KEEPER_BEATS.contact)") || !scr.includes("setTimeout(() => { setStep('end'); ended.current(); }, KEEPER_BEATS.end)") || !scr.includes('return () => { clearTimeout(t1); clearTimeout(t2); };')) fails.push('the keeper sequence is not cut by the clock, or its timers outlive the kick');
   const beats = /KEEPER_BEATS = \{ contact: (\d+), end: (\d+) \}/.exec(scr);
   if (!beats || !(Number(beats[1]) > 0 && Number(beats[2]) > Number(beats[1]) && Number(beats[2]) <= 3000)) fails.push('the keeper beats are missing, out of order or too slow');
   if (!scr.includes("mirrored={stage.kick.pick === 'left'}") || !scr.includes('data-mirror={mirrored ? \'1\' : \'0\'}')) fails.push('a kick to the left does not mirror the keeper frames');
   // his card is the night's own penalty picture; theirs is the keeper's set frame, because the night's penalty-against picture puts a post behind him and a referee in the frame
   if (!scr.includes("asset('/moments/euro/penalty.webp')")) fails.push('his pick card does not use the European night picture');
-  if (!scr.includes('const IN_GOAL = KEEPER.set;') || scr.includes("asset('/moments/euro/def-penalty.webp')")) fails.push('their pick card is not the keeper set frame, or still uses the picture with the post and the referee');
+  if (!scr.includes('const EURO_IN_GOAL = EURO_KEEPER.set;') || scr.includes("asset('/moments/euro/def-penalty.webp')")) fails.push('their pick card is not the keeper set frame, or still uses the picture with the post and the referee');
   const css = readFileSync('src/ui/tokens.css', 'utf8');
   if (!css.includes('.eu-seq[data-step="contact"] .eu-seq-frame[data-on="1"]{animation:eu-seq-shake') || !css.includes('@media (prefers-reduced-motion:reduce){ .eu-seq .eu-seq-frame, .eu-seq .moment-wash{animation:none;} }')) fails.push('the contact frame does not shake, or reduced motion does not still it');
   if (!scr.includes('createRng(G.drawSeed(gs, 152_000 + (gs.euro?.round ?? 0)))')) fails.push('the shootout is not seeded on the round through drawSeed');

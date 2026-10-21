@@ -438,6 +438,43 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
   if (G.cupDoorOpen() !== false) fails.push('cupDoorOpen reports the door open while CUP_LIVE is false');
 }
 
+/* ---------------------------------------------- 14. the cup's own art, never Europe's */
+{
+  // Itzik's 21.10 rule is absolute: the cup must never show a frame of Europe's. The screens are
+  // .tsx (JSX), which this strip-types script cannot import live, so this reads their source text
+  // and inspects the exported cup asset constants directly rather than trusting the component logic.
+  const shootoutSrc = readFileSync('src/ui/screens/Shootout.tsx', 'utf8');
+  const matchSrc = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  const entranceSrc = readFileSync('src/ui/components/EuroEntrance.tsx', 'utf8');
+  const drawSrc = readFileSync('src/ui/screens/CupDraw.tsx', 'utf8');
+  const hubSrc = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
+  const seasonEndSrc = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');
+
+  /** the body of one exported const, from its `=` to the first `;` (none of these literals contain a bare semicolon) */
+  const exported = (src: string, name: string): string => {
+    const m = src.match(new RegExp(`export const ${name}(?::[^=]*)? = ([\\s\\S]*?);`));
+    if (!m) { fails.push(`${name} is no longer an exported const; the cup-art check cannot see it`); return ''; }
+    return m[1];
+  };
+  const cupArt: Record<string, string> = {
+    'Shootout.tsx CUP_PENALTY_ART': exported(shootoutSrc, 'CUP_PENALTY_ART'),
+    'Shootout.tsx CUP_PENALTY_FALLBACK': exported(shootoutSrc, 'CUP_PENALTY_FALLBACK'),
+    'Match.tsx CUP_MOMENT_ART': exported(matchSrc, 'CUP_MOMENT_ART'),
+    'Match.tsx CUP_MOMENT_FALLBACK': exported(matchSrc, 'CUP_MOMENT_FALLBACK'),
+    'EuroEntrance.tsx CUP_TUNNEL': exported(entranceSrc, 'CUP_TUNNEL'),
+    'CupDraw.tsx CUP_DRAW_BG': exported(drawSrc, 'CUP_DRAW_BG'),
+    'Hub.tsx CUP_FINAL_BG': exported(hubSrc, 'CUP_FINAL_BG'),
+    'SeasonEnd.tsx CUP_TROPHY_BG': exported(seasonEndSrc, 'CUP_TROPHY_BG'),
+  };
+  checked += Object.keys(cupArt).length + 1;
+  for (const [label, text] of Object.entries(cupArt)) {
+    if (/\/moments\/euro/.test(text)) fails.push(`${label} points at Europe's own art (/moments/euro*); the cup must never show a frame of Europe's`);
+  }
+  // and every one of them instead points under the cup's own folders, not somewhere unrelated
+  const allCupPaths = Object.values(cupArt).join(' ');
+  if (!/\/moments\/cup(-penalty)?\//.test(allCupPaths)) fails.push('none of the cup\'s own art constants point under /moments/cup/ or /moments/cup-penalty/');
+}
+
 console.log(`${checked} checks`);
 if (fails.length) {
   console.log('\n  ' + fails.slice(0, 20).join('\n  '));

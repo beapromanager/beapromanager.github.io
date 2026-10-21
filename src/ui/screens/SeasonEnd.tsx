@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { asset } from '../asset.ts';
+import { useAssetsReady } from '../assetReady.ts';
 import * as G from '../../game/state.ts';
 import { sortedTable } from '../../game/state.ts';
 import { TOP_TIER } from '../../game/career.ts';
@@ -176,15 +177,22 @@ function EuroSeasonCard({ v }: { v: NonNullable<ReturnType<typeof G.euroSeasonVe
 
 /* --------------------------------------------------------- the season in the cup */
 
+/** the cup's own trophy lift (21.10); shown only once confirmed real, only on a won cup */
+export const CUP_TROPHY_BG = asset('/moments/cup/trophy.webp');
+
 /** How the season in גביע המדינה went, in the cup's own dark brown and amber. */
 function CupSeasonCard({ v }: { v: NonNullable<ReturnType<typeof G.cupSeasonVerdict>> }) {
   const won = v.outcome === 'won';
   const legs = v.played === 1 ? 'משחק אחד' : `${v.played} משחקים`;
   const headline = won ? 'הגביע אצלנו' : v.outcome === 'cut' ? `העונה נגמרה ${ROUND_IN[v.round]}` : `הדרך נגמרה ${ROUND_IN[v.round]}`;
+  const trophyBgReady = useAssetsReady(won ? [CUP_TROPHY_BG] : []);
+  const bg = won && trophyBgReady[CUP_TROPHY_BG] ? CUP_TROPHY_BG : null;
   return (
     <div className="tile-flat" style={{
       padding: '13px 15px', textAlign: 'center',
-      background: 'linear-gradient(180deg,#26180F,#1C120B)', border: `1px solid ${won ? 'var(--gold)' : 'rgba(217,138,61,.32)'}`,
+      background: bg ? `linear-gradient(180deg, rgba(38,24,15,.55), rgba(28,18,11,.88)), url('${bg}')` : 'linear-gradient(180deg,#26180F,#1C120B)',
+      backgroundSize: 'cover', backgroundPosition: 'center',
+      border: `1px solid ${won ? 'var(--gold)' : 'rgba(217,138,61,.32)'}`,
     }}>
       <div className="label-cap" style={{ color: '#D8BE9E' }}>גביע המדינה</div>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.1, marginTop: 5, color: won ? 'var(--gold)' : '#F6D3A1' }}>{headline}</div>

@@ -6,6 +6,8 @@ import { createRng, overall } from '../../engine/matchEngine.ts';
 import { asClub } from '../../data/europeClubs.ts';
 import type { Club } from '../../data/clubs.ts';
 import { asset } from '../asset.ts';
+import { outcomeImg } from '../momentArt.ts';
+import { useAssetsReady } from '../assetReady.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { buzz, BUZZ_GOAL, BUZZ_SAVE, BUZZ_MISS } from '../haptics.ts';
@@ -26,18 +28,18 @@ import { buzz, BUZZ_GOAL, BUZZ_SAVE, BUZZ_MISS } from '../haptics.ts';
 const CORNER_LABEL: Record<PenCorner, string> = { left: 'שמאל', center: 'מרכז', right: 'ימין' };
 const TEND_KEEPER: Record<PenCorner, string> = { left: 'נוטה לצלול שמאלה', center: 'בדרך כלל נשאר במרכז', right: 'נוטה לצלול ימינה' };
 const TEND_TAKER: Record<PenCorner, string> = { left: 'נוטה לבעוט שמאלה', center: 'בדרך כלל בועט למרכז', right: 'נוטה לבעוט ימינה' };
-const CLIP = {
+const EURO_CLIP = {
   goalBehind: asset('/moments/euro-penalty/goal-behind.mp4'),
   saveBehind: asset('/moments/euro-penalty/save-behind.mp4'),
 };
-const POSTER = asset('/moments/euro-penalty/poster.jpg');
+const EURO_POSTER = asset('/moments/euro-penalty/poster.jpg');
 /**
  * The keeper's frames: he is set, then he is in the air, then it is over.
  * Three ways it goes, and each has its own pair, so the picture never argues
  * with the words: he went the wrong way and it is in, he went the right way
  * and still could not reach it, he went the right way and held it.
  */
-const KEEPER = {
+const EURO_KEEPER = {
   set: asset('/moments/euro-penalty/keeper-set.webp'),
   wrong: asset('/moments/euro-penalty/keeper-wrong.webp'),
   near: asset('/moments/euro-penalty/keeper-near.webp'),
@@ -46,14 +48,51 @@ const KEEPER = {
   nearEnd: asset('/moments/euro-penalty/keeper-near-end.webp'),
   save: asset('/moments/euro-penalty/keeper-save.webp'),
 };
-const ON_THE_SPOT = asset('/moments/euro/penalty.webp');
+const EURO_ON_THE_SPOT = asset('/moments/euro/penalty.webp');
 /**
  * The card for their kick is the keeper's own set frame, not the night's
  * penalty-against picture: that one has a post and a crossbar right behind
  * him, so he reads as standing at the side of the goal instead of its middle,
  * and it has a referee in it against Itzik's rule of only the two men.
  */
-const IN_GOAL = KEEPER.set;
+const EURO_IN_GOAL = EURO_KEEPER.set;
+
+/**
+ * גביע המדינה's own penalty art (21.10): the cup must never show a single frame
+ * of Europe's, so it gets its own full set of paths rather than reusing Europe's
+ * with a colour swap. These do not exist yet (see cup_images_spec_2026-10-21.md);
+ * `useAssetsReady` below only trusts them once a probe confirms the file is real.
+ */
+export const CUP_PENALTY_ART = {
+  clip: {
+    goalBehind: asset('/moments/cup-penalty/goal-behind.mp4'),
+    saveBehind: asset('/moments/cup-penalty/save-behind.mp4'),
+  },
+  poster: asset('/moments/cup-penalty/poster.jpg'),
+  keeper: {
+    set: asset('/moments/cup-penalty/keeper-set.webp'),
+    wrong: asset('/moments/cup-penalty/keeper-wrong.webp'),
+    near: asset('/moments/cup-penalty/keeper-near.webp'),
+    right: asset('/moments/cup-penalty/keeper-right.webp'),
+    goal: asset('/moments/cup-penalty/keeper-goal.webp'),
+    nearEnd: asset('/moments/cup-penalty/keeper-near-end.webp'),
+    save: asset('/moments/cup-penalty/keeper-save.webp'),
+  },
+  onTheSpot: asset('/moments/cup/penalty.webp'),
+};
+
+/**
+ * Until the cup's own penalty art is real, the shootout borrows the LEAGUE's own
+ * penalty frames (never Europe's): the striker's own build-up for the on-the-spot
+ * card, the keeper's own defensive build-up for the in-goal card, and the league's
+ * own outcome stills in place of a clip or a keeper sequence it does not have the
+ * frames for. No video plays in this mode (ה.1 of the 21.10 spec).
+ */
+export const CUP_PENALTY_FALLBACK = {
+  onTheSpot: asset('/moments/penalty/buildup.webp'),
+  inGoal: asset('/moments/def-penalty/buildup.webp'),
+};
+
 /** the keeper sequence on the clock: the set frame holds, the contact comes, the end frame lands (ms) */
 export const KEEPER_BEATS = { contact: 1100, end: 2000 } as const;
 
@@ -73,6 +112,16 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
   const rng = useRef(cup ? createRng(G.drawSeed(gs, 173_000 + (gs.cup?.round ?? 0))) : createRng(G.drawSeed(gs, 152_000 + (gs.euro?.round ?? 0))));
   const [kicks, setKicks] = useState<Kick[]>([]);
   const [stage, setStage] = useState<Stage>({ kind: 'intro' });
+  // the cup's own penalty art, probed once and only trusted once confirmed real; euro's is already there, no probe needed
+  const cupArtReady = useAssetsReady(cup ? [CUP_PENALTY_ART.onTheSpot, CUP_PENALTY_ART.keeper.set] : []);
+  const ready = !cup || (cupArtReady[CUP_PENALTY_ART.onTheSpot] && cupArtReady[CUP_PENALTY_ART.keeper.set]);
+  // falling back for the cup means no clip and no keeper sequence either, just the league's own still frames (ה.1)
+  const cupFallback = cup && !ready;
+  const CLIP = cup ? CUP_PENALTY_ART.clip : EURO_CLIP;
+  const POSTER = cup ? CUP_PENALTY_ART.poster : EURO_POSTER;
+  const KEEPER = cup ? CUP_PENALTY_ART.keeper : EURO_KEEPER;
+  const ON_THE_SPOT = cup ? (ready ? CUP_PENALTY_ART.onTheSpot : CUP_PENALTY_FALLBACK.onTheSpot) : EURO_ON_THE_SPOT;
+  const IN_GOAL = cup ? (ready ? CUP_PENALTY_ART.keeper.set : CUP_PENALTY_FALLBACK.inGoal) : EURO_IN_GOAL;
   const me = G.club(gs);
   const opp = sides.opp;
   // cupPensSides already hands back a full Club; euroPensSides hands back a EuroClub, which needs asClub for the crest
@@ -99,13 +148,16 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
     const dive = diveFor(rng.current, hint);
     const scored = myKickScores(rng.current, pick, dive);
     const kick: Kick = { side: 'me', name: takerName('me', mine.length), scored, pick, dive };
-    setStage({ kind: 'my-play', kick, ended: false });
+    // no clip to end on in the fallback, so the result lands the moment the kick is decided
+    if (cupFallback) buzz(scored ? BUZZ_GOAL : BUZZ_MISS);
+    setStage({ kind: 'my-play', kick, ended: cupFallback });
   };
   const theirPick = (dive: PenCorner, hint: PenCorner) => {
     const aim = diveFor(rng.current, hint);          // where their man really sends it
     const saved = theirKickSaved(rng.current, dive, aim, gkq);
     const kick: Kick = { side: 'them', name: takerName('them', theirs.length), scored: !saved, pick: aim, dive };
-    setStage({ kind: 'their-play', kick, ended: false });
+    if (cupFallback) buzz(kick.scored ? BUZZ_MISS : BUZZ_SAVE);
+    setStage({ kind: 'their-play', kick, ended: cupFallback });
   };
   const settle = (kick: Kick) => {
     const after = [...kicks, kick];
@@ -153,18 +205,27 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
       )}
 
       {stage.kind === 'my-play' && (
-        <div className="eu-pov">
-          <video className="eu-clip" src={stage.kick.scored ? CLIP.goalBehind : CLIP.saveBehind}
-            poster={POSTER} autoPlay muted playsInline preload="auto"
-            onEnded={() => { buzz(stage.kick.scored ? BUZZ_GOAL : BUZZ_MISS); setStage({ ...stage, ended: true }); }} />
-          {stage.ended && (
-            <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--win)' : 'var(--loss)' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: stage.kick.scored ? 42 : 32, lineHeight: 1 }}>{stage.kick.scored ? 'גוווול!' : 'נעצר.'}</div>
-              <div className="sub" style={{ marginTop: 6 }}>{stage.kick.scored ? `${stage.kick.name} לא מפספס מ-11 מטר` : `השוער קרא את ${stage.kick.name}`}</div>
-              <button className="btn" style={{ marginTop: 14 }} onClick={() => settle(stage.kick)}>המשך <Icon name="chevron" size={17} /></button>
-            </div>
-          )}
-        </div>
+        cupFallback ? (
+          <FallbackOutcome
+            img={asset(outcomeImg('penalty', 'night', `${stage.kick.scored ? 'goal' : 'save'}-${stage.kick.pick}`))}
+            accent={stage.kick.scored ? 'var(--win)' : 'var(--loss)'}
+            headline={stage.kick.scored ? 'גוווול!' : 'נעצר.'}
+            sub={stage.kick.scored ? `${stage.kick.name} לא מפספס מ-11 מטר` : `השוער קרא את ${stage.kick.name}`}
+            onContinue={() => settle(stage.kick)} />
+        ) : (
+          <div className="eu-pov">
+            <video className="eu-clip" src={stage.kick.scored ? CLIP.goalBehind : CLIP.saveBehind}
+              poster={POSTER} autoPlay muted playsInline preload="auto"
+              onEnded={() => { buzz(stage.kick.scored ? BUZZ_GOAL : BUZZ_MISS); setStage({ ...stage, ended: true }); }} />
+            {stage.ended && (
+              <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--win)' : 'var(--loss)' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: stage.kick.scored ? 42 : 32, lineHeight: 1 }}>{stage.kick.scored ? 'גוווול!' : 'נעצר.'}</div>
+                <div className="sub" style={{ marginTop: 6 }}>{stage.kick.scored ? `${stage.kick.name} לא מפספס מ-11 מטר` : `השוער קרא את ${stage.kick.name}`}</div>
+                <button className="btn" style={{ marginTop: 14 }} onClick={() => settle(stage.kick)}>המשך <Icon name="chevron" size={17} /></button>
+              </div>
+            )}
+          </div>
+        )
       )}
 
       {stage.kind === 'their-pick' && (
@@ -173,21 +234,32 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
       )}
 
       {stage.kind === 'their-play' && (
-        <div className="eu-pov">
-          <KeeperSequence scored={stage.kick.scored} reached={stage.kick.dive === stage.kick.pick} mirrored={stage.kick.pick === 'left'}
-            onEnded={() => { buzz(stage.kick.scored ? BUZZ_MISS : BUZZ_SAVE); setStage({ ...stage, ended: true }); }} />
-          {stage.ended && (
-            <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--loss)' : 'var(--win)' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: stage.kick.scored ? 32 : 42, lineHeight: 1 }}>{stage.kick.scored ? 'ספגנו.' : 'עצר!'}</div>
-              <div className="sub" style={{ marginTop: 6 }}>
-                {stage.kick.scored
-                  ? `${stage.kick.name} שלח ${stage.kick.pick === 'center' ? 'למרכז' : 'ל' + CORNER_LABEL[stage.kick.pick]}, ${keeperName} ${stage.kick.dive === stage.kick.pick ? 'הגיע ולא הספיק' : 'הלך לצד השני'}`
-                  : `${keeperName} ${stage.kick.dive === stage.kick.pick ? 'הלך לפינה הנכונה' : 'הלך לצד השני והספיק להחזיר יד'}. איזו הצלה`}
+        cupFallback ? (
+          <FallbackOutcome
+            img={asset(outcomeImg('def_penalty', 'night', `${stage.kick.scored ? 'goal' : 'save'}-${stage.kick.pick}`))}
+            accent={stage.kick.scored ? 'var(--loss)' : 'var(--win)'}
+            headline={stage.kick.scored ? 'ספגנו.' : 'עצר!'}
+            sub={stage.kick.scored
+              ? `${stage.kick.name} שלח ${stage.kick.pick === 'center' ? 'למרכז' : 'ל' + CORNER_LABEL[stage.kick.pick]}, ${keeperName} ${stage.kick.dive === stage.kick.pick ? 'הגיע ולא הספיק' : 'הלך לצד השני'}`
+              : `${keeperName} ${stage.kick.dive === stage.kick.pick ? 'הלך לפינה הנכונה' : 'הלך לצד השני והספיק להחזיר יד'}. איזו הצלה`}
+            onContinue={() => settle(stage.kick)} />
+        ) : (
+          <div className="eu-pov">
+            <KeeperSequence keeper={KEEPER} scored={stage.kick.scored} reached={stage.kick.dive === stage.kick.pick} mirrored={stage.kick.pick === 'left'}
+              onEnded={() => { buzz(stage.kick.scored ? BUZZ_MISS : BUZZ_SAVE); setStage({ ...stage, ended: true }); }} />
+            {stage.ended && (
+              <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--loss)' : 'var(--win)' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: stage.kick.scored ? 32 : 42, lineHeight: 1 }}>{stage.kick.scored ? 'ספגנו.' : 'עצר!'}</div>
+                <div className="sub" style={{ marginTop: 6 }}>
+                  {stage.kick.scored
+                    ? `${stage.kick.name} שלח ${stage.kick.pick === 'center' ? 'למרכז' : 'ל' + CORNER_LABEL[stage.kick.pick]}, ${keeperName} ${stage.kick.dive === stage.kick.pick ? 'הגיע ולא הספיק' : 'הלך לצד השני'}`
+                    : `${keeperName} ${stage.kick.dive === stage.kick.pick ? 'הלך לפינה הנכונה' : 'הלך לצד השני והספיק להחזיר יד'}. איזו הצלה`}
+                </div>
+                <button className="btn" style={{ marginTop: 14 }} onClick={() => settle(stage.kick)}>המשך <Icon name="chevron" size={17} /></button>
               </div>
-              <button className="btn" style={{ marginTop: 14 }} onClick={() => settle(stage.kick)}>המשך <Icon name="chevron" size={17} /></button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )
       )}
 
       {stage.kind === 'done' && (
@@ -217,7 +289,7 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
  * cleared if the screen leaves early, so nothing fires on a gone kick.
  * Reduced motion keeps the cuts and drops the push and the shake.
  */
-function KeeperSequence({ scored, reached, mirrored, onEnded }: { scored: boolean; reached: boolean; mirrored: boolean; onEnded: () => void }) {
+function KeeperSequence({ keeper, scored, reached, mirrored, onEnded }: { keeper: typeof EURO_KEEPER; scored: boolean; reached: boolean; mirrored: boolean; onEnded: () => void }) {
   const [step, setStep] = useState<'set' | 'contact' | 'end'>('set');
   const ended = useRef(onEnded);
   ended.current = onEnded;
@@ -227,7 +299,7 @@ function KeeperSequence({ scored, reached, mirrored, onEnded }: { scored: boolea
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
   // all three frames are in the box from the first beat, so a cut never waits on a picture still loading
-  const layers = [{ key: 'set', src: KEEPER.set }, { key: 'contact', src: !scored ? KEEPER.right : reached ? KEEPER.near : KEEPER.wrong }, { key: 'end', src: !scored ? KEEPER.save : reached ? KEEPER.nearEnd : KEEPER.goal }] as const;
+  const layers = [{ key: 'set', src: keeper.set }, { key: 'contact', src: !scored ? keeper.right : reached ? keeper.near : keeper.wrong }, { key: 'end', src: !scored ? keeper.save : reached ? keeper.nearEnd : keeper.goal }] as const;
   return (
     <div className="eu-seq" data-step={step} data-mirror={mirrored ? '1' : '0'} role="img"
       aria-label={!scored ? 'השוער עם הכדור בידיים' : reached ? 'השוער הגיע לפינה ולא הספיק, הכדור ברשת' : 'השוער הלך לצד השני, הכדור ברשת'}>
@@ -249,6 +321,27 @@ function KickDots({ kicks }: { kicks: boolean[] }) {
       {Array.from({ length: n }, (_, i) => (
         <span key={i} className="eu-dot" data-k={i < kicks.length ? (kicks[i] ? 'goal' : 'miss') : 'wait'} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * The cup's fallback kick: when its own clip or keeper sequence is not ready yet, the
+ * result lands as one still frame off the league's own art (never a video, never a
+ * multi-frame sequence it has no pictures for), same as the outcome cards already used
+ * elsewhere in a live match.
+ */
+function FallbackOutcome({ img, accent, headline, sub, onContinue }: { img: string; accent: string; headline: string; sub: string; onContinue: () => void }) {
+  return (
+    <div className="eu-pov">
+      <div className="eu-still" style={{ backgroundImage: `url('${img}')` }}>
+        <div className="moment-hero-fade" />
+      </div>
+      <div className="eu-pov-word" style={{ color: accent }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, lineHeight: 1 }}>{headline}</div>
+        <div className="sub" style={{ marginTop: 6 }}>{sub}</div>
+        <button className="btn" style={{ marginTop: 14 }} onClick={onContinue}>המשך <Icon name="chevron" size={17} /></button>
+      </div>
     </div>
   );
 }

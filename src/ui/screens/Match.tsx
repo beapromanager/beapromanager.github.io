@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { asset } from '../asset.ts';
+import { useAssetsReady } from '../assetReady.ts';
 import { momentWorld, buildupImg, outcomeImg, buildupsOf, outcomesOf } from '../momentArt.ts';
 import type { MomentWorld } from '../momentArt.ts';
 import * as G from '../../game/state.ts';
@@ -176,8 +177,14 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   const euro = !!clubs;
   const cup = euro && comp === 'cup';
   // shadows the module's own EURO_MOMENT_ASSETS: every `euro ? EURO_MOMENT.x : ...` line below reads whichever
-  // table actually belongs to this night, Europe's or the cup's own (ב.8), without a second ternary at each line
-  const EURO_MOMENT = cup ? CUP_MOMENT : EURO_MOMENT_ASSETS;
+  // table actually belongs to this night, Europe's or the cup's own (21.10), without a second ternary at each line.
+  // Each cup key only wins once its own file is confirmed real; a key still missing reads the league fallback instead,
+  // never Europe's — so a half-finished art drop never leaves one moment stuck on Europe's own picture.
+  const cupArtReady = useAssetsReady(cup ? Object.values(CUP_MOMENT_ART) : []);
+  const EURO_MOMENT = cup
+    ? Object.fromEntries((Object.keys(CUP_MOMENT_ART) as MomentKind[])
+        .map(k => [k, cupArtReady[CUP_MOMENT_ART[k]] ? CUP_MOMENT_ART[k] : CUP_MOMENT_FALLBACK[k]])) as Record<MomentKind, string>
+    : EURO_MOMENT_ASSETS;
   // ליגה ג׳ to א׳ play by day at a neighbourhood ground, the Leumit and ליגת העל at night; Europe has its own pictures
   const world = momentWorld(G.club(gs).tier);
   useEffect(() => preloadMoments(world), [world]);
@@ -1138,15 +1145,26 @@ const EURO_MOMENT_ASSETS: Record<MomentKind, string> = {
 };
 
 /**
- * גביע המדינה's own eight decision frames (ב.8's `public/moments/cup/*.webp`,
- * warm amber floodlights) do not exist yet — no Higgsfield asset generation
- * ran for stage 1. Until they do, the cup falls back to the league's own
- * night pictures (the Leumit/ליגת העל's own stadium, already real assets),
- * exactly the precedent Europe itself set before its pictures existed. The
- * colour difference still reads through the amber tint of data-stage="cup"
- * on the frame around it.
+ * גביע המדינה's own eight decision frames (21.10, amber floodlights, never
+ * Europe's). `public/moments/cup/*.webp` does not exist yet — no asset
+ * generation ran for it — so each key is only trusted once `useAssetsReady`
+ * below confirms the file is really there; until then that one key falls
+ * back to the league's own night picture, exactly Europe's own precedent
+ * before its pictures existed. Never to Europe's own `/moments/euro*`.
  */
-const CUP_MOMENT: Record<MomentKind, string> = {
+export const CUP_MOMENT_ART: Record<MomentKind, string> = {
+  penalty: asset('/moments/cup/penalty.webp'),
+  def_penalty: asset('/moments/cup/def-penalty.webp'),
+  shot: asset('/moments/cup/shot.webp'),
+  one_on_one: asset('/moments/cup/one-on-one.webp'),
+  tactic: asset('/moments/cup/tactic.webp'),
+  free_kick: asset('/moments/cup/free-kick.webp'),
+  def_keeper: asset('/moments/cup/def-keeper.webp'),
+  def_tackle: asset('/moments/cup/def-tackle.webp'),
+};
+
+/** The league's own night picture, per key, for whichever of the above is not ready yet. */
+export const CUP_MOMENT_FALLBACK: Record<MomentKind, string> = {
   penalty: asset(buildupImg('penalty', 'night', 0)),
   def_penalty: asset(buildupImg('def_penalty', 'night', 0)),
   shot: asset(buildupImg('shot', 'night', 0)),

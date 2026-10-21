@@ -4,6 +4,8 @@ import { ROUND_NAMES, EURO_LIVE } from '../../game/euro.ts';
 import type { EuroNight } from '../../game/euro.ts';
 import { CUP_LIVE } from '../../game/cup.ts';
 import type { CupNight } from '../../game/cup.ts';
+import { asset } from '../asset.ts';
+import { useAssetsReady } from '../assetReady.ts';
 import { euroClub, asClub } from '../../data/europeClubs.ts';
 import { LEAGUE_NAMES, isDerby } from '../../data/clubs.ts';
 import type { Club } from '../../data/clubs.ts';
@@ -401,12 +403,19 @@ function CupDayBanner() {
   );
 }
 
+/** the cup final's own stadium shot (21.10); shown only once confirmed real, only on final day */
+export const CUP_FINAL_BG = asset('/moments/cup/final.webp');
+
 /** A cup night this week. Dark brown and amber (ב.8), so the eye knows at once this is not the league and not Europe. */
 function CupHero({ gs, night, onGo }: { gs: G.GameState; night: CupNight; onGo: () => void }) {
   const opp = G.cupClub(gs, night.oppId);
-  const venue = night.host === null ? 'הגמר, מגרש ניטרלי' : night.host ? 'בבית' : `בחוץ, אצל ${opp.name}`;
+  const isFinal = night.host === null;
+  const venue = isFinal ? 'הגמר, מגרש ניטרלי' : night.host ? 'בבית' : `בחוץ, אצל ${opp.name}`;
+  const finalBgReady = useAssetsReady(isFinal ? [CUP_FINAL_BG] : []);
+  const bg = isFinal && finalBgReady[CUP_FINAL_BG] ? CUP_FINAL_BG : null;
   return (
-    <div className="match-hero" data-cup="1">
+    <div className="match-hero" data-cup="1"
+      style={bg ? { backgroundImage: `linear-gradient(165deg, rgba(49,32,21,.55), rgba(20,12,7,.88)), url('${bg}')`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
         <span className="label-cap" style={{ color: 'var(--cup, #D98A3D)' }}>ערב גביע</span>
         <span className="chip chip-cup">{ROUND_NAMES[night.round]}</span>

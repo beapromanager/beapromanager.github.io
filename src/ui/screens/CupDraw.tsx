@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import * as G from '../../game/state.ts';
 import { ROUND_NAMES } from '../../game/cup.ts';
+import { asset } from '../asset.ts';
+import { useAssetsReady } from '../assetReady.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
+
+/** the cup's own draw-bowl backdrop (21.10); shown only once confirmed real */
+export const CUP_DRAW_BG = asset('/moments/cup/draw.webp');
 
 /**
  * The cup draw, from the manager's seat. Itzik's note of 20.10: the draw has
@@ -33,6 +38,8 @@ export function CupDrawScreen({ gs, onDone }: { gs: G.GameState; onDone: () => v
   const done = shown >= ties.length;
   const nextIsMine = !!ties[shown] && (ties[shown].a === gs.clubId || ties[shown].b === gs.clubId);
   const title = round === 0 ? `הגרלת ${ROUND_NAMES[0]}` : `הגרלת ${ROUND_NAMES[round]}`;
+  const bgReady = useAssetsReady([CUP_DRAW_BG]);
+  const bg = bgReady[CUP_DRAW_BG] ? CUP_DRAW_BG : null;
 
   const pull = () => {
     if (rolling || done) return;
@@ -49,7 +56,8 @@ export function CupDrawScreen({ gs, onDone }: { gs: G.GameState; onDone: () => v
 
   return (
     <div className="screen pad stack pad-b" style={{ gap: 14, minHeight: '100%' }}>
-      <div className="match-hero" data-cup="1">
+      <div className="match-hero" data-cup="1"
+        style={bg ? { backgroundImage: `linear-gradient(165deg, rgba(49,32,21,.55), rgba(20,12,7,.88)), url('${bg}')`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
         <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
           <span className="label-cap" style={{ color: 'var(--cup, #D98A3D)' }}>גביע המדינה</span>
           <span className="chip chip-cup">{title}</span>
