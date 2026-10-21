@@ -106,7 +106,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
           {cupNight && <CupHero gs={gs} night={cupNight} onGo={onCup} />}
           {!cupNight && cupPensDue && <CupPensCard gs={gs} onGo={onCup} />}
           {!cupNight && !cupPensDue && cupWaiting && <CupWaitingCard />}
-          <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} waiting={!!night || pensDue || cupBlocking} />
+          <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} waiting={!!night || pensDue || cupBlocking} waitingLabel={night || pensDue ? 'קודם הערב האירופי' : 'קודם ערב הגביע'} />
         </div>
 
         {DAILY_LIVE && onDaily && <DailyHubCard gs={gs} onOpen={onDaily} />}
@@ -246,11 +246,13 @@ function Form({ form }: { form: ('W' | 'D' | 'L')[] }) {
  * The one thing the manager came here to do. It gets the space, the crests and
  * the button, and nothing above it competes for the eye.
  */
-function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting }: {
+function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting, waitingLabel }: {
   club: Club; rival: Club | undefined; iAmHome: boolean; derby: boolean;
   gs: G.GameState; onStart: () => void;
   /** the European night is still to be played: the league waits for it */
   waiting?: boolean;
+  /** what the held button says: the European night or the cup night that comes first (21.10: a cup week said the European one) */
+  waitingLabel?: string;
 }) {
   if (!rival) {
     return (
@@ -299,7 +301,7 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting }: {
         </div>
       ) : waiting ? (
         <button className="btn dark" style={{ marginTop: 16, opacity: .6 }} disabled>
-          <Icon name="whistle" size={18} /> קודם הערב האירופי
+          <Icon name="whistle" size={18} /> {waitingLabel ?? 'קודם הערב האירופי'}
         </button>
       ) : (
         <button className="btn" style={{ marginTop: 16 }} onClick={onStart}>

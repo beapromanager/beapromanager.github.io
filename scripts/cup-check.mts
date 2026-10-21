@@ -475,6 +475,14 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
   if (!/\/moments\/cup(-penalty)?\//.test(allCupPaths)) fails.push('none of the cup\'s own art constants point under /moments/cup/ or /moments/cup-penalty/');
 }
 
+/* the held round button says which night comes first: a cup week must not say "the European evening" (21.10, seen on a Leumit club) */
+{
+  const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
+  checked += 2;
+  if (!hub.includes("waitingLabel={night || pensDue ? 'קודם הערב האירופי' : 'קודם ערב הגביע'}")) fails.push('the held round button does not say the cup night in a cup week');
+  if (hub.split('קודם הערב האירופי').length - 1 !== 2) fails.push('the European night text should appear twice in the hub: once as the label and once as its default');
+}
+
 console.log(`${checked} checks`);
 if (fails.length) {
   console.log('\n  ' + fails.slice(0, 20).join('\n  '));
