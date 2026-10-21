@@ -77,7 +77,7 @@ const store = new Map<string, string>();
   const css = readFileSync('src/ui/tokens.css', 'utf8');
   const icon = readFileSync('src/ui/components/Icon.tsx', 'utf8');
 
-  if (!end.includes("shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won' })")) fails.push('the season end does not ask which moment this was');
+  if (!end.includes("shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won', cupWon: cupVerdict?.outcome === 'won' })")) fails.push('the season end does not ask which moment this was');
   if (!end.includes('const shareKind = blocked ? null :')) fails.push('a promotion the ground blocked is sent to a friend as a promotion');
   if (!end.includes('<ShareMoment text={share.text} link={share.link} onShared={() => shareMark(\'share_tap\')} />')) fails.push('the season end card has no share button that reports');
   if (!end.includes('<ShareMoment glass text={share.text} link={share.link} onShared={() => shareMark(\'share_tap\')} />')) fails.push('the celebration has no share button that reports');

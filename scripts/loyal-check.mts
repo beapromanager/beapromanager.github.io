@@ -174,7 +174,7 @@ const NOW = Date.parse('2026-10-12T12:00:00+03:00');
   if (all(ended).some(p => p.id === him) || Object.keys(ended.loans).length) fails.push('the season\'s end did not send the man home');
   if (!ended.notices.some(n => n.kind === 'story' && n.body.includes('העונה נגמרה'))) fails.push('the season\'s end did not say he went home');
   const src = readFileSync('src/game/state.ts', 'utf8');
-  if (!src.includes("settleLoans(settleEuroSeason(") || !src.includes("settleLoans({ ...withChron, mate: mateNow }, 'round')")) fails.push('the loans are not settled where the round and the season end');
+  if (!src.includes("settleLoans(settleCupSeason(settleEuroSeason(") || !src.includes("settleLoans({ ...withChron, mate: mateNow }, 'round')")) fails.push('the loans are not settled where the round and the season end');
   const euroBody = src.slice(src.indexOf('export function commitEuroLeg'), src.indexOf('export function euroInjuries'));
   if (euroBody.includes('settleLoans') || euroBody.includes('loans')) fails.push('a European night spends a round of the loan');
   if (G.settleLoans(gs, 'round') !== gs) fails.push('a round with no loans changed the state');
