@@ -28,7 +28,7 @@
  *      the summer draws it for tier 4/5 and only for tier 4/5
  *  12. save and telemetry: an old save gets a null cup, every cup phase
  *      reloads at the hub, and the client's marks match the worker's regex
- *  13. the door shut: no path above changes, and the flag itself is off
+ *  13. the door open: with the default flag a cup week has its night, the hub starts it, and the flag and the words agree
  */
 import {
   CUP_LIVE, CUP_MIN_TIER, CUP_ROUNDS, CUP_FIELD, CUP_PRE_FIELD, ROUND_NAMES, CUP_TARGET, CUP_EDGE, CUP_STAGED_EDGE,
@@ -85,7 +85,7 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
 /* -------------------------------------------- 1. the door and the agreed numbers */
 {
   checked += 12;
-  if (CUP_LIVE !== false) fails.push('the cup door is open; it must stay shut (false) until Itzik lights it');
+  if (CUP_LIVE !== true) fails.push('the cup door is shut; Itzik lit it on 22.10');
   if (CUP_MIN_TIER !== 4) fails.push('the cup floor moved off tier 4 (הלאומית)');
   if (CUP_ROUNDS !== 4 || CUP_FIELD !== 16 || CUP_PRE_FIELD !== 14) fails.push('rounds, field or the staged pre-field moved off 4 / 16 / 14');
   // the spec's own draft ([74,77,80,83]) proved too hard across the board by the model in section 9; moved down to
@@ -426,16 +426,22 @@ function career(seed: number, tier: number, seeded = false): G.GameState {
   if (cupMarks(null, ME).length !== 0) fails.push('a career with no cup reports anything');
 }
 
-/* ------------------------------------------------------------------- 13. the door shut */
+/* ------------------------------------------------------------------- 13. the door open */
 {
   checked += 4;
-  const base = career(901, 5);
-  const gs = { ...base, week: cupWeeks(14)![0] };
-  if (G.cupNight(gs) !== null) fails.push('with the default flag the cup night still exists for the state');
-  if (G.startWeek(gs) === gs) { /* either way is fine: the point is nothing about the league broke */ }
-  if (G.startCupNight(gs).phase !== 'hub') fails.push('with the default flag the hub still starts a cup night');
-  if (G.commitCupLeg(gs, { home: { id: '', score: [0, 0] }, away: { id: '', score: [0, 0] }, events: [] } as never, []) !== gs) fails.push('with the default flag commitCupLeg still writes');
-  if (G.cupDoorOpen() !== false) fails.push('cupDoorOpen reports the door open while CUP_LIVE is false');
+  // a real cup week from a real draw, with no flag passed anywhere: the default is what players get
+  let gs: G.GameState | null = null;
+  for (let s = 1; s < 80 && !gs; s++) {
+    const g = { ...career(s, 5), week: cupWeeks(14)![0] };
+    if (G.cupNight(g, true)) gs = g;
+  }
+  if (!gs) fails.push('no seed in eighty gives a cup week to check the open door against');
+  else {
+    if (G.cupNight(gs) === null) fails.push('with the door open a cup week has no cup night for the state');
+    if (G.startCupNight(gs).phase !== 'cup-match') fails.push('with the door open the hub does not start the cup night');
+  }
+  if (G.cupDoorOpen() !== true) fails.push('cupDoorOpen reports the door shut while CUP_LIVE is true');
+  if (G.cupDoorOpen() !== CUP_LIVE) fails.push('the season-end words and the flag disagree about the door');
 }
 
 /* ---------------------------------------------- 14. the cup's own art, never Europe's */
@@ -491,6 +497,6 @@ if (fails.length) {
   console.log('\n  ' + fails.slice(0, 20).join('\n  '));
   console.log('\nFAIL');
 } else {
-  console.log('OK, the cup draws, plays and crowns one champion, hard but possible, and the door is shut');
+  console.log('OK, the cup draws, plays and crowns one champion, hard but possible, and the door is open');
 }
 process.exit(fails.length ? 1 : 0);
