@@ -29,7 +29,7 @@ export { ROUND_NAMES, hintFor, diveFor, myKickScores, theirKickSaved, shootoutSt
 export type { PenCorner };
 
 /** The door. Off until Itzik says the cup is ready for players. */
-export const CUP_LIVE = false;
+export const CUP_LIVE = true;
 
 /** Only the top two divisions play the cup. Below this, cup is always null. */
 export const CUP_MIN_TIER = 4;
