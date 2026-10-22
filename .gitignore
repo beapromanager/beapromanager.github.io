@@ -11,3 +11,6 @@ PIC/
 
 # reference screen recordings, not part of the app
 IMG_*.MOV
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
