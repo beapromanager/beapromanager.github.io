@@ -3,6 +3,7 @@ import { asset } from '../asset.ts';
 import { Icon } from '../components/Icon.tsx';
 import { useEffect, useRef, useState } from 'react';
 import { watchInstall, isInstalled } from '../install.ts';
+import { LeagueTeaser } from '../components/LeagueTeaser.tsx';
 
 /**
  * Entry screen, the tunnel (Itzik's pick of five on 12.10).
@@ -100,6 +101,9 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
           </button>
 
           {saved && <p className="hint" style={{ textAlign: 'center', margin: 0 }}>קריירה חדשה תמחק את הקריירה השמורה.</p>}
+
+          {/* the neighbourhood league's date, until the day it opens; nothing to press */}
+          <LeagueTeaser />
 
           {/* The install belongs HERE, before a career, not buried in the game.
               Shown whatever the device says: the sheet knows the right route for

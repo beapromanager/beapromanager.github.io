@@ -1,0 +1,18 @@
+/* the neighbourhood league's teaser on the title screen: a dark ticket, not pressable */
+.lt{position:relative; width:100%; min-height:132px; border-radius:6px; overflow:hidden; background:#1B2A4A; color:#F2EADB; border:2px solid #F2EADB; box-shadow:0 10px 30px rgba(0,0,0,.45); text-align:start; isolation:isolate}
+.lt::before,.lt::after{content:""; position:absolute; top:50%; width:20px; height:20px; border-radius:50%; background:var(--bg-deep,#050907); transform:translateY(-50%); z-index:2}
+.lt::before{inset-inline-end:-12px}
+.lt::after{inset-inline-start:-12px}
+.lt-img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 30%; opacity:.5; z-index:-2}
+.lt-shade{position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,rgba(27,42,74,.92) 30%,rgba(27,42,74,.55) 100%)}
+.lt-body{padding:14px 18px 14px}
+.lt-k{display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#FF6B7C}
+.lt-k::before{content:""; width:7px; height:7px; border-radius:50%; background:#FF6B7C; animation:ltPulse 2.4s ease-in-out infinite}
+.lt-h{font-family:"Secular One","Rubik","Heebo",system-ui,sans-serif; font-size:26px; line-height:1.05; margin:4px 0 5px; color:#F2EADB}
+.lt-m{margin:0; font-size:12.5px; line-height:1.35; font-weight:700; color:rgba(242,234,219,.82)}
+.lt-row{display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 10px; margin-top:10px; padding-top:9px; border-top:2px dashed rgba(242,234,219,.4)}
+.lt-lab{font-size:12px; font-weight:700; color:rgba(242,234,219,.78)}
+.lt-c{font-family:"Secular One","Rubik","Heebo",system-ui,sans-serif; font-size:23px; line-height:1; color:#F2EADB; font-variant-numeric:tabular-nums}
+.lt-d{font-size:.62em; margin-inline-end:.35em}
+@keyframes ltPulse{50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){.lt-k::before{animation:none}}
