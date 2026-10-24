@@ -8,7 +8,7 @@
  */
 
 import type { GameState, PlayerSeason } from './state.ts';
-import { NO_REPORTS } from './state.ts';
+import { NO_REPORTS, repairStuckCup } from './state.ts';
 import { STADIUM_START, FANS_START } from './career.ts';
 import { GEMS_AT_START } from './packs.ts';
 import { primePlayerIds } from '../data/squadGen.ts';
@@ -264,6 +264,10 @@ export function loadCareer(): GameState | null {
       icon: 'glove',
     }];
   }
+
+  // a staged champion's cup that was left waiting past the week it is played in: catch it up (24.10)
+  const caught = repairStuckCup(patched);
+  if (caught !== patched) { patched.cup = caught.cup; patched.notices = caught.notices; }
 
   if (patched.phase === 'match') return { ...patched, phase: 'hub' };
   // a European night closed mid-match is not written: the hub asks for it again.

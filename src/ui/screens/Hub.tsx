@@ -73,8 +73,10 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
   const cupPensDue = G.cupPensDue(gs);
   const cupDrawDue = G.cupDrawDue(gs);
   const cupWaiting = !cupNight && G.cupWaiting(gs);
-  // a cup night this week, its pens, or the staged entrant's wait, all block the league round exactly like Europe's own
-  const cupBlocking = !!cupNight || cupPensDue || cupWaiting;
+  // a cup night this week or its pens block the league round exactly like Europe's own. The staged entrant's wait does
+  // NOT: nothing is owed in those weeks, the pre-bracket is played for him inside startWeek, and a button that waits for
+  // the round which waits for the button is a dead end (24.10, weeks 1 to 4 of the champion in Europe)
+  const cupBlocking = !!cupNight || cupPensDue;
 
   return (
     <>
@@ -164,7 +166,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
         </button>
       </div>
 
-      {!G.weekBlockedReason(gs) && <StickyStart hero={hero} onStart={onStart} rival={rival?.short} />}
+      {!G.weekBlockedReason(gs) && !night && !pensDue && !cupBlocking && <StickyStart hero={hero} onStart={onStart} rival={rival?.short} />}
     </>
   );
 }

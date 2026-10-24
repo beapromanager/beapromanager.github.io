@@ -4126,6 +4126,20 @@ function advanceCupAiWeek(gs: GameState, live: boolean = CUP_LIVE): GameState {
 }
 
 /**
+ * A career saved while the staged champion's cup was still waiting, after the week the pre-bracket is played in
+ * (24.10: the hub held the round button for it, so startWeek in that week never ran). Playing that round is
+ * advanceCupAiWeek's own work, with its own seed, so it is called as if the week were the pre-bracket's own and
+ * the real week is put back. Before that week startWeek still does it, and after the cup is on nothing is owed.
+ */
+export function repairStuckCup(gs: GameState, live: boolean = CUP_LIVE): GameState {
+  if (!live || !gs.cup || gs.cup.status !== 'waiting') return gs;
+  const weeks = cupWeeks(gs.league.rounds);
+  if (!weeks || gs.week <= weeks[gs.cup.round]) return gs;
+  const caught = advanceCupAiWeek({ ...gs, week: weeks[gs.cup.round] }, live);
+  return caught.cup === gs.cup ? gs : { ...caught, week: gs.week };
+}
+
+/**
  * The season is over: the cup is closed if it is not already, and the way it
  * went is written in the chronicle once. No money moves here — every round
  * already paid its own prize on the night it was reached.

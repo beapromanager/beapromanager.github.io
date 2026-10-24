@@ -77,6 +77,7 @@
     "check:money": "node --experimental-strip-types scripts/money-check.mts",
     "check:euro": "node --experimental-strip-types scripts/euro-check.mts",
     "check:cup": "node --experimental-strip-types scripts/cup-check.mts",
+    "check:cupqf": "node --experimental-strip-types scripts/cup-qf-check.mts",
     "check:teaser": "node --experimental-strip-types scripts/teaser-check.mts",
     "check:loyal": "node --experimental-strip-types scripts/loyal-check.mts",
     "check:share": "node --experimental-strip-types scripts/share-check.mts",
