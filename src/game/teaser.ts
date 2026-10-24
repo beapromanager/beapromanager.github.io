@@ -5,11 +5,12 @@
  */
 
 /**
- * Sunday 25.10.2026, 20:00 on the clock of Israel. The clocks go back that night (the last Sunday of
- * October), so Israel is on winter time, UTC+2, and 20:00 there is 18:00 UTC. Pinned in teaser-check
- * against the Asia/Jerusalem zone, not against a sum done by hand.
+ * Monday 26.10.2026, 12:00 on the clock of Israel (Itzik, 24.10: the launch moved from Sunday 20:00 to Monday noon).
+ * The clocks go back in the night of Sunday 25.10 (the last Sunday of October), so on Monday Israel is on winter
+ * time, UTC+2, and 12:00 there is 10:00 UTC. Pinned in teaser-check against the Asia/Jerusalem zone, not against a
+ * sum done by hand.
  */
-export const TEASER_OPENS_AT = Date.UTC(2026, 9, 25, 18, 0, 0);
+export const TEASER_OPENS_AT = Date.UTC(2026, 9, 26, 10, 0, 0);
 
 /** Whole seconds left, never below zero. */
 export const teaserSeconds = (now: number, to: number = TEASER_OPENS_AT): number =>

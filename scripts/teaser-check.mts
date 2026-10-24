@@ -8,13 +8,13 @@ const fails: string[] = [];
 let checked = 0;
 const ok = (c: boolean, m: string) => { checked++; if (!c) fails.push(m); };
 
-/* 1. the date: Sunday 25.10.2026, 20:00 on the clock of Israel, read from the zone and not from a sum */
+/* 1. the date: Monday 26.10.2026, 12:00 on the clock of Israel, read from the zone and not from a sum */
 {
   const f = (ms: number) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(ms));
-  ok(f(TEASER_OPENS_AT) === '25/10/2026, 20:00', `the count ends at ${f(TEASER_OPENS_AT)} in Israel, wanted 25/10/2026, 20:00`);
-  ok(new Date(TEASER_OPENS_AT).toISOString() === '2026-10-25T18:00:00.000Z', 'the instant is 18:00 UTC (winter time, UTC+2), not 17:00');
+  ok(f(TEASER_OPENS_AT) === '26/10/2026, 12:00', `the count ends at ${f(TEASER_OPENS_AT)} in Israel, wanted 26/10/2026, 12:00`);
+  ok(new Date(TEASER_OPENS_AT).toISOString() === '2026-10-26T10:00:00.000Z', 'the instant is 10:00 UTC (winter time, UTC+2), not 09:00');
   const wd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', weekday: 'long' }).format(new Date(TEASER_OPENS_AT));
-  ok(wd === 'Sunday', `the day is ${wd}, wanted Sunday`);
+  ok(wd === 'Monday', `the day is ${wd}, wanted Monday`);
 }
 
 /* 2. the count and its end */
@@ -46,4 +46,4 @@ const ok = (c: boolean, m: string) => { checked++; if (!c) fails.push(m); };
 }
 
 if (fails.length) { console.log('\nFAIL'); for (const f of fails) console.log('  ' + f); process.exit(1); }
-console.log(`${checked} checks\nOK, the teaser counts to Sunday 25.10 20:00 Israel (18:00 UTC), can not be pressed, and takes itself off when the count ends`);
+console.log(`${checked} checks\nOK, the teaser counts to Monday 26.10 12:00 Israel (10:00 UTC), can not be pressed, and takes itself off when the count ends`);
