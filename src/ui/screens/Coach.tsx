@@ -7,6 +7,7 @@ import { Icon } from '../components/Icon.tsx';
 import { Meters, formatMoney } from '../components/bits.tsx';
 import { AttrGroup } from './Archetype.tsx';
 import type { Coach } from '../../game/coach.ts';
+import { WeekendCabinet } from './Cabinet.tsx';
 
 /**
  * Your own coaching CV. The badges are a ladder you climb across a career, and
@@ -62,11 +63,19 @@ export function CoachScreen({ gs, onBack, onReport }: { gs: G.GameState; onBack:
                 אליפויות <span className="num">{c.titles}</span>
               </span>
             )}
+            {(gs.weekend?.titles ?? 0) > 0 && (
+              <span className="chip" style={{ background: 'rgba(233,185,73,.2)', color: 'var(--gold-hi)' }}>
+                🏆 ליגת השכונה <span className="num">{gs.weekend!.titles}</span>
+              </span>
+            )}
           </div>
         </div>
 
         {/* where the standing comes from, so it is a target and not a mystery */}
         <StandingCard coach={c} />
+
+        {/* the neighbourhood league's cups (25.10) */}
+        <WeekendCabinet gs={gs} />
 
         {/* the two groups of ability */}
         <div className="tile" style={{ padding: '13px 14px' }}>

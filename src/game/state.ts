@@ -1,3 +1,5 @@
+import { weekendOutcome, weekendDate, emptyWeekend, type WeekendRecord, type WeekendPrizeInput } from './weekendPrize.ts';
+export { weekendMoney, weekendMonthKey, WEEKEND_TRIPLE_GEMS, WEEKEND_FANS, type CabinetEntry } from './weekendPrize.ts';
 import type { Club } from '../data/clubs.ts';
 import { surnameOf } from '../data/names.ts';
 import type { ManagerId, ManagerType } from '../data/managers.ts';
@@ -400,7 +402,8 @@ export interface GameState {
   fix: FixDeal | null;
   fixLog: FixLog;
   /** the weekend league's prizes already in this career (by nonce), and how many weekends it won. Absent on saves from before */
-  weekend?: { applied: string[]; titles: number };
+  /** the neighbourhood league in this career: prizes taken (by nonce), titles, the months, the cabinet (weekendPrize.ts) */
+  weekend?: WeekendRecord;
   youthPool: YouthOffer[];
   youthStamp: number;
   youthUp: string[];
@@ -2765,34 +2768,57 @@ export function acceptInvite(gs: GameState, ref: string): GameState {
   };
 }
 
-export interface RedeemResult { gs: GameState; ok: boolean; message: string; }
+export interface RedeemResult {
+  gs: GameState; ok: boolean; message: string;
+  /** for a weekend prize: in, already in (the same nonce), or no career to put it in; the phone keeps the token only on the last */
+  reason?: 'applied' | 'duplicate' | 'no-career';
+}
 
 /**
- * The weekend league's prize comes home (WEEKEND.md, section 7): money in wage
- * rounds of THIS career's division, gems, and a line in the chronicle. The
- * token was signed by the server and handed out once; the career applies it
- * once more by its nonce, so a backup put back does not pay twice.
+ * The weekend league's prize comes home (Itzik, 25.10, option A). The money is a fixed sum by the division the
+ * manager is in (weekendMoney: a week of daily gifts for a first title, the token's wageRounds as the factor), never
+ * the squad's wage bill, which could be blown up by signing three stars the day before; the division is the lower of
+ * where the career is and where it was when the phone first saw the prize, so a promotion in between does not inflate
+ * it. The fans go up by place. No gems with a prize, whatever the token says: gems only for the third title of a
+ * month (Israel's calendar, by the final), once a month. Places one to three go in the cabinet. A nonce comes in once.
  */
-export function applyWeekendPrize(gs: GameState, token: { nonce: string; place: number; wageRounds: number; gems: number; finished: boolean; nick: string; leagueName: string; final: number }): RedeemResult {
-  const had = gs.weekend ?? { applied: [], titles: 0 };
-  if (had.applied.includes(token.nonce)) return { gs, ok: false, message: 'הפרס הזה כבר בקופה' };
-  if (!gs.clubId) return { gs, ok: false, message: 'צריך קריירה כדי לקבל את הפרס' };
-  const round = wageBill(mySquad(gs), club(gs).tier);
-  const money = Math.round(token.wageRounds * round / 1000) * 1000;
-  const date = new Date(token.final).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', year: '2-digit' });
-  const title = token.place === 1 ? `אלוף הסופשבוע ${date}` : token.place === 2 ? `סגן אלוף הסופשבוע ${date}` : token.place === 3 ? `מקום שלישי בסופשבוע ${date}` : token.finished ? `שיחקת את הסופשבוע ${date}` : `הסופשבוע ${date}`;
-  const what = [money > 0 ? `₪${money.toLocaleString('en-US')}` : '', token.gems > 0 ? `${token.gems} ${token.gems === 1 ? 'יהלום' : 'יהלומים'}` : ''].filter(Boolean).join(' ו-');
-  const body = money > 0 || token.gems > 0
-    ? `${token.leagueName}: מקום ${token.place}. ${what} נכנסו לקופה של ${club(gs).name}. הבעלים שמע.`
-    : `${token.leagueName}: מקום ${token.place}. העוזר שיחק במקומך, אז הפעם בלי מעטפה.`;
+export function applyWeekendPrize(gs: GameState, token: WeekendPrizeInput): RedeemResult {
+  const had = gs.weekend ?? emptyWeekend();
+  if (had.applied.includes(token.nonce)) return { gs, ok: false, message: 'הפרס הזה כבר בקופה', reason: 'duplicate' };
+  if (!gs.clubId) return { gs, ok: false, message: 'צריך קריירה כדי לקבל את הפרס', reason: 'no-career' };
+  const o = weekendOutcome(had, token, club(gs).tier);
+  const date = weekendDate(token.final);
+  const clubName = club(gs).name;
+  const cash = o.money > 0 ? `₪${o.money.toLocaleString('en-US')}` : '';
+  let title: string, body: string, message: string;
+  if (token.place === 1) {
+    title = `🏆 אלוף ליגת השכונה ${date}`;
+    body = `${token.leagueName}: מקום 1. ${cash} נכנסו לקופה של ${clubName}, והיציע שר. התואר ה-${o.titleNo}.${o.triple ? ` שלוש אליפויות בחודש, ${o.gems} יהלומים.` : ''}`;
+    message = `${cash} בקופה, ואוהדים +${o.fans}.${o.triple ? ` משולש החודש: ${o.gems} יהלומים.` : ''} התואר ה-${o.titleNo} שלך בליגת השכונה.`;
+  } else {
+    title = token.place === 2 ? `סגן אלוף הסופשבוע ${date}` : token.place === 3 ? `מקום שלישי בסופשבוע ${date}` : token.finished ? `שיחקת את הסופשבוע ${date}` : `הסופשבוע ${date}`;
+    body = o.money > 0
+      ? `${token.leagueName}: מקום ${token.place}. ${cash} נכנסו לקופה של ${clubName}. הבעלים שמע.`
+      : `${token.leagueName}: מקום ${token.place}. העוזר שיחק במקומך, אז הפעם בלי מעטפה.`;
+    message = o.money > 0 ? `${cash} בקופה.${o.fans ? ` אוהדים +${o.fans}.` : ''} ${title}.` : title;
+  }
   const next: GameState = {
     ...gs,
-    meters: { ...gs.meters, money: gs.meters.money + money },
-    gems: gs.gems + token.gems,
-    weekend: { applied: [...had.applied, token.nonce], titles: had.titles + (token.place === 1 ? 1 : 0) },
+    meters: { ...gs.meters, money: gs.meters.money + o.money, fans: Math.max(0, Math.min(100, gs.meters.fans + o.fans)) },
+    gems: gs.gems + o.gems,
+    weekend: o.record,
     chronicle: [...gs.chronicle, { id: `weekend-${token.nonce}`, kind: 'season_end' as const, week: gs.week, title, body, icon: 'trophy' as const, tint: token.place === 1 ? 'gold' as const : 'win' as const }],
   };
-  return { gs: next, ok: true, message: money > 0 || token.gems > 0 ? `${what} בקופה. ${title}.` : title };
+  return { gs: next, ok: true, message, reason: 'applied' };
+}
+
+/**
+ * A prize kept on the phone (the career was not open when it came) meets the career: put it in, and say whether the
+ * phone still has to keep it. It is dropped once it is in or was already in; with no career to take it, it waits.
+ */
+export function resolvePending(loaded: GameState, pending: WeekendPrizeInput): { gs: GameState; keep: boolean } {
+  const r = applyWeekendPrize(loaded, pending);
+  return { gs: r.ok ? r.gs : loaded, keep: !r.ok && r.reason !== 'duplicate' };
 }
 
 /** Read a friend's thank you code and pay for him if it holds up. */

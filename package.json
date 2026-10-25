@@ -40,6 +40,7 @@
     "check:weekend": "node --experimental-strip-types scripts/weekend-check.mts",
     "check:rollover": "node --experimental-strip-types scripts/weekend-rollover-check.mts",
     "check:capacity": "node --experimental-strip-types scripts/weekend-capacity-check.mts",
+    "check:weekendprize": "node --experimental-strip-types scripts/weekend-prize-check.mts",
     "check:weekendguide": "node --experimental-strip-types scripts/weekend-guide-check.mts",
     "check:duel": "node --experimental-strip-types scripts/duel-check.mts",
     "check:coach": "node --experimental-strip-types scripts/coach-check.mts",

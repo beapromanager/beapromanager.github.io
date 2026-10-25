@@ -13,6 +13,8 @@ import type { SaveSummary } from '../../game/save.ts';
 import { WeekendApi, ApiError, local, setLocal, serverNow, slotLabel, dateLabel, rootDecision, POSITION_WORDS, type LeagueView, type LiveView, type PrizeToken } from '../../game/weekend.ts';
 import { cycleOf, cyclePhase, SLOT_GRID, DAY_NAME, slotsNeeded, slotsProblem, ilDayDate, ilTime, READY_MS, MIN_MEMBERS, MAX_MEMBERS, PACK_EVERY, type SlotDay } from '../../game/weekendCore.ts';
 import { introSeen, firstStrip, CANCEL_TEXT } from '../../game/weekendGuide.ts';
+import { prizePreview, weekendMoney, weekendDate, monthDots, leaguesIn, WEEKEND_TRIPLE_GEMS, WEEKEND_TRIPLE_AT, type CareerPrizeView } from '../../game/weekendPrize.ts';
+import { LEAGUE_NAMES } from '../../data/clubs.ts';
 import { HelpButton, IntroCards, FaqSheet, AdminGuide, FillingCard, WhenLine } from './WeekendGuide.tsx';
 import { fillFormation, formation, FORMATIONS, type FormationId } from '../../data/formations.ts';
 import { overall } from '../../engine/matchEngine.ts';
@@ -76,11 +78,17 @@ export function WeekendEntry({ onOpen, hasCareer }: { onOpen: () => void; hasCar
 
 type Page = 'home' | 'create' | 'join' | 'open' | 'lobby' | 'match';
 
-export function WeekendRoot({ saved, onBack, onPrize }: {
+/** the prize into the career: null when there is no career, else the words and whether the phone keeps the token */
+type OnPrize = (token: PrizeToken & { tierSeen?: number }) => { message: string; keep: boolean } | null;
+
+export function WeekendRoot({ saved, career, onBack, onPrize, onCabinet }: {
   saved: SaveSummary | null;
+  /** the career's division and weekend record, for the prize's numbers and whether it is already in */
+  career: CareerPrizeView | null;
   onBack: () => void;
-  /** the prize into the career; returns the words to show, or null when there is no career to put it in */
-  onPrize: (token: PrizeToken) => string | null;
+  onPrize: OnPrize;
+  /** open the career on the coach's screen, where the cabinet is */
+  onCabinet?: () => void;
 }) {
   const [page, setPage] = useState<Page>('home');
   const [leagueId, setLeagueId] = useState<string | null>(local().leagueId);
@@ -126,7 +134,7 @@ export function WeekendRoot({ saved, onBack, onPrize }: {
   if (page === 'lobby' && leagueId) {
     return (
       <>
-        <Lobby id={leagueId} league={league} setLeague={setLeague} last={lastMode} onMatch={() => setPage('match')} onLeave={onBack} onHome={() => { setLeague(null); setPage('home'); }} onHelp={() => setSheet('intro')} onPrize={onPrize} hasCareer={!!saved} />
+        <Lobby id={leagueId} league={league} setLeague={setLeague} last={lastMode} onMatch={() => setPage('match')} onLeave={onBack} onHome={() => { setLeague(null); setPage('home'); }} onHelp={() => setSheet('intro')} onPrize={onPrize} hasCareer={!!saved} career={career} onCabinet={onCabinet} />
         {sheets}
       </>
     );
@@ -329,17 +337,20 @@ function OpenJoin({ onJoined }: { onJoined: (id: string) => void }) {
 
 /* ------------------------------------------------------------------ the league */
 
-function Lobby({ id, league, setLeague, last, onMatch, onLeave, onHome, onHelp, onPrize, hasCareer }: {
+function Lobby({ id, league, setLeague, last, onMatch, onLeave, onHome, onHelp, onPrize, hasCareer, career, onCabinet }: {
   id: string; league: LeagueView | null; setLeague: (l: LeagueView | null) => void;
   /** last cycle's league: the next weekend is already open for registration */
   last: boolean;
-  onMatch: () => void; onLeave: () => void; onHome: () => void; onHelp: () => void; onPrize: (t: PrizeToken) => string | null; hasCareer: boolean;
+  onMatch: () => void; onLeave: () => void; onHome: () => void; onHelp: () => void; onPrize: OnPrize; hasCareer: boolean;
+  career: CareerPrizeView | null; onCabinet?: () => void;
 }) {
   const [err, setErr] = useState<string | null>(null);
   const [live, setLive] = useState<LiveView | null>(null);
   const [, tick] = useState(0);
   const [tab, setTab] = useState<'league' | 'squad' | 'table'>('league');
   const [prizeWords, setPrizeWords] = useState<string | null>(null);
+  /** the server said 409: a claim from before the token was kept, so it cannot be fetched again */
+  const [gone, setGone] = useState(false);
   const [packMan, setPackMan] = useState<Player | null>(null);
 
   const refresh = async () => {
@@ -347,6 +358,13 @@ function Lobby({ id, league, setLeague, last, onMatch, onLeave, onHome, onHelp, 
     catch (e) { if (e instanceof ApiError && (e.status === 403 || e.status === 404 || e.status === 410)) { setLocal({ leagueId: null, final: null }); onLeave(); } else setErr(e instanceof ApiError ? e.message : 'השרת לא עונה'); }
   };
   useEffect(() => { void refresh(); const t = setInterval(refresh, 6_000); const k = setInterval(() => tick(n => n + 1), 1000); return () => { clearInterval(t); clearInterval(k); }; }, [id]);
+  // the division the prize is counted in is fixed the first time this phone sees it: a promotion in between does not raise it
+  const prizeSeen = league?.status === 'done' && !!league.prize;
+  useEffect(() => {
+    if (!prizeSeen || !career) return;
+    const had = local().prizeTier ?? {};
+    if (had[id] === undefined) setLocal({ prizeTier: { ...had, [id]: career.tier } });
+  }, [prizeSeen, id, career?.tier]);
   const inRound = !!league?.current && serverNow() >= league.current.at;
   useEffect(() => {
     if (!inRound) { setLive(null); return; }
@@ -366,13 +384,23 @@ function Lobby({ id, league, setLeague, last, onMatch, onLeave, onHome, onHelp, 
   const takePrize = async () => {
     try {
       const { token } = await WeekendApi.prize(id);
-      setLocal({ pendingPrize: token });
-      const words = onPrize(token);
-      if (words) { setPrizeWords(words); setLocal({ pendingPrize: null }); }
+      // the phone keeps the token first, with the division it was first seen in, so nothing is lost on the way
+      const seen = local().prizeTier?.[token.league] ?? career?.tier;
+      const kept = seen ? { ...token, tierSeen: seen } : token;
+      setLocal({ pendingPrize: kept });
+      const r = onPrize(kept);
+      if (r && !r.keep) { setPrizeWords(r.message); setLocal({ pendingPrize: null }); }
       else setPrizeWords('הפרס שמור. הוא ייכנס לקריירה ברגע שתפתח אותה.');
       void refresh();
-    } catch (e) { setErr(e instanceof ApiError ? e.message : 'השרת לא עונה'); }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) { setGone(true); return; }
+      setErr(e instanceof ApiError ? e.message : 'השרת לא עונה');
+    }
   };
+  // the prize is taken only if it is in the career (or waiting on this phone for it), not because the server once
+  // handed it out: an answer lost on the way leaves the button, and the server hands back the same token (25.10)
+  const pend = local().pendingPrize;
+  const prizeTaken = gone || leaguesIn(career?.weekend ?? undefined).includes(id) || pend?.league === id;
 
   const shareText = L.code ? `ליגת השכונה ב-BE A PRO. ${L.name}, הקוד ${L.code}. חמישי 20:00 פותחים. ${L.roundKeys.map(r => `${slotLabel(r.key).day} ${slotLabel(r.key).time}`).join(', ')}.` : null;
   return (
@@ -420,7 +448,7 @@ function Lobby({ id, league, setLeague, last, onMatch, onLeave, onHome, onHelp, 
 
         {/* the prize */}
         {L.status === 'done' && L.prize && (
-          <ChampionCard L={L} onTake={takePrize} words={prizeWords} hasCareer={hasCareer} />
+          <ChampionCard L={L} onTake={takePrize} words={prizeWords} hasCareer={hasCareer} career={career} taken={prizeTaken} pending={pend?.league === id && !career} onCabinet={onCabinet} />
         )}
 
         {/* tabs */}
@@ -588,29 +616,112 @@ function PlayerRow({ p, bench, pack }: { p: Player; bench?: boolean; pack?: bool
   );
 }
 
-function ChampionCard({ L, onTake, words, hasCareer }: { L: LeagueView; onTake: () => void; words: string | null; hasCareer: boolean }) {
+/** a number that runs from 0 to its value once, after a beat; still for a phone that asked for less motion */
+function useCountUp(target: number, delay: number, ms: number): number {
+  const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const [v, setV] = useState(still ? target : 0);
+  useEffect(() => {
+    if (still) { setV(target); return; }
+    let raf = 0; const t0 = performance.now() + delay;
+    const step = (t: number) => {
+      const k = Math.max(0, Math.min(1, (t - t0) / ms));
+      setV(Math.round(target * (1 - Math.pow(1 - k, 3)) / 1000) * 1000);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return v;
+}
+
+const CONFETTI = Array.from({ length: 26 }, (_, i) => ({ x: (i * 37) % 100, d: (i % 7) * 0.09, c: ['var(--wk-red)', 'var(--wk-ink)', 'var(--wk-gold-hi)'][i % 3], r: (i * 53) % 360, w: 6 + (i % 3) * 2 }));
+
+function ChampionCard({ L, onTake, words, hasCareer, career, taken, pending, onCabinet }: {
+  L: LeagueView; onTake: () => void; words: string | null; hasCareer: boolean;
+  career: CareerPrizeView | null; taken: boolean; pending: boolean; onCabinet?: () => void;
+}) {
   const p = L.prize!;
   const top = L.table.slice(0, 3);
   const last = L.table[L.table.length - 1];
-  const title = p.place === 1 ? 'אלוף הסופשבוע' : p.place === 2 ? 'סגן האלוף' : p.place === 3 ? 'מקום שלישי' : p.finished ? 'שיחקת את הסופשבוע' : 'הסופשבוע נגמר';
+  const champ = p.place === 1;
+  const tierSeen = local().prizeTier?.[L.id];
+  const pv = prizePreview(career, { nonce: '', league: L.id, place: p.place, wageRounds: p.wageRounds, finished: p.finished, nick: L.me?.nick ?? '', leagueName: L.name, final: L.cycle.final, tierSeen });
+  const shown = useCountUp(pv.money, champ ? 900 : 0, champ ? 900 : 1);
+  const leagueWords = LEAGUE_NAMES[pv.tier] ?? '';
+  const date = weekendDate(L.cycle.final);
+  const [copied, setCopied] = useState(false);
+  const brag = `🏆 אלוף ליגת השכונה ב-BE A PRO · ${L.name} · ${date}`;
+  const done = taken || !!words;
+  const button = !done && p.wageRounds > 0
+    ? <button className="wk-btn red" onClick={onTake}>{hasCareer ? 'לקחת הביתה לקריירה' : 'לשמור את הפרס לקריירה'}</button> : null;
+  const after = (
+    <>
+      {words && <div className="wk-card soft" style={{ textAlign: 'start' }}><b>{words}</b></div>}
+      {!words && taken && <div className="wk-muted">{pending ? 'הפרס שמור, והוא ייכנס לקריירה ברגע שתפתח אותה.' : 'הפרס כבר נלקח.'}</div>}
+      {done && career && p.place <= 3 && !pending && (
+        <div className="wk-row" style={{ justifyContent: 'center', gap: 10, marginTop: 6 }}>
+          <span className="wk-pill">בארון ✓</span>
+          {onCabinet && <button className="wk-link" style={{ width: 'auto', minHeight: 36, padding: 0 }} onClick={onCabinet}>לארון הגביעים</button>}
+        </div>
+      )}
+    </>
+  );
+
+  if (!champ) {
+    const title = p.place === 2 ? 'סגן האלוף' : p.place === 3 ? 'מקום שלישי' : p.finished ? 'שיחקת את הסופשבוע' : 'הסופשבוע נגמר';
+    return (
+      <div className="wk-champ wk-in">
+        <div className="wk-kick" style={{ justifyContent: 'center' }}>{L.name}</div>
+        <h1 className="big">{title}</h1>
+        <div className="date num">{date}</div>
+        {p.place <= 3 && <div className={`wk-trophy num place-${p.place}`}>{p.place}</div>}
+        <div className="wk-stack" style={{ gap: 6, margin: '10px 0' }}>
+          {top.map((r, i) => <div key={r.device} className={`wk-pr ${i === 0 ? 'first' : ''}`}><span className="n num">{i + 1}</span><span>{r.nick}</span><span className="pts num">{r.points}</span></div>)}
+        </div>
+        <p className="wk-muted">
+          {p.wageRounds > 0
+            ? career
+              ? <>לקריירה: <b className="num"><bdi dir="ltr">₪{pv.money.toLocaleString('en-US')}</bdi></b> לפי {leagueWords}{pv.fans ? <>, ואוהדים <span className="num">+{pv.fans}</span></> : null}.</>
+              : <><b className="num"><bdi dir="ltr">₪{weekendMoney(1, p.wageRounds).toLocaleString('en-US')}</bdi></b> ב{LEAGUE_NAMES[1]} · יותר בליגות גבוהות.</>
+            : 'העוזר שיחק במקומך ברוב המשחקים, אז הפעם בלי מעטפה.'}
+        </p>
+        {button}{after}
+      </div>
+    );
+  }
+
+  const c = pv.monthCount;
+  // the numbers sit in their own left-to-right runs, so "+5" never reads "5+" in a right-to-left line
+  const monthLine = pv.triple ? <>משולש החודש! <span className="num">+{WEEKEND_TRIPLE_GEMS}</span> 💎</>
+    : c >= WEEKEND_TRIPLE_AT ? 'משולש החודש ✓'
+    : <>החודש: <span className="num">{monthDots(c)}</span> · עוד {WEEKEND_TRIPLE_AT - c === 1 ? 'אליפות אחת' : <><span className="num">{WEEKEND_TRIPLE_AT - c}</span> אליפויות</>} ו-<span className="num">{WEEKEND_TRIPLE_GEMS}</span> 💎 בדרך</>;
   return (
-    <div className="wk-champ wk-in">
-      <div className="wk-kick" style={{ justifyContent: 'center' }}>{L.name}</div>
-      <h1 className="big">{title}</h1>
-      <div className="date num">{dateLabel(L.cycle.final)}</div>
-      {p.place <= 3 && <div className="wk-trophy num">{p.place}</div>}
-      <div className="wk-stack" style={{ gap: 6, margin: '10px 0' }}>
+    <div className="wk-champ wow wk-in">
+      <div className="wk-confetti" aria-hidden="true">
+        {CONFETTI.map((f, i) => <i key={i} style={{ ['--x' as string]: `${f.x}%`, ['--d' as string]: `${f.d}s`, ['--c' as string]: f.c, ['--r' as string]: `${f.r}deg`, ['--w' as string]: `${f.w}px` }} />)}
+      </div>
+      <div className="wk-stamp land">אלוף</div>
+      {pv.triple && <div className="wk-stamp land second">משולש</div>}
+      <div className="wk-kick" style={{ justifyContent: 'center' }}>ליגת השכונה</div>
+      <h1 className="big">אלוף הסופשבוע</h1>
+      <div className="date">{L.name} · <span className="num">{date}</span></div>
+      <div className="wk-trophy num place-1">1</div>
+      {career && pv.titleNo > 0 && <div className="wk-title-no">התואר ה-<span className="num">{pv.titleNo}</span> שלך בליגת השכונה</div>}
+      <div className="wk-envelope">
+        {career
+          ? <>מעטפת הבעלים: <b className="num"><bdi dir="ltr">₪{shown.toLocaleString('en-US')}</bdi></b> לפי {leagueWords}</>
+          : <>מעטפת הבעלים: <b className="num"><bdi dir="ltr">₪{shown.toLocaleString('en-US')}</bdi></b> ב{LEAGUE_NAMES[1]} · יותר בליגות גבוהות</>}
+      </div>
+      <div className="wk-row" style={{ justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span className="wk-pill">אוהדים <span className="num">+{pv.fans}</span></span>
+        {career && <span className={`wk-pill ${pv.triple ? 'red' : ''}`}>{monthLine}</span>}
+      </div>
+      <div className="wk-stack" style={{ gap: 6, margin: '12px 0 8px' }}>
         {top.map((r, i) => <div key={r.device} className={`wk-pr ${i === 0 ? 'first' : ''}`}><span className="n num">{i + 1}</span><span>{r.nick}</span><span className="pts num">{r.points}</span></div>)}
       </div>
-      <p className="wk-muted">
-        {p.wageRounds > 0 || p.gems > 0
-          ? `לקריירה: ${p.wageRounds === 1.5 ? 'מחזור שכר וחצי' : p.wageRounds === 1 ? 'מחזור שכר' : p.wageRounds === 0.75 ? 'שלושה רבעי מחזור שכר' : p.wageRounds === 0.5 ? 'חצי מחזור שכר' : 'רבע מחזור שכר'} של הליגה שלך${p.gems ? `, ו-${p.gems} ${p.gems === 1 ? 'יהלום' : 'יהלומים'}` : ''}.`
-          : 'העוזר שיחק במקומך ברוב המשחקים, אז הפעם בלי מעטפה.'}
-      </p>
-      {last && last.nick !== L.me?.nick && p.place === 1 && <p className="wk-muted">כפרה, {last.nick}.</p>}
-      {words ? <div className="wk-card soft" style={{ textAlign: 'start' }}><b>{words}</b></div>
-        : L.claimed ? <div className="wk-muted">הפרס כבר נלקח.</div>
-        : (p.wageRounds > 0 || p.gems > 0) ? <button className="wk-btn red" onClick={onTake}>{hasCareer ? 'לקחת הביתה לקריירה' : 'לשמור את הפרס לקריירה'}</button> : null}
+      {last && last.nick !== L.me?.nick && <p className="wk-muted">כפרה, {last.nick}.</p>}
+      {button}{after}
+      <button className="wk-btn ghost sm" style={{ marginTop: 8 }} onClick={async () => { try { await navigator.clipboard.writeText(brag); setCopied(true); } catch { /* no clipboard */ } }}>{copied ? 'הועתק. עכשיו לוואטסאפ' : 'להעתיק לחבר׳ה'}</button>
     </div>
   );
 }

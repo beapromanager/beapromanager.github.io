@@ -34,6 +34,7 @@
 
 import * as D from '../../src/game/duel.ts';
 import * as W from '../../src/game/weekendCore.ts';
+import { isPublicMatchTail, isPublicLeagueTail } from '../../src/game/weekendRoutes.ts';
 import type { Position } from '../../src/engine/matchEngine.ts';
 
 /* the slice of the platform this worker uses, declared here like the counting house does */
@@ -101,6 +102,8 @@ export default {
         if (!res.ok) return res;
         return json({ id: fresh.toString() });
       }
+      // only a phone's doors: a match's /create, /summary and /result are its league's, never a stranger's (25.10)
+      if (!isPublicMatchTail(tail, !!env.DEBUG)) return bad('no such door', 404);
       return fwd(env.MATCH.get(env.MATCH.idFromString(id)), `${tail ?? '/view'}${url.search}`, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
     }
 
@@ -119,6 +122,8 @@ export default {
     m = url.pathname.match(/^\/league\/([0-9a-f]{64})(\/[a-z]+)?$/);
     if (m) {
       const [, id, tail] = m;
+      // only a phone's doors: a league's /join and /create are the lobby's, which checks one league a weekend first (25.10)
+      if (!isPublicLeagueTail(tail)) return bad('no such door', 404);
       return fwd(env.LEAGUE.get(env.LEAGUE.idFromString(id)), `${tail ?? '/view'}${url.search}`, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
     }
     return bad('no such door', 404);

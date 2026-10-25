@@ -1,0 +1,11 @@
+/* the neighbourhood league's cabinet on the coach's screen: a wooden shelf, the career's own gold and ink */
+.cab-shelf{display:grid; grid-template-columns:repeat(auto-fill, minmax(78px, 1fr)); gap:10px 6px; margin-top:10px; padding:10px 6px 0;
+  border-bottom:7px solid #3A2A18; box-shadow:0 6px 0 -2px rgba(0,0,0,.35); background:linear-gradient(180deg, transparent 60%, rgba(233,185,73,.06))}
+.cab-cup{display:flex; flex-direction:column; align-items:center; text-align:center; gap:2px; min-width:0}
+.cab-cup svg{filter:drop-shadow(0 3px 4px rgba(0,0,0,.45))}
+.cab-date{font-size:11.5px; font-weight:800; color:var(--ink)}
+.cab-name{font-size:11px; color:var(--ink-dim); line-height:1.25; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cab-triple{font-size:10.5px; font-weight:900; color:var(--gold-hi); border:1px solid var(--gold); border-radius:4px; padding:0 5px; margin-top:2px}
+.cab-month{margin-top:12px; padding:8px 10px; border-radius:8px; background:rgba(255,255,255,.05); font-size:13px; font-weight:700; color:var(--ink-dim)}
+.cab-month.paid{color:var(--gold-hi); background:rgba(233,185,73,.12)}
+.cab-dots{letter-spacing:.15em; color:var(--gold-hi)}

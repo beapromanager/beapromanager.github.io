@@ -53,14 +53,16 @@ export interface WeekendLocal {
   /** when the league this device is in ends (its final), so the ticket can say "the final is now" after Sunday 20:00 */
   final: number | null;
   nick: string;
-  /** a prize fetched from the server and not yet in the career */
-  pendingPrize: PrizeToken | null;
+  /** a prize fetched from the server and not yet in the career, with the career's division when it was first seen */
+  pendingPrize: (PrizeToken & { tierSeen?: number }) | null;
+  /** league id to the career's division the first time this phone saw that league's prize: a promotion in between does not raise it */
+  prizeTier: Record<string, number>;
 }
 export interface PrizeToken { league: string; device: string; place: number; wageRounds: number; gems: number; finished: boolean; nick: string; leagueName: string; final: number; nonce: string; sig: string }
 
 export function local(): WeekendLocal {
-  try { const raw = localStorage.getItem(KEY); if (raw) return { leagueId: null, final: null, nick: '', pendingPrize: null, ...JSON.parse(raw) }; } catch { /* fine */ }
-  return { leagueId: null, final: null, nick: '', pendingPrize: null };
+  try { const raw = localStorage.getItem(KEY); if (raw) return { leagueId: null, final: null, nick: '', pendingPrize: null, prizeTier: {}, ...JSON.parse(raw) }; } catch { /* fine */ }
+  return { leagueId: null, final: null, nick: '', pendingPrize: null, prizeTier: {} };
 }
 export function setLocal(patch: Partial<WeekendLocal>) {
   try { localStorage.setItem(KEY, JSON.stringify({ ...local(), ...patch })); } catch { /* fine */ }

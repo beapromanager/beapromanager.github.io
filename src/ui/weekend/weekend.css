@@ -215,3 +215,22 @@
 .wk-filling b{display:block; margin-top:4px; font-size:15px; color:var(--wk-ink)}
 .wk-first{background:var(--wk-ink); color:var(--wk-paper); border-radius:6px; padding:9px 12px; font-weight:800; font-size:13px; line-height:1.4}
 @media (prefers-reduced-motion: reduce){.wk-when.hot::before{animation:none}}
+
+/* the champion's card (25.10, the prize): the stamp lands, the envelope runs up, the ticket's own confetti */
+.wk-champ.wow{overflow:hidden; padding-top:28px}
+.wk-champ .wk-stamp.land{top:150px; inset-inline-end:16px; font-size:20px; padding:3px 12px; animation:wkStamp .5s cubic-bezier(.2,.9,.3,1.35) .35s both}
+.wk-champ .wk-stamp.land.second{top:204px; font-size:13px; padding:1px 8px; animation-delay:1.55s; transform:rotate(-8deg)}
+@keyframes wkStamp{0%{opacity:0; transform:scale(1.6) rotate(12deg)} 70%{opacity:1; transform:scale(.96) rotate(12deg)} 82%{transform:scale(1) rotate(10deg)} 92%{transform:scale(1) rotate(13deg)} 100%{opacity:.92; transform:scale(1) rotate(12deg)}}
+.wk-champ .wk-stamp.land.second{animation-name:wkStamp2}
+@keyframes wkStamp2{0%{opacity:0; transform:scale(1.6) rotate(-8deg)} 70%{opacity:1; transform:scale(.96) rotate(-8deg)} 100%{opacity:.92; transform:scale(1) rotate(-8deg)}}
+.wk-trophy.place-2{background:radial-gradient(circle at 40% 30%, #F4F6F8, #B9C0C8 55%, #6C747C); color:#1B2A4A}
+.wk-trophy.place-3{background:radial-gradient(circle at 40% 30%, #F2C9A0, #C27A3E 55%, #6E3D17); color:#2A1405}
+.wk-title-no{font-weight:800; font-size:14px; color:var(--wk-ink); margin-top:2px}
+.wk-envelope{margin:10px auto 8px; padding:10px 12px; border:2px dashed var(--wk-ink); border-radius:6px; background:var(--wk-paper-2); font-size:14px; font-weight:700; color:var(--wk-ink); max-width:320px}
+.wk-envelope b{font-family:var(--font-wk); font-weight:400; font-size:26px; color:var(--wk-red-dark); display:inline-block; min-width:4ch}
+.wk-confetti{position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0}
+.wk-confetti i{position:absolute; top:-14px; left:var(--x); width:var(--w); height:calc(var(--w) * 1.6); background:var(--c); border-radius:1px; opacity:0; transform:rotate(var(--r)); animation:wkConfetti 1.6s ease-in calc(1.7s + var(--d)) 1 forwards}
+@keyframes wkConfetti{0%{opacity:1; transform:translateY(0) rotate(var(--r))} 100%{opacity:0; transform:translateY(520px) rotate(calc(var(--r) + 540deg))}}
+.wk-champ.wow > *:not(.wk-confetti){position:relative; z-index:1}
+.wk-champ.wow > .wk-stamp{position:absolute; z-index:2}
+@media (prefers-reduced-motion: reduce){.wk-champ .wk-stamp.land,.wk-champ .wk-stamp.land.second{animation:none; opacity:.92} .wk-confetti{display:none}}

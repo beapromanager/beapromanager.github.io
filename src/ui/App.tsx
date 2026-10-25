@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as G from '../game/state.ts';
 import { saveCareer, loadCareer, savedSummary, clearCareer } from '../game/save.ts';
 import type { SaveSummary } from '../game/save.ts';
@@ -6,6 +6,8 @@ import { TitleScreen } from './screens/Title.tsx';
 import { WeekendEntry, WeekendRoot } from './weekend/Weekend.tsx';
 import { weekendOn, serverNow, LAUNCH_AT, local as weekendLocal, setLocal as setWeekendLocal } from '../game/weekend.ts';
 import type { PrizeToken } from '../game/weekend.ts';
+import type { CareerPrizeView } from '../game/weekendPrize.ts';
+import { LEAGUE_NAMES } from '../data/clubs.ts';
 import { IntroCinematic } from './screens/Intro.tsx';
 import { Tutorial } from './components/Tutorial.tsx';
 import { OnboardManager, OnboardClub } from './screens/Onboard.tsx';
@@ -101,13 +103,21 @@ export function App() {
     const t = setInterval(() => setWkNow(serverNow()), 1000);
     return () => clearInterval(t);
   }, [wkNow >= LAUNCH_AT + 5_000]);
-  function applyWeekendPrize(token: PrizeToken): string | null {
+  // the career as the weekend screens see it: its division and its weekend record, read again whenever the save changes
+  const careerView = useMemo<CareerPrizeView | null>(() => {
+    const g = saved ? loadCareer() : null;
+    if (!g || !g.clubId) return null;
+    const tier = G.club(g).tier;
+    return { tier, leagueName: LEAGUE_NAMES[tier] ?? '', weekend: g.weekend ?? null };
+  }, [saved]);
+  /** the prize from the champion's card into the career; null without a saved career, else what to say and whether the phone keeps the token */
+  function applyWeekendPrize(token: PrizeToken & { tierSeen?: number }): { message: string; keep: boolean } | null {
     const loaded = loadCareer();
     if (!loaded) return null;
     const r = G.applyWeekendPrize(loaded, token);
-    saveCareer(r.gs);
+    if (r.ok) saveCareer(r.gs);
     setSaved(savedSummary());
-    return r.message;
+    return { message: r.message, keep: !r.ok && r.reason !== 'duplicate' };
   }
   const [fromPreseason, setFromPreseason] = useState(false);   // market opened from the summer board
   // who sent this link, kept for the moment a career actually starts. Read once
@@ -299,14 +309,21 @@ export function App() {
     setBooted(true);
   }
 
-  function continueCareer() {
+  /** open the saved career, optionally straight onto a screen (the cabinet from the weekend's champion card) */
+  function bootCareer(open?: (g: G.GameState) => G.GameState) {
     let loaded = loadCareer();
-    // a prize fetched while the career was not open comes in now, once
+    // a prize fetched while the career was not open comes in now, once; it stays on the phone only if there was no
+    // career to take it (25.10: it used to be dropped whatever happened)
     const pending = weekendLocal().pendingPrize;
-    if (loaded && pending) { const r = G.applyWeekendPrize(loaded, pending); if (r.ok) { loaded = r.gs; saveCareer(loaded); } setWeekendLocal({ pendingPrize: null }); }
-    if (loaded) setGs(loaded);
+    if (loaded && pending) {
+      const r = G.resolvePending(loaded, pending);
+      if (r.gs !== loaded) { loaded = r.gs; saveCareer(loaded); }
+      if (!r.keep) setWeekendLocal({ pendingPrize: null });
+    }
+    if (loaded) setGs(open ? open(loaded) : loaded);
     setBooted(true);
   }
+  function continueCareer() { bootCareer(); }
 
   if (adminStats) {
     return <div className="frame"><AdminScreen stats={adminStats} /></div>;
@@ -323,7 +340,8 @@ export function App() {
   if (!booted && weekendOpen && weekendOn(wkNow)) {
     return (
       <div className="frame">
-        <WeekendRoot saved={saved} onBack={() => setWeekendOpen(false)} onPrize={applyWeekendPrize} />
+        <WeekendRoot saved={saved} career={careerView} onBack={() => setWeekendOpen(false)} onPrize={applyWeekendPrize}
+          onCabinet={careerView ? () => { setWeekendOpen(false); bootCareer(G.openCoach); } : undefined} />
       </div>
     );
   }
