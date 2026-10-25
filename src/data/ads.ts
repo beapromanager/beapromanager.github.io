@@ -52,8 +52,6 @@ export type Ad = {
 export const ADS_LIVE = false;
 
 export const ADS: readonly Ad[] = [
-  { id: 'ultraskit', src: '/ads/ultraskit.mp4', poster: '/ads/ultraskit.webp', seconds: 15.3,
-    brand: 'ULTRAS KIT', link: 'https://ultraskit.com/', site: 'ultraskit.com' },
   { id: 'novablux', src: '/ads/novablux.mp4', poster: '/ads/novablux.webp', seconds: 12.3,
     brand: 'NovaBluX', link: 'https://novablux.shop/', site: 'novablux.shop' },
   // a favour rather than a placement: a neighbourhood laundry, carried for

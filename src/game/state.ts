@@ -1535,9 +1535,9 @@ export function sponsorChoices(gs: GameState): SponsorOffer[] {
 }
 
 /**
- * Sign the deal. The brand is optional because a deal type belongs to one
- * brand; it is there for the day two brands offer the same kind. The welcome
- * is queued as a notice, so it is the first thing seen on the way to the hub.
+ * Sign the deal. The brand is optional; today one brand offers every kind, and
+ * it is there for the day two brands offer the same kind. The welcome is
+ * queued as a notice, so it is the first thing seen on the way to the hub.
  */
 export function takeSponsor(gs: GameState, id: SponsorId, brand?: BrandId): GameState {
   const all = sponsorChoices(gs);

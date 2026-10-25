@@ -1235,29 +1235,6 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
   gap:14px; align-items:center; justify-content:flex-start;
 }
 
-/* the launch photograph bleeds to the top edge of the case and fades into it,
-   so it reads as the room the shirt came out of rather than a picture stuck on
-   a card. The pair below takes the slack, which keeps the shirts centred in
-   whatever height is left on the phone. */
-.kit-launch{position:relative; width:calc(100% + 28px); margin:0 -14px; flex:none;}
-.kit-launch img{
-  display:block; width:100%; object-fit:cover; object-position:50% 46%;
-  /* the band, the shirts and the type are all sized off the viewport height,
-     because the one thing that must never happen here is the button being
-     pushed off the bottom of a short phone */
-  height:clamp(96px, 18.5vh, 150px);
-}
-.kit-launch::after{
-  content:""; position:absolute; inset:0; pointer-events:none;
-  background:
-    linear-gradient(180deg, rgba(0,0,0,.30) 0 14%, transparent 40%, var(--surface-3) 96%);
-}
-/* the hairline the tile normally wears on top, moved to the seam between the
-   room and the shirt, where it now does more work */
-.kit-launch::before{
-  content:""; position:absolute; left:0; right:0; bottom:0; height:1px; z-index:1;
-  background:linear-gradient(90deg, transparent 6%, rgba(233,185,73,.42) 50%, transparent 94%);
-}
 .kit-pair{
   display:flex; align-items:center; justify-content:center; gap:6px;
   width:100%; min-height:186px; flex:1;

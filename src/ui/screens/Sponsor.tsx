@@ -5,20 +5,21 @@ import { Icon } from '../components/Icon.tsx';
 import { LEAGUE_NAMES } from '../../data/clubs.ts';
 import { formatMoney, formatMoneyExact } from '../components/bits.tsx';
 import { asset } from '../asset.ts';
+import { LOYALTY_SEASONS, LOYALTY_RAISE } from '../../game/sponsor.ts';
 
 /**
  * Selling the shirt, every summer.
  *
- * Two companies want it, and each is a character with a reason: the laundry
- * pays steady money because steady custom is what a laundry wants, the shirt
- * shop pays on results and on the crowd because that is when shirts sell.
- * The screen is grouped by brand, mark first, pitch in the brand's own voice,
- * then its deals, so the choice reads as "who" before it reads as "how much".
+ * One brand wants it today and puts all three deals on the table: a steady
+ * sum, less a round with a lump for going up, or a share that follows the
+ * crowd. The screen is grouped by brand, mark first, pitch in the brand's own
+ * voice, then its deals, so with more brands the choice would read as "who"
+ * before "how much", and with one it reads as "how".
  *
- * The brand turned down last summer comes back with a raised offer and says
- * so on the card, last year's price struck through beside the new one; the
- * brand kept three seasons shows its loyalty raise the same way. The numbers
- * are the argument, the tag is the reason.
+ * A raised offer says so on the card, last year's price struck through beside
+ * the new one: the loyalty of a brand kept three seasons, or, when there is
+ * more than one brand, the comeback of the one turned down. The numbers are
+ * the argument, the tag is the reason.
  */
 export function SponsorScreen({ gs, onPick }: {
   gs: G.GameState; onPick: (id: G.SponsorId, brand: G.BrandId) => void;
@@ -27,6 +28,9 @@ export function SponsorScreen({ gs, onPick }: {
   const offers = G.sponsorChoices(gs);
   const rounds = gs.league.rounds;
   const last = gs.sponsor && gs.sponsor.season === gs.season - 1 ? G.brandById(gs.sponsor.brand) : null;
+  const n = G.BRANDS.length;
+  // a running index over every card, so the stagger never assumes how many deals a brand has
+  let card = 0;
 
   return (
     <div className="screen pad stack pad-b" style={{ gap: 15, minHeight: '100%' }}>
@@ -41,20 +45,22 @@ export function SponsorScreen({ gs, onPick }: {
       </div>
 
       <div className="tile" style={{ padding: 14, fontSize: 14.5, lineHeight: 1.6 }}>
-        {G.BRANDS.length === 2 ? 'שני מותגים' : `${G.BRANDS.length} מותגים`} רוצים את החולצה של {c.short} העונה.
+        {n === 1
+          ? <>{G.BRANDS[0].name} רוצה את החולצה של {c.short} העונה, ומציעה <span className="num">{offers.length}</span> חוזים.</>
+          : <>{n === 2 ? 'שני מותגים' : `${n} מותגים`} רוצים את החולצה של {c.short} העונה.</>}{' '}
         בוחרים הצעה אחת, ואפשר לשנות רק בקיץ הבא.
         {last && <span className="sub" style={{ display: 'block', marginTop: 4, fontSize: 13.5 }}>בעונה שעברה על החולצה: {last.name}.</span>}
       </div>
 
-      {G.BRANDS.map((b, bi) => {
+      {G.BRANDS.map(b => {
         const mine = offers.filter(o => o.brand === b.id);
         if (!mine.length) return null;
         return (
           <section key={b.id} className="stack" style={{ gap: 10 }}>
             <BrandHeader brand={b} />
             <div className="stack stagger" style={{ gap: 10 }}>
-              {mine.map((o, i) => (
-                <button key={o.id} className="sponsor-card" style={{ ...({ '--i': bi * 2 + i } as React.CSSProperties) }}
+              {mine.map(o => (
+                <button key={o.id} className="sponsor-card" style={{ ...({ '--i': card++ } as React.CSSProperties) }}
                   onClick={() => onPick(o.id, o.brand)}>
                   <div className="row" style={{ justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
                     <span style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>{o.name}</span>
@@ -79,8 +85,9 @@ export function SponsorScreen({ gs, onPick }: {
       })}
 
       <p className="hint">
-        חוזה היציע נמדד מול הקהל שהליגה מצפה לו, אז הרחבת אצטדיון מגדילה גם אותו,
-        לא רק את הכנסות הכרטיסים. מותג שדחית חוזר בקיץ הבא עם הצעה גבוהה יותר.
+        {offers.some(o => o.followsCrowd) && <>חוזה היציע נמדד מול הקהל שהליגה מצפה לו, אז הרחבת אצטדיון מגדילה גם אותו, לא רק את הכנסות הכרטיסים. </>}
+        {n > 1 && <>מותג שדחית חוזר בקיץ הבא עם הצעה גבוהה יותר. </>}
+        {LOYALTY_SEASONS === 3 ? 'שלוש' : <span className="num">{LOYALTY_SEASONS}</span>} עונות ברצף עם אותו מותג מוסיפות <span className="num">{Math.round(LOYALTY_RAISE * 100)}%</span> לכל חוזה.
       </p>
     </div>
   );

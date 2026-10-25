@@ -3,18 +3,18 @@ import type { SponsorId } from '../game/sponsor.ts';
 /**
  * The brands that want the shirt.
  *
- * A sponsor is a character, not a number: each brand has a reason to be on a
- * football shirt, a way of talking, and the one or two deals that reason
- * leads to. A laundry wants steady custom and pays steady money; a shirt
- * shop sells more when the club wins and the ground is full, so it pays on
- * results and on the crowd. Adding a brand is adding an entry here and a
- * logo in public/sponsors; the deals it offers decide the rest.
+ * A sponsor is a character, not a number: a brand has a reason to be on a
+ * football shirt, a way of talking, and the deals it puts on the table. Today
+ * one brand offers all three kinds of deal (safe, results, crowd), so the
+ * summer choice is how to be paid, not by whom. Adding a brand is adding an
+ * entry here and a logo in public/sponsors; the deals it offers decide the
+ * rest, and the sponsor code already handles more than one brand.
  *
  * `logo` is a root-relative path resolved through asset(). Until the file
  * exists the screens draw the name as a wordmark, so a brand can be signed
  * before its artwork arrives.
  */
-export type BrandId = 'blacksheep' | 'ultraskit';
+export type BrandId = 'blacksheep';
 
 export interface Brand {
   id: BrandId;
@@ -45,7 +45,7 @@ export const BRANDS: readonly Brand[] = [
     name: 'מכבסת הכבשה השחורה',
     chest: 'הכבשה השחורה',
     who: 'מכבסה תל אביבית. שירות טוב, כביסה נקייה.',
-    pitch: 'כסף נקי, סכום קבוע כל מחזור, בלי הפתעות. כמו הכביסה שלנו.',
+    pitch: 'כסף נקי בכל מחזור. רוצים שקט? סכום קבוע. מהמרים על עלייה או על יציע מלא? אנחנו מהמרים איתכם.',
     welcome: 'המדים של העונה יוצאים מהמכבסה שלנו לבנים כמו חדשים. תנצחו, אנחנו נכבס.',
     wants: [
       'שהשחקנים יצטלמו במכבסה עם המדים',
@@ -53,23 +53,7 @@ export const BRANDS: readonly Brand[] = [
       'שתביאו את המדים לכביסה אצלנו אחרי הדרבי, בשביל התמונה',
     ],
     logo: '/sponsors/blacksheep.webp',
-    deals: ['base'],
-  },
-  {
-    id: 'ultraskit',
-    name: 'ULTRAS KIT',
-    chest: 'ULTRAS KIT',
-    who: 'חנות מקוונת לחולצות כדורגל באיכות גבוהה.',
-    pitch: 'אנחנו מוכרים חולצות. כשאתם מנצחים והיציע מלא, כולם רוצים אחת. נשלם על זה.',
-    welcome: 'החולצה שלכם עולה לחנות שלנו העונה. כל ניצחון מוכר עוד אחת.',
-    wants: [
-      'שתעשו אירוע חתימות בחנות ביום שישי',
-      'שהשחקנים יצטלמו עם החולצה החדשה לקטלוג',
-      'שהקפטן יופיע בסרטון לרשתות שלנו',
-    ],
-    logo: '/sponsors/ultraskit.webp',
-    deals: ['results', 'crowd'],
-    adId: 'ultraskit',
+    deals: ['base', 'results', 'crowd'],
   },
 ];
 
