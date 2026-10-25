@@ -6,7 +6,6 @@ import { Icon } from '../components/Icon.tsx';
 import { seasonLabel } from '../../data/seasonKit.ts';
 import type { SeasonKit } from '../../data/seasonKit.ts';
 import { LEAGUE_NAMES } from '../../data/clubs.ts';
-import { asset } from '../asset.ts';
 
 /**
  * The kit launch.
@@ -53,13 +52,6 @@ export function KitReveal({ gs, onDone }: { gs: G.GameState; onDone: () => void 
       </div>
 
       <div className="tile-hero kit-stage">
-        {/* the launch event itself, bleeding into the top of the case. The shirt
-            below is the one that came out of that room, which is the only reason
-            a photograph belongs on this screen at all */}
-        <div className="kit-launch">
-          <img src={asset('/ultraskit.webp')} alt="" width={1600} height={893} />
-        </div>
-
         <div className="kit-pair">
           {old && (
             <figure className="kit-slot kit-old">

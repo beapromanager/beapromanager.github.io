@@ -21,6 +21,7 @@ import { emptyInvite } from './invite.ts';
 import { emptyMate } from './mate.ts';
 import { emptyScout } from './scout.ts';
 import { DEFAULT_FORMATION } from '../data/formations.ts';
+import { BRANDS, type BrandId } from '../data/sponsors.ts';
 
 const KEY = 'beapro.career.v1';
 const VERSION = 1;
@@ -64,6 +65,9 @@ function readEnvelope(): Envelope | null {
     return null;
   }
 }
+
+/** a brand id the game still has, or the first brand: a save can name a brand that has since left the game */
+const knownBrand = (b: unknown): BrandId => (BRANDS.some(x => x.id === b) ? (b as BrandId) : BRANDS[0].id);
 
 export function loadCareer(): GameState | null {
   const env = readEnvelope();
@@ -113,11 +117,12 @@ export function loadCareer(): GameState | null {
       fans: Math.round(s.meters?.fans ?? FANS_START),
     },
     sacking: s.sacking ?? null,
-    // a deal from before the brands were characters was ULTRASKIT's by name;
-    // it becomes that brand's, and its run starts the season it was signed
+    // a brand that is no longer in the game moves to the first brand, with the
+    // same deal and the same terms (the kind, the price, the bonus, the crowd,
+    // the season), and its run goes on from the season it began
     sponsor: s.sponsor ? {
       ...s.sponsor,
-      brand: (s.sponsor as { brand: string }).brand === 'ULTRASKIT' ? 'ultraskit' : s.sponsor.brand,
+      brand: knownBrand((s.sponsor as { brand: unknown }).brand),
       since: s.sponsor.since ?? s.sponsor.season,
     } : null,
     nemesis: s.nemesis ?? null,
@@ -148,7 +153,8 @@ export function loadCareer(): GameState | null {
     youthStamp: s.youthStamp ?? 0,
     youthUp: s.youthUp ?? [],
     youthTripSeason: s.youthTripSeason ?? 0,
-    notices: s.notices ?? [],
+    // a sponsor's welcome still waiting in the queue under a brand that is gone is the first brand's now
+    notices: (s.notices ?? []).map(n => (n.kind === 'sponsor' ? { ...n, brand: knownBrand((n as { brand: unknown }).brand) } : n)),
     exits: s.exits ?? [],
     sitOut: s.sitOut ?? {},
     sitOutNext: s.sitOutNext ?? {},

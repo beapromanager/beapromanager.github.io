@@ -9,15 +9,15 @@
  *
  * It is also a decision rather than a number. Safe money, money that only
  * arrives if you go up, or money that follows the crowd: the same three
- * temperaments the rest of the game asks about. Each temperament now belongs
- * to a BRAND with a reason to want the shirt (see data/sponsors), so the
- * choice is between two companies and not three rows of the same logo.
+ * temperaments the rest of the game asks about. The deals are offered by a
+ * BRAND with a reason to want the shirt (see data/sponsors); today one brand,
+ * the laundry, puts all three on the table, so the summer asks how to be paid.
  *
- * The brands compete. The one turned down last summer comes back offering
- * more, and keeps raising it every summer it is turned down again, up to a
- * ceiling; the one that has kept the shirt for three seasons running pays a
- * little extra for the loyalty. Switching every year is not free money and
- * staying is not a trap, which is what keeps the summer a real question.
+ * Staying is rewarded: a brand that has kept the shirt three seasons running
+ * pays a little extra for the loyalty, whichever of its deals was signed. The
+ * comeback (a brand turned down last summer returns offering more, up to a
+ * ceiling) stays in the code for the day there is more than one brand; with
+ * one brand nobody is turned down, so it never fires.
  */
 
 import { TOP_TIER } from './career.ts';
@@ -91,7 +91,9 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  * `current` is last season's deal, still on the state until the new one is
  * signed. The other brand has been turned down once per season the current
  * one has held the shirt, and comes back at twenty, thirty five, fifty
- * percent. The current brand, three seasons in, adds its loyalty ten.
+ * percent. The current brand, three seasons in, adds its loyalty ten. With a
+ * single brand in the game there is no other brand, so the comeback branch is
+ * never taken; it is kept for the day a second brand is added.
  */
 export function brandRaise(brand: BrandId, current: Sponsor | null, season: number): { raise: number; why: SponsorOffer['raiseWhy'] } {
   if (!current || current.season !== season - 1) return { raise: 0, why: null };
