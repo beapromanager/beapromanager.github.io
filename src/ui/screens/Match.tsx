@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { asset } from '../asset.ts';
+import { useAssetsReady } from '../assetReady.ts';
 import { momentWorld, buildupImg, outcomeImg, buildupsOf, outcomesOf } from '../momentArt.ts';
 import type { MomentWorld } from '../momentArt.ts';
 import * as G from '../../game/state.ts';
@@ -152,26 +153,38 @@ function preloadMoments(world: MomentWorld) {
   })();
 }
 
-export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines, flare, doneLabel }: {
+export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines, flare, doneLabel, comp }: {
   gs: G.GameState;
   /** the result, and the ids of his men on the grass or sent off at the whistle (the European night needs who played) */
   onDone: (r: MatchResult, onPitchIds: string[]) => void;
   /** fired once when the first half ends, so the App can count how far first matches get */
   onHalfTime?: () => void;
-  /** a match that is not the week's league fixture: the European night hands its own engine input and two clubs */
+  /** a match that is not the week's league fixture: the European (or cup) night hands its own engine input and two clubs */
   live?: Parameters<typeof L.createLive>[0];
   clubs?: { home: Club; away: Club };
   /** the round, the two towns and the ground, for the entrance and the bar */
   euroLines?: EntranceLines | null;
-  /** null to light no flares: the flare reasons are the league's nights, not Europe's */
+  /** null to light no flares: the flare reasons are the league's nights, not a cup night's */
   flare?: G.FlareReason | null;
   doneLabel?: string;
+  /** which cup this is, when `clubs` is set: Europe (the default, for every existing call site) or גביע המדינה */
+  comp?: 'euro' | 'cup';
 }) {
   const liveRef = useRef<LiveState | null>(null);
   if (!liveRef.current) liveRef.current = L.createLive(live ?? G.liveMatchInput(gs));
   const st = liveRef.current;
-  // a European night: Itzik wants a goal felt in the hand, not only seen
+  // a cup night: Itzik wants a goal felt in the hand, not only seen. comp tells Europe's blue apart from the cup's amber
   const euro = !!clubs;
+  const cup = euro && comp === 'cup';
+  // shadows the module's own EURO_MOMENT_ASSETS: every `euro ? EURO_MOMENT.x : ...` line below reads whichever
+  // table actually belongs to this night, Europe's or the cup's own (21.10), without a second ternary at each line.
+  // Each cup key only wins once its own file is confirmed real; a key still missing reads the league fallback instead,
+  // never Europe's — so a half-finished art drop never leaves one moment stuck on Europe's own picture.
+  const cupArtReady = useAssetsReady(cup ? Object.values(CUP_MOMENT_ART) : []);
+  const EURO_MOMENT = cup
+    ? Object.fromEntries((Object.keys(CUP_MOMENT_ART) as MomentKind[])
+        .map(k => [k, cupArtReady[CUP_MOMENT_ART[k]] ? CUP_MOMENT_ART[k] : CUP_MOMENT_FALLBACK[k]])) as Record<MomentKind, string>
+    : EURO_MOMENT_ASSETS;
   // ליגה ג׳ to א׳ play by day at a neighbourhood ground, the Leumit and ליגת העל at night; Europe has its own pictures
   const world = momentWorld(G.club(gs).tier);
   useEffect(() => preloadMoments(world), [world]);
@@ -328,8 +341,10 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <TeamSide club={homeClub} kit={hdrKits.home} />
           <div style={{ textAlign: 'center', minWidth: 104 }}>
-            <div className={euro ? 'eu-glow' : undefined}><ScorePair h={shownScore.current[0]} a={shownScore.current[1]} size={44} /></div>
-            {euro && euroLines && <div className="eu-venue">{euroLines.venue}</div>}
+            <div className={cup ? 'cup-glow' : euro ? 'eu-glow' : undefined}><ScorePair h={shownScore.current[0]} a={shownScore.current[1]} size={44} /></div>
+            {euro && euroLines && (cup
+              ? <div className="cup-venue">{euroLines.venue}</div>
+              : <div className="eu-venue">{euroLines.venue}</div>)}
             <div className="pill" style={{
               marginTop: 7,
               background: st.phase === 'done' ? 'rgba(255,255,255,.06)' : 'rgba(226,72,77,.16)',
@@ -457,7 +472,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
       {/* the terrace, before a ball is kicked. Portalled for the same reason the
           moment cards are: .screen animates in with a transform, and a fixed
           layer inside it would pin itself to the screen instead of the viewport */}
-      {entrance && clubs && euroLines && <EuroEntrance home={clubs.home} away={clubs.away} lines={euroLines} onDone={() => setEntrance(false)} />}
+      {entrance && clubs && euroLines && <EuroEntrance home={clubs.home} away={clubs.away} lines={euroLines} kind={cup ? 'cup' : 'euro'} onDone={() => setEntrance(false)} />}
       {flares && (
         <Portal>
           <FlareBeat reason={flares} onDone={() => setFlares(null)} />
@@ -1118,7 +1133,7 @@ type MomentKind = 'penalty' | 'shot' | 'one_on_one' | 'tactic' | 'free_kick' | '
  * deep blue floodlit sky in plain kits. Only the frame the question is asked
  * on changes; the outcome frames are the league's own until theirs are made.
  */
-const EURO_MOMENT: Record<MomentKind, string> = {
+const EURO_MOMENT_ASSETS: Record<MomentKind, string> = {
   penalty: asset('/moments/euro/penalty.webp'),
   def_penalty: asset('/moments/euro/def-penalty.webp'),
   shot: asset('/moments/euro/shot.webp'),
@@ -1127,6 +1142,37 @@ const EURO_MOMENT: Record<MomentKind, string> = {
   free_kick: asset('/moments/euro/free-kick.webp'),
   def_keeper: asset('/moments/euro/def-keeper.webp'),
   def_tackle: asset('/moments/euro/def-tackle.webp'),
+};
+
+/**
+ * גביע המדינה's own eight decision frames (21.10, amber floodlights, never
+ * Europe's). `public/moments/cup/*.webp` does not exist yet — no asset
+ * generation ran for it — so each key is only trusted once `useAssetsReady`
+ * below confirms the file is really there; until then that one key falls
+ * back to the league's own night picture, exactly Europe's own precedent
+ * before its pictures existed. Never to Europe's own `/moments/euro*`.
+ */
+export const CUP_MOMENT_ART: Record<MomentKind, string> = {
+  penalty: asset('/moments/cup/penalty.webp'),
+  def_penalty: asset('/moments/cup/def-penalty.webp'),
+  shot: asset('/moments/cup/shot.webp'),
+  one_on_one: asset('/moments/cup/one-on-one.webp'),
+  tactic: asset('/moments/cup/tactic.webp'),
+  free_kick: asset('/moments/cup/free-kick.webp'),
+  def_keeper: asset('/moments/cup/def-keeper.webp'),
+  def_tackle: asset('/moments/cup/def-tackle.webp'),
+};
+
+/** The league's own night picture, per key, for whichever of the above is not ready yet. */
+export const CUP_MOMENT_FALLBACK: Record<MomentKind, string> = {
+  penalty: asset(buildupImg('penalty', 'night', 0)),
+  def_penalty: asset(buildupImg('def_penalty', 'night', 0)),
+  shot: asset(buildupImg('shot', 'night', 0)),
+  one_on_one: asset(buildupImg('one_on_one', 'night', 0)),
+  tactic: tacticImg(5),
+  free_kick: asset(buildupImg('free_kick', 'night', 0)),
+  def_keeper: asset(buildupImg('def_keeper', 'night', 0)),
+  def_tackle: asset(buildupImg('def_tackle', 'night', 0)),
 };
 
 const MOMENT_LOOK: Record<MomentKind, { img: string; accent: string; kicker: string }> = {

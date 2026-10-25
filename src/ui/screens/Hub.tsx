@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { ROUND_NAMES, EURO_LIVE } from '../../game/euro.ts';
 import type { EuroNight } from '../../game/euro.ts';
+import { CUP_LIVE } from '../../game/cup.ts';
+import type { CupNight } from '../../game/cup.ts';
+import { asset } from '../asset.ts';
+import { useAssetsReady } from '../assetReady.ts';
 import { euroClub, asClub } from '../../data/europeClubs.ts';
 import { LEAGUE_NAMES, isDerby } from '../../data/clubs.ts';
 import type { Club } from '../../data/clubs.ts';
@@ -43,9 +47,10 @@ import { SCOUT_LIVE, SCOUT_TEXT } from '../../game/scout.ts';
  * round is never more than one tap away.
  */
 
-export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth, onScout, onEuro, onEuroDraw, onEuroBracket, onDaily }: {
+export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain, onAssistant, onInbox, onStadium, onPacks, onCoach, onTable, onYouth, onScout, onEuro, onEuroDraw, onEuroBracket, onCup, onCupDraw, onCupBracket, onDaily }: {
   gs: G.GameState; onStart: () => void; onSquad: () => void; onTransfers: () => void; onEuro: () => void;
   onEuroDraw: () => void; onEuroBracket: () => void; onDaily?: () => void;
+  onCup: () => void; onCupDraw: () => void; onCupBracket: () => void;
   onChronicle: () => void; onCaptain: () => void; onAssistant: () => void; onInbox: () => void;
   onStadium: () => void; onPacks: () => void; onCoach: () => void; onTable: () => void; onYouth: () => void; onScout: () => void;
 }) {
@@ -64,10 +69,20 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
   const night = G.euroNight(gs);
   const pensDue = G.euroPensDue(gs);
   const drawDue = G.euroDrawDue(gs);
+  const cupNight = G.cupNight(gs);
+  const cupPensDue = G.cupPensDue(gs);
+  const cupDrawDue = G.cupDrawDue(gs);
+  const cupWaiting = !cupNight && G.cupWaiting(gs);
+  // a cup night this week or its pens block the league round exactly like Europe's own. The staged entrant's wait does
+  // NOT: nothing is owed in those weeks, the pre-bracket is played for him inside startWeek, and a button that waits for
+  // the round which waits for the button is a dead end (24.10, weeks 1 to 4 of the champion in Europe)
+  const cupBlocking = !!cupNight || cupPensDue;
 
   return (
     <>
       <Meters {...gs.meters} gems={gs.gems} />
+      {/* the cup day banner: unmissable at the top of the home page, so a cup day never reads as a normal round (ב.8) */}
+      {(cupNight || cupPensDue || cupDrawDue) && <CupDayBanner />}
       <div className="screen pad stack hub-pad" style={{ gap: 14 }}>
         {/* who you are, one line, no biography */}
         <div className="row" style={{ marginTop: 2, gap: 11 }}>
@@ -89,7 +104,11 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
           {drawDue && <EuroDrawCard onGo={onEuroDraw} />}
           {night && <EuroHero night={night} onGo={onEuro} />}
           {!night && pensDue && <EuroPensCard gs={gs} onGo={onEuro} />}
-          <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} waiting={!!night || pensDue} />
+          {cupDrawDue && <CupDrawCard onGo={onCupDraw} />}
+          {cupNight && <CupHero gs={gs} night={cupNight} onGo={onCup} />}
+          {!cupNight && cupPensDue && <CupPensCard gs={gs} onGo={onCup} />}
+          {!cupNight && !cupPensDue && cupWaiting && <CupWaitingCard />}
+          <MatchHero club={c} rival={rival} iAmHome={!!iAmHome} derby={derby} gs={gs} onStart={onStart} waiting={!!night || pensDue || cupBlocking} waitingLabel={night || pensDue ? 'קודם הערב האירופי' : 'קודם ערב הגביע'} />
         </div>
 
         {DAILY_LIVE && onDaily && <DailyHubCard gs={gs} onOpen={onDaily} />}
@@ -126,6 +145,9 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
           {EURO_LIVE && gs.euro && (
             <Cell i={10} icon="trophy" label="אירופה" onClick={onEuroBracket} dot={gs.euro.status === 'on' ? 'var(--euro, #6FA8FF)' : undefined} />
           )}
+          {CUP_LIVE && gs.cup && (
+            <Cell i={11} icon="trophy" label="גביע המדינה" onClick={onCupBracket} dot={(gs.cup.status === 'on' || gs.cup.status === 'waiting') ? 'var(--cup, #D98A3D)' : undefined} />
+          )}
         </div>
 
         <FanNote msg={G.fanNote(gs, 'pre')} />
@@ -144,7 +166,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
         </button>
       </div>
 
-      {!G.weekBlockedReason(gs) && <StickyStart hero={hero} onStart={onStart} rival={rival?.short} />}
+      {!G.weekBlockedReason(gs) && !night && !pensDue && !cupBlocking && <StickyStart hero={hero} onStart={onStart} rival={rival?.short} />}
     </>
   );
 }
@@ -226,11 +248,13 @@ function Form({ form }: { form: ('W' | 'D' | 'L')[] }) {
  * The one thing the manager came here to do. It gets the space, the crests and
  * the button, and nothing above it competes for the eye.
  */
-function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting }: {
+function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting, waitingLabel }: {
   club: Club; rival: Club | undefined; iAmHome: boolean; derby: boolean;
   gs: G.GameState; onStart: () => void;
   /** the European night is still to be played: the league waits for it */
   waiting?: boolean;
+  /** what the held button says: the European night or the cup night that comes first (21.10: a cup week said the European one) */
+  waitingLabel?: string;
 }) {
   if (!rival) {
     return (
@@ -279,7 +303,7 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting }: {
         </div>
       ) : waiting ? (
         <button className="btn dark" style={{ marginTop: 16, opacity: .6 }} disabled>
-          <Icon name="whistle" size={18} /> קודם הערב האירופי
+          <Icon name="whistle" size={18} /> {waitingLabel ?? 'קודם הערב האירופי'}
         </button>
       ) : (
         <button className="btn" style={{ marginTop: 16 }} onClick={onStart}>
@@ -359,6 +383,108 @@ function EuroPensCard({ gs, onGo }: { gs: G.GameState; onGo: () => void }) {
         </div>
       </div>
       <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>לפנדלים</button>
+    </div>
+  );
+}
+
+/**
+ * The unmissable word at the very top of the home page, above everything
+ * else: today is a cup day. Itzik's note of 20.10 — the player has to know
+ * the moment the hub opens, not discover it three taps in. Dark brown and
+ * amber, same family as the frame's own cup stage, so the banner and the
+ * night it is announcing never disagree.
+ */
+function CupDayBanner() {
+  return (
+    <div className="row" style={{
+      gap: 10, padding: '10px 14px', alignItems: 'center', justifyContent: 'center',
+      background: 'linear-gradient(180deg,#312015,#1C120B)', borderBottom: '1px solid rgba(217,138,61,.32)',
+    }}>
+      <Icon name="trophy" size={17} color="#F6D3A1" />
+      <b style={{ fontSize: 14, color: '#F6D3A1', letterSpacing: '.01em' }}>היום יום גביע</b>
+      <span style={{ fontSize: 13, color: '#D8BE9E' }}>· גביע המדינה</span>
+    </div>
+  );
+}
+
+/** the cup final's own stadium shot (21.10); shown only once confirmed real, only on final day */
+export const CUP_FINAL_BG = asset('/moments/cup/final.webp');
+
+/** A cup night this week. Dark brown and amber (ב.8), so the eye knows at once this is not the league and not Europe. */
+function CupHero({ gs, night, onGo }: { gs: G.GameState; night: CupNight; onGo: () => void }) {
+  const opp = G.cupClub(gs, night.oppId);
+  const isFinal = night.host === null;
+  const venue = isFinal ? 'הגמר, מגרש ניטרלי' : night.host ? 'בבית' : `בחוץ, אצל ${opp.name}`;
+  const finalBgReady = useAssetsReady(isFinal ? [CUP_FINAL_BG] : []);
+  const bg = isFinal && finalBgReady[CUP_FINAL_BG] ? CUP_FINAL_BG : null;
+  return (
+    <div className="match-hero" data-cup="1"
+      style={bg ? { backgroundImage: `linear-gradient(165deg, rgba(49,32,21,.55), rgba(20,12,7,.88)), url('${bg}')`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
+        <span className="label-cap" style={{ color: 'var(--cup, #D98A3D)' }}>ערב גביע</span>
+        <span className="chip chip-cup">{ROUND_NAMES[night.round]}</span>
+      </div>
+      <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+        <Crest club={opp} size={52} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <b style={{ fontSize: 15.5, lineHeight: 1.2 }}>{opp.name}</b>
+          <div className="sub" style={{ fontSize: 13 }}>{opp.city} · {venue} · משחק יחיד, הפסד שולח הביתה</div>
+        </div>
+      </div>
+      <p className="hint" style={{ margin: '12px 0 0' }}>משחק הליגה של השבוע אחרי הערב הזה.</p>
+      <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>
+        <Icon name="whistle" size={18} /> יוצאים לערב הגביע
+      </button>
+    </div>
+  );
+}
+
+/** The cup's draw was made in the summer (or, for a staged entrant, after the pre-bracket); the ceremony is owed once. */
+function CupDrawCard({ onGo }: { onGo: () => void }) {
+  return (
+    <div className="match-hero" data-cup="1">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+        <span className="label-cap" style={{ color: 'var(--cup, #D98A3D)' }}>גביע המדינה</span>
+        <span className="chip chip-cup">ההגרלה</span>
+      </div>
+      <p className="hint" style={{ margin: 0 }}>הגעתם לדרג הגביע. ההגרלה מחכה.</p>
+      <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>להגרלה</button>
+    </div>
+  );
+}
+
+/** The legs are in and level: the cup's shootout waits, and the league waits for it. */
+function CupPensCard({ gs, onGo }: { gs: G.GameState; onGo: () => void }) {
+  const tie = G.cupMyTie(gs);
+  const opp = tie ? G.cupClub(gs, tie.a === gs.clubId ? tie.b : tie.a) : null;
+  if (!opp) return null;
+  return (
+    <div className="match-hero" data-cup="1">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
+        <span className="label-cap" style={{ color: 'var(--cup, #D98A3D)' }}>ערב גביע</span>
+        <span className="chip chip-cup">{ROUND_NAMES[gs.cup?.round ?? 0]}</span>
+      </div>
+      <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+        <Crest club={opp} size={52} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <b style={{ fontSize: 15.5, lineHeight: 1.2 }}>{opp.name}</b>
+          <div className="sub" style={{ fontSize: 13 }}>שוויון אחרי המשחק. הפנדלים יכריעו.</div>
+        </div>
+      </div>
+      <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>לפנדלים</button>
+    </div>
+  );
+}
+
+/** The staged entrant (reigning champion also in Europe): nothing to play until the pre-bracket is decided elsewhere. */
+function CupWaitingCard() {
+  return (
+    <div className="match-hero" data-cup="1">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+        <span className="label-cap" style={{ color: 'var(--cup, #D98A3D)' }}>גביע המדינה</span>
+        <span className="chip chip-cup">ממתינים לרבע</span>
+      </div>
+      <p className="hint" style={{ margin: 0 }}>אתם נכנסים ישר לרבע הגמר. השמינית משוחקת בלעדיכם, ותודיעו לכם כשהיא תוכרע.</p>
     </div>
   );
 }

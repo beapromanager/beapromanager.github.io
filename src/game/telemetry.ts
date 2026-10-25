@@ -90,7 +90,7 @@ export const QUEUE_CAP = 60;
  * and reaching the top does not mean having sat in every season on the way. So they are never backfilled, each is
  * reported when it happens, and the server keeps one of each per device like every other step.
  */
-export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof GIFT_MARKS[number] | typeof SHARE_MARKS[number] | typeof DAILY_MARKS[number];
+export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof CUP_MARKS[number] | typeof GIFT_MARKS[number] | typeof SHARE_MARKS[number] | typeof DAILY_MARKS[number];
 /**
  * The two money facts worth counting, agreed with Itzik on 3.10: a career that
  * fell below zero, and a career the owner ended over debt. The bot simulations
@@ -104,6 +104,14 @@ export const MONEY_MARKS = ['money_red', 'money_sack'] as const;
  * that sends them is out, or they are dropped at its door.
  */
 export const EURO_MARKS = ['eu_in', 'eu_final', 'eu_won'] as const;
+/**
+ * גביע המדינה, stage 1 of the 20.10 cup spec: how many careers were drawn into
+ * the domestic cup, how many stood in its semi, how many stood in its final,
+ * how many lifted it. The door is shut, so nothing is reported until it opens
+ * (CUP_LIVE in cup.ts), the same discipline as Europe's marks above — the
+ * worker has to know the names before the game that sends them ships.
+ */
+export const CUP_MARKS = ['cup_in', 'cup_sf', 'cup_final', 'cup_won'] as const;
 /**
  * The loyalty gift, agreed with Itzik on 11.10: how many careers past ten seasons
  * took the man on loan. One name, said once a device, like the rest.
@@ -123,7 +131,7 @@ export const DAILY_MARKS = ['daily_1', 'daily_7', 'daily_30'] as const;
 /** a career older than this is counted in its twentieth season, "twenty or more" */
 export const MAX_SEASON = 20;
 /** the only shapes the game sends and the worker keeps. The worker holds the same pattern, telemetry-check compares them */
-export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|gift10|share_tap|daily_1|daily_7|daily_30)$/;
+export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|daily_1|daily_7|daily_30)$/;
 
 export function isMilestone(k: unknown): k is Milestone {
   return typeof k === 'string' && MILESTONE.test(k);
@@ -357,6 +365,11 @@ export function wonLeague(tier: number): void {
 
 /** Note that a career was drawn into the European cup, stood in its final, or lifted it. */
 export function euroMark(k: typeof EURO_MARKS[number]): void {
+  trackMilestone(k);
+}
+
+/** Note that a career was drawn into גביע המדינה, stood in its semi, its final, or lifted it. */
+export function cupMark(k: typeof CUP_MARKS[number]): void {
   trackMilestone(k);
 }
 

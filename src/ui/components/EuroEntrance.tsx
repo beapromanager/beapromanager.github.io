@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { Club } from '../../data/clubs.ts';
+import { asset } from '../asset.ts';
+import { useAssetsReady } from '../assetReady.ts';
 import { Crest } from './Crest.tsx';
+
+/** the cup's own tunnel shot (21.10); shown only once confirmed real, otherwise the colour-only look stands as is */
+export const CUP_TUNNEL = asset('/moments/cup/tunnel.webp');
 
 /**
  * The beat before a European kickoff: the two crests face each other across
@@ -27,8 +32,10 @@ export interface EntranceLines {
   venue: string;
 }
 
-export function EuroEntrance({ home, away, lines, onDone }: { home: Club; away: Club; lines: EntranceLines; onDone: () => void }) {
+export function EuroEntrance({ home, away, lines, onDone, kind = 'euro' }: { home: Club; away: Club; lines: EntranceLines; onDone: () => void; /** which cup this is: Europe's blue, or גביע המדינה's amber */ kind?: 'euro' | 'cup' }) {
   const [leaving, setLeaving] = useState(false);
+  const tunnelReady = useAssetsReady(kind === 'cup' ? [CUP_TUNNEL] : []);
+  const tunnel = kind === 'cup' && tunnelReady[CUP_TUNNEL] ? CUP_TUNNEL : null;
   useEffect(() => {
     const out = window.setTimeout(() => setLeaving(true), ENTRANCE_BEAT - ENTRANCE_OUT);
     const end = window.setTimeout(onDone, ENTRANCE_BEAT);
@@ -36,11 +43,12 @@ export function EuroEntrance({ home, away, lines, onDone }: { home: Club; away: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <div className="eu-entrance" data-leaving={leaving ? '1' : '0'} onClick={onDone} role="presentation">
+    <div className="eu-entrance" data-kind={kind} data-leaving={leaving ? '1' : '0'} onClick={onDone} role="presentation"
+      style={tunnel ? { backgroundImage: `linear-gradient(180deg, rgba(20,12,7,.4), rgba(20,12,7,.86)), url('${tunnel}')`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
       <div className="eu-entrance-light eu-entrance-light-a" aria-hidden="true" />
       <div className="eu-entrance-light eu-entrance-light-b" aria-hidden="true" />
       <div className="eu-entrance-round">
-        <span className="chip chip-euro">{lines.round}</span>
+        <span className={kind === 'cup' ? 'chip chip-cup' : 'chip chip-euro'}>{lines.round}</span>
         <span className="eu-entrance-leg">{lines.leg}</span>
       </div>
       <div className="eu-entrance-face">

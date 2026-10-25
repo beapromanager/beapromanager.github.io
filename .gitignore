@@ -17,3 +17,6 @@ worker/.wrangler/
 
 # a planted save for browser checks, never shipped
 public/_devsave.json
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo

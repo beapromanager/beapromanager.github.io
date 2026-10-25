@@ -140,6 +140,22 @@ export function AdminScreen({ stats: data }: { stats: Stats }) {
               </div>
             </>
           )}
+          {data.reach.cup && data.reach.cup.length > 0 && (
+            <>
+              <div className="label-cap">גביע המדינה</div>
+              <div className="tile" style={{ padding: '11px 12px' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+                  <span className="num">{data.reach.cup.find(x => x.step === 'cup_in')?.n ?? 0}</span> נכנסו לגביע
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num">{data.reach.cup.find(x => x.step === 'cup_sf')?.n ?? 0}</span> הגיעו לחצי
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num">{data.reach.cup.find(x => x.step === 'cup_final')?.n ?? 0}</span> הגיעו לגמר
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num" style={{ color: data.reach.cup.find(x => x.step === 'cup_won') ? 'var(--gold-hi)' : undefined }}>{data.reach.cup.find(x => x.step === 'cup_won')?.n ?? 0}</span> זכו בו
+                </span>
+              </div>
+            </>
+          )}
           {data.reach.gift && data.reach.gift.length > 0 && (
             <>
               <div className="label-cap">המתנה למי שנשאר</div>
@@ -229,6 +245,8 @@ export type Stats = {
     titles: { tier: number; n: number }[];
     /** the European cup, absent from a worker that does not count it yet */
     europe?: { step: string; n: number }[];
+    /** גביע המדינה, absent from a worker that does not count it yet (see HANDOFF: the worker's MILESTONE regex and REACH_SQL need cup_in/cup_sf/cup_final/cup_won added before this ever arrives) */
+    cup?: { step: string; n: number }[];
     /** the loyalty gift, absent from a worker that does not count it yet */
     gift?: { n: number }[];
     /** devices that sent a big moment to a friend, absent from a worker that does not count it yet */

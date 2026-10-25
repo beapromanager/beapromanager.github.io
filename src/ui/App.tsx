@@ -31,6 +31,8 @@ import { FriendlyScreen } from './screens/Friendly.tsx';
 import { ShootoutScreen } from './screens/Shootout.tsx';
 import { EuroDrawScreen } from './screens/EuroDraw.tsx';
 import { EuroBracketScreen } from './screens/EuroBracket.tsx';
+import { CupDrawScreen } from './screens/CupDraw.tsx';
+import { CupBracketScreen } from './screens/CupBracket.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
 import { AcademyScreen } from './screens/Academy.tsx';
 import { YOUTH_V2 } from '../game/academy.ts';
@@ -57,7 +59,7 @@ import { setInviteHandler, setInstallHandler, setReportHandler } from './compone
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, giftMark, dailyMark, STEP_ORDER } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, STEP_ORDER } from '../game/telemetry.ts';
 import { AdminScreen } from './screens/Admin.tsx';
 import type { Stats as AdminStats } from './screens/Admin.tsx';
 import { TELEMETRY_URL } from '../data/telemetry.ts';
@@ -76,7 +78,7 @@ import type { Ad } from '../data/ads.ts';
  * to answer, and letting a stray thumb walk out of them would lose the answer.
  */
 const BACK_TO_HUB = new Set<G.Phase>([
-  'squad', 'youth', 'stadium', 'coach', 'packs', 'captain', 'assistant', 'scout', 'euro-bracket',
+  'squad', 'youth', 'stadium', 'coach', 'packs', 'captain', 'assistant', 'scout', 'euro-bracket', 'cup-bracket',
 ]);
 
 export function App() {
@@ -260,6 +262,12 @@ export function App() {
     if (!booted || adminKey || !gs.clubId) return;
     for (const k of euroReports ? euroReports.split(',') as Array<'eu_in' | 'eu_final' | 'eu_won'> : []) euroMark(k);
   }, [booted, adminKey, gs.clubId, euroReports]);
+  // גביע המדינה: drawn in, in the semi, in the final, lifted it. Nothing outside tier 4/5
+  const cupReports = G.cupMarksFor(gs).join(',');
+  useEffect(() => {
+    if (!booted || adminKey || !gs.clubId) return;
+    for (const k of cupReports ? cupReports.split(',') as Array<'cup_in' | 'cup_sf' | 'cup_final' | 'cup_won'> : []) cupMark(k);
+  }, [booted, adminKey, gs.clubId, cupReports]);
   // the daily gift: how far the run has gone. Each name once a device; with the door shut no run ever begins
   const dailyStreak = gs.daily?.streak ?? 0;
   useEffect(() => {
@@ -326,7 +334,7 @@ export function App() {
   }
 
   return (
-    <div className="frame" data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : undefined}>
+    <div className="frame" data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : gs.phase === 'cup-match' || gs.phase === 'cup-pens' || gs.phase === 'cup-draw' || gs.phase === 'cup-bracket' ? 'cup' : undefined}>
       {gs.phase === 'onboard-archetype' && (
         <ArchetypeScreen gs={gs} onPick={id => setGs(G.setArchetype(gs, id))} />
       )}
@@ -427,6 +435,9 @@ export function App() {
           onEuro={() => setGs(G.startEuroNight(gs))}
           onEuroDraw={() => setGs(G.openEuroDraw(gs))}
           onEuroBracket={() => setGs(G.openEuroBracket(gs))}
+          onCup={() => setGs(G.startCupNight(gs))}
+          onCupDraw={() => setGs(G.openCupDraw(gs))}
+          onCupBracket={() => setGs(G.openCupBracket(gs))}
           onTable={() => setGs(G.openTable(gs))} />
       )}
       {gs.phase === 'youth-decision' && (
@@ -522,9 +533,16 @@ export function App() {
         <MatchBroadcast gs={gs} live={G.euroMatchInput(gs)} clubs={G.euroMatchClubs(gs)} euroLines={G.euroEntranceLines(gs)} flare={null} doneLabel="סיום הערב"
           onDone={(result, ids) => setGs(G.commitEuroLeg(gs, result, ids))} />
       )}
-      {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} onDone={score => setGs(g => G.finishEuroPens(g, score))} />}
+      {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} comp="euro" onDone={score => setGs(g => G.finishEuroPens(g, score))} />}
       {gs.phase === 'euro-draw' && <EuroDrawScreen gs={gs} onDone={() => setGs(g => G.finishEuroDraw(g))} />}
       {gs.phase === 'euro-bracket' && <EuroBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}
+      {gs.phase === 'cup-match' && (
+        <MatchBroadcast gs={gs} comp="cup" live={G.cupMatchInput(gs)} clubs={G.cupMatchClubs(gs)} euroLines={G.cupEntranceLines(gs)} flare={null} doneLabel="סיום הערב"
+          onDone={(result, ids) => setGs(G.commitCupLeg(gs, result, ids))} />
+      )}
+      {gs.phase === 'cup-pens' && <ShootoutScreen gs={gs} comp="cup" onDone={score => setGs(g => G.finishCupPens(g, score))} />}
+      {gs.phase === 'cup-draw' && <CupDrawScreen gs={gs} onDone={() => setGs(g => G.finishCupDraw(g))} />}
+      {gs.phase === 'cup-bracket' && <CupBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}
       {gs.phase === 'result' && <ResultScreen gs={gs} onContinue={() => setGs(G.continueFromResult(gs))} />}
       {gs.phase === 'press' && <PressScreen key={gs.press?.q.text} gs={gs} onPick={i => setGs(g => G.pickPressAnswer(g, i))} onNext={() => setGs(g => G.continuePress(g))} />}
       {gs.phase === 'chat' && <ChatScreen gs={gs} onDone={() => setGs(G.closeChat(gs))} onAnswer={i => setGs(g => G.answerMateChat(g, i))} />}
