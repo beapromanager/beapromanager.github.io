@@ -1,12 +1,21 @@
-# The weekend league's server. Phase 2 (17.10): local only, run with
+# The weekend league's server (the neighbourhood league; design in WEEKEND.md).
+#
+# Locally, with the debug door and the clock that can be moved by hand:
 #   npx wrangler dev -c wrangler.weekend.toml --port 8788 --var DEBUG:1
-# and exercised by scripts/duel-smoke.mts and scripts/weekend-smoke.mts.
-# Not deployed until the pilot; see WEEKEND.md in the project root.
-# Before deploying: npx wrangler secret put PRIZE_SECRET -c wrangler.weekend.toml
+# and exercised by scripts/duel-smoke.mts, weekend-smoke.mts and weekend-launch-smoke.mts.
+#
+# Deployed (25.10, prepared, not run until Itzik says so):
+#   npx wrangler whoami
+#   npx wrangler secret put PRIZE_SECRET -c wrangler.weekend.toml     (a long random value; never printed)
+#   npx wrangler deploy -c wrangler.weekend.toml
+# DEBUG is never set here: without it the x-now clock, the 'debug-secret' and a developer's localhost origin are all
+# refused, and a browser is answered only for the game's own website (see corsOrigin in src/game/weekendRoutes.ts).
+# It is served from the account's workers.dev subdomain, the same one as beapro-count, so the address is
+# https://beapro-weekend.beapromanager.workers.dev (WEEKEND_URL_PROD in src/game/weekend.ts).
 name = "beapro-weekend"
 main = "src/weekend.ts"
 compatibility_date = "2026-09-01"
-workers_dev = false
+workers_dev = true
 
 [durable_objects]
 bindings = [
@@ -15,10 +24,13 @@ bindings = [
   { name = "LOBBY", class_name = "LobbyDO" },
 ]
 
+# SQLite-backed Durable Objects: the only kind a Free plan can have, and a Paid plan has them too. The worker never
+# ran anywhere before, so its first migrations can be written this way. It uses only the key-value storage API
+# (get, put, delete, setAlarm, deleteAll), which a SQLite-backed object serves unchanged.
 [[migrations]]
 tag = "v1"
-new_classes = ["MatchDO"]
+new_sqlite_classes = ["MatchDO"]
 
 [[migrations]]
 tag = "v2"
-new_classes = ["LeagueDO", "LobbyDO"]
+new_sqlite_classes = ["LeagueDO", "LobbyDO"]

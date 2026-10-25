@@ -11,3 +11,16 @@ export const isPublicLeagueTail = (tail: string | null | undefined): boolean => 
 /** a developer's server (DEBUG) also lets the smoke script read a match's /result from outside; production never does */
 export const MATCH_DEBUG: ReadonlySet<string> = new Set(['/result']);
 export const isPublicMatchTail = (tail: string | null | undefined, debug = false): boolean => MATCH_PUBLIC.has(tail ?? '/view') || (debug && MATCH_DEBUG.has(tail ?? ''));
+
+/**
+ * The one website that may call the weekend server from a browser. Everything else (a curl, a script) has no Origin
+ * and needs no CORS answer. A developer's own machine (http://localhost:<port>, http://127.0.0.1:<port>) is let in
+ * only on a DEBUG server, which is never the deployed one.
+ */
+export const SITE_ORIGIN = 'https://beapromanager.github.io';
+export function corsOrigin(origin: string | null | undefined, debug: boolean): string | null {
+  if (!origin) return null;
+  if (origin === SITE_ORIGIN) return origin;
+  if (debug && /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/.test(origin)) return origin;
+  return null;
+}

@@ -34,7 +34,7 @@
 
 import * as D from '../../src/game/duel.ts';
 import * as W from '../../src/game/weekendCore.ts';
-import { isPublicMatchTail, isPublicLeagueTail } from '../../src/game/weekendRoutes.ts';
+import { isPublicMatchTail, isPublicLeagueTail, corsOrigin } from '../../src/game/weekendRoutes.ts';
 import type { Position } from '../../src/engine/matchEngine.ts';
 
 /* the slice of the platform this worker uses, declared here like the counting house does */
@@ -56,7 +56,8 @@ export interface Env {
 const READY_MS = W.READY_MS;        // the "ready?" window after a slot's hour
 const COLLECT_MS = 60_000;          // how often a round's results are looked for
 const KEEP_MS = W.KEEP_MS;          // a league lives a week after its final
-const HEADERS = { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, x-now', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
+// no access-control-allow-origin here: the one answer to a browser is made at the door (withCors), by who is asking
+const HEADERS = { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-headers': 'content-type, x-now', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: HEADERS });
 const bad = (error: string, status = 400) => json({ error }, status);
 
@@ -81,8 +82,27 @@ export interface PrizeToken { league: string; device: string; place: number; wag
 
 /* ------------------------------------------------------------------ fetch */
 
+/**
+ * The browser's answer: the caller's own origin when it is the game's website (or, on a DEBUG server, a developer's
+ * machine), nothing otherwise, never a wildcard. A script with no Origin gets the plain answer.
+ */
+function withCors(req: Request, env: Env, res: Response): Response {
+  const out = new Response(res.body, { status: res.status, headers: new Headers(res.headers) });
+  const allowed = corsOrigin(req.headers.get('origin'), !!env.DEBUG);
+  if (allowed) out.headers.set('access-control-allow-origin', allowed);
+  else out.headers.delete('access-control-allow-origin');
+  out.headers.append('vary', 'Origin');
+  return out;
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
+    return withCors(req, env, await route(req, env));
+  },
+};
+
+async function route(req: Request, env: Env): Promise<Response> {
+  {
     if (req.method === 'OPTIONS') return new Response(null, { headers: HEADERS });
     const url = new URL(req.url);
     const now = nowOf(req, env);
@@ -104,7 +124,10 @@ export default {
       }
       // only a phone's doors: a match's /create, /summary and /result are its league's, never a stranger's (25.10)
       if (!isPublicMatchTail(tail, !!env.DEBUG)) return bad('no such door', 404);
-      return fwd(env.MATCH.get(env.MATCH.idFromString(id)), `${tail ?? '/view'}${url.search}`, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
+      // sixty-four hex characters that are not a match's id are a stranger's guess, not an error of ours
+      let stub: DurableObjectStub;
+      try { stub = env.MATCH.get(env.MATCH.idFromString(id)); } catch { return bad('no such match', 404); }
+      return fwd(stub, `${tail ?? '/view'}${url.search}`, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
     }
 
     if (url.pathname === '/mine' && req.method === 'GET') {
@@ -124,11 +147,13 @@ export default {
       const [, id, tail] = m;
       // only a phone's doors: a league's /join and /create are the lobby's, which checks one league a weekend first (25.10)
       if (!isPublicLeagueTail(tail)) return bad('no such door', 404);
-      return fwd(env.LEAGUE.get(env.LEAGUE.idFromString(id)), `${tail ?? '/view'}${url.search}`, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
+      let stub: DurableObjectStub;
+      try { stub = env.LEAGUE.get(env.LEAGUE.idFromString(id)); } catch { return bad('no such league', 404); }
+      return fwd(stub, `${tail ?? '/view'}${url.search}`, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
     }
     return bad('no such door', 404);
-  },
-};
+  }
+}
 
 /* ------------------------------------------------------------------ lobby */
 

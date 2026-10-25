@@ -19,8 +19,8 @@ import type { Player } from '../engine/matchEngine.ts';
 import type { SimpleTactic } from './liveMatch.ts';
 
 export const WEEKEND_LIVE = false;
-/** the pilot server, set at deploy; empty keeps the door shut outside a developer's machine */
-const WEEKEND_URL_PROD = '';
+/** the weekend server: the same workers.dev subdomain as the counting house. The door stays shut while WEEKEND_LIVE is false, whatever this is */
+const WEEKEND_URL_PROD = 'https://beapro-weekend.beapromanager.workers.dev';
 function devDoor(): boolean {
   try { return !!import.meta.env?.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('weekend'); } catch { return false; }
 }
