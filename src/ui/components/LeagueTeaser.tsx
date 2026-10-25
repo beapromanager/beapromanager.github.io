@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { teaserParts, teaserSeconds, teaserShown } from '../../game/teaser.ts';
+import { teaserParts, teaserSeconds, teaserShown, teaserDateLabel } from '../../game/teaser.ts';
 import { asset } from '../asset.ts';
 import '../teaser.css';
 
@@ -32,6 +32,7 @@ export function LeagueTeaser() {
             <bdi dir="ltr">{two(p.h)}:{two(p.m)}:{two(p.s)}</bdi>
           </span>
         </div>
+        <div className="lt-date">{teaserDateLabel()}</div>
       </div>
     </div>
   );

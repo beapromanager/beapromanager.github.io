@@ -14,5 +14,6 @@
 .lt-lab{font-size:12px; font-weight:700; color:rgba(242,234,219,.78)}
 .lt-c{font-family:"Secular One","Rubik","Heebo",system-ui,sans-serif; font-size:23px; line-height:1; color:#F2EADB; font-variant-numeric:tabular-nums}
 .lt-d{font-size:.62em; margin-inline-end:.35em}
+.lt-date{margin-top:5px; font-size:12px; font-weight:700; letter-spacing:.02em; color:rgba(242,234,219,.7); font-variant-numeric:tabular-nums}
 @keyframes ltPulse{50%{opacity:.35}}
 @media (prefers-reduced-motion: reduce){.lt-k::before{animation:none}}
