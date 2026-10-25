@@ -13,7 +13,7 @@
  * Run: npm run check:weekendworker
  */
 import { readFileSync } from 'node:fs';
-import { corsOrigin, SITE_ORIGIN } from '../src/game/weekendRoutes.ts';
+import { corsOrigin, SITE_ORIGIN, SITE_ORIGINS } from '../src/game/weekendRoutes.ts';
 
 const fails: string[] = [];
 let checked = 0;
@@ -48,13 +48,14 @@ const telemetry = readFileSync('src/data/telemetry.ts', 'utf8');
 /* 2. CORS */
 {
   const dbg = [true, false];
-  for (const d of dbg) claim(corsOrigin(SITE_ORIGIN, d) === SITE_ORIGIN, `the game's website is not answered with its own origin (debug ${d})`);
+  for (const o of SITE_ORIGINS) for (const d of dbg) claim(corsOrigin(o, d) === o, `${o} is not answered with its own origin (debug ${d})`);
   claim(SITE_ORIGIN === 'https://beapromanager.github.io', `the site origin is ${SITE_ORIGIN}`);
+  claim(SITE_ORIGINS.join() === 'https://beapromanager.github.io,https://beapro.co.il,https://www.beapro.co.il', `the allowed websites are ${SITE_ORIGINS.join()}`);
   for (const o of ['http://localhost:5173', 'http://127.0.0.1:8788', 'http://localhost']) {
     claim(corsOrigin(o, true) === o, `a developer's ${o} is refused on a debug server`);
     claim(corsOrigin(o, false) === null, `a developer's ${o} is let in on the deployed server`);
   }
-  for (const o of ['https://evil.example', 'https://beapromanager.github.io.evil.example', 'http://beapromanager.github.io', 'https://beapromanager.github.io:8443', 'https://x.beapromanager.github.io', 'null', 'file://', 'http://localhost.evil.example', 'http://localhost:99999999', 'https://localhost:5173', '*', '']) {
+  for (const o of ['https://evil.example', 'https://beapromanager.github.io.evil.example', 'http://beapromanager.github.io', 'http://beapro.co.il', 'https://beapro.co.il.evil.example', 'https://evil.beapro.co.il', 'https://beapro.co.il:8443', 'https://beapro.com', 'https://beapromanager.github.io:8443', 'https://x.beapromanager.github.io', 'null', 'file://', 'http://localhost.evil.example', 'http://localhost:99999999', 'https://localhost:5173', '*', '']) {
     claim(corsOrigin(o, false) === null && corsOrigin(o, true) === null, `the origin "${o}" is let in`);
   }
   claim(corsOrigin(null, true) === null && corsOrigin(undefined, false) === null, 'no origin got an answer');

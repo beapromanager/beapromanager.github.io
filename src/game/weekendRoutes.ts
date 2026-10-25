@@ -13,14 +13,16 @@ export const MATCH_DEBUG: ReadonlySet<string> = new Set(['/result']);
 export const isPublicMatchTail = (tail: string | null | undefined, debug = false): boolean => MATCH_PUBLIC.has(tail ?? '/view') || (debug && MATCH_DEBUG.has(tail ?? ''));
 
 /**
- * The one website that may call the weekend server from a browser. Everything else (a curl, a script) has no Origin
- * and needs no CORS answer. A developer's own machine (http://localhost:<port>, http://127.0.0.1:<port>) is let in
- * only on a DEBUG server, which is never the deployed one.
+ * The websites that may call the weekend server from a browser: the game's original address and its own domain,
+ * beapro.co.il (25.10, served next to the original one, which keeps working with its own saved careers), with and
+ * without www. Everything else (a curl, a script) has no Origin and needs no CORS answer. A developer's own machine
+ * (http://localhost:<port>, http://127.0.0.1:<port>) is let in only on a DEBUG server, which is never the deployed one.
  */
-export const SITE_ORIGIN = 'https://beapromanager.github.io';
+export const SITE_ORIGINS: readonly string[] = ['https://beapromanager.github.io', 'https://beapro.co.il', 'https://www.beapro.co.il'];
+export const SITE_ORIGIN = SITE_ORIGINS[0];
 export function corsOrigin(origin: string | null | undefined, debug: boolean): string | null {
   if (!origin) return null;
-  if (origin === SITE_ORIGIN) return origin;
+  if (SITE_ORIGINS.includes(origin)) return origin;
   if (debug && /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/.test(origin)) return origin;
   return null;
 }
