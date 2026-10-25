@@ -49,7 +49,11 @@ function career(seed: number, deal: SponsorId) {
   let s = 1;
   for (; s <= SEASONS; s++) {
     gs = G.enterSeason(gs);
-    if (gs.phase === 'sponsor') gs = G.takeSponsor(gs, deal);
+    if (gs.phase === 'sponsor') {
+      gs = G.takeSponsor(gs, deal);
+      // a deal that is not on the table must not fall quietly to another one and be measured under its name
+      if (gs.sponsor?.id !== deal) throw new Error(`asked for the ${deal} deal and signed ${gs.sponsor?.id}`);
+    }
     for (let w = 1; w <= gs.league.rounds; w++) {
       // Build, but the way a manager who wants to keep his job builds: never
       // spend down past a season's worth of running costs. Spending the last
@@ -96,7 +100,9 @@ const k = (v: number) => `${Math.round(v / 1000)}k`.padStart(8);
 const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
 
 console.log(`${SEEDS.length} careers, ${SEASONS} seasons each, always building\n`);
-for (const deal of ['base', 'results', 'crowd'] as SponsorId[]) {
+// the deals the brands really put on the table, so a deal that no longer exists is never walked as if it did
+const deals = [...new Set(G.BRANDS.flatMap(b => b.deals))] as SponsorId[];
+for (const deal of deals) {
   const rs = SEEDS.map(s => career(s, deal));
   const gotGate = rs.filter(r => r.reachedGate > 0);
   const gotUp = rs.filter(r => r.reachedTier3 > 0);

@@ -312,12 +312,15 @@ const mine = (gs: G.GameState) => gs.wardrobe.filter(k => k.clubId === gs.clubId
     }
   }
 
-  // and the whole screen has to fit a short phone, so nothing in it may be a
-  // fixed height that a 667px screen cannot afford
-  checked++;
-  if (!/\.kit-launch img\{[^}]*clamp\(/.test(css.replace(/\s*\n\s*/g, ''))) {
-    fails.push('the launch band is a fixed height, so a short phone loses the button below the fold');
-  }
+  // and the whole screen has to fit a short phone. The launch photograph that
+  // used to sit above the shirts (a band of clamped height) left the game with
+  // its brand (25.10), so nothing above the pair can push the button down: the
+  // band is gone from the css and from the screen, and the pair still takes the
+  // slack instead of a fixed height
+  checked += 3;
+  if (/\.kit-launch/.test(css)) fails.push('the launch band is still styled, though it left with its brand');
+  if (/kit-launch/.test(screen)) fails.push('the launch band is still on the reveal');
+  if (!/\.kit-pair\{[^}]*flex:1/.test(css.replace(/\s*\n\s*/g, ''))) fails.push('the shirts no longer take the slack, so a short phone could lose the button below the fold');
 }
 
 /* 9. reasonFor reads the season honestly */

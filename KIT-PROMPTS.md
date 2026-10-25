@@ -37,8 +37,8 @@
 Product photograph of a football shirt, front view, laid perfectly flat and
 centred, shot from directly above. Short sleeves, modern crew collar, clean
 athletic cut. The shirt body is {BODY}, with {TRIM} sleeve cuffs, collar trim
-and a thin {TRIM} side panel. Small woven sponsor wordmark "ULTRASKIT" across
-the chest in {TRIM}. No club badge, no numbers, no player name, no other text.
+and a thin {TRIM} side panel. No sponsor text, no club badge, no numbers, no
+player name, no other text.
 Matte technical polyester with a subtle fine mesh weave. Soft even studio
 light, no harsh shadows, no wrinkles, no mannequin, no hanger, no human.
 Plain flat neutral light grey background. Square 1:1 framing, the shirt

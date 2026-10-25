@@ -1,37 +1,39 @@
 /**
- * Two brands want the shirt, and they compete for it.
+ * One brand wants the shirt and offers all three deals (Itzik, 25.10: the shirt shop left the game, its two deals
+ * moved to the laundry so the summer choice stays).
  *   node --experimental-strip-types scripts/sponsor-check.mts
  *
- * The sponsor used to be one name with three rows. Now each deal belongs to a
- * brand with a reason to want a football shirt, the brand turned down last
- * summer comes back offering more, and the one that kept the shirt three
- * seasons pays for the loyalty. Walked along real careers:
- *   1. every summer both brands are on the table, the laundry with the base
- *      deal and the shirt shop with results and crowd, at plain prices the
- *      first time
- *   2. turn a brand down and it comes back at twenty percent; again and it is
- *      thirty five, then fifty, and fifty is the ceiling. Keep a brand three
- *      seasons and its own price carries the loyalty ten
- *   3. switching brands restarts the run: the new brand's `since` is this
- *      season, and it is the OLD brand that comes back raised next summer
- *   4. signing queues the welcome as the first notice before the hub, naming
- *      the brand, and the hub follows once it is read
- *   5. the sponsor asks in its own voice: the demand names the brand and asks
- *      for one of that brand's own things, and is never asked with no sponsor
- *   6. the brand on the shirt leads the season's ads: its clip is the first
- *      sitting, the second is a different clip, and a brand with no clip
- *      leaves the rotation alone
- *   7. going up on the results deal puts the brand's lump on screen as a story
- *   8. a save from before the brands were characters loads: the old ULTRASKIT
- *      deal becomes that brand's, its run starting the season it was signed
+ * Walked along real careers:
+ *   1. the first summer: exactly three offers, all the laundry's, base, results and crowd, at plain prices; every
+ *      brand on the table exists, and there is one brand
+ *   2. the economy did not move: every deal's price, bonus and crowd flag, for every division, prestige and season
+ *      length, equal to the table measured on e1273fb before the change, and the ratios 0.6 / 0.55 / 1.35 to base
+ *   3. the loyalty: three seasons running with the laundry raise all three deals by LOYALTY_RAISE, not before; moving
+ *      between the laundry's own deals keeps the run (since), which is what is wanted: the shirt never changed hands
+ *   4. no comeback with one brand, anywhere; and brandRaise itself still climbs 0.20 / 0.35 / 0.50 to its ceiling for
+ *      another brand, so the code kept for a second brand does not rot
+ *   5. since is kept when the same brand goes on
+ *   6. signing any of the three queues the laundry's welcome as the first notice before the hub, and the deal signed
+ *      is exactly the one picked (never a silent fall to the first offer)
+ *   7. the sponsor asks in its own voice: signed by the laundry, one of its own wants; no sponsor, no demand
+ *   8. the ads: the laundry has no clip, so the rotation is untouched; a brand that has one (novablux, set by hand)
+ *      still leads the season and does not run twice
+ *   9. the lump on promotion: the laundry's results deal pays it the day the club goes up, as the laundry's story
+ *  10. the crowd deal pays on the crowd under the laundry too: 0.35 of the round with an empty ground, more with every
+ *      head, and a cap; the other deals pay the same whatever the crowd
+ *  11. a save signed with the brand that left, in capitals and in small letters, on results and on crowd, loads as the
+ *      laundry's with the same kind, price, bonus, crowd flag, season and run; it pays the same round as before; a
+ *      welcome stuck in the queue under the old brand shows the laundry; next summer its deal is the laundry's.
+ *      The old brand's name is built here from pieces on purpose, so a search of the repository for it finds nothing.
  */
 import * as G from '../src/game/state.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
-import { brandRaise, COMEBACK_CAP, LOYALTY_RAISE, LOYALTY_SEASONS } from '../src/game/sponsor.ts';
-import type { Sponsor } from '../src/game/sponsor.ts';
-import { BRANDS, brandById } from '../src/data/sponsors.ts';
+import { brandRaise, sponsorOffers, sponsorRound, signSponsor, COMEBACK_CAP, LOYALTY_RAISE, LOYALTY_SEASONS } from '../src/game/sponsor.ts';
+import type { Sponsor, SponsorId } from '../src/game/sponsor.ts';
+import { BRANDS, brandById, type BrandId } from '../src/data/sponsors.ts';
+import { ADS } from '../src/data/ads.ts';
 import { pickAd } from '../src/game/adWatch.ts';
 import { requiredCapacity } from '../src/game/career.ts';
 
@@ -44,6 +46,7 @@ const store = new Map<string, string>();
 
 const fails: string[] = [];
 let checked = 0;
+const claim = (ok: boolean, msg: string) => { checked++; if (!ok) fails.push(msg); };
 
 function playRound(gs: G.GameState): G.GameState {
   const inp = G.liveMatchInput(gs);
@@ -83,151 +86,193 @@ function toNextSummer(gs: G.GameState): G.GameState {
 }
 
 const laundry = BRANDS.find(b => b.id === 'blacksheep')!;
-const shop = BRANDS.find(b => b.id === 'ultraskit')!;
+const ALL: SponsorId[] = ['base', 'results', 'crowd'];
+const held = (brand: string, since: number, season: number, id: SponsorId = 'base'): Sponsor =>
+  ({ id, brand: brand as BrandId, name: '', perRound: 1000, promotionBonus: 0, followsCrowd: id === 'crowd', season, since });
 
 /* 1. THE TABLE, THE FIRST SUMMER. */
 {
   const gs = toFirstSummer();
-  checked++;
-  if (gs.phase !== 'sponsor') fails.push(`the first summer did not reach the sponsor table (phase ${gs.phase})`);
+  claim(gs.phase === 'sponsor', `the first summer did not reach the sponsor table (phase ${gs.phase})`);
   const offers = G.sponsorChoices(gs);
-  checked += 4;
-  if (offers.length !== 3) fails.push(`${offers.length} offers on the table, expected 3`);
-  if (!offers.some(o => o.brand === 'blacksheep' && o.id === 'base')) fails.push('the laundry is not offering the base deal');
-  if (!offers.some(o => o.brand === 'ultraskit' && o.id === 'results') || !offers.some(o => o.brand === 'ultraskit' && o.id === 'crowd')) fails.push('the shirt shop is not offering results and crowd');
-  if (offers.some(o => o.raise !== 0 || o.perRound !== o.plainPerRound)) fails.push('a first summer price is raised');
-  console.log('  the first summer: both brands, three deals, plain prices');
+  claim(offers.length === 3, `${offers.length} offers on the table, expected 3`);
+  claim(offers.every(o => o.brand === 'blacksheep'), `an offer is not the laundry's: ${offers.map(o => o.brand).join(',')}`);
+  claim([...offers.map(o => o.id)].sort().join() === 'base,crowd,results', `the deals on the table are ${offers.map(o => o.id).join(',')}`);
+  claim(offers.every(o => BRANDS.some(b => b.id === o.brand)), 'an offer names a brand that is not in the game');
+  claim(BRANDS.length === 1 && laundry.deals.join() === 'base,results,crowd', `${BRANDS.length} brands, the laundry offers ${laundry.deals.join(',')}`);
+  claim(offers.every(o => o.raise === 0 && o.perRound === o.plainPerRound), 'a first summer price is raised');
+  console.log('  the first summer: one brand, three deals, plain prices');
 }
 
-/* 2. THE COMEBACK LADDER AND THE LOYALTY, AS THE PRICE FUNCTION. */
+/* 2. THE ECONOMY DID NOT MOVE. */
 {
-  const held = (brand: 'blacksheep' | 'ultraskit', since: number, season: number): Sponsor =>
-    ({ id: 'base', brand, name: '', perRound: 1000, promotionBonus: 0, followsCrowd: false, season, since });
-  // the laundry has held the shirt since season 1; what does each summer look like
-  const ladder = [2, 3, 4, 5, 6].map(s => brandRaise('ultraskit', held('blacksheep', 1, s - 1), s).raise);
-  checked++;
-  if (ladder.map(r => r.toFixed(2)).join(',') !== '0.20,0.35,0.50,0.50,0.50') fails.push(`the comeback ladder reads ${ladder.map(r => r.toFixed(2)).join(',')}, expected 0.20,0.35,0.50,0.50,0.50`);
-  checked++;
-  if (ladder.some(r => r > COMEBACK_CAP + 1e-9)) fails.push('the comeback passed the ceiling');
-  const loyal = [2, 3, 4, 5].map(s => brandRaise('blacksheep', held('blacksheep', 1, s - 1), s));
-  checked += 2;
-  if (loyal[0].raise !== 0 || loyal[1].raise !== 0) fails.push('loyalty paid before three seasons');
-  if (loyal[2].raise !== LOYALTY_RAISE || loyal[2].why !== 'loyalty' || loyal[3].raise !== LOYALTY_RAISE) fails.push(`loyalty did not pay from season ${LOYALTY_SEASONS + 1} on`);
-  // a deal from two summers ago is not last summer's, nothing is raised
-  checked++;
-  if (brandRaise('ultraskit', held('blacksheep', 1, 2), 5).raise !== 0) fails.push('a stale deal raised a price');
-  console.log('  turned down: twenty, thirty five, fifty, and fifty stays; kept three seasons: the loyalty ten');
-}
-
-/* 3. THE SAME LADDER ON A REAL CAREER, THEN A SWITCH. */
-{
-  let gs = toFirstSummer();
-  gs = G.takeSponsor(gs, 'base', 'blacksheep');
-  checked += 2;
-  if (gs.sponsor?.brand !== 'blacksheep' || gs.sponsor.since !== 1) fails.push(`signing the laundry gave brand ${gs.sponsor?.brand}, since ${gs.sponsor?.since}`);
-  if (gs.notices[0]?.kind !== 'sponsor') fails.push('no welcome queued after signing');
-  gs = G.dismissNotice(gs);
-
-  gs = toNextSummer(gs);
-  let offers = G.sponsorChoices(gs);
-  const shopBack = offers.find(o => o.brand === 'ultraskit' && o.id === 'results')!;
-  const laundryAgain = offers.find(o => o.brand === 'blacksheep')!;
-  checked += 3;
-  if (Math.abs(shopBack.raise - 0.2) > 1e-9 || shopBack.raiseWhy !== 'comeback') fails.push(`in season 2 the shop's raise is ${shopBack.raise}/${shopBack.raiseWhy}, expected 0.2/comeback`);
-  // both prices are rounded to the hundred, so the ratio is only good to a hundred a round:
-  // 2600 over 2100 is a fair twenty percent when the unrounded price was 2145. Asking
-  // for 3 per cent on a price of two thousand was asking for less than the rounding.
-  if (Math.abs(shopBack.perRound - 1.2 * shopBack.plainPerRound) > 110) fails.push(`the shop's price ${shopBack.perRound} is not twenty percent over ${shopBack.plainPerRound}`);
-  if (laundryAgain.raise !== 0) fails.push('the laundry raised its own price after one season');
-
-  // switch to the shop: the run restarts, and next summer the laundry comes back
-  gs = G.takeSponsor(gs, 'results', 'ultraskit');
-  checked += 2;
-  if (gs.sponsor?.brand !== 'ultraskit' || gs.sponsor.since !== 2) fails.push(`switching gave brand ${gs.sponsor?.brand}, since ${gs.sponsor?.since}`);
-  if (gs.sponsor?.perRound !== shopBack.perRound) fails.push('the signed deal is not the raised offer');
-  gs = G.dismissNotice(gs);
-  gs = toNextSummer(gs);
-  offers = G.sponsorChoices(gs);
-  const laundryBack = offers.find(o => o.brand === 'blacksheep')!;
-  const shopKept = offers.find(o => o.brand === 'ultraskit' && o.id === 'results')!;
-  checked += 2;
-  if (Math.abs(laundryBack.raise - 0.2) > 1e-9 || laundryBack.raiseWhy !== 'comeback') fails.push(`in season 3 the laundry's raise is ${laundryBack.raise}, expected 0.2 after being dropped once`);
-  if (shopKept.raise !== 0) fails.push('the shop raised its own price after one season');
-
-  // keep the shop: same brand straight on keeps the run
-  gs = G.takeSponsor(gs, 'crowd', 'ultraskit');
-  checked++;
-  if (gs.sponsor?.since !== 2) fails.push(`keeping the shop on a different deal reset since to ${gs.sponsor?.since}`);
-  console.log('  on a real career: the dropped brand comes back raised, a switch restarts the run');
-}
-
-/* 4. THE WELCOME BEFORE THE HUB. */
-{
-  let gs = toFirstSummer();
-  gs = G.takeSponsor(gs, 'crowd', 'ultraskit');
-  checked += 3;
-  if (gs.phase !== 'hub') fails.push(`signing landed on ${gs.phase}, not the hub`);
-  const n = gs.notices[0];
-  if (!n || n.kind !== 'sponsor' || n.brand !== 'ultraskit') fails.push('the first notice after signing is not the shop\'s welcome');
-  if (G.tutorialDue(gs)) fails.push('the explainer is due on top of the welcome');
-  gs = G.dismissNotice(gs);
-  checked++;
-  if (gs.notices.some(x => x.kind === 'sponsor')) fails.push('the welcome stayed after it was read');
-  console.log('  the welcome is the first word before the hub, and it is read once');
-}
-
-/* 5. THE SPONSOR ASKS IN ITS OWN VOICE. */
-{
-  let gs = toFirstSummer();
-  const none = G.rollNamedDilemma(gs, 'sponsor_demand');
-  checked++;
-  if (none) fails.push('the sponsor asked for a favour before there was a sponsor');
-  gs = G.dismissNotice(G.takeSponsor(gs, 'base', 'blacksheep'));
-  const d = G.rollNamedDilemma(gs, 'sponsor_demand', 7);
-  checked += 2;
-  if (!d || !d.speakerLabel.includes(laundry.name)) fails.push(`the laundry's demand is signed ${d?.speakerLabel}`);
-  if (!d || !laundry.wants.some(w => d.text.includes(w))) fails.push(`the laundry asked for something not its own: ${d?.text}`);
-  if (d && shop.wants.some(w => d.text.includes(w))) fails.push('the laundry asked for the shop\'s thing');
-  console.log('  the demand is signed by the brand on the shirt and asks for its own things');
-}
-
-/* 6. THE SHIRT LEADS THE ADS. */
-{
-  // a summer whose plain rotation would NOT have opened with the shop, so the
-  // shirt is the only thing that can put it first
-  let gs = toFirstSummer();
-  for (const seed of [4242, 777, 31, 9091, 555, 12007, 88, 4004, 5, 9]) {
-    gs = toFirstSummer(seed);
-    if (pickAd(gs).id !== 'ultraskit') break;
+  // measured on e1273fb (both brands) with sponsorOffers(tier, prestige, rounds): [base perRound, results perRound,
+  // results promotionBonus, crowd perRound], by 'tier/prestige/rounds'
+  const BEFORE: Record<string, [number, number, number, number]> = {
+  '1/0/14': [2400, 1400, 45600, 1300],
+  '1/0/18': [1900, 1100, 45600, 1000],
+  '1/0/22': [1500, 900, 45600, 800],
+  '1/50/14': [3200, 1900, 60800, 1800],
+  '1/50/18': [2500, 1500, 60800, 1400],
+  '1/50/22': [2000, 1200, 60800, 1100],
+  '1/100/14': [4000, 2400, 75900, 2200],
+  '1/100/18': [3100, 1900, 75900, 1700],
+  '1/100/22': [2600, 1500, 75900, 1400],
+  '2/0/14': [4600, 2700, 86100, 2500],
+  '2/0/18': [3500, 2100, 86100, 1900],
+  '2/0/22': [2900, 1700, 86100, 1600],
+  '2/50/14': [6100, 3600, 114800, 3300],
+  '2/50/18': [4700, 2800, 114800, 2600],
+  '2/50/22': [3900, 2300, 114800, 2100],
+  '2/100/14': [7600, 4600, 143400, 4200],
+  '2/100/18': [5900, 3500, 143400, 3200],
+  '2/100/22': [4800, 2900, 143400, 2700],
+  '3/0/14': [37500, 22500, 708800, 20600],
+  '3/0/18': [29200, 17500, 708800, 16000],
+  '3/0/22': [23900, 14300, 708800, 13100],
+  '3/50/14': [50000, 30000, 945000, 27500],
+  '3/50/18': [38900, 23300, 945000, 21400],
+  '3/50/22': [31800, 19100, 945000, 17500],
+  '3/100/14': [62500, 37500, 1181300, 34400],
+  '3/100/18': [48600, 29200, 1181300, 26700],
+  '3/100/22': [39800, 23900, 1181300, 21900],
+  '4/0/14': [77100, 46300, 1458000, 42400],
+  '4/0/18': [60000, 36000, 1458000, 33000],
+  '4/0/22': [49100, 29500, 1458000, 27000],
+  '4/50/14': [102900, 61700, 1944000, 56600],
+  '4/50/18': [80000, 48000, 1944000, 44000],
+  '4/50/22': [65500, 39300, 1944000, 36000],
+  '4/100/14': [128600, 77100, 2430000, 70700],
+  '4/100/18': [100000, 60000, 2430000, 55000],
+  '4/100/22': [81800, 49100, 2430000, 45000],
+  '5/0/14': [180800, 108500, 3417200, 99400],
+  '5/0/18': [140600, 84400, 3417200, 77300],
+  '5/0/22': [115100, 69000, 3417200, 63300],
+  '5/50/14': [241100, 144600, 4556300, 132600],
+  '5/50/18': [187500, 112500, 4556300, 103100],
+  '5/50/22': [153400, 92000, 4556300, 84400],
+  '5/100/14': [301300, 180800, 5695300, 165700],
+  '5/100/18': [234400, 140600, 5695300, 128900],
+  '5/100/22': [191800, 115100, 5695300, 105500]
+  };
+  for (const [k, [base, res, bonus, crowd]] of Object.entries(BEFORE)) {
+    const [tier, prestige, rounds] = k.split('/').map(Number);
+    const offers = sponsorOffers(tier, prestige, rounds);
+    const by = (id: SponsorId) => offers.find(o => o.id === id)!;
+    claim(by('base').perRound === base && by('base').promotionBonus === 0 && !by('base').followsCrowd, `${k} base: ${by('base').perRound}/${by('base').promotionBonus}, was ${base}/0`);
+    claim(by('results').perRound === res && by('results').promotionBonus === bonus && !by('results').followsCrowd, `${k} results: ${by('results').perRound}/${by('results').promotionBonus}, was ${res}/${bonus}`);
+    claim(by('crowd').perRound === crowd && by('crowd').promotionBonus === 0 && by('crowd').followsCrowd, `${k} crowd: ${by('crowd').perRound}, was ${crowd}`);
+    // the ratios to the base deal, good to the rounding to a hundred
+    claim(Math.abs(res - 0.6 * base) <= 100 && Math.abs(crowd - 0.55 * base) <= 100 && Math.abs(bonus - 1.35 * base * rounds) <= 100 * rounds, `${k}: the ratios 0.6 / 0.55 / 1.35 do not hold`);
   }
-  checked++;
-  if (pickAd(gs).id === 'ultraskit') fails.push('no seed found whose plain rotation opens with another clip');
-  gs = G.dismissNotice(G.takeSponsor(gs, 'results', 'ultraskit'));
-  const first = pickAd({ ...gs, sponsorAd: G.sponsorAdId(gs) });
-  const second = pickAd({ ...gs, adsWatched: 1, sponsorAd: G.sponsorAdId(gs) });
-  checked += 3;
-  if (G.sponsorAdId(gs) !== 'ultraskit') fails.push(`the shop's ad id reads ${G.sponsorAdId(gs)}`);
-  if (first.id !== 'ultraskit') fails.push(`with the shop on the shirt the first ad is ${first.id}`);
-  if (second.id === 'ultraskit') fails.push('the shop\'s ad ran twice running');
-  let l = toFirstSummer(777);
-  l = G.dismissNotice(G.takeSponsor(l, 'base', 'blacksheep'));
-  checked += 2;
-  if (G.sponsorAdId(l) !== null) fails.push('the laundry has an ad it does not have');
-  if (pickAd({ ...l, sponsorAd: G.sponsorAdId(l) }).id !== pickAd(l).id) fails.push('a brand with no clip changed the rotation');
-  console.log('  the brand on the shirt gets the first sitting, not the second, and a brand with no clip changes nothing');
+  claim(Object.keys(BEFORE).length === 45, 'the table is not every division, prestige and season length');
+  console.log('  every price, bonus and crowd flag as on e1273fb, 45 tables of three deals');
 }
 
-/* 7. THE LUMP ON PROMOTION IS A STORY. */
+/* 3. THE LOYALTY, AND MOVING BETWEEN THE LAUNDRY'S DEALS. */
+{
+  const base = toFirstSummer();
+  for (const s of [2, 3, 4, 5]) {
+    const offers = G.sponsorChoices({ ...base, season: s, sponsor: held('blacksheep', 1, s - 1) });
+    const loyal = s - 1 >= LOYALTY_SEASONS;
+    claim(offers.length === 3, `season ${s}: ${offers.length} offers`);
+    claim(offers.every(o => (loyal ? o.raise === LOYALTY_RAISE && o.raiseWhy === 'loyalty' : o.raise === 0 && o.raiseWhy === null)), `season ${s}: the raises are ${offers.map(o => `${o.id} ${o.raise}/${o.raiseWhy}`).join(', ')}, wanted ${loyal ? 'the loyalty on all three' : 'none'}`);
+  }
+  // a real career: base, then results, then crowd, all with the laundry: the run never restarts
+  let gs = G.dismissNotice(G.takeSponsor(base, 'base'));
+  claim(gs.sponsor?.since === 1, `signing gave since ${gs.sponsor?.since}`);
+  gs = toNextSummer(gs);
+  gs = G.dismissNotice(G.takeSponsor(gs, 'results'));
+  claim(gs.sponsor?.id === 'results' && gs.sponsor.since === 1, `moving to the laundry's results deal reset the run (since ${gs.sponsor?.since})`);
+  gs = toNextSummer(gs);
+  gs = G.takeSponsor(gs, 'crowd');
+  claim(gs.sponsor?.id === 'crowd' && gs.sponsor.since === 1 && gs.sponsor.season === 3, `moving to the crowd deal: since ${gs.sponsor?.since}, season ${gs.sponsor?.season}`);
+  console.log('  three seasons with the laundry raise all three deals; moving between its deals keeps the run');
+}
+
+/* 4. NO COMEBACK WITH ONE BRAND, AND THE LADDER STILL THERE. */
+{
+  const base = toFirstSummer();
+  for (const s of [2, 3, 4, 6]) for (const since of [1, s - 1]) for (const id of ALL) {
+    const offers = G.sponsorChoices({ ...base, season: s, sponsor: held('blacksheep', since, s - 1, id) });
+    claim(offers.every(o => o.raiseWhy !== 'comeback'), `season ${s}, since ${since}, on ${id}: a comeback with one brand`);
+  }
+  // another brand (cast: none exists) held the shirt since season 1: the laundry would come back at 20, 35, 50, 50
+  const other = 'another-brand' as unknown as BrandId;
+  const ladder = [2, 3, 4, 5, 6].map(s => brandRaise('blacksheep', held(other, 1, s - 1), s));
+  claim(ladder.map(r => r.raise.toFixed(2)).join(',') === '0.20,0.35,0.50,0.50,0.50' && ladder.every(r => r.why === 'comeback'), `the comeback ladder reads ${ladder.map(r => r.raise.toFixed(2)).join(',')}`);
+  claim(ladder.every(r => r.raise <= COMEBACK_CAP + 1e-9), 'the comeback passed the ceiling');
+  claim(brandRaise('blacksheep', held(other, 1, 2), 5).raise === 0, 'a stale deal raised a price');
+  console.log('  no comeback with one brand; the ladder for a second brand still climbs to its ceiling');
+}
+
+/* 5. SINCE IS KEPT WHEN THE SAME BRAND GOES ON. */
+{
+  const offer = sponsorOffers(1, 30, 14, held('blacksheep', 2, 4), 5).find(o => o.id === 'results')!;
+  claim(signSponsor(offer, 5, held('blacksheep', 2, 4)).since === 2, 'the same brand straight on lost its run');
+  claim(signSponsor(offer, 5, held('blacksheep', 2, 3)).since === 5, 'a break of a season kept the run');
+  claim(signSponsor(offer, 5, null).since === 5, 'a first deal does not start its run this season');
+}
+
+/* 6. THE WELCOME BEFORE THE HUB, FOR EACH DEAL. */
+{
+  for (const id of ALL) {
+    let gs = toFirstSummer();
+    gs = G.takeSponsor(gs, id);
+    claim(gs.phase === 'hub', `signing ${id} landed on ${gs.phase}`);
+    claim(gs.sponsor?.id === id && gs.sponsor.brand === 'blacksheep', `asked for ${id}, signed ${gs.sponsor?.brand} ${gs.sponsor?.id}`);
+    const offer = G.sponsorChoices(toFirstSummer()).find(o => o.id === id)!;
+    claim(gs.sponsor?.perRound === offer.perRound && gs.sponsor.promotionBonus === offer.promotionBonus && gs.sponsor.followsCrowd === offer.followsCrowd, `the ${id} deal signed is not the one offered`);
+    const n = gs.notices[0];
+    claim(!!n && n.kind === 'sponsor' && n.brand === 'blacksheep', `signing ${id}: the first notice is not the laundry's welcome`);
+    claim(!G.tutorialDue(gs), 'the explainer is due on top of the welcome');
+    gs = G.dismissNotice(gs);
+    claim(!gs.notices.some(x => x.kind === 'sponsor'), 'the welcome stayed after it was read');
+  }
+  console.log('  each of the three deals signs exactly itself, and the laundry\'s welcome comes first');
+}
+
+/* 7. THE SPONSOR ASKS IN ITS OWN VOICE. */
 {
   let gs = toFirstSummer();
-  gs = G.dismissNotice(G.takeSponsor(gs, 'results', 'ultraskit'));
+  claim(!G.rollNamedDilemma(gs, 'sponsor_demand'), 'the sponsor asked for a favour before there was a sponsor');
+  for (const id of ALL) {
+    gs = G.dismissNotice(G.takeSponsor(toFirstSummer(), id));
+    const d = G.rollNamedDilemma(gs, 'sponsor_demand', 7);
+    claim(!!d && d.speakerLabel.includes(laundry.name), `on ${id} the demand is signed ${d?.speakerLabel}`);
+    claim(!!d && laundry.wants.some(w => d.text.includes(w)), `on ${id} the laundry asked for something not its own: ${d?.text}`);
+  }
+  console.log('  the demand is signed by the laundry and asks for its own things');
+}
+
+/* 8. THE ADS. */
+{
+  claim(!laundry.adId && ADS.length === 2 && ADS.every(a => a.id !== laundry.adId), `ads: ${ADS.map(a => a.id).join(',')}, the laundry's clip ${laundry.adId}`);
+  for (const id of ALL) {
+    const l = G.dismissNotice(G.takeSponsor(toFirstSummer(777), id));
+    claim(G.sponsorAdId(l) === null, `on ${id} the laundry has an ad it does not have`);
+    claim(pickAd({ ...l, sponsorAd: G.sponsorAdId(l) }).id === pickAd(l).id, `on ${id} a brand with no clip changed the rotation`);
+  }
+  // the code that lets the brand on the shirt lead the season, kept honest with a clip set by hand
+  let gs = toFirstSummer();
+  for (const seed of [4242, 777, 31, 9091, 555, 12007, 88, 4004, 5, 9]) { gs = toFirstSummer(seed); if (pickAd(gs).id !== 'novablux') break; }
+  claim(pickAd(gs).id !== 'novablux', 'no seed found whose plain rotation opens with another clip');
+  const first = pickAd({ ...gs, sponsorAd: 'novablux' });
+  const second = pickAd({ ...gs, adsWatched: 1, sponsorAd: 'novablux' });
+  claim(first.id === 'novablux', `with a clip on the shirt the first ad is ${first.id}`);
+  claim(second.id !== 'novablux', 'the shirt\'s clip ran twice running');
+  console.log('  the laundry leaves the rotation alone; a brand with a clip still leads, once');
+}
+
+/* 9. THE LUMP ON PROMOTION IS THE LAUNDRY'S STORY. */
+{
+  let gs = G.dismissNotice(G.takeSponsor(toFirstSummer(), 'results'));
   const bonus = gs.sponsor!.promotionBonus;
+  claim(gs.sponsor?.brand === 'blacksheep' && bonus > 0, 'the laundry\'s results deal has no lump');
   let guard = 0;
   while (gs.phase !== 'season-end' && !gs.sacking && guard++ < 40) gs = playRound(gs);
-  checked++;
-  if (gs.phase !== 'season-end') fails.push('the season did not end for the promotion story');
-  else {
-    // hand the club the title and a ground big enough to go up
+  claim(gs.phase === 'season-end', 'the season did not end for the promotion story');
+  if (gs.phase === 'season-end') {
     const row = gs.league.table[gs.clubId];
     const rigged: G.GameState = {
       ...gs,
@@ -236,34 +281,74 @@ const shop = BRANDS.find(b => b.id === 'ultraskit')!;
     };
     const before = rigged.meters.money;
     const next = G.startNextSeason(rigged);
-    const story = next.notices.find(n => n.kind === 'story' && n.title.includes(shop.name));
-    checked += 2;
-    if (!story) fails.push(`no story from ${shop.name} after going up (notices: ${next.notices.map(n => n.kind).join(',') || 'none'})`);
-    if (next.meters.money < before + bonus) fails.push('the lump was not paid');
+    const story = next.notices.find(n => n.kind === 'story' && n.title.includes(laundry.name));
+    claim(!!story, `no story from ${laundry.name} after going up (notices: ${next.notices.map(n => n.kind).join(',') || 'none'})`);
+    claim(next.meters.money >= before + bonus, 'the lump was not paid');
   }
-  console.log('  going up on the results deal puts the brand\'s lump on screen');
+  console.log('  going up on the laundry\'s results deal puts its lump on screen');
 }
 
-/* 8. A SAVE FROM BEFORE THE BRANDS. */
+/* 10. THE CROWD DEAL UNDER THE LAUNDRY. */
 {
-  let gs = toFirstSummer();
-  gs = G.dismissNotice(G.takeSponsor(gs, 'base', 'blacksheep'));
-  store.clear();
-  saveCareer(gs);
-  const raw = JSON.parse(store.get('beapro.career.v1')!);
-  raw.state.sponsor = { id: 'base', brand: 'ULTRASKIT', name: 'חוזה בסיס', perRound: 1500, promotionBonus: 0, followsCrowd: false, season: 1 };
-  store.set('beapro.career.v1', JSON.stringify(raw));
-  const back = loadCareer();
-  checked += 3;
-  if (!back) fails.push('the old save did not load');
-  else {
-    if (back.sponsor?.brand !== 'ultraskit') fails.push(`the old ULTRASKIT deal became brand ${back.sponsor?.brand}`);
-    if (back.sponsor?.since !== 1) fails.push(`the old deal's run starts in ${back.sponsor?.since}, not the season it was signed`);
-    const played = playRound(back);
-    if (played.week === back.week) fails.push('the old save did not play a round');
-    if (!brandById(back.sponsor!.brand)) fails.push('the old brand has no entry');
+  const crowd: Sponsor = { ...held('blacksheep', 1, 1, 'crowd'), perRound: 10_000 };
+  const plainDeal: Sponsor = { ...held('blacksheep', 1, 1, 'base'), perRound: 10_000 };
+  for (let tier = 1; tier <= 5; tier++) {
+    const pays = [0, 100, 1_000, 5_000, 20_000, 60_000, 200_000].map(a => sponsorRound(crowd, tier, a));
+    claim(pays[0] === 3_500, `tier ${tier}: an empty ground pays ${pays[0]}, wanted 0.35 of the round`);
+    claim(pays.every((p, i) => i === 0 || p >= pays[i - 1]), `tier ${tier}: the crowd deal does not grow with the crowd (${pays.join(',')})`);
+    claim(pays[pays.length - 1] === 20_500 && sponsorRound(crowd, tier, 10_000_000) === 20_500, `tier ${tier}: the cap is ${pays[pays.length - 1]}`);
+    claim([0, 5_000, 200_000].every(a => sponsorRound(plainDeal, tier, a) === 10_000), `tier ${tier}: the base deal moved with the crowd`);
   }
-  console.log('  an old save keeps its deal, under the brand it belonged to');
+  console.log('  the crowd deal pays on the crowd under the laundry, from 0.35 to its cap');
+}
+
+/* 11. A SAVE SIGNED WITH THE BRAND THAT LEFT. */
+{
+  // built from pieces on purpose: the name must not appear anywhere in the repository
+  const OLD_UPPER = ['ULTRAS', 'KIT'].join('');
+  const OLD_LOWER = OLD_UPPER.toLowerCase();
+  const base = G.dismissNotice(G.takeSponsor(toFirstSummer(), 'base'));
+  const cases: Array<[string, SponsorId, number, boolean]> = [[OLD_UPPER, 'results', 9_000, false], [OLD_LOWER, 'results', 9_000, false], [OLD_LOWER, 'crowd', 1_700, true], [OLD_UPPER, 'crowd', 1_700, true]];
+  for (const [old, id, bonus, follows] of cases) {
+    const terms = { id, name: id === 'results' ? 'חוזה הישגים' : 'חוזה יציע', perRound: 2_300, promotionBonus: id === 'results' ? 61_200 : 0, followsCrowd: follows, season: 1, since: 1 };
+    store.clear();
+    saveCareer(base);
+    const raw = JSON.parse(store.get('beapro.career.v1')!);
+    raw.state.sponsor = { ...terms, brand: old };
+    raw.state.notices = [{ kind: 'sponsor', brand: old }];
+    store.set('beapro.career.v1', JSON.stringify(raw));
+    const back = loadCareer();
+    claim(!!back, `${old}/${id}: the save did not load`);
+    if (!back) continue;
+    const s = back.sponsor!;
+    claim(s.brand === 'blacksheep', `${old}/${id}: the brand became ${s.brand}`);
+    claim(s.id === terms.id && s.name === terms.name && s.perRound === terms.perRound && s.promotionBonus === terms.promotionBonus && s.followsCrowd === terms.followsCrowd && s.season === terms.season && s.since === terms.since, `${old}/${id}: the terms moved: ${JSON.stringify(s)}`);
+    const n = back.notices[0];
+    claim(!!n && n.kind === 'sponsor' && n.brand === 'blacksheep' && brandById(n.brand).name === laundry.name, `${old}/${id}: the stuck welcome names ${n && n.kind === 'sponsor' ? n.brand : 'nothing'}`);
+    // the same round as a career that had always been the laundry's on the same terms
+    const same: G.GameState = { ...back, sponsor: { ...terms, brand: 'blacksheep' } };
+    const a = playRound(G.dismissNotice(back)), b = playRound(G.dismissNotice(same));
+    claim(!!a.lastLedger && a.lastLedger.sponsor === b.lastLedger?.sponsor && a.meters.money === b.meters.money, `${old}/${id}: the round paid ${a.lastLedger?.sponsor}, the laundry on the same terms ${b.lastLedger?.sponsor}`);
+    void bonus;
+  }
+  // the old save without a run (from before `since`) starts it the season it was signed, under the laundry
+  store.clear(); saveCareer(base);
+  const raw = JSON.parse(store.get('beapro.career.v1')!);
+  raw.state.sponsor = { id: 'base', brand: OLD_UPPER, name: 'חוזה בסיס', perRound: 1500, promotionBonus: 0, followsCrowd: false, season: 1 };
+  store.set('beapro.career.v1', JSON.stringify(raw));
+  const old = loadCareer()!;
+  claim(old.sponsor?.brand === 'blacksheep' && old.sponsor.since === 1, `an old deal without a run: ${old.sponsor?.brand} since ${old.sponsor?.since}`);
+  // next summer the same deal is on the laundry's table, and keeping it keeps the run
+  store.clear(); saveCareer(base);
+  const raw2 = JSON.parse(store.get('beapro.career.v1')!);
+  raw2.state.sponsor = { id: 'results', brand: OLD_LOWER, name: 'חוזה הישגים', perRound: 1400, promotionBonus: 45600, followsCrowd: false, season: 1, since: 1 };
+  store.set('beapro.career.v1', JSON.stringify(raw2));
+  let next = toNextSummer(loadCareer()!);
+  const offers = G.sponsorChoices(next);
+  claim(offers.some(o => o.id === 'results' && o.brand === 'blacksheep'), 'next summer the results deal is not on the laundry\'s table');
+  next = G.takeSponsor(next, 'results');
+  claim(next.sponsor?.brand === 'blacksheep' && next.sponsor.since === 1, `keeping the deal next summer: since ${next.sponsor?.since}`);
+  console.log('  a deal signed with the brand that left is the laundry\'s, same kind, same terms, same run');
 }
 
 console.log(`\n${checked} checks`);
