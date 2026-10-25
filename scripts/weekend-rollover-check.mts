@@ -1,7 +1,7 @@
 /**
  * The weekend league's calendar at its seams (Itzik, 25.10), with the clock passed in, no server:
  *
- *   1. the first weekend ever: registration opens on Thursday 29.10 20:00 Israel (18:00Z) for the 5–8.11 weekend,
+ *   1. the first weekend ever: registration opens on Thursday 29.10 20:00 Israel (18:00Z) for the 5-8.11 weekend,
  *      and that cycle keeps one `opens` from the Thursday to its final, through Sunday 1.11 20:00
  *   2. before the Thursday nothing can be made or joined, from 18:00:00Z it can; no league at all in the 25.10 cycle
  *   3. it does not leak: sixty ordinary cycles from 8.11.2026, across both clock changes, are the regular calendar
@@ -45,7 +45,7 @@ const H = 3_600_000;
   claim(W.cyclePhase(at(Z(2026, 11, 5, 18)), Z(2026, 11, 5, 18)) === 'playing', 'Thursday 5.11 20:00 is not playing');
   // the slots of the first cycle fall on 6, 7 and 8.11
   claim(il(W.slotAt(first, 'fri-12')).d === 6 && il(W.slotAt(first, 'sat-20')).d === 7 && il(W.slotAt(first, 'sun-18')).d === 8, 'the first cycle\'s slots are on the wrong days');
-  claim(W.weekendSpan(first) === '5–8.11', `the span reads ${W.weekendSpan(first)}`);
+  claim(W.weekendSpan(first) === '5-8.11', `the span reads ${W.weekendSpan(first)}`);
 }
 
 /* 2. the gate */
@@ -58,7 +58,7 @@ const H = 3_600_000;
   const made = mk(Z(2026, 10, 29, 18));
   claim(typeof made !== 'string', `no league at 29.10 18:00:00Z: ${made}`);
   if (typeof made !== 'string') {
-    claim(made.cycle.final === Z(2026, 11, 8, 18) && made.planned === 6, 'the league made on the Thursday is not the 5–8.11 weekend');
+    claim(made.cycle.final === Z(2026, 11, 8, 18) && made.planned === 6, 'the league made on the Thursday is not the 5-8.11 weekend');
     claim(W.join(made, 'd1', 'דודו', Z(2026, 10, 29, 18)) === null, 'nobody can join on the Thursday');
     claim(W.join(made, 'd2', 'רועי', Z(2026, 11, 1, 18, 30)) === null, 'nobody can join on Sunday 1.11 after 20:00');
     claim(W.join(made, 'd3', 'יוסי', Z(2026, 11, 5, 15)) !== null, 'joining after the lock of 5.11 was allowed');
@@ -215,4 +215,4 @@ const H = 3_600_000;
 
 console.log(`${checked} checks`);
 if (fails.length) { console.log(`FAIL (${fails.length} of ${checked})`); for (const f of fails.slice(0, 40)) console.log('  - ' + f); process.exit(1); }
-console.log('OK, the first registration opens on Thursday 29.10 20:00 for 5–8.11 and nothing leaks past 8.11, a league survives Sunday 20:00 as last, and the teaser hands over to the entrance at one instant');
+console.log('OK, the first registration opens on Thursday 29.10 20:00 for 5-8.11 and nothing leaks past 8.11, a league survives Sunday 20:00 as last, and the teaser hands over to the entrance at one instant');

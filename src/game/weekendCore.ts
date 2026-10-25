@@ -162,7 +162,7 @@ export function ilTime(at: number): string { const p = ilParts(at); return `${St
 /** "5–8.11": the weekend from its kickoff to its final, as people write it */
 export function weekendSpan(c: Cycle): string {
   const k = ilParts(c.kickoff), f = ilParts(c.final);
-  return k.m === f.m ? `${k.d}–${f.d}.${f.m}` : `${k.d}.${k.m}–${f.d}.${f.m}`;
+  return k.m === f.m ? `${k.d}-${f.d}.${f.m}` : `${k.d}.${k.m}-${f.d}.${f.m}`;
 }
 
 export type CyclePhase = 'open' | 'locked' | 'playing';

@@ -179,9 +179,9 @@ const allTexts = (now: number): string[] => [
   claim(cards[1].lines.length === 4 && cards[1].lines[3] === 'הפעם בלבד: ההרשמה לסופ״ש הראשון נפתחה בחמישי 29.10.', `card 2 in the first cycle: ${JSON.stringify(cards[1].lines)}`);
   claim(G.introCards(Z(2026, 11, 10, 10))[1].lines.length === 3, 'card 2 keeps the one-off line after the first weekend');
   const q = G.faq(Z(2026, 10, 30, 10)).find(f => f.q === 'עד מתי נרשמים?')!;
-  claim(q.a.endsWith('הפעם בלבד: ההרשמה לסופ״ש הראשון, 5–8.11, נפתחה כבר בחמישי 29.10 ב-20:00.'), `the question in the first cycle: ${q.a}`);
+  claim(q.a.endsWith('הפעם בלבד: ההרשמה לסופ״ש הראשון, 5-8.11, נפתחה כבר בחמישי 29.10 ב-20:00.'), `the question in the first cycle: ${q.a}`);
   claim(!G.faq(Z(2026, 11, 10, 10)).find(f => f.q === 'עד מתי נרשמים?')!.a.includes('הפעם בלבד'), 'the one-off stays in the questions after the first weekend');
-  claim(G.firstStrip(Z(2026, 10, 30, 10)) === 'הליגה הראשונה אי פעם: סופ״ש 5–8.11. ההרשמה פתוחה כבר עכשיו.', `the strip: ${G.firstStrip(Z(2026, 10, 30, 10))}`);
+  claim(G.firstStrip(Z(2026, 10, 30, 10)) === 'הליגה הראשונה אי פעם: סופ״ש 5-8.11. ההרשמה פתוחה כבר עכשיו.', `the strip: ${G.firstStrip(Z(2026, 10, 30, 10))}`);
   claim(G.firstStrip(Z(2026, 11, 5, 16)) === null && G.firstStrip(Z(2026, 11, 10, 10)) === null, 'the strip stays after the registration closed');
   // from 8.11 20:00 the ordinary words
   const w = G.whenLine(null, Z(2026, 11, 9, 10));
