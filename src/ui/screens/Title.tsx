@@ -22,7 +22,7 @@ import { LeagueTeaser } from '../components/LeagueTeaser.tsx';
  */
 export function TitleScreen({ saved, onNew, onContinue, onInstall, extra }: {
   saved: SaveSummary | null;
-  /** the weekend league's ticket, when its door is open */
+  /** the weekend league's ticket, when its door is open; without it the teaser shows */
   extra?: React.ReactNode;
   onNew: () => void;
   onContinue: () => void;
@@ -103,10 +103,8 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall, extra }: {
           </button>
 
           {saved && <p className="hint" style={{ textAlign: 'center', margin: 0 }}>קריירה חדשה תמחק את הקריירה השמורה.</p>}
-          {extra}
-
-          {/* the neighbourhood league's date, until the day it opens; nothing to press */}
-          <LeagueTeaser />
+          {/* the neighbourhood league: its entrance once the door is open, until then the teaser with the date; one of them, never both (25.10) */}
+          {extra ?? <LeagueTeaser />}
 
           {/* The install belongs HERE, before a career, not buried in the game.
               Shown whatever the device says: the sheet knows the right route for

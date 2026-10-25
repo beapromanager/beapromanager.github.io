@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { teaserParts, teaserSeconds, teaserShown, teaserDateLabel } from '../../game/teaser.ts';
+import { teaserParts, teaserSeconds, teaserShown, teaserDateLabel, teaserNow } from '../../game/teaser.ts';
 import { asset } from '../asset.ts';
 import '../teaser.css';
 
@@ -8,9 +8,9 @@ import '../teaser.css';
  * Not a button and nothing to press: it promises a date, not a door. When the count ends it removes itself.
  */
 export function LeagueTeaser() {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => teaserNow());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => setNow(teaserNow()), 1000);
     return () => clearInterval(t);
   }, []);
   if (!teaserShown(now)) return null;

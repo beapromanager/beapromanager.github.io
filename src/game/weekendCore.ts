@@ -31,6 +31,10 @@ export const PACK_OVR = 90;
 export const ASSISTANT_MAX = 2;
 export const TECH_LOSS: [number, number] = [0, 3];
 export const NICK_MAX = 12;
+/** a league's code: six letters and digits, no look-alikes */
+export const CODE_LEN = 6;
+/** a win is three points, a loss none; there are no draws */
+export const POINTS_WIN = 3;
 
 /** the prize, in wage rounds of the winner's own division in his career, by place; the rest get 0.25 for finishing themselves */
 export const PRIZE_BY_PLACE: Record<number, number> = { 1: 1.5, 2: 0.75, 3: 0.5 };
@@ -39,6 +43,20 @@ export const GEMS_BY_PLACE: Record<number, number> = { 1: 3, 2: 2, 3: 1 };
 export const GEMS_FINISHED = 1;
 /** a champion again gets less: 1.5, then 1.0, then 0.75 and it stays there */
 export const CHAMPION_AGAIN = [1.5, 1.0, 0.75];
+
+/** the "ready?" window after a round's hour: the matches kick off five minutes past */
+export const READY_MS = 5 * 60_000;
+/** a league and its matches live a week after the final, then they are gone */
+export const KEEP_MS = 7 * 86_400_000;
+
+/**
+ * One time only (Itzik, 25.10): registration for the 5–8.11 weekend opens on Thursday 29.10 20:00 Israel,
+ * three days before the Sunday it would open on. Israel is on winter time by then (UTC+2), so it is 18:00 UTC.
+ * From Sunday 8.11 20:00 the calendar is the ordinary one again; see cycleOf.
+ */
+export const FIRST_REGISTRATION_OPENS_AT = Date.UTC(2026, 9, 29, 18, 0, 0);
+/** the Sunday of that first cycle, 1.11.2026 (the Sunday whose 20:00 would have opened it) */
+export const FIRST_CYCLE_SUNDAY: [number, number, number] = [2026, 11, 1];
 
 /* --------------------------------------------------------------- calendar */
 
@@ -93,14 +111,58 @@ export interface Cycle {
   sunday: [number, number, number];
 }
 
-export function cycleOf(now: number): Cycle {
-  const p = ilParts(now);
-  let sunday = shiftDay(p.y, p.m, p.d, -p.dow);
-  let opens = ilAt(...sunday, 20);
-  if (now < opens) { sunday = shiftDay(...sunday, -7); opens = ilAt(...sunday, 20); }
+/** the cycle that opens on a given Sunday's 20:00 */
+function cycleOfSunday(sunday: [number, number, number]): Cycle {
   const thu = shiftDay(...sunday, 4);
   const nextSun = shiftDay(...sunday, 7);
-  return { opens, locks: ilAt(...thu, 17), kickoff: ilAt(...thu, 20), final: ilAt(...nextSun, 20), sunday };
+  return { opens: ilAt(...sunday, 20), locks: ilAt(...thu, 17), kickoff: ilAt(...thu, 20), final: ilAt(...nextSun, 20), sunday };
+}
+
+/** the ordinary calendar: Sunday 20:00 to Sunday 20:00, every week of the year */
+export function regularCycleOf(now: number): Cycle {
+  const p = ilParts(now);
+  let sunday = shiftDay(p.y, p.m, p.d, -p.dow);
+  if (now < ilAt(...sunday, 20)) sunday = shiftDay(...sunday, -7);
+  return cycleOfSunday(sunday);
+}
+
+/**
+ * The cycle an instant belongs to. The one exception is the first weekend ever (FIRST_REGISTRATION_OPENS_AT): from
+ * Thursday 29.10 20:00 until the final of the 5–8.11 weekend the answer is that weekend, with `opens` pinned to the
+ * Thursday. `opens` is the cycle's identity on the server (the lobby's codes, devices and open leagues are keyed by
+ * it), so it must stay the same through Sunday 1.11 20:00, when the ordinary calendar would have started a new one;
+ * otherwise everyone who registered from the Thursday would be swept away that night. From 8.11 20:00 on, regular.
+ */
+export function cycleOf(now: number): Cycle {
+  const first = cycleOfSunday(FIRST_CYCLE_SUNDAY);
+  if (now >= FIRST_REGISTRATION_OPENS_AT && now < first.final) return { ...first, opens: FIRST_REGISTRATION_OPENS_AT };
+  return regularCycleOf(now);
+}
+
+/** the first weekend ever, the one whose registration opened on a Thursday */
+export const isFirstCycle = (c: Cycle): boolean => c.opens === FIRST_REGISTRATION_OPENS_AT;
+
+/**
+ * Why nobody can register right now, or null. Before the first registration ever opens the ordinary calendar still
+ * says the 25.10 cycle is open, and it is not: nothing is played that weekend. The client and the worker ask this
+ * same function, so the bundle's address helps nobody in early.
+ */
+export function registrationGate(now: number): string | null {
+  if (now < FIRST_REGISTRATION_OPENS_AT) return `ההרשמה נפתחת ב${ilDayDate(FIRST_REGISTRATION_OPENS_AT)} ב-${ilTime(FIRST_REGISTRATION_OPENS_AT)}`;
+  return null;
+}
+
+/* ------------------------------------------------------------ words for a day */
+
+export const HE_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+/** "חמישי 5.11": the day's name and its date on the Israeli clock */
+export function ilDayDate(at: number): string { const p = ilParts(at); return `${HE_DAYS[p.dow]} ${p.d}.${p.m}`; }
+/** "17:00" on the Israeli clock */
+export function ilTime(at: number): string { const p = ilParts(at); return `${String(p.hh).padStart(2, '0')}:${String(p.mm).padStart(2, '0')}`; }
+/** "5–8.11": the weekend from its kickoff to its final, as people write it */
+export function weekendSpan(c: Cycle): string {
+  const k = ilParts(c.kickoff), f = ilParts(c.final);
+  return k.m === f.m ? `${k.d}–${f.d}.${f.m}` : `${k.d}.${k.m}–${f.d}.${f.m}`;
 }
 
 export type CyclePhase = 'open' | 'locked' | 'playing';
@@ -137,8 +199,14 @@ export function slotAt(c: Cycle, key: string): number {
   return ilAt(...shiftDay(...c.sunday, DAY_OFFSET[s.day]), s.hh);
 }
 
-/** with n managers, n-1 rounds, two of them fixed */
-export function slotsNeeded(n: number): number { return Math.max(0, n - 3); }
+/**
+ * How many rounds n managers play so that every pair meets once: n-1 when n is even, n when n is odd (a bye each
+ * round). 25.10: with an odd count the league had only n-1 rounds, so one man never rested and the last pairs were
+ * never played (7 gave 18 of 21).
+ */
+export function roundsFor(n: number): number { return n % 2 ? n : n - 1; }
+/** the slots an opener picks beyond the two fixed rounds: N-3 when N is even, N-2 when N is odd; nine at most */
+export function slotsNeeded(n: number): number { return Math.max(0, roundsFor(n) - 2); }
 
 /** the opener's choice: exactly the needed count, every key on the grid, no key twice */
 export function slotsProblem(n: number, keys: string[]): string | null {
@@ -161,7 +229,7 @@ export function roundKeys(c: Cycle, chosen: string[]): string[] {
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export function makeCode(rng: () => number): string {
   let s = '';
-  for (let i = 0; i < 6; i++) s += CODE_ALPHABET[Math.floor(rng() * CODE_ALPHABET.length)];
+  for (let i = 0; i < CODE_LEN; i++) s += CODE_ALPHABET[Math.floor(rng() * CODE_ALPHABET.length)];
   return s;
 }
 
@@ -239,6 +307,8 @@ export interface League {
   cycle: Cycle;
   /** the opener's chosen slots (not the two fixed rounds) */
   slots: string[];
+  /** how many the opener planned for: the capacity, and what the slots were chosen for (the open league: six) */
+  planned: number;
   members: Member[];
   status: LeagueStatus;
   rounds: Round[];
@@ -265,27 +335,33 @@ export function newMember(device: string, nick: string, now: number): Member {
   return { device, nick: nick.trim(), joined: now, squad: null, tactic: defaultTactic(), wins: 0, losses: 0, gf: 0, ga: 0, assistant: 0, packs: 0, opened: 0, fromPacks: [] };
 }
 
-export function createLeague(input: { id: string; kind: LeagueKind; name: string; opener: string; nick: string; slots: string[]; seed: number }, now: number): League | string {
+export function createLeague(input: { id: string; kind: LeagueKind; name: string; opener: string; nick: string; slots: string[]; seed: number; size?: number }, now: number): League | string {
+  const gate = registrationGate(now); if (gate) return gate;
   const cycle = cycleOf(now);
   if (cyclePhase(cycle, now) !== 'open') return 'ההרשמה סגורה עד ראשון ב-20:00';
   const name = input.name.trim();
+  const planned = input.kind === 'open' ? OPEN_MEMBERS : (input.size ?? MAX_MEMBERS);
   if (input.kind === 'friend') {
     if (name.length < 2 || name.length > 24) return 'שם ליגה בין 2 ל-24 תווים';
     const np = nickProblem(input.nick); if (np) return np;
+    if (!Number.isInteger(planned) || planned < MIN_MEMBERS || planned > MAX_MEMBERS) return `ליגה של ${MIN_MEMBERS} עד ${MAX_MEMBERS} חברים`;
   }
   const slots = input.kind === 'open' ? OPEN_SLOTS : input.slots;
   if (input.kind === 'friend' && slots.some(k => !slotByKey(k)) || new Set(slots).size !== slots.length) return 'משבצת שלא בלוח';
+  if (input.kind === 'friend') { const sp = slotsProblem(planned, slots); if (sp) return sp; }
   const league: League = {
     id: input.id, code: makeCode(createRng(input.seed)), kind: input.kind, name: input.kind === 'open' ? 'הליגה הפתוחה' : name,
-    opener: input.opener, seed: input.seed, cycle, slots, members: [], status: 'open', rounds: [], createdAt: now, prizes: null,
+    opener: input.opener, seed: input.seed, cycle, slots, planned, members: [], status: 'open', rounds: [], createdAt: now, prizes: null,
   };
   if (input.kind === 'friend') league.members.push(newMember(input.opener, input.nick, now));
   return league;
 }
 
-export function capacity(l: League): number { return l.kind === 'open' ? OPEN_MEMBERS : MAX_MEMBERS; }
+/** how many can be in: the open league's six, or what the opener planned for (25.10: it was always twelve, and more than planned broke the rounds) */
+export function capacity(l: League): number { return l.kind === 'open' ? OPEN_MEMBERS : (l.planned ?? MAX_MEMBERS); }
 
 export function join(l: League, device: string, nick: string, now: number): string | null {
+  const gate = registrationGate(now); if (gate) return gate;
   if (l.status !== 'open') return 'הליגה כבר סגורה';
   if (now >= l.cycle.locks) return 'ההרשמה נסגרה בחמישי ב-17:00';
   if (l.members.some(m => m.device === device)) return null;   // already in, that is fine
@@ -294,6 +370,52 @@ export function join(l: League, device: string, nick: string, now: number): stri
   if (l.members.some(m => m.nick.trim() === nick.trim())) return 'הכינוי תפוס בליגה הזאת';
   l.members.push(newMember(device, nick, now));
   return null;
+}
+
+/* ------------------------------------------------------------------ lobby */
+
+/**
+ * What the lobby keeps about who is where (the LobbyDO holds one of these). Every record carries the `opens` of its
+ * cycle, which is the cycle's identity. `last` is where a device's league goes when its cycle ends, so a manager who
+ * comes in on Sunday after 20:00 still finds his final, his table and his prize (25.10: he found nothing, the
+ * lobby had already forgotten him for the new cycle while his league was still playing).
+ */
+export interface LobbyCore {
+  codes: Record<string, { id: string; opens: number }>;
+  devices: Record<string, { id: string; opens: number; final?: number }>;
+  open: { id: string; opens: number; count: number }[];
+  last: Record<string, { id: string; final: number }>;
+}
+
+/** the end of the cycle a record was made in */
+function finalOf(rec: { opens: number; final?: number }): number {
+  return rec.final ?? cycleOf(rec.opens).final;
+}
+
+/**
+ * The cycle moved on: codes and open leagues of earlier cycles are forgotten, and a device's league of an earlier
+ * cycle moves to `last`, where it stays until that league is deleted (its final plus KEEP_MS).
+ */
+export function sweepLobby(s: LobbyCore, cycle: Cycle, now: number): void {
+  for (const k of Object.keys(s.codes)) if (s.codes[k].opens !== cycle.opens) delete s.codes[k];
+  for (const k of Object.keys(s.devices)) {
+    const rec = s.devices[k];
+    if (rec.opens === cycle.opens) continue;
+    s.last[k] = { id: rec.id, final: finalOf(rec) };
+    delete s.devices[k];
+  }
+  for (const k of Object.keys(s.last)) if (now > s.last[k].final + KEEP_MS) delete s.last[k];
+  s.open = s.open.filter(o => o.opens === cycle.opens);
+}
+
+/** where a device stands: its league this cycle, and the league it was in last, while that one still exists */
+export function mineOf(s: LobbyCore, device: string, cycle: Cycle, now: number): { league: string | null; last: string | null } {
+  const mine = s.devices[device];
+  const last = s.last[device];
+  return {
+    league: mine && mine.opens === cycle.opens ? mine.id : null,
+    last: last && now <= last.final + KEEP_MS ? last.id : null,
+  };
 }
 
 /* ------------------------------------------------------------------ squads */
@@ -414,7 +536,7 @@ export interface Row { device: string; nick: string; played: number; wins: numbe
 /** the table: points, goal difference, goals for, then head to head, then the nick for a stable order */
 export function standings(l: League): Row[] {
   const rows: Row[] = l.members.map(m => ({
-    device: m.device, nick: m.nick, played: m.wins + m.losses, wins: m.wins, losses: m.losses, gf: m.gf, ga: m.ga, gd: m.gf - m.ga, points: m.wins * 3, assistant: m.assistant,
+    device: m.device, nick: m.nick, played: m.wins + m.losses, wins: m.wins, losses: m.losses, gf: m.gf, ga: m.ga, gd: m.gf - m.ga, points: m.wins * POINTS_WIN, assistant: m.assistant,
   }));
   const h2h = (a: string, b: string): number => {
     for (const r of l.rounds) for (const m of r.matches) if (m.result && ((m.home === a && m.away === b) || (m.home === b && m.away === a))) {

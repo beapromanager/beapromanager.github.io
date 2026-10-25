@@ -2,10 +2,10 @@
  * The weekend league's rules (WEEKEND.md), walked without a server.
  *
  *   1. the calendar: Sunday 20:00 to Sunday 20:00 Israel time, Thursday 17:00 lock, Thursday 20:00 kickoff, Sunday 20:00 final, through summer and winter time
- *   2. the slots: a league of N needs exactly N-3, every key on the grid, none twice; the open league's four are fixed
+ *   2. the slots: a league of N needs exactly N-3 (N-2 when N is odd), every key on the grid, none twice; the open league's three are fixed
  *   3. a league: created only while open, joined by code up to twelve, nick rules, a friend league of five is cancelled at the lock
  *   4. the lock: eighteen men each at an average of 85 (give or take half), ids never shared, the eleven first with a keeper
- *   5. the rounds: every pair once, N-1 rounds on the chosen slots in time order, kickoff first and final last, a bye when odd
+ *   5. the rounds: every pair once, N-1 rounds (N when odd, everyone resting once) on the chosen slots in time order, kickoff first and final last
  *   6. results: no draws, the assistant's third match is 0:3, wins count packs every three
  *   7. the table: points, goal difference, goals for, head to head
  *   8. the pack: a man of 90 at the chosen place, in for the weakest at that place, the squad stays eighteen, no second opening
@@ -52,6 +52,8 @@ const claim = (ok: boolean, msg: string) => { checked++; if (!ok) fails.push(msg
 /* 2. the slots */
 {
   claim(W.slotsNeeded(6) === 3 && W.slotsNeeded(10) === 7 && W.slotsNeeded(12) === 9, 'N-3 is wrong');
+  claim(W.slotsNeeded(7) === 5 && W.slotsNeeded(9) === 7 && W.slotsNeeded(11) === 9, 'an odd league needs N-2 slots (n rounds, a bye each)');
+  claim(W.roundsFor(6) === 5 && W.roundsFor(7) === 7 && W.roundsFor(12) === 11 && W.roundsFor(11) === 11, 'the round count is wrong');
   claim(W.slotsProblem(10, ['fri-10', 'fri-12', 'fri-14', 'sat-20', 'sat-22', 'sun-10', 'sun-18']) === null, 'a right choice of seven was refused');
   claim(W.slotsProblem(10, ['fri-10', 'fri-12', 'fri-14', 'sat-20', 'sat-22']) !== null, 'five slots for ten were allowed');
   claim(W.slotsProblem(6, ['fri-10', 'fri-12', 'fri-14', 'sat-20']) !== null, 'four slots for six were allowed');
@@ -63,9 +65,11 @@ const claim = (ok: boolean, msg: string) => { checked++; if (!ok) fails.push(msg
 }
 
 /* 3 to 9. a league of ten, start to finish */
-const T0 = Date.UTC(2026, 9, 20, 9, 0);   // Tuesday noon Israel
-function tenLeague(n = 10) {
-  const made = W.createLeague({ id: 'L1', kind: 'friend', name: 'ליגת בניין 7', opener: 'dev-0', nick: 'איציק', slots: ['fri-10', 'fri-12', 'fri-14', 'sat-20', 'sat-22', 'sun-10', 'sun-18'], seed: 4242 }, T0);
+const T0 = Date.UTC(2026, 10, 10, 10, 0);   // Tuesday 10.11.2026 noon Israel, an ordinary week after the first weekend
+const NINE_SLOTS = ['fri-10', 'fri-12', 'fri-14', 'sat-20', 'sat-22', 'sun-10', 'sun-18', 'sat-10', 'sun-14'];
+/** a league planned for `planned` (ten unless more come), the first slotsNeeded(planned) of nine keys, n joined */
+function tenLeague(n = 10, planned = Math.max(n, 10)) {
+  const made = W.createLeague({ id: 'L1', kind: 'friend', name: 'ליגת בניין 7', opener: 'dev-0', nick: 'איציק', slots: NINE_SLOTS.slice(0, W.slotsNeeded(planned)), seed: 4242, size: planned }, T0);
   if (typeof made === 'string') throw new Error(made);
   for (let i = 1; i < n; i++) { const e = W.join(made, `dev-${i}`, `חבר ${i}`, T0 + i * 60_000); if (e) throw new Error(e); }
   return made;
@@ -82,7 +86,9 @@ function tenLeague(n = 10) {
   const twelve = tenLeague(12);
   claim(W.join(twelve, 'dev-13', 'עוד אחד', T0) !== null, 'a thirteenth got in');
   claim(typeof W.createLeague({ id: 'L2', kind: 'friend', name: 'x', opener: 'd', nick: 'איציק', slots: [], seed: 1 }, l.cycle.locks + 1) === 'string', 'a league was created after the lock');
-  claim(typeof W.createLeague({ id: 'L3', kind: 'friend', name: 'בסדר', opener: 'd', nick: 'איציק', slots: ['fri-18'], seed: 1 }, T0) === 'string', 'a league with a slot off the grid was created');
+  claim(typeof W.createLeague({ id: 'L3', kind: 'friend', name: 'בסדר', opener: 'd', nick: 'איציק', slots: ['fri-18', 'fri-10', 'fri-12'], seed: 1, size: 6 }, T0) === 'string', 'a league with a slot off the grid was created');
+  claim(typeof W.createLeague({ id: 'L4', kind: 'friend', name: 'בסדר', opener: 'd', nick: 'איציק', slots: ['fri-10', 'fri-12'], seed: 1, size: 6 }, T0) === 'string', 'a league of six with two slots was created');
+  claim(typeof W.createLeague({ id: 'L5', kind: 'friend', name: 'בסדר', opener: 'd', nick: 'איציק', slots: ['fri-10', 'fri-12', 'fri-14'], seed: 1, size: 13 }, T0) === 'string', 'a league of thirteen was created');
   // five at the lock: cancelled
   const five = tenLeague(5);
   W.lock(five, five.cycle.locks);
@@ -128,11 +134,14 @@ function tenLeague(n = 10) {
     }
   }
   claim(pairs.size === 45, `${pairs.size} pairs for ten, wanted 45`);
-  // odd: seven managers, six rounds, a bye each round
+  // odd: seven managers, seven rounds, a bye each round, everyone resting exactly once, all 21 pairs played
+  // (25.10: it was six rounds, one man never rested and three pairs never met)
   const seven = tenLeague(7);
   W.lock(seven, seven.cycle.locks);
-  claim(seven.rounds.length === 6 && seven.rounds.every(r => r.bye && r.matches.length === 3), 'seven managers do not get six rounds of three with a bye');
-  claim(new Set(seven.rounds.map(r => r.bye)).size === 6, 'the same man sits out twice with seven');
+  claim(seven.rounds.length === 7 && seven.rounds.every(r => r.bye && r.matches.length === 3), `seven managers got ${seven.rounds.length} rounds, wanted seven of three with a bye`);
+  claim(new Set(seven.rounds.map(r => r.bye)).size === 7, 'with seven, someone rests twice and someone never');
+  const sevenPairs = new Set(seven.rounds.flatMap(r => r.matches.map(m => [m.home, m.away].sort().join('|'))));
+  claim(sevenPairs.size === 21, `${sevenPairs.size} pairs for seven, wanted 21`);
   // eight planned for twelve slots, trimmed: the opener chose seven, eight came, need five
   const eight = tenLeague(8);
   W.lock(eight, eight.cycle.locks);

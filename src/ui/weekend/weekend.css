@@ -178,3 +178,40 @@
 .wk-in{animation:wkIn var(--t-slow) var(--ease-out) both}
 @keyframes wkIn{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
 @media (prefers-reduced-motion: reduce){.wk-in{animation:none} .wk-entry .k::before{animation:none} .wk-opp .dots::after{animation:none; content:"..."}}
+
+/* the explanation (25.10): the help button, the sheet from the bottom, the four cards, the questions, the opener's steps, the when line */
+.wk-help{border:2px solid var(--wk-ink); background:var(--wk-paper-2); color:var(--wk-ink); border-radius:999px; padding:6px 12px; font-weight:900; font-size:12.5px; min-height:32px; cursor:pointer; font-family:var(--font-body)}
+.wk-help.sm{min-width:32px; padding:0; font-family:var(--font-wk); font-size:16px; line-height:1}
+.wk-link{background:none; border:none; padding:8px 0; min-height:44px; color:var(--wk-ink-dim); font-weight:700; font-size:13px; text-decoration:underline; text-underline-offset:3px; cursor:pointer; font-family:var(--font-body); text-align:center; width:100%}
+.wk-sheet{position:fixed; inset:0; z-index:60; display:flex; align-items:flex-end; justify-content:center}
+.wk-sheet-bg{position:absolute; inset:0; background:rgba(5,9,7,.55)}
+.wk-intro,.wk-faq{position:relative; width:100%; max-width:430px; max-height:92dvh; overflow-y:auto; overflow-x:hidden; background:var(--wk-paper); color:var(--wk-ink); border:2px solid var(--wk-ink); border-bottom:none; border-radius:10px 10px 0 0; padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px)); display:flex; flex-direction:column; gap:10px; box-shadow:0 -10px 40px rgba(0,0,0,.4); touch-action:pan-y; font-family:var(--font-body)}
+.wk-intro{--wk-paper:#F2EADB; --wk-paper-2:#FBF7EE; --wk-ink:#1B2A4A; --wk-ink-dim:#5C6680; --wk-red:#D7263D; --font-wk:"Secular One","Rubik","Heebo",system-ui,sans-serif}
+.wk-faq{--wk-paper:#F2EADB; --wk-paper-2:#FBF7EE; --wk-ink:#1B2A4A; --wk-ink-dim:#5C6680; --wk-red:#D7263D; --font-wk:"Secular One","Rubik","Heebo",system-ui,sans-serif}
+.wk-intro-skip{background:none; border:none; min-height:44px; padding:0 8px; color:var(--wk-ink-dim); font-weight:800; font-size:13.5px; cursor:pointer; font-family:var(--font-body)}
+.wk-intro-art{height:150px; border:2px solid var(--wk-ink); border-radius:6px; overflow:hidden; background:var(--wk-paper-3,#E3D8C2)}
+.wk-intro-art img{width:100%; height:100%; object-fit:cover; object-position:center 30%; display:block}
+.wk-intro-title{font-family:var(--font-wk); font-weight:400; font-size:30px; line-height:1.05; margin:0; color:var(--wk-ink)}
+.wk-intro-lines{margin:0; padding-inline-start:18px; display:flex; flex-direction:column; gap:7px; font-size:14.5px; line-height:1.5; color:var(--wk-ink)}
+.wk-intro-foot{border-top:2px dashed rgba(27,42,74,.45); padding-top:8px; font-size:12.5px; font-weight:700; color:var(--wk-ink-dim); line-height:1.4}
+.wk-dots{display:flex; justify-content:center; gap:6px}
+.wk-dots span{width:8px; height:8px; border-radius:50%; border:2px solid var(--wk-ink); background:transparent}
+.wk-dots span.on{background:var(--wk-red); border-color:var(--wk-red)}
+.wk-faq h2{font-family:var(--font-wk); font-weight:400; font-size:24px; margin:0; color:var(--wk-ink)}
+.wk-faq-list{display:flex; flex-direction:column; gap:6px}
+.wk-faq-q{border:1.5px solid rgba(27,42,74,.55); border-radius:6px; background:var(--wk-paper-2); overflow:hidden}
+.wk-faq-q button{width:100%; min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; background:none; border:none; text-align:start; font-weight:800; font-size:14px; color:var(--wk-ink); cursor:pointer; font-family:var(--font-body)}
+.wk-faq-q.open button svg{transform:rotate(90deg)}
+.wk-faq-q p{margin:0; padding:0 12px 12px; font-size:13.5px; line-height:1.55; color:var(--wk-ink-dim)}
+.wk-guide{border:2px solid var(--wk-ink); border-radius:6px; background:var(--wk-paper-2); overflow:hidden}
+.wk-guide-h{width:100%; min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; background:none; border:none; text-align:start; font-family:var(--font-wk); font-size:19px; color:var(--wk-ink); cursor:pointer}
+.wk-guide-h[aria-expanded="true"] svg{transform:rotate(90deg)}
+.wk-steps{margin:0; padding:0 12px 6px; padding-inline-start:30px; display:flex; flex-direction:column; gap:6px; font-size:13.5px; line-height:1.5; color:var(--wk-ink)}
+.wk-steps li::marker{font-family:var(--font-wk); color:var(--wk-red)}
+.wk-guide-note{margin:0; padding:8px 12px 12px; font-size:12.5px; font-weight:700; color:var(--wk-red-dark); border-top:2px dashed rgba(27,42,74,.35)}
+.wk-when{display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:6px; background:var(--wk-paper-2); border:1.5px solid rgba(27,42,74,.35); font-size:13px; font-weight:700; color:var(--wk-ink); line-height:1.35}
+.wk-when.hot{color:var(--wk-red-dark); border-color:var(--wk-red)}
+.wk-when.hot::before{content:""; flex:none; width:8px; height:8px; border-radius:50%; background:var(--wk-red); animation:wkPulse 1.2s ease-in-out infinite}
+.wk-filling b{display:block; margin-top:4px; font-size:15px; color:var(--wk-ink)}
+.wk-first{background:var(--wk-ink); color:var(--wk-paper); border-radius:6px; padding:9px 12px; font-weight:800; font-size:13px; line-height:1.4}
+@media (prefers-reduced-motion: reduce){.wk-when.hot::before{animation:none}}

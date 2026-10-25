@@ -27,6 +27,20 @@ export function teaserDateLabel(at: number = TEASER_OPENS_AT): string {
   return `${day} ${Number(get('day'))}.${Number(get('month'))} · ${get('hour')}:${get('minute')}`;
 }
 
+/**
+ * The clock the card reads. On a developer's machine ?wknow=<ms> moves it, the same parameter the league's own
+ * screens honour, so the second the teaser hands over to the entrance can be watched before the day. Read once at
+ * load, because the address bar is tidied straight after. Production is the phone's clock.
+ */
+const DEV_OFFSET: number = (() => {
+  try {
+    if (!import.meta.env?.DEV || typeof location === 'undefined') return 0;
+    const v = new URLSearchParams(location.search).get('wknow');
+    return v && /^\d+$/.test(v) ? Number(v) - Date.now() : 0;
+  } catch { return 0; }
+})();
+export const teaserNow = (): number => Date.now() + DEV_OFFSET;
+
 /** Whole seconds left, never below zero. */
 export const teaserSeconds = (now: number, to: number = TEASER_OPENS_AT): number =>
   Math.max(0, Math.floor((to - now) / 1000));

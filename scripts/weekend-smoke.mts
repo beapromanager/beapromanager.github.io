@@ -19,8 +19,8 @@ const fails: string[] = [];
 const claim = (ok: boolean, msg: string) => { if (!ok) fails.push(msg); };
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-/** the server's clock is moved to a Tuesday noon Israel in the cycle we play, and runs from there with real time */
-let OFFSET = Date.UTC(2026, 9, 20, 9, 0) - Date.now();
+/** the server's clock is moved to a Tuesday noon Israel in an ordinary cycle after the first weekend, and runs from there with real time */
+let OFFSET = Date.UTC(2026, 10, 10, 10, 0) - Date.now();
 const now = () => Date.now() + OFFSET;
 const setNow = (t: number) => { OFFSET = t - Date.now(); };
 async function api<T>(path: string, b?: unknown, at = now()): Promise<{ ok: boolean; status: number; data: T }> {
@@ -33,7 +33,7 @@ const devices = Array.from({ length: 6 }, (_, i) => `smoke-device-${i}-${Math.ra
 const nicks = ['איציק', 'דודו', 'רועי', 'יוסי', 'מוטי', 'אבי'];
 
 // 1. open and join
-const made = await api<{ id: string; code: string }>('/league', { device: devices[0], nick: nicks[0], name: 'ליגת בניין 7', slots: ['fri-12', 'fri-14', 'sat-20'], email: 'itzik@example.com' });
+const made = await api<{ id: string; code: string }>('/league', { device: devices[0], nick: nicks[0], name: 'ליגת בניין 7', slots: ['fri-12', 'fri-14', 'sat-20'], size: 6, email: 'itzik@example.com' });
 claim(made.ok && !!made.data.code && made.data.code.length === 6, `the league was not made: ${JSON.stringify(made.data)}`);
 const id = made.data.id, code = made.data.code;
 for (let i = 1; i < 6; i++) {
@@ -41,9 +41,11 @@ for (let i = 1; i < 6; i++) {
   claim(j.ok && j.data.id === id, `${nicks[i]} could not join: ${JSON.stringify(j.data)}`);
 }
 claim(!(await api('/league/join', { device: devices[1], nick: 'אחר', code })).ok, 'a device joined a second league');
+claim((await api('/league/join', { device: 'smoke-seventh-1', nick: 'שביעי', code })).data && (await api<{ error: string }>('/league/join', { device: 'smoke-seventh-2', nick: 'שמיני', code })).data.error === 'הליגה מלאה', 'a seventh got into a league planned for six');
+claim(!(await api('/league', { device: 'smoke-big-1', nick: 'גדול', name: 'ליגה גדולה', slots: ['fri-12', 'fri-14', 'sat-20'], size: 8 })).ok, 'eight with three slots was accepted (needs five)');
 claim((await api('/league/join', { device: 'smoke-stranger-1', nick: 'זר', code: 'ZZZZZZ' })).status === 404, 'a wrong code found a league');
-const mine = await api<{ league: string | null }>(`/mine?device=${devices[2]}`);
-claim(mine.data.league === id, '/mine does not find the league');
+const mine = await api<{ league: string | null; last: string | null }>(`/mine?device=${devices[2]}`);
+claim(mine.data.league === id && mine.data.last === null, '/mine does not find the league');
 let v = await api<Record<string, any>>(`/league/${id}?device=${devices[0]}`);
 claim(v.ok && v.data.members.length === 6 && v.data.status === 'open' && v.data.opener === true, `the view is wrong: ${JSON.stringify(v.data).slice(0, 200)}`);
 claim(v.data.roundKeys.length === 5 && v.data.roundKeys[0].key === 'thu-20' && v.data.roundKeys[4].key === 'sun-20', 'the planned rounds are wrong');
@@ -121,7 +123,8 @@ const champ = v.data.table[0];
 const champDev = devices[nicks.indexOf(champ.nick)];
 const p1 = await api<{ token: any }>(`/league/${id}/prize`, { device: champDev });
 claim(p1.ok && p1.data.token.place === 1 && p1.data.token.wageRounds === 1.5 && p1.data.token.gems === 3 && typeof p1.data.token.sig === 'string', `the champion's prize: ${JSON.stringify(p1.data)}`);
-claim((await api(`/league/${id}/prize`, { device: champDev })).status === 409, 'the prize was handed out twice');
+const p1again = await api<{ token: any; again?: boolean }>(`/league/${id}/prize`, { device: champDev });
+claim(p1again.ok && p1again.data.again === true && p1again.data.token.nonce === p1.data.token.nonce && p1again.data.token.sig === p1.data.token.sig, 'asking for the prize again did not hand back the same token (same nonce)');
 const pAbs = await api<{ token: any }>(`/league/${id}/prize`, { device: devices[5] });
 claim(pAbs.ok && pAbs.data.token.wageRounds === 0 && pAbs.data.token.gems === 0 && pAbs.data.token.finished === false, `the absent man's prize: ${JSON.stringify(pAbs.data)}`);
 // the champion is remembered: a second league in a later cycle would pay 1.0 (the lobby holds it)

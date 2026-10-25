@@ -52,9 +52,9 @@ export interface Env {
   DEBUG?: string;
 }
 
-const READY_MS = 5 * 60_000;        // the "ready?" window after a slot's hour
+const READY_MS = W.READY_MS;        // the "ready?" window after a slot's hour
 const COLLECT_MS = 60_000;          // how often a round's results are looked for
-const KEEP_MS = 7 * 86_400_000;     // a league lives a week after its final
+const KEEP_MS = W.KEEP_MS;          // a league lives a week after its final
 const HEADERS = { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, x-now', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: HEADERS });
 const bad = (error: string, status = 400) => json({ error }, status);
@@ -127,13 +127,7 @@ export default {
 
 /* ------------------------------------------------------------------ lobby */
 
-interface LobbyState {
-  /** code → league id, for the current cycle */
-  codes: Record<string, { id: string; opens: number }>;
-  /** device → league id, one league a weekend */
-  devices: Record<string, { id: string; opens: number }>;
-  /** open leagues of the cycle with how many are in */
-  open: { id: string; opens: number; count: number }[];
+interface LobbyState extends W.LobbyCore {
   /** device → how many times champion */
   champions: Record<string, number>;
   /** mail opt-ins, kept apart: device → mail and when */
@@ -147,31 +141,27 @@ export class LobbyDO {
 
   private async load(): Promise<LobbyState> {
     if (this.s) return this.s;
-    this.s = (await this.state.storage.get<LobbyState>('lobby')) ?? { codes: {}, devices: {}, open: [], champions: {}, mails: {}, counter: 0 };
+    this.s = (await this.state.storage.get<LobbyState>('lobby')) ?? { codes: {}, devices: {}, open: [], last: {}, champions: {}, mails: {}, counter: 0 };
+    this.s.last ??= {};   // a lobby written before 25.10 has no `last` yet
     return this.s;
   }
   private async save() { await this.state.storage.put('lobby', this.s!); }
-
-  /** anything from an earlier cycle is forgotten here (the league objects delete themselves) */
-  private sweep(s: LobbyState, opens: number) {
-    for (const k of Object.keys(s.codes)) if (s.codes[k].opens !== opens) delete s.codes[k];
-    for (const k of Object.keys(s.devices)) if (s.devices[k].opens !== opens) delete s.devices[k];
-    s.open = s.open.filter(o => o.opens === opens);
-  }
 
   async fetch(req: Request): Promise<Response> {
     const s = await this.load();
     const url = new URL(req.url);
     const now = Number(req.headers.get('x-now')) || Date.now();
     const cycle = W.cycleOf(now);
-    this.sweep(s, cycle.opens);
+    // codes and open leagues of an earlier cycle are forgotten; a device's league of an earlier cycle moves to
+    // `last` for a week, so Sunday 20:00 does not take the final away from the people playing it (25.10)
+    W.sweepLobby(s, cycle, now);
     const league = (id: string) => this.env.LEAGUE.get(this.env.LEAGUE.idFromString(id));
     const call = (id: string, path: string, b: unknown) => league(id).fetch(new Request(`https://do${path}`, { method: 'POST', body: JSON.stringify(b), headers: { 'x-now': String(now) } }));
 
     if (url.pathname === '/mine') {
       const device = url.searchParams.get('device')!;
-      const mine = s.devices[device];
-      return json({ league: mine ? mine.id : null, cycle, phase: W.cyclePhase(cycle, now), now });
+      const mine = W.mineOf(s, device, cycle, now);
+      return json({ league: mine.league, last: mine.last, cycle, phase: W.cyclePhase(cycle, now), now });
     }
 
     if (url.pathname === '/champion') {   // a league reporting its champion
@@ -193,6 +183,8 @@ export class LobbyDO {
 
     const b = await body<{ device: string; nick: string; name?: string; slots?: string[]; code?: string; email?: string }>(req);
     if (!b || !isDevice(b.device)) return bad('device');
+    // the first registration ever opens on a Thursday (the core knows when); before it, this door says so too
+    const gate = W.registrationGate(now); if (gate) return bad(gate);
     if (W.cyclePhase(cycle, now) !== 'open') return bad('ההרשמה פתוחה מראשון 20:00 עד חמישי 17:00');
     if (s.devices[b.device]) return bad('אתה כבר בליגה הסופשבוע הזה', 409);
     const nick = String(b.nick ?? '').trim();
@@ -205,18 +197,22 @@ export class LobbyDO {
     if (url.pathname === '/league') {
       const name = String(b.name ?? '').trim();
       const slots = Array.isArray(b.slots) ? b.slots.map(String) : [];
+      // how many the opener planned for: the league's capacity, and what the slots have to fit (25.10)
+      const size = Number(b.size);
+      if (!Number.isInteger(size) || size < W.MIN_MEMBERS || size > W.MAX_MEMBERS) return bad(`ליגה של ${W.MIN_MEMBERS} עד ${W.MAX_MEMBERS} חברים`);
       if (slots.some(k => !W.slotByKey(k)) || new Set(slots).size !== slots.length) return bad('משבצת שלא בלוח');
       if (slots.length < W.slotsNeeded(W.MIN_MEMBERS)) return bad(`צריך לפחות ${W.slotsNeeded(W.MIN_MEMBERS)} משבצות`);
       if (slots.length > W.slotsNeeded(W.MAX_MEMBERS)) return bad(`עד ${W.slotsNeeded(W.MAX_MEMBERS)} משבצות`);
+      const sp = W.slotsProblem(size, slots); if (sp) return bad(sp);
       const fresh = this.env.LEAGUE.newUniqueId();
       s.counter++;
       const seed = (Math.floor(now / 1000) ^ (s.counter * 2654435761)) >>> 0;
       let code = '';
       for (let k = 0; k < 20; k++) { code = W.makeCode(() => Math.random()); if (!s.codes[code]) break; }
-      const res = await call(fresh.toString(), '/create', { id: fresh.toString(), kind: 'friend', name, opener: b.device, nick, slots, seed, code });
+      const res = await call(fresh.toString(), '/create', { id: fresh.toString(), kind: 'friend', name, opener: b.device, nick, slots, size, seed, code });
       if (!res.ok) return res;
       s.codes[code] = { id: fresh.toString(), opens: cycle.opens };
-      s.devices[b.device] = { id: fresh.toString(), opens: cycle.opens };
+      s.devices[b.device] = { id: fresh.toString(), opens: cycle.opens, final: cycle.final };
       await this.save();
       return json({ id: fresh.toString(), code });
     }
@@ -227,7 +223,7 @@ export class LobbyDO {
       if (!hit) return bad('אין ליגה עם הקוד הזה', 404);
       const res = await call(hit.id, '/join', { device: b.device, nick });
       if (!res.ok) return res;
-      s.devices[b.device] = { id: hit.id, opens: cycle.opens };
+      s.devices[b.device] = { id: hit.id, opens: cycle.opens, final: cycle.final };
       await this.save();
       return json({ id: hit.id, code });
     }
@@ -246,7 +242,7 @@ export class LobbyDO {
       const res = await call(target.id, '/join', { device: b.device, nick });
       if (!res.ok) return res;
       target.count++;
-      s.devices[b.device] = { id: target.id, opens: cycle.opens };
+      s.devices[b.device] = { id: target.id, opens: cycle.opens, final: cycle.final };
       await this.save();
       return json({ id: target.id, code: null });
     }
@@ -259,8 +255,11 @@ export class LobbyDO {
 interface LeagueExtra {
   /** devices that pressed "ready" for the round in play */
   ready: Record<string, number>;
-  /** prize tokens handed out, by device */
-  claimed: Record<string, number>;
+  /**
+   * prize tokens handed out, by device: the token itself is kept, so a device whose answer was lost on the way gets
+   * the same token (the same nonce) again instead of nothing (25.10); a bare number is a claim from before that
+   */
+  claimed: Record<string, number | { at: number; token: PrizeToken }>;
   /** the fast clock for a debug run */
   clock?: Partial<D.Clock>;
 }
@@ -397,9 +396,9 @@ export class LeagueDO {
 
     if (url.pathname === '/create') {
       if (this.l) return bad('this league exists', 409);
-      const b = await body<{ id: string; kind: W.LeagueKind; name: string; opener: string; nick: string; slots: string[]; seed: number; code: string }>(req);
+      const b = await body<{ id: string; kind: W.LeagueKind; name: string; opener: string; nick: string; slots: string[]; seed: number; code: string; size?: number }>(req);
       if (!b) return bad('bad body');
-      const made = W.createLeague({ id: b.id, kind: b.kind, name: b.name, opener: b.opener, nick: b.nick, slots: b.slots, seed: b.seed }, now);
+      const made = W.createLeague({ id: b.id, kind: b.kind, name: b.name, opener: b.opener, nick: b.nick, slots: b.slots, seed: b.seed, size: b.size }, now);
       if (typeof made === 'string') return bad(made);
       made.code = b.code;
       this.l = made;
@@ -482,15 +481,18 @@ export class LeagueDO {
       if (l.status !== 'done' || !l.prizes) return bad('הליגה עוד לא נגמרה');
       const p = l.prizes.find(x => x.device === dev);
       if (!p) return bad('אין פרס');
-      if (this.x.claimed[dev]) return bad('הפרס כבר נלקח', 409);
+      const had = this.x.claimed[dev];
+      if (had && typeof had === 'object') return json({ token: had.token, again: true });   // the same token again: the career applies a nonce once
+      if (had) return bad('הפרס כבר נלקח', 409);
       const secret = this.env.PRIZE_SECRET ?? (debug ? 'debug-secret' : '');
       if (!secret) return bad('no secret', 500);
       const nonce = crypto.randomUUID();
       const tok: Omit<PrizeToken, 'sig'> = { league: l.id, device: dev, place: p.place, wageRounds: p.wageRounds, gems: p.gems, finished: p.finished, nick: me.nick, leagueName: l.name, final: l.cycle.final, nonce };
       const sig = await hmac(secret, JSON.stringify(tok));
-      this.x.claimed[dev] = now;
+      const token: PrizeToken = { ...tok, sig };
+      this.x.claimed[dev] = { at: now, token };
       await this.save();
-      return json({ token: { ...tok, sig } });
+      return json({ token });
     }
     return bad('no such door', 404);
   }

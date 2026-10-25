@@ -10,8 +10,10 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SaveSummary } from '../../game/save.ts';
-import { WeekendApi, ApiError, local, setLocal, serverNow, slotLabel, dateLabel, POSITION_WORDS, type LeagueView, type LiveView, type PrizeToken } from '../../game/weekend.ts';
-import { cycleOf, cyclePhase, SLOT_GRID, DAY_NAME, slotsNeeded, slotsProblem, MIN_MEMBERS, MAX_MEMBERS, PACK_EVERY, type SlotDay } from '../../game/weekendCore.ts';
+import { WeekendApi, ApiError, local, setLocal, serverNow, slotLabel, dateLabel, rootDecision, POSITION_WORDS, type LeagueView, type LiveView, type PrizeToken } from '../../game/weekend.ts';
+import { cycleOf, cyclePhase, SLOT_GRID, DAY_NAME, slotsNeeded, slotsProblem, ilDayDate, ilTime, READY_MS, MIN_MEMBERS, MAX_MEMBERS, PACK_EVERY, type SlotDay } from '../../game/weekendCore.ts';
+import { introSeen, firstStrip, CANCEL_TEXT } from '../../game/weekendGuide.ts';
+import { HelpButton, IntroCards, FaqSheet, AdminGuide, FillingCard, WhenLine } from './WeekendGuide.tsx';
 import { fillFormation, formation, FORMATIONS, type FormationId } from '../../data/formations.ts';
 import { overall } from '../../engine/matchEngine.ts';
 import type { Player } from '../../engine/matchEngine.ts';
@@ -47,18 +49,22 @@ export function WeekendEntry({ onOpen, hasCareer }: { onOpen: () => void; hasCar
   const now = serverNow();
   const c = cycleOf(now);
   const phase = cyclePhase(c, now);
-  const mine = local().leagueId;
-  const line = phase === 'open' ? { k: 'ההרשמה פתוחה', to: c.locks, m: 'עד חמישי 17:00' }
-    : phase === 'locked' ? { k: 'הרשימות נסגרו', to: c.kickoff, m: 'חמישי 20:00, המחזור הראשון' }
-    : { k: 'משחקים עכשיו', to: c.final, m: 'עד הגמר, ראשון 20:00' };
+  const mem = local();
+  const mine = mem.leagueId;
+  // Sunday 20:00 opens the next weekend, but a device whose league ends now is in its final for the next hour (25.10)
+  const finalNow = !!mine && !!mem.final && now >= mem.final && now < mem.final + 3_600_000;
+  const line = finalNow ? { k: 'הגמר עכשיו', to: mem.final! + READY_MS, m: now < mem.final! + READY_MS ? 'המשחק האחרון יוצא לדרך' : 'המשחק האחרון שלך רץ' }
+    : phase === 'open' ? { k: 'ההרשמה פתוחה', to: c.locks, m: `עד ${ilDayDate(c.locks)} ${ilTime(c.locks)}` }
+    : phase === 'locked' ? { k: 'הרשימות נסגרו', to: c.kickoff, m: `${ilDayDate(c.kickoff)} ${ilTime(c.kickoff)}, המחזור הראשון` }
+    : { k: 'משחקים עכשיו', to: c.final, m: `עד הגמר, ${ilDayDate(c.final)} ${ilTime(c.final)}` };
   return (
     <button className="wk-entry" onClick={onOpen} aria-label="ליגת השכונה">
       <div className="stub"><span>סופשבוע · {dateLabel(c.kickoff)}</span></div>
-      <div className="stamp">{mine ? 'נכנס' : 'סופשבוע'}</div>
+      <div className="stamp">{finalNow ? 'הגמר' : mine ? 'נכנס' : 'סופשבוע'}</div>
       <div className="k">{line.k}</div>
       <div className="h">ליגת השכונה</div>
       <div className="wk-row" style={{ gap: 10, alignItems: 'baseline' }}>
-        <Count className="c" to={line.to} now={now} />
+        {now < line.to && <Count className="c" to={line.to} now={now} />}
         <span className="m">{line.m}</span>
       </div>
       {!hasCareer && <div className="m" style={{ marginTop: 4 }}>קודם קריירה, אחר כך הליגה</div>}
@@ -78,59 +84,87 @@ export function WeekendRoot({ saved, onBack, onPrize }: {
 }) {
   const [page, setPage] = useState<Page>('home');
   const [leagueId, setLeagueId] = useState<string | null>(local().leagueId);
+  /** the league shown is last cycle's: its final, its table and its prize, while the next weekend is already open */
+  const [lastMode, setLastMode] = useState(false);
   const [league, setLeague] = useState<LeagueView | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
+  // the explanation: the four cards the first time, the questions on request
+  const [sheet, setSheet] = useState<null | 'intro' | 'faq'>(() => (introSeen() ? null : 'intro'));
 
-  // where this device stands this weekend
+  // where this device stands: this cycle's league, else last cycle's (its final is still there), else a remembered
+  // id is asked of the league itself before it is dropped (25.10: Sunday 20:00 used to drop it mid-final)
   useEffect(() => {
     let on = true;
-    WeekendApi.mine().then(m => {
+    const drop = () => { setLeagueId(null); setLocal({ leagueId: null, final: null }); };
+    WeekendApi.mine().then(async m => {
       if (!on) return;
-      if (m.league) { setLeagueId(m.league); setLocal({ leagueId: m.league }); setPage('lobby'); }
-      else { setLeagueId(null); setLocal({ leagueId: null }); }
+      const d = rootDecision(m, local().leagueId);
+      if (d.kind === 'lobby') { setLeagueId(d.id); setLastMode(d.last); setLocal({ leagueId: d.id }); setPage('lobby'); return; }
+      if (d.kind === 'probe') {
+        try { await WeekendApi.view(d.id); if (on) { setLeagueId(d.id); setLastMode(true); setPage('lobby'); } }
+        catch (e) { if (on && e instanceof ApiError && (e.status === 403 || e.status === 404 || e.status === 410)) drop(); }
+        return;
+      }
+      drop();
     }).catch(e => { if (on) setErr(e instanceof ApiError ? e.message : 'השרת לא עונה'); }).finally(() => { if (on) setBooting(false); });
     return () => { on = false; };
   }, []);
 
-  const enter = (id: string) => { setLeagueId(id); setLocal({ leagueId: id }); setPage('lobby'); };
+  const enter = (id: string) => { setLeagueId(id); setLastMode(false); setLocal({ leagueId: id, final: cycleOf(serverNow()).final }); setPage('lobby'); };
+  const now = serverNow();
+  const sheets = (
+    <>
+      {sheet === 'intro' && <IntroCards now={now} onClose={() => setSheet(null)} onFaq={() => setSheet('faq')} />}
+      {sheet === 'faq' && <FaqSheet now={now} onClose={() => setSheet(null)} onIntro={() => setSheet('intro')} />}
+    </>
+  );
 
   if (page === 'match' && league?.mine?.matchId) {
     return <WeekendMatch leagueId={league.id} matchId={league.mine.matchId} side={league.mine.side} opponent={league.mine.opponent} me={league.me?.nick ?? ''} onDone={() => setPage('lobby')} />;
   }
   if (page === 'lobby' && leagueId) {
-    return <Lobby id={leagueId} league={league} setLeague={setLeague} onMatch={() => setPage('match')} onLeave={onBack} onPrize={onPrize} hasCareer={!!saved} />;
+    return (
+      <>
+        <Lobby id={leagueId} league={league} setLeague={setLeague} last={lastMode} onMatch={() => setPage('match')} onLeave={onBack} onHome={() => { setLeague(null); setPage('home'); }} onHelp={() => setSheet('intro')} onPrize={onPrize} hasCareer={!!saved} />
+        {sheets}
+      </>
+    );
   }
   return (
     <div className="wk">
       <div className="wk-paper wk-stack">
         <div className="wk-row" style={{ justifyContent: 'space-between' }}>
           <button className="wk-back" onClick={page === 'home' ? onBack : () => setPage('home')}><Icon name="chevron" size={16} />{page === 'home' ? 'לכניסה' : 'חזרה'}</button>
-          <span className="wk-pill">סופשבוע</span>
+          {page === 'home' ? <HelpButton onClick={() => setSheet('intro')} /> : <span className="wk-pill">סופשבוע</span>}
         </div>
-        {page === 'home' && <Home saved={saved} booting={booting} err={err} go={setPage} />}
+        {page === 'home' && <Home saved={saved} booting={booting} err={err} go={setPage} onFaq={() => setSheet('faq')} />}
         {page === 'create' && <CreateLeague onMade={enter} />}
         {page === 'join' && <JoinLeague onJoined={enter} />}
         {page === 'open' && <OpenJoin onJoined={enter} />}
       </div>
+      {sheets}
     </div>
   );
 }
 
-function Home({ saved, booting, err, go }: { saved: SaveSummary | null; booting: boolean; err: string | null; go: (p: Page) => void }) {
+function Home({ saved, booting, err, go, onFaq }: { saved: SaveSummary | null; booting: boolean; err: string | null; go: (p: Page) => void; onFaq: () => void }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
   const now = serverNow();
   const c = cycleOf(now);
   const phase = cyclePhase(c, now);
   const open = phase === 'open';
+  const first = firstStrip(now);
   return (
     <>
       <div className="wk-frame"><img src={asset('/weekend/entrance.webp')} alt="" /></div>
       <div style={{ height: 230 }} />
+      {first && <div className="wk-first wk-in">{first}</div>}
       <div className="wk-kick">חמישי 20:00 עד ראשון 20:00</div>
       <h1>ליגת השכונה</h1>
       <p className="wk-muted">סגל חדש, שווה לכולם. משחק אחד מול כל חבר, בשעות שקבעתם. אין תיקו. המנצח לוקח הביתה לקריירה.</p>
+      <WhenLine league={null} now={now} />
       <div className="wk-card soft wk-row" style={{ justifyContent: 'space-between' }}>
         <div>
           <div className="wk-muted">{open ? 'ההרשמה נסגרת בעוד' : phase === 'locked' ? 'המחזור הראשון בעוד' : 'הגמר בעוד'}</div>
@@ -151,6 +185,7 @@ function Home({ saved, booting, err, go }: { saved: SaveSummary | null; booting:
         </div>
       )}
       <p className="wk-muted" style={{ fontSize: 12 }}>בליגה נשמרים בשרת הכינוי שבחרת, הסגל שהמשחק הגריל לך והתוצאות, ונמחקים שבוע אחרי הגמר. לא טלפון, לא מיקום. מייל רק אם סימנת.</p>
+      <button className="wk-link" onClick={onFaq}>שאלות נפוצות: מתי משחקים, מה הפרס, מה עושה מי שפותח</button>
     </>
   );
 }
@@ -187,7 +222,7 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
   const problem = slotsProblem(size, slots);
   const toggle = (k: string) => setSlots(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k]);
   const { busy, err, run } = useSubmit(
-    () => WeekendApi.create({ nick, name, slots, email: mail && email ? email : undefined }),
+    () => WeekendApi.create({ nick, name, slots, size, email: mail && email ? email : undefined }),
     r => { setLocal({ nick }); onMade(r.id); },
   );
   const days: SlotDay[] = ['fri', 'sat', 'sun'];
@@ -195,6 +230,7 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
     <div className="wk-stack wk-in">
       <div className="wk-kick">ליגת החבר׳ה</div>
       <h1>פותחים ליגה</h1>
+      <AdminGuide size={size} />
       <div>
         <label className="wk-label" htmlFor="wk-name">שם הליגה</label>
         <input id="wk-name" className="wk-input" value={name} onChange={e => setName(e.target.value)} maxLength={24} placeholder="ליגת בניין 7" />
@@ -293,9 +329,11 @@ function OpenJoin({ onJoined }: { onJoined: (id: string) => void }) {
 
 /* ------------------------------------------------------------------ the league */
 
-function Lobby({ id, league, setLeague, onMatch, onLeave, onPrize, hasCareer }: {
+function Lobby({ id, league, setLeague, last, onMatch, onLeave, onHome, onHelp, onPrize, hasCareer }: {
   id: string; league: LeagueView | null; setLeague: (l: LeagueView | null) => void;
-  onMatch: () => void; onLeave: () => void; onPrize: (t: PrizeToken) => string | null; hasCareer: boolean;
+  /** last cycle's league: the next weekend is already open for registration */
+  last: boolean;
+  onMatch: () => void; onLeave: () => void; onHome: () => void; onHelp: () => void; onPrize: (t: PrizeToken) => string | null; hasCareer: boolean;
 }) {
   const [err, setErr] = useState<string | null>(null);
   const [live, setLive] = useState<LiveView | null>(null);
@@ -305,8 +343,8 @@ function Lobby({ id, league, setLeague, onMatch, onLeave, onPrize, hasCareer }: 
   const [packMan, setPackMan] = useState<Player | null>(null);
 
   const refresh = async () => {
-    try { setLeague(await WeekendApi.view(id)); setErr(null); }
-    catch (e) { if (e instanceof ApiError && (e.status === 403 || e.status === 404 || e.status === 410)) { setLocal({ leagueId: null }); onLeave(); } else setErr(e instanceof ApiError ? e.message : 'השרת לא עונה'); }
+    try { const v = await WeekendApi.view(id); setLeague(v); setLocal({ final: v.cycle.final }); setErr(null); }
+    catch (e) { if (e instanceof ApiError && (e.status === 403 || e.status === 404 || e.status === 410)) { setLocal({ leagueId: null, final: null }); onLeave(); } else setErr(e instanceof ApiError ? e.message : 'השרת לא עונה'); }
   };
   useEffect(() => { void refresh(); const t = setInterval(refresh, 6_000); const k = setInterval(() => tick(n => n + 1), 1000); return () => { clearInterval(t); clearInterval(k); }; }, [id]);
   const inRound = !!league?.current && serverNow() >= league.current.at;
@@ -336,13 +374,25 @@ function Lobby({ id, league, setLeague, onMatch, onLeave, onPrize, hasCareer }: 
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'השרת לא עונה'); }
   };
 
+  const shareText = L.code ? `ליגת השכונה ב-BE A PRO. ${L.name}, הקוד ${L.code}. חמישי 20:00 פותחים. ${L.roundKeys.map(r => `${slotLabel(r.key).day} ${slotLabel(r.key).time}`).join(', ')}.` : null;
   return (
     <div className="wk">
       <div className="wk-paper wk-stack">
         <div className="wk-row" style={{ justifyContent: 'space-between' }}>
           <button className="wk-back" onClick={onLeave}><Icon name="chevron" size={16} />לכניסה</button>
-          <span className="wk-pill">{L.kind === 'open' ? 'הליגה הפתוחה' : 'ליגת החבר׳ה'} · {dateLabel(L.cycle.kickoff)}</span>
+          <span className="wk-row" style={{ gap: 6 }}>
+            <span className="wk-pill">{L.kind === 'open' ? 'הליגה הפתוחה' : 'ליגת החבר׳ה'} · {dateLabel(L.cycle.kickoff)}</span>
+            <button className="wk-help sm" onClick={onHelp} aria-label="איך זה עובד">?</button>
+          </span>
         </div>
+
+        {/* last cycle's league: the next weekend is already open, this one is here for its final, its table and its prize */}
+        {last && now >= L.cycle.final && (
+          <div className="wk-card soft wk-row wk-in" style={{ justifyContent: 'space-between' }}>
+            <b>הסופ״ש הבא כבר פתוח להרשמה</b>
+            <button className="wk-btn sm" onClick={onHome}>לסופ״ש הבא</button>
+          </div>
+        )}
 
         {/* the ticket */}
         <div className={`wk-ticket ${L.code ? 'has-stub' : ''} wk-in`}>
@@ -355,6 +405,7 @@ function Lobby({ id, league, setLeague, onMatch, onLeave, onPrize, hasCareer }: 
           <div className="wk-barcode" />
         </div>
 
+        <WhenLine league={L} now={now} />
         {err && <p className="wk-err">{err}</p>}
 
         {/* the one button that matters now */}
@@ -364,7 +415,8 @@ function Lobby({ id, league, setLeague, onMatch, onLeave, onPrize, hasCareer }: 
         {L.current && !canPlay && !myDone && now >= L.current.at && now < L.current.startsAt && L.mine && (
           <button className="wk-btn wk-in" onClick={() => WeekendApi.ready(id).then(refresh).catch(() => {})}>מוכן? מול {L.mine.opponent} בעוד <Count to={L.current.startsAt} now={now} /></button>
         )}
-        {L.status === 'cancelled' && <div className="wk-card"><b>לא הגעתם לשישה.</b> <span className="wk-muted">הליגה לא יצאה לדרך. בשבוע הבא, או הליגה הפתוחה.</span></div>}
+        {L.status === 'cancelled' && <div className="wk-card"><b>{CANCEL_TEXT.lead}</b> <span className="wk-muted">{CANCEL_TEXT.rest}</span></div>}
+        {L.status === 'open' && <FillingCard n={L.members.length} isOpener={L.opener} kind={L.kind === 'open' ? 'open' : 'friends'} shareText={shareText} />}
 
         {/* the prize */}
         {L.status === 'done' && L.prize && (
@@ -404,10 +456,10 @@ function Lobby({ id, league, setLeague, onMatch, onLeave, onPrize, hasCareer }: 
                 );
               })}
             </div>
-            {L.status === 'open' && L.code && (
+            {L.status === 'open' && shareText && (
               <div className="wk-card soft">
                 <b>שלח לחבר׳ה:</b>
-                <p className="wk-muted" style={{ margin: '6px 0 0', userSelect: 'all' }}>{`ליגת השכונה ב-BE A PRO. ${L.name}, הקוד ${L.code}. חמישי 20:00 פותחים. ${L.roundKeys.map(r => `${slotLabel(r.key).day} ${slotLabel(r.key).time}`).join(', ')}.`}</p>
+                <p className="wk-muted" style={{ margin: '6px 0 0', userSelect: 'all' }}>{shareText}</p>
               </div>
             )}
           </>

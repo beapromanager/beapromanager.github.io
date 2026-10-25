@@ -4,7 +4,7 @@ import { saveCareer, loadCareer, savedSummary, clearCareer } from '../game/save.
 import type { SaveSummary } from '../game/save.ts';
 import { TitleScreen } from './screens/Title.tsx';
 import { WeekendEntry, WeekendRoot } from './weekend/Weekend.tsx';
-import { WEEKEND_ON, local as weekendLocal, setLocal as setWeekendLocal } from '../game/weekend.ts';
+import { weekendOn, serverNow, LAUNCH_AT, local as weekendLocal, setLocal as setWeekendLocal } from '../game/weekend.ts';
 import type { PrizeToken } from '../game/weekend.ts';
 import { IntroCinematic } from './screens/Intro.tsx';
 import { Tutorial } from './components/Tutorial.tsx';
@@ -94,6 +94,13 @@ export function App() {
   const [saved, setSaved] = useState<SaveSummary | null>(() => savedSummary());
   // the weekend league: its own screen off the title, and the prize that comes home to the career
   const [weekendOpen, setWeekendOpen] = useState(false);
+  // the clock the league's door is read by: a tick a second until the launch has passed, then it stands still
+  const [wkNow, setWkNow] = useState(() => serverNow());
+  useEffect(() => {
+    if (wkNow >= LAUNCH_AT + 5_000) return;
+    const t = setInterval(() => setWkNow(serverNow()), 1000);
+    return () => clearInterval(t);
+  }, [wkNow >= LAUNCH_AT + 5_000]);
   function applyWeekendPrize(token: PrizeToken): string | null {
     const loaded = loadCareer();
     if (!loaded) return null;
@@ -313,7 +320,7 @@ export function App() {
     );
   }
 
-  if (!booted && weekendOpen && WEEKEND_ON) {
+  if (!booted && weekendOpen && weekendOn(wkNow)) {
     return (
       <div className="frame">
         <WeekendRoot saved={saved} onBack={() => setWeekendOpen(false)} onPrize={applyWeekendPrize} />
@@ -326,7 +333,7 @@ export function App() {
       <div className="frame">
         <>
           <TitleScreen saved={saved} onNew={startNew} onContinue={continueCareer} onInstall={() => setInstallOpen(true)}
-            extra={WEEKEND_ON ? <WeekendEntry hasCareer={!!saved} onOpen={() => setWeekendOpen(true)} /> : undefined} />
+            extra={weekendOn(wkNow) ? <WeekendEntry hasCareer={!!saved} onOpen={() => setWeekendOpen(true)} /> : undefined} />
           {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
         </>
       </div>

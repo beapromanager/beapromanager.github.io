@@ -36,7 +36,7 @@ const ok = (c: boolean, m: string) => { checked++; if (!c) fails.push(m); };
   const title = readFileSync('src/ui/screens/Title.tsx', 'utf8');
   ok(!/<button|onClick|onPointer|role="button"|tabIndex/.test(card), 'the teaser has something to press');
   ok(/if \(!teaserShown\(now\)\) return null;/.test(card), 'the teaser does not take itself off the screen when the count ends');
-  ok(/setInterval\(\(\) => setNow\(Date\.now\(\)\), 1000\)/.test(card), 'the count is not live (a tick a second)');
+  ok(/setInterval\(\(\) => setNow\(teaserNow\(\)\), 1000\)/.test(card), 'the count is not live (a tick a second)');
   ok(card.includes('ליגת השכונה מגיעה') && card.includes("פותחים ליגה עם החבר'ה, מחמישי 20:00 עד ראשון 20:00") && card.includes('ההרשמה נפתחת בעוד'), 'the three lines of the card are not as asked');
   ok(/<div className="lt-date">\{teaserDateLabel\(\)\}<\/div>/.test(card) && !/29\.10/.test(card), 'the date line under the count is missing, or the date is typed by hand instead of read off the constant');
   ok(/\.lt-date\{/.test(css), 'the date line has no style');
@@ -46,7 +46,7 @@ const ok = (c: boolean, m: string) => { checked++; if (!c) fails.push(m); };
   ok(existsSync('public/weekend/entrance.webp'), 'the picture file is missing');
   const code = [card, readFileSync('src/game/teaser.ts', 'utf8')].join('\n');
   ok(!/WEEKEND_LIVE|weekendCore|worker|fetch\(|WeekendApi/.test(code), 'the teaser reaches for the league: its door, its rules or the server');
-  ok(!existsSync('src/game/weekendCore.ts') && !existsSync('worker/src/weekend.ts'), 'the league\'s own code is in this branch');
+  ok(!/^import .*(weekendCore|weekend\.ts|duel)/m.test(code), 'the teaser imports the league\'s code (it must stay free of it; the league reads the teaser\'s date, never the other way)');
 }
 
 if (fails.length) { console.log('\nFAIL'); for (const f of fails) console.log('  ' + f); process.exit(1); }

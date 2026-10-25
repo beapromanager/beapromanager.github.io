@@ -13,7 +13,7 @@
 
 import type { DuelView } from './duel.ts';
 import type { Row, MatchResult, Prize, Cycle, CyclePhase } from './weekendCore.ts';
-import { DAY_NAME, slotByKey, KICKOFF_KEY, FINAL_KEY } from './weekendCore.ts';
+import { DAY_NAME, slotByKey, KICKOFF_KEY, FINAL_KEY, FIRST_REGISTRATION_OPENS_AT } from './weekendCore.ts';
 import { deviceId } from './telemetry.ts';
 import type { Player } from '../engine/matchEngine.ts';
 import type { SimpleTactic } from './liveMatch.ts';
@@ -24,16 +24,34 @@ const WEEKEND_URL_PROD = '';
 function devDoor(): boolean {
   try { return !!import.meta.env?.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('weekend'); } catch { return false; }
 }
+/** read once at load: the address bar is tidied straight after, and the door must not shut on the first click */
+const DEV_DOOR = devDoor();
 export const WEEKEND_URL: string = (() => {
   try { return (import.meta.env?.VITE_WEEKEND_URL as string | undefined) || (import.meta.env?.DEV ? 'http://127.0.0.1:8788' : WEEKEND_URL_PROD); } catch { return WEEKEND_URL_PROD; }
 })();
-export const WEEKEND_ON: boolean = (WEEKEND_LIVE || devDoor()) && WEEKEND_URL !== '';
+export const WEEKEND_ON: boolean = (WEEKEND_LIVE || DEV_DOOR) && WEEKEND_URL !== '';
+
+/**
+ * The launch (Itzik, 25.10): the entrance appears on the title screen at the very second the teaser's count ends,
+ * Thursday 29.10 20:00 Israel, which is also the second the first registration opens on the server.
+ */
+export const LAUNCH_AT = FIRST_REGISTRATION_OPENS_AT;
+/** the door by the clock alone, with the flag and the address passed in so a check can turn them */
+export function gateOpen(now: number, live: boolean = WEEKEND_LIVE, url: string = WEEKEND_URL): boolean {
+  return url !== '' && live && now >= LAUNCH_AT;
+}
+/** the door as the phone sees it now: the clock's gate, or a developer's ?weekend against the local server */
+export function weekendOn(now: number): boolean {
+  return WEEKEND_URL !== '' && (gateOpen(now) || DEV_DOOR);
+}
 
 /* ------------------------------------------------------------------ store */
 
 const KEY = 'beapro.weekend.v1';
 export interface WeekendLocal {
   leagueId: string | null;
+  /** when the league this device is in ends (its final), so the ticket can say "the final is now" after Sunday 20:00 */
+  final: number | null;
   nick: string;
   /** a prize fetched from the server and not yet in the career */
   pendingPrize: PrizeToken | null;
@@ -41,8 +59,8 @@ export interface WeekendLocal {
 export interface PrizeToken { league: string; device: string; place: number; wageRounds: number; gems: number; finished: boolean; nick: string; leagueName: string; final: number; nonce: string; sig: string }
 
 export function local(): WeekendLocal {
-  try { const raw = localStorage.getItem(KEY); if (raw) return { leagueId: null, nick: '', pendingPrize: null, ...JSON.parse(raw) }; } catch { /* fine */ }
-  return { leagueId: null, nick: '', pendingPrize: null };
+  try { const raw = localStorage.getItem(KEY); if (raw) return { leagueId: null, final: null, nick: '', pendingPrize: null, ...JSON.parse(raw) }; } catch { /* fine */ }
+  return { leagueId: null, final: null, nick: '', pendingPrize: null };
 }
 export function setLocal(patch: Partial<WeekendLocal>) {
   try { localStorage.setItem(KEY, JSON.stringify({ ...local(), ...patch })); } catch { /* fine */ }
@@ -59,7 +77,10 @@ const DEBUG_NOW: number | null = (() => {
 if (DEBUG_NOW !== null) offset = DEBUG_NOW - Date.now();
 export const serverNow = () => Date.now() + offset;
 
-export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) { super(message); this.status = status; }
+}
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const dev = deviceId();
@@ -76,7 +97,26 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
   return data as T;
 }
 
-export interface MineView { league: string | null; cycle: Cycle; phase: CyclePhase; now: number }
+export interface MineView {
+  /** the league this device is in this cycle */
+  league: string | null;
+  /** the league it was in last cycle, while that one still exists (a week after its final): the final, the table and the prize are there */
+  last: string | null;
+  cycle: Cycle; phase: CyclePhase; now: number;
+}
+
+/**
+ * What the weekend screen opens on, from what the lobby says and what the phone remembers (25.10: after Sunday
+ * 20:00 the lobby said "no league" and the phone forgot the one still playing its final). The league of this
+ * cycle first; else the last one, shown as last; else a remembered id is asked of the league itself before it is
+ * dropped; else home.
+ */
+export function rootDecision(m: { league: string | null; last: string | null }, localId: string | null): { kind: 'lobby'; id: string; last: boolean } | { kind: 'probe'; id: string } | { kind: 'home' } {
+  if (m.league) return { kind: 'lobby', id: m.league, last: false };
+  if (m.last) return { kind: 'lobby', id: m.last, last: true };
+  if (localId) return { kind: 'probe', id: localId };
+  return { kind: 'home' };
+}
 export interface MemberView { nick: string; me: boolean; opener: boolean; ready: boolean }
 export interface RoundView { index: number; key: string; at: number; bye: string | null; matches: { home: string; away: string; mine: boolean; matchId: string | null; started: boolean; result: MatchResult | null }[] }
 export interface LeagueView {
@@ -101,7 +141,7 @@ export interface LiveView {
 
 export const WeekendApi = {
   mine: () => api<MineView>('/mine'),
-  create: (b: { nick: string; name: string; slots: string[]; email?: string }) => api<{ id: string; code: string }>('/league', b),
+  create: (b: { nick: string; name: string; slots: string[]; size: number; email?: string }) => api<{ id: string; code: string }>('/league', b),
   join: (b: { nick: string; code: string; email?: string }) => api<{ id: string; code: string }>('/league/join', b),
   open: (b: { nick: string; email?: string }) => api<{ id: string; code: null }>('/league/open', b),
   view: (id: string) => api<LeagueView>(`/league/${id}`),
