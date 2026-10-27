@@ -1,0 +1,17 @@
+.lg-sheet{position:fixed; inset:0; z-index:90; display:flex; align-items:flex-end; justify-content:center; direction:rtl}
+.lg-bg{position:absolute; inset:0; background:rgba(5,9,7,.7)}
+.lg-card{position:relative; width:min(560px,100%); max-height:86dvh; display:flex; flex-direction:column; background:var(--surface,#0E1712); color:var(--ink,#EEF4EF); border-radius:18px 18px 0 0; padding:16px 18px calc(18px + env(safe-area-inset-bottom)); font-family:var(--font-body)}
+.lg-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px}
+.lg-head h2{margin:0; font-size:19px; font-family:var(--font-display)}
+.lg-x{min-height:44px; padding:0 14px; background:none; border:1px solid var(--line,#333); color:var(--ink,#EEF4EF); border-radius:10px; font-weight:700; cursor:pointer}
+.lg-body{overflow:auto; font-size:14px; line-height:1.6}
+.lg-body h3{margin:14px 0 4px; font-size:15px}
+.lg-body p{margin:0 0 8px; color:var(--ink-dim,#93A69A)}
+.lg-a{background:none; border:none; padding:0; font:inherit; color:inherit; text-decoration:underline; text-underline-offset:3px; cursor:pointer}
+.lg-mail{color:inherit; text-decoration:underline; text-underline-offset:3px}
+.lg-consent label{display:flex; align-items:flex-start; gap:10px; font-size:13.5px; line-height:1.5}
+.lg-consent input{width:22px; height:22px; margin:0; flex:none; accent-color:var(--gold,#E9B949)}
+.lg-links{font-size:inherit}
+.lg-body h4{margin:10px 0 2px; font-size:14px}
+.lg-body ul{margin:0 0 4px; padding-inline-start:20px; color:var(--ink-dim,#93A69A)}
+.lg-code{margin-top:14px; font-size:13px; border-top:1px solid var(--line,#333); padding-top:10px}

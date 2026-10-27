@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon.tsx';
 import { useEffect, useRef, useState } from 'react';
 import { watchInstall, isInstalled } from '../install.ts';
 import { LeagueTeaser } from '../components/LeagueTeaser.tsx';
+import { LegalSheet, LegalLinks, type LegalKind } from '../components/LegalSheet.tsx';
 
 /**
  * Entry screen, the tunnel (Itzik's pick of five on 12.10).
@@ -32,6 +33,7 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall, extra }: {
   // Chrome decides a site is installable a moment after load, so this screen
   // has to be told when that happens rather than reading it once
   const [, bump] = useState(0);
+  const [legal, setLegal] = useState<LegalKind | null>(null);
   useEffect(() => watchInstall(() => bump(n => n + 1)), []);
   const installed = isInstalled();
   // the photograph fades up once it has arrived, never pops in half drawn
@@ -121,7 +123,9 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall, extra }: {
         <p className="title-credit title-rise" style={{ ['--i' as string]: 5 }}>
           <span>נעשה ע״י <b dir="ltr">ITZIK UZIEL</b> · <b dir="ltr">ISRU-E</b></span>
           <span>© <span dir="ltr">ISRU-E</span> · כל הזכויות שמורות · השמות והמועדונים בדיוניים · שימוש אנונימי נספר</span>
+          <span><LegalLinks open={setLegal} /></span>
         </p>
+        {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
       </div>
     </div>
   );

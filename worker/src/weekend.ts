@@ -160,8 +160,6 @@ async function route(req: Request, env: Env): Promise<Response> {
 interface LobbyState extends W.LobbyCore {
   /** device → how many times champion */
   champions: Record<string, number>;
-  /** mail opt-ins, kept apart: device → mail and when */
-  mails: Record<string, { mail: string; at: number }>;
   counter: number;
 }
 
@@ -171,11 +169,22 @@ export class LobbyDO {
 
   private async load(): Promise<LobbyState> {
     if (this.s) return this.s;
-    this.s = (await this.state.storage.get<LobbyState>('lobby')) ?? { codes: {}, devices: {}, open: [], last: {}, champions: {}, mails: {}, counter: 0 };
+    this.s = (await this.state.storage.get<LobbyState>('lobby')) ?? { codes: {}, devices: {}, open: [], last: {}, champions: {}, counter: 0 };
     this.s.last ??= {};   // a lobby written before 25.10 has no `last` yet
+    if (W.stripLegacyMails(this.s)) await this.save();   // no mail is kept any more (27.10): what an earlier build stored goes at the first request
     return this.s;
   }
-  private async save() { await this.state.storage.put('lobby', this.s!); }
+  private async save() {
+    await this.state.storage.put('lobby', this.s!);
+    // the lobby sweeps itself a week after the final, even if nobody calls (27.10)
+    await this.state.storage.setAlarm(W.cycleOf(Date.now()).final + KEEP_MS + 60_000);
+  }
+  async alarm() {
+    const s = await this.load();
+    const now = Date.now();
+    W.sweepLobby(s, W.cycleOf(now), now);
+    await this.save();
+  }
 
   async fetch(req: Request): Promise<Response> {
     const s = await this.load();
@@ -211,21 +220,19 @@ export class LobbyDO {
       return json({ ok: true });
     }
 
-    const b = await body<{ device: string; nick: string; name?: string; slots?: string[]; code?: string; email?: string }>(req);
+    const b = await body<{ device: string; nick: string; name?: string; slots?: string[]; code?: string; consent?: string }>(req);
     if (!b || !isDevice(b.device)) return bad('device');
+    if (b.consent !== W.LEGAL_VERSION) return bad('צריך לאשר את תנאי השימוש ואת מדיניות הפרטיות');
     // the first registration ever opens on a Thursday (the core knows when); before it, this door says so too
     const gate = W.registrationGate(now); if (gate) return bad(gate);
     if (W.cyclePhase(cycle, now) !== 'open') return bad('ההרשמה פתוחה מראשון 20:00 עד חמישי 17:00');
     if (s.devices[b.device]) return bad('אתה כבר בליגה הסופשבוע הזה', 409);
     const nick = String(b.nick ?? '').trim();
     const np = W.nickProblem(nick); if (np) return bad(np);
-    if (b.email && typeof b.email === 'string') {
-      const mail = b.email.trim().toLowerCase();
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail) && mail.length <= 120) s.mails[b.device] = { mail, at: now };
-    }
 
     if (url.pathname === '/league') {
       const name = String(b.name ?? '').trim();
+      const nmp = W.nameProblem(name); if (nmp) return bad(nmp);
       const slots = Array.isArray(b.slots) ? b.slots.map(String) : [];
       // how many the opener planned for: the league's capacity, and what the slots have to fit (25.10)
       const size = Number(b.size);
@@ -548,9 +555,17 @@ export class MatchDO {
     await this.state.storage.put('duel', D.serialize(d));
     const next = d.decision ? d.decision.deadlineAt : d.halfUntil !== null ? d.halfUntil : null;
     if (next !== null && !d.done) await this.state.storage.setAlarm(next);
+    // a finished match keeps its squads, team names and device ids for a week and then goes (27.10)
+    if (d.done && (await this.state.storage.get<number>('purgeAt')) === undefined) {
+      const at = Date.now() + KEEP_MS;
+      await this.state.storage.put('purgeAt', at);
+      await this.state.storage.setAlarm(at);
+    }
   }
   async alarm() {
     await this.load();
+    const purgeAt = await this.state.storage.get<number>('purgeAt');
+    if (purgeAt !== undefined && Date.now() >= purgeAt) { await this.state.storage.deleteAll(); this.duel = null; this.devices = null; this.loaded = false; return; }
     if (!this.duel || this.duel.done) return;
     D.advance(this.duel, Date.now());
     await this.settle();

@@ -292,7 +292,8 @@ const state = readFileSync('src/game/state.ts', 'utf8');
 {
   const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true })
     .flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [join(dir, e.name)] : []);
-  const files = walk('src');
+  // the privacy policy and the terms are Itzik's own legal text, kept as he wrote it (27.10), not the game's voice
+  const files = walk('src').filter(f => !/legalText\.ts$/.test(f));
   const bad: string[] = [];
   for (const f of files) {
     const code = readFileSync(f, 'utf8')

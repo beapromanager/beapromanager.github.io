@@ -236,6 +236,28 @@ export function makeCode(rng: () => number): string {
 /* ----------------------------------------------------------------- nicks */
 
 const BAD_WORDS = ['זונה', 'שרמוטה', 'מניאק', 'בן זונה', 'כוס', 'זין', 'היטלר', 'נאצי', 'fuck', 'shit', 'nazi', 'hitler'];
+/**
+ * The version of the terms of use and the privacy policy a person ticks before joining (Itzik, 27.10). The server
+ * refuses a registration that does not carry it, so a client without the tick cannot get in.
+ */
+export const LEGAL_VERSION = '2026-10-27';
+
+/** the league's name goes through the same filter as a nickname (27.10) */
+export function nameProblem(name: string): string | null {
+  const n = name.trim();
+  if (n.length < 2 || n.length > 24) return 'שם ליגה בין 2 ל-24 תווים';
+  const low = n.toLowerCase();
+  if (BAD_WORDS.some(w => low.includes(w))) return 'השם הזה לא נכנס לליגה';
+  return null;
+}
+
+/** an old lobby kept mail opt-ins; there are none now, and a lobby that still has them loses them (27.10) */
+export function stripLegacyMails(s: object): boolean {
+  if (!('mails' in s)) return false;
+  delete (s as { mails?: unknown }).mails;
+  return true;
+}
+
 export function nickProblem(nick: string): string | null {
   const n = nick.trim();
   if (n.length < 2) return 'כינוי קצר מדי';
@@ -342,7 +364,7 @@ export function createLeague(input: { id: string; kind: LeagueKind; name: string
   const name = input.name.trim();
   const planned = input.kind === 'open' ? OPEN_MEMBERS : (input.size ?? MAX_MEMBERS);
   if (input.kind === 'friend') {
-    if (name.length < 2 || name.length > 24) return 'שם ליגה בין 2 ל-24 תווים';
+    const nmp = nameProblem(name); if (nmp) return nmp;
     const np = nickProblem(input.nick); if (np) return np;
     if (!Number.isInteger(planned) || planned < MIN_MEMBERS || planned > MAX_MEMBERS) return `ליגה של ${MIN_MEMBERS} עד ${MAX_MEMBERS} חברים`;
   }

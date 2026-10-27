@@ -21,6 +21,8 @@ import { overall } from '../../engine/matchEngine.ts';
 import type { Player } from '../../engine/matchEngine.ts';
 import { asset } from '../asset.ts';
 import { Icon } from '../components/Icon.tsx';
+import { LegalSheet, LegalLinks, ConsentBox, type LegalKind } from '../components/LegalSheet.tsx';
+import { LEGAL_VERSION } from '../../game/legal.ts';
 import { WeekendMatch } from './WeekendMatch.tsx';
 import './weekend.css';
 
@@ -192,20 +194,23 @@ function Home({ saved, booting, err, go, onFaq }: { saved: SaveSummary | null; b
           <button className="wk-btn ghost" disabled={booting} onClick={() => go('open')}>הליגה הפתוחה, למי שבא לבד</button>
         </div>
       )}
-      <p className="wk-muted" style={{ fontSize: 12 }}>בליגה נשמרים בשרת הכינוי שבחרת, הסגל שהמשחק הגריל לך והתוצאות, ונמחקים שבוע אחרי הגמר. לא טלפון, לא מיקום. מייל רק אם סימנת.</p>
+      <p className="wk-muted" style={{ fontSize: 12 }}>בליגה נשמרים בשרת הכינוי שבחרת, שם הליגה, הסגל שהמשחק הגריל לך, הבחירות שלך והתוצאות, ונמחקים שבוע אחרי הגמר. נשאר רק מספר האליפויות של המכשיר, בלי כינוי. לא טלפון, לא מיקום, לא מייל.</p>
       <button className="wk-link" onClick={onFaq}>שאלות נפוצות: מתי משחקים, מה הפרס, מה עושה מי שפותח</button>
+      <WkFooter />
     </>
   );
 }
 
 /* ------------------------------------------------------------- the three doors */
 
-function MailOpt({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+/** the documents and the address to write to, at the foot of the league's home and lobby (Itzik, 27.10) */
+export function WkFooter() {
+  const [legal, setLegal] = useState<LegalKind | null>(null);
   return (
-    <label className="wk-check">
-      <input type="checkbox" checked={value} onChange={e => onChange(e.target.checked)} />
-      <span>רוצה לקבל עדכונים על המשחק במייל. לא חובה, אפשר להסיר בכל רגע.</span>
-    </label>
+    <p className="wk-muted wk-foot" style={{ fontSize: 12, textAlign: 'center' }}>
+      <LegalLinks open={setLegal} />
+      {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
+    </p>
   );
 }
 
@@ -224,13 +229,13 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
   const [nick, setNick] = useState(local().nick);
   const [size, setSize] = useState(8);
   const [slots, setSlots] = useState<string[]>([]);
-  const [mail, setMail] = useState(false);
-  const [email, setEmail] = useState('');
+  const [ok, setOk] = useState(false);
+  const [legal, setLegal] = useState<LegalKind | null>(null);
   const need = slotsNeeded(size);
   const problem = slotsProblem(size, slots);
   const toggle = (k: string) => setSlots(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k]);
   const { busy, err, run } = useSubmit(
-    () => WeekendApi.create({ nick, name, slots, size, email: mail && email ? email : undefined }),
+    () => WeekendApi.create({ nick, name, slots, size, consent: LEGAL_VERSION }),
     r => { setLocal({ nick }); onMade(r.id); },
   );
   const days: SlotDay[] = ['fri', 'sat', 'sun'];
@@ -273,10 +278,10 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
         <b>{problem ?? 'הלוח מלא. אפשר לפתוח.'}</b>
         <div className="wk-muted">אם יגיעו פחות ממה שתכננת, הלוח מתכווץ לבד מהסוף. פחות משישה בחמישי 17:00, הליגה לא יוצאת לדרך.</div>
       </div>
-      <MailOpt value={mail} onChange={setMail} />
-      {mail && <input className="wk-input" type="email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="המייל שלך" />}
+      <ConsentBox checked={ok} onChange={setOk} open={setLegal} />
       {err && <p className="wk-err">{err}</p>}
-      <button className="wk-btn red" disabled={busy || !!problem || name.trim().length < 2 || nick.trim().length < 2} onClick={run}>{busy ? 'פותח…' : 'לפתוח את הליגה'}</button>
+      <button className="wk-btn red" disabled={busy || !ok || !!problem || name.trim().length < 2 || nick.trim().length < 2} onClick={run}>{busy ? 'פותח…' : 'לפתוח את הליגה'}</button>
+      {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
     </div>
   );
 }
@@ -284,10 +289,10 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
 function JoinLeague({ onJoined }: { onJoined: (id: string) => void }) {
   const [code, setCode] = useState('');
   const [nick, setNick] = useState(local().nick);
-  const [mail, setMail] = useState(false);
-  const [email, setEmail] = useState('');
+  const [ok, setOk] = useState(false);
+  const [legal, setLegal] = useState<LegalKind | null>(null);
   const { busy, err, run } = useSubmit(
-    () => WeekendApi.join({ nick, code: code.trim().toUpperCase(), email: mail && email ? email : undefined }),
+    () => WeekendApi.join({ nick, code: code.trim().toUpperCase(), consent: LEGAL_VERSION }),
     r => { setLocal({ nick }); onJoined(r.id); },
   );
   return (
@@ -302,20 +307,20 @@ function JoinLeague({ onJoined }: { onJoined: (id: string) => void }) {
         <label className="wk-label" htmlFor="wk-nick2">הכינוי שלך בליגה</label>
         <input id="wk-nick2" className="wk-input" value={nick} onChange={e => setNick(e.target.value)} maxLength={12} placeholder="דודו" />
       </div>
-      <MailOpt value={mail} onChange={setMail} />
-      {mail && <input className="wk-input" type="email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="המייל שלך" />}
+      <ConsentBox checked={ok} onChange={setOk} open={setLegal} />
       {err && <p className="wk-err">{err}</p>}
-      <button className="wk-btn red" disabled={busy || code.trim().length !== 6 || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'להיכנס'}</button>
+      <button className="wk-btn red" disabled={busy || !ok || code.trim().length !== 6 || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'להיכנס'}</button>
+      {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
     </div>
   );
 }
 
 function OpenJoin({ onJoined }: { onJoined: (id: string) => void }) {
   const [nick, setNick] = useState(local().nick);
-  const [mail, setMail] = useState(false);
-  const [email, setEmail] = useState('');
+  const [ok, setOk] = useState(false);
+  const [legal, setLegal] = useState<LegalKind | null>(null);
   const { busy, err, run } = useSubmit(
-    () => WeekendApi.open({ nick, email: mail && email ? email : undefined }),
+    () => WeekendApi.open({ nick, consent: LEGAL_VERSION }),
     r => { setLocal({ nick }); onJoined(r.id); },
   );
   return (
@@ -327,10 +332,10 @@ function OpenJoin({ onJoined }: { onJoined: (id: string) => void }) {
         <label className="wk-label" htmlFor="wk-nick3">הכינוי שלך בליגה</label>
         <input id="wk-nick3" className="wk-input" value={nick} onChange={e => setNick(e.target.value)} maxLength={12} placeholder="הכינוי" />
       </div>
-      <MailOpt value={mail} onChange={setMail} />
-      {mail && <input className="wk-input" type="email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="המייל שלך" />}
+      <ConsentBox checked={ok} onChange={setOk} open={setLegal} />
       {err && <p className="wk-err">{err}</p>}
-      <button className="wk-btn red" disabled={busy || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'לליגה הפתוחה'}</button>
+      <button className="wk-btn red" disabled={busy || !ok || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'לליגה הפתוחה'}</button>
+      {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
     </div>
   );
 }
@@ -498,6 +503,7 @@ function Lobby({ id, league, setLeague, last, onMatch, onLeave, onHome, onHelp, 
         )}
 
         {tab === 'table' && <Table rows={L.table} me={L.me?.nick ?? ''} />}
+        <WkFooter />
       </div>
     </div>
   );

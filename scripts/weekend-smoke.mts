@@ -24,7 +24,7 @@ let OFFSET = Date.UTC(2026, 10, 10, 10, 0) - Date.now();
 const now = () => Date.now() + OFFSET;
 const setNow = (t: number) => { OFFSET = t - Date.now(); };
 async function api<T>(path: string, b?: unknown, at = now()): Promise<{ ok: boolean; status: number; data: T }> {
-  const res = await fetch(BASE + path, { method: b === undefined ? 'GET' : 'POST', body: b === undefined ? undefined : JSON.stringify(b), headers: { 'content-type': 'application/json', 'x-now': String(at) } });
+  const res = await fetch(BASE + path, { method: b === undefined ? 'GET' : 'POST', body: b === undefined ? undefined : JSON.stringify(/^\/league(\/join|\/open)?$/.test(path) ? { consent: '2026-10-27', ...(b as object) } : b), headers: { 'content-type': 'application/json', 'x-now': String(at) } });
   let data: T; try { data = await res.json() as T; } catch { data = {} as T; }
   return { ok: res.ok, status: res.status, data };
 }
@@ -33,7 +33,7 @@ const devices = Array.from({ length: 6 }, (_, i) => `smoke-device-${i}-${Math.ra
 const nicks = ['איציק', 'דודו', 'רועי', 'יוסי', 'מוטי', 'אבי'];
 
 // 1. open and join
-const made = await api<{ id: string; code: string }>('/league', { device: devices[0], nick: nicks[0], name: 'ליגת בניין 7', slots: ['fri-12', 'fri-14', 'sat-20'], size: 6, email: 'itzik@example.com' });
+const made = await api<{ id: string; code: string }>('/league', { device: devices[0], nick: nicks[0], name: 'ליגת בניין 7', slots: ['fri-12', 'fri-14', 'sat-20'], size: 6 });
 claim(made.ok && !!made.data.code && made.data.code.length === 6, `the league was not made: ${JSON.stringify(made.data)}`);
 const id = made.data.id, code = made.data.code;
 for (let i = 1; i < 6; i++) {

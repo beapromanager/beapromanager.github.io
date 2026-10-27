@@ -143,9 +143,9 @@ export interface LiveView {
 
 export const WeekendApi = {
   mine: () => api<MineView>('/mine'),
-  create: (b: { nick: string; name: string; slots: string[]; size: number; email?: string }) => api<{ id: string; code: string }>('/league', b),
-  join: (b: { nick: string; code: string; email?: string }) => api<{ id: string; code: string }>('/league/join', b),
-  open: (b: { nick: string; email?: string }) => api<{ id: string; code: null }>('/league/open', b),
+  create: (b: { nick: string; name: string; slots: string[]; size: number; consent: string }) => api<{ id: string; code: string }>('/league', b),
+  join: (b: { nick: string; code: string; consent: string }) => api<{ id: string; code: string }>('/league/join', b),
+  open: (b: { nick: string; consent: string }) => api<{ id: string; code: null }>('/league/open', b),
   view: (id: string) => api<LeagueView>(`/league/${id}`),
   live: (id: string) => api<LiveView>(`/league/${id}/live`),
   lineup: (id: string, ids: string[], tactic: SimpleTactic) => api<{ ok: true; squad: Player[]; tactic: SimpleTactic }>(`/league/${id}/lineup`, { ids, tactic }),
