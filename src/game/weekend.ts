@@ -33,7 +33,7 @@ export const WEEKEND_ON: boolean = (WEEKEND_LIVE || DEV_DOOR) && WEEKEND_URL !==
 
 /**
  * The launch (Itzik, 25.10): the entrance appears on the title screen at the very second the teaser's count ends,
- * Thursday 29.10 20:00 Israel, which is also the second the first registration opens on the server.
+ * Monday 2.11 20:00 Israel (Itzik, 29.10; it was Thursday 29.10), which is also the second the first registration opens on the server.
  */
 export const LAUNCH_AT = FIRST_REGISTRATION_OPENS_AT;
 /** the door by the clock alone, with the flag and the address passed in so a check can turn them */

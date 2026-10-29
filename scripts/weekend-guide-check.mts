@@ -7,7 +7,7 @@
  *   4. the opener's steps are right for every size six to twelve
  *   5. the when line through whole weekends in three weeks: 25.10.2026 (the clock change), 18.10.2026 and 21.3.2027
  *      (the spring change), at the hour before registration, Thursday 17:00, Thursday 20:00 to 20:05, a bye, Sunday 20:00
- *   6. the first weekend ever: on 29.10 20:00 and over the days to 1.11 the line says "חמישי 5.11 17:00 · ... חמישי 5.11 20:00"; from 8.11 it is ordinary
+ *   6. the first weekend ever: from Monday 2.11 20:00 and on the Tuesday the line says "חמישי 5.11 17:00 · ... חמישי 5.11 20:00"; from 8.11 it is ordinary
  *   7. the intro is shown once (a fake store), and never throws without one
  *   8. every line on a card is short enough for a phone
  *   9. the screens wire it: the help button, the sheet, the steps, the filling card, the cancel words, the when line
@@ -170,18 +170,22 @@ const allTexts = (now: number): string[] => [
 
 /* 6. the first weekend ever */
 {
-  for (const t of [Z(2026, 10, 29, 18), Z(2026, 10, 30, 10), Z(2026, 10, 31, 20), Z(2026, 11, 1, 18, 30)]) {
+  for (const t of [Z(2026, 11, 2, 18), Z(2026, 11, 2, 21, 59), Z(2026, 11, 3, 10), Z(2026, 11, 3, 21, 59)]) {
     const w = G.whenLine(null, t);
     claim(w.text === 'ההרשמה פתוחה עד חמישי 5.11 17:00 · שורקים חמישי 5.11 20:00', `at ${new Date(t).toISOString()} the line reads "${w.text}"`);
   }
-  claim(G.whenLine(null, Z(2026, 10, 29, 17)).text === 'ההרשמה נפתחת בחמישי 29.10 ב-20:00', `before the Thursday the line reads "${G.whenLine(null, Z(2026, 10, 29, 17)).text}"`);
-  const cards = G.introCards(Z(2026, 10, 30, 10));
-  claim(cards[1].lines.length === 4 && cards[1].lines[3] === 'הפעם בלבד: ההרשמה לסופ״ש הראשון נפתחה בחמישי 29.10.', `card 2 in the first cycle: ${JSON.stringify(cards[1].lines)}`);
+  for (const t of [Z(2026, 10, 29, 18), Z(2026, 11, 1, 18, 30), Z(2026, 11, 2, 17, 59)]) claim(G.whenLine(null, t).text === 'ההרשמה נפתחת ביום שני 2.11 ב-20:00', `before the Monday (${new Date(t).toISOString()}) the line reads "${G.whenLine(null, t).text}"`);
+  claim(G.whenLine(null, Z(2026, 11, 4, 10)).text === 'ההרשמה פתוחה עד מחר 17:00 · שורקים מחר 20:00' && G.whenLine(null, Z(2026, 11, 5, 14, 59)).text === 'ההרשמה פתוחה עד היום 17:00 · שורקים היום 20:00', 'the first registration\'s Wednesday or Thursday line');
+  claim(G.whenLine(null, Z(2026, 11, 5, 15)).text === 'ההרשמה נסגרה · המחזור הראשון היום 20:00', `Thursday 5.11 17:00: ${G.whenLine(null, Z(2026, 11, 5, 15)).text}`);
+  const cards = G.introCards(Z(2026, 11, 3, 10));
+  claim(G.introCards(Z(2026, 11, 2, 17, 59))[1].lines.length === 3, 'card 2 tells of the one-off before it opened');
+  claim(cards[1].lines.length === 4 && cards[1].lines[3] === 'הפעם בלבד: ההרשמה לסופ״ש הראשון נפתחה ביום שני 2.11.', `card 2 in the first cycle: ${JSON.stringify(cards[1].lines)}`);
   claim(G.introCards(Z(2026, 11, 10, 10))[1].lines.length === 3, 'card 2 keeps the one-off line after the first weekend');
-  const q = G.faq(Z(2026, 10, 30, 10)).find(f => f.q === 'עד מתי נרשמים?')!;
-  claim(q.a.endsWith('הפעם בלבד: ההרשמה לסופ״ש הראשון, 5-8.11, נפתחה כבר בחמישי 29.10 ב-20:00.'), `the question in the first cycle: ${q.a}`);
+  const q = G.faq(Z(2026, 11, 3, 10)).find(f => f.q === 'עד מתי נרשמים?')!;
+  claim(q.a.endsWith('הפעם בלבד: ההרשמה לסופ״ש הראשון, 5-8.11, נפתחה כבר ביום שני 2.11 ב-20:00.'), `the question in the first cycle: ${q.a}`);
   claim(!G.faq(Z(2026, 11, 10, 10)).find(f => f.q === 'עד מתי נרשמים?')!.a.includes('הפעם בלבד'), 'the one-off stays in the questions after the first weekend');
-  claim(G.firstStrip(Z(2026, 10, 30, 10)) === 'הליגה הראשונה אי פעם: סופ״ש 5-8.11. ההרשמה פתוחה כבר עכשיו.', `the strip: ${G.firstStrip(Z(2026, 10, 30, 10))}`);
+  claim(G.firstStrip(Z(2026, 11, 3, 10)) === 'הליגה הראשונה אי פעם: סופ״ש 5-8.11. ההרשמה פתוחה כבר עכשיו.', `the strip: ${G.firstStrip(Z(2026, 11, 3, 10))}`);
+  claim(G.firstStrip(Z(2026, 11, 2, 17, 59)) === null && G.firstStrip(Z(2026, 11, 1, 19)) === null, 'the strip is up before the Monday opening');
   claim(G.firstStrip(Z(2026, 11, 5, 16)) === null && G.firstStrip(Z(2026, 11, 10, 10)) === null, 'the strip stays after the registration closed');
   // from 8.11 20:00 the ordinary words
   const w = G.whenLine(null, Z(2026, 11, 9, 10));
@@ -204,7 +208,7 @@ const allTexts = (now: number): string[] => [
 
 /* 8. short lines */
 {
-  for (const c of G.introCards(Z(2026, 10, 30, 10))) {
+  for (const c of G.introCards(Z(2026, 11, 3, 10))) {
     for (const l of c.lines) claim(l.length <= 95, `a card line is ${l.length} long: ${l}`);
     claim(c.foot.length <= 110 && c.title.length <= 24 && c.kick.length <= 16, `card "${c.title}" has a long foot, title or kick`);
   }

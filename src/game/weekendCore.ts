@@ -50,11 +50,12 @@ export const READY_MS = 5 * 60_000;
 export const KEEP_MS = 7 * 86_400_000;
 
 /**
- * One time only (Itzik, 25.10): registration for the 5–8.11 weekend opens on Thursday 29.10 20:00 Israel,
- * three days before the Sunday it would open on. Israel is on winter time by then (UTC+2), so it is 18:00 UTC.
- * From Sunday 8.11 20:00 the calendar is the ordinary one again; see cycleOf.
+ * One time only (Itzik, 29.10): registration for the 5–8.11 weekend opens on Monday 2.11 20:00 Israel, a day
+ * after the Sunday it would open on (it was Thursday 29.10 until Itzik moved it on 29.10), and runs to Thursday
+ * 5.11 17:00 as usual. Israel is on winter time by then (UTC+2), so it is 18:00 UTC. From Sunday 8.11 20:00 the
+ * calendar is the ordinary one again; see cycleOf.
  */
-export const FIRST_REGISTRATION_OPENS_AT = Date.UTC(2026, 9, 29, 18, 0, 0);
+export const FIRST_REGISTRATION_OPENS_AT = Date.UTC(2026, 10, 2, 18, 0, 0);
 /** the Sunday of that first cycle, 1.11.2026 (the Sunday whose 20:00 would have opened it) */
 export const FIRST_CYCLE_SUNDAY: [number, number, number] = [2026, 11, 1];
 
@@ -128,10 +129,13 @@ export function regularCycleOf(now: number): Cycle {
 
 /**
  * The cycle an instant belongs to. The one exception is the first weekend ever (FIRST_REGISTRATION_OPENS_AT): from
- * Thursday 29.10 20:00 until the final of the 5–8.11 weekend the answer is that weekend, with `opens` pinned to the
- * Thursday. `opens` is the cycle's identity on the server (the lobby's codes, devices and open leagues are keyed by
- * it), so it must stay the same through Sunday 1.11 20:00, when the ordinary calendar would have started a new one;
- * otherwise everyone who registered from the Thursday would be swept away that night. From 8.11 20:00 on, regular.
+ * Monday 2.11 20:00 until the final of the 5–8.11 weekend the answer is that weekend, with `opens` pinned to the
+ * Monday. `opens` is the cycle's identity on the server (the lobby's codes, devices and open leagues are keyed by
+ * it), so it is one value for the whole of the first registration. Between Sunday 1.11 20:00 and Monday 2.11 20:00
+ * the ordinary calendar already says the 1.11 cycle, but registrationGate keeps the doors shut, so nothing is kept
+ * under that `opens` and nothing is swept at the Monday. (Until 29.10 the opening was Thursday 29.10, before that
+ * Sunday; the code never assumed a weekday, only that the opening falls before the first lock.) From 8.11 20:00 on,
+ * regular.
  */
 export function cycleOf(now: number): Cycle {
   const first = cycleOfSunday(FIRST_CYCLE_SUNDAY);
@@ -139,7 +143,7 @@ export function cycleOf(now: number): Cycle {
   return regularCycleOf(now);
 }
 
-/** the first weekend ever, the one whose registration opened on a Thursday */
+/** the first weekend ever, the one whose registration opened on Monday 2.11 */
 export const isFirstCycle = (c: Cycle): boolean => c.opens === FIRST_REGISTRATION_OPENS_AT;
 
 /**
@@ -148,7 +152,7 @@ export const isFirstCycle = (c: Cycle): boolean => c.opens === FIRST_REGISTRATIO
  * same function, so the bundle's address helps nobody in early.
  */
 export function registrationGate(now: number): string | null {
-  if (now < FIRST_REGISTRATION_OPENS_AT) return `ההרשמה נפתחת ב${ilDayDate(FIRST_REGISTRATION_OPENS_AT)} ב-${ilTime(FIRST_REGISTRATION_OPENS_AT)}`;
+  if (now < FIRST_REGISTRATION_OPENS_AT) return `ההרשמה נפתחת ביום ${ilDayDate(FIRST_REGISTRATION_OPENS_AT)} ב-${ilTime(FIRST_REGISTRATION_OPENS_AT)}`;
   return null;
 }
 

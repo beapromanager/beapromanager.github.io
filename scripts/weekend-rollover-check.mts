@@ -1,16 +1,17 @@
 /**
  * The weekend league's calendar at its seams (Itzik, 25.10), with the clock passed in, no server:
  *
- *   1. the first weekend ever: registration opens on Thursday 29.10 20:00 Israel (18:00Z) for the 5-8.11 weekend,
- *      and that cycle keeps one `opens` from the Thursday to its final, through Sunday 1.11 20:00
- *   2. before the Thursday nothing can be made or joined, from 18:00:00Z it can; no league at all in the 25.10 cycle
+ *   1. the first weekend ever: registration opens on Monday 2.11 20:00 Israel (18:00Z) for the 5-8.11 weekend
+ *      (Itzik, 29.10: moved from Thursday 29.10), and that cycle keeps one `opens` from the Monday to its final
+ *   2. before the Monday nothing can be made or joined (also not between Sunday 1.11 20:00 and the Monday, when the
+ *      ordinary calendar already says the 1.11 cycle), from 18:00:00Z it can, until Thursday 5.11 15:00Z (17:00 Israel)
  *   3. it does not leak: sixty ordinary cycles from 8.11.2026, across both clock changes, are the regular calendar
  *   4. the clock change of 25.10 (summer to winter): 19:59 is the 18.10 cycle, 169 hours long
  *   5. the lobby at the seam: a device of the ending cycle keeps its league as `last` for a week, can join the new
- *      cycle without a 409, and nobody is swept on 1.11 20:00
+ *      cycle without a 409, and nobody is swept on 1.11 20:00 or at the Monday opening
  *   6. the league after Sunday 20:00: the final round, its results, the settle, a champion and a prize
  *   7. the title screen: the teaser until LAUNCH_AT, the entrance from it, never both, never neither
- *   8. the words: "חמישי 5.11 17:00" on the Thursday it opens
+ *   8. the words: "חמישי 5.11 17:00" on the Monday it opens
  * Run: npm run check:rollover
  */
 import * as W from '../src/game/weekendCore.ts';
@@ -28,19 +29,24 @@ const H = 3_600_000;
 
 /* 1. the first weekend ever */
 {
-  claim(W.FIRST_REGISTRATION_OPENS_AT === Z(2026, 10, 29, 18), 'the first registration is not 29.10 18:00Z');
-  claim(il(W.FIRST_REGISTRATION_OPENS_AT).dow === 4 && il(W.FIRST_REGISTRATION_OPENS_AT).hh === 20, 'the first registration is not Thursday 20:00 Israel');
+  claim(W.FIRST_REGISTRATION_OPENS_AT === Z(2026, 11, 2, 18), 'the first registration is not 2.11 18:00Z');
+  claim(il(W.FIRST_REGISTRATION_OPENS_AT).dow === 1 && il(W.FIRST_REGISTRATION_OPENS_AT).hh === 20 && il(W.FIRST_REGISTRATION_OPENS_AT).d === 2 && il(W.FIRST_REGISTRATION_OPENS_AT).m === 11, 'the first registration is not Monday 2.11 20:00 Israel');
+  claim(W.FIRST_CYCLE_SUNDAY.join() === '2026,11,1', 'the first weekend moved (it stays 5-8.11)');
   const at = (t: number) => W.cycleOf(t);
-  const first = at(Z(2026, 10, 29, 18));
-  claim(first.opens === Z(2026, 10, 29, 18) && first.locks === Z(2026, 11, 5, 15) && first.kickoff === Z(2026, 11, 5, 18) && first.final === Z(2026, 11, 8, 18), `the first cycle is ${JSON.stringify(first)}`);
-  claim(W.cyclePhase(first, Z(2026, 10, 29, 18)) === 'open', 'the first cycle is not open on the Thursday');
+  const first = at(Z(2026, 11, 2, 18));
+  claim(first.opens === Z(2026, 11, 2, 18) && first.locks === Z(2026, 11, 5, 15) && first.kickoff === Z(2026, 11, 5, 18) && first.final === Z(2026, 11, 8, 18), `the first cycle is ${JSON.stringify(first)}`);
+  claim(W.cyclePhase(first, Z(2026, 11, 2, 18)) === 'open', 'the first cycle is not open on the Monday');
   claim(W.isFirstCycle(first), 'isFirstCycle is false on the first cycle');
-  // the same cycle, same opens, all the way to the final, including Sunday 1.11 20:00 and after
-  for (const t of [Z(2026, 10, 29, 18), Z(2026, 10, 31, 12), Z(2026, 11, 1, 17, 59), Z(2026, 11, 1, 18), Z(2026, 11, 1, 18, 1), Z(2026, 11, 3, 9), Z(2026, 11, 5, 14, 59), Z(2026, 11, 5, 15), Z(2026, 11, 5, 18), Z(2026, 11, 7, 12), Z(2026, 11, 8, 17, 59)]) {
+  // the same cycle, same opens, from the Monday all the way to the final
+  for (const t of [Z(2026, 11, 2, 18), Z(2026, 11, 2, 22), Z(2026, 11, 3, 9), Z(2026, 11, 4, 21, 59), Z(2026, 11, 5, 14, 59), Z(2026, 11, 5, 15), Z(2026, 11, 5, 18), Z(2026, 11, 7, 12), Z(2026, 11, 8, 17, 59)]) {
     const c = at(t);
     claim(c.opens === first.opens && c.final === first.final && c.locks === first.locks, `at ${new Date(t).toISOString()} the cycle is ${JSON.stringify(c)}`);
   }
-  claim(W.cyclePhase(at(Z(2026, 11, 1, 18)), Z(2026, 11, 1, 18)) === 'open', 'Sunday 1.11 20:00 is not still open');
+  // before the Monday it is not the first cycle (the gate keeps it shut); from Sunday 1.11 20:00 it is the ordinary 1.11 cycle, the same weekend
+  for (const t of [Z(2026, 10, 29, 18), Z(2026, 11, 1, 17, 59), Z(2026, 11, 2, 17, 59)]) claim(!W.isFirstCycle(at(t)), `at ${new Date(t).toISOString()} the first cycle is already in play`);
+  const gap = at(Z(2026, 11, 1, 18, 30));
+  claim(gap.opens === Z(2026, 11, 1, 18) && gap.locks === first.locks && gap.final === first.final, `between Sunday 1.11 20:00 and the Monday the cycle is ${JSON.stringify(gap)}`);
+  claim(W.cyclePhase(at(Z(2026, 11, 5, 14, 59)), Z(2026, 11, 5, 14, 59)) === 'open', 'Thursday 5.11 16:59 is not open');
   claim(W.cyclePhase(at(Z(2026, 11, 5, 15)), Z(2026, 11, 5, 15)) === 'locked', 'Thursday 5.11 17:00 is not locked');
   claim(W.cyclePhase(at(Z(2026, 11, 5, 18)), Z(2026, 11, 5, 18)) === 'playing', 'Thursday 5.11 20:00 is not playing');
   // the slots of the first cycle fall on 6, 7 and 8.11
@@ -50,28 +56,31 @@ const H = 3_600_000;
 
 /* 2. the gate */
 {
+  const GATE = 'ההרשמה נפתחת ביום שני 2.11 ב-20:00';
   const mk = (t: number) => W.createLeague({ id: 'G', kind: 'friend', name: 'ליגת בניין 7', opener: 'd0', nick: 'איציק', slots: ['fri-12', 'fri-14', 'sat-20'], seed: 1, size: 6 }, t);
-  claim(typeof mk(Z(2026, 10, 29, 17, 59)) === 'string', 'a league was made at 29.10 17:59Z');
-  claim(typeof mk(Z(2026, 10, 29, 17, 59) + 59_999) === 'string', 'a league was made at 29.10 17:59:59Z');
-  claim(mk(Z(2026, 10, 29, 17, 59)) === 'ההרשמה נפתחת בחמישי 29.10 ב-20:00', `the gate says: ${mk(Z(2026, 10, 29, 17, 59))}`);
-  claim(W.registrationGate(Z(2026, 10, 26, 10)) === 'ההרשמה נפתחת בחמישי 29.10 ב-20:00' && W.registrationGate(Z(2026, 10, 29, 18)) === null, 'registrationGate is wrong');
-  const made = mk(Z(2026, 10, 29, 18));
-  claim(typeof made !== 'string', `no league at 29.10 18:00:00Z: ${made}`);
+  const mkOpen = (t: number) => W.createLeague({ id: 'O', kind: 'open', name: '', opener: 'game', nick: '', slots: [], seed: 2 }, t);
+  // Itzik's four instants (Israel): 2.11 17:59 and 19:59 closed, 2.11 20:00 open, Thursday 5.11 16:59 open, 17:00 closed
+  claim(mk(Z(2026, 11, 2, 15, 59)) === GATE, `2.11 17:59 Israel: ${JSON.stringify(mk(Z(2026, 11, 2, 15, 59)))}`);
+  claim(mk(Z(2026, 11, 2, 17, 59)) === GATE, `2.11 19:59 Israel: ${JSON.stringify(mk(Z(2026, 11, 2, 17, 59)))}`);
+  claim(mk(Z(2026, 11, 2, 17, 59) + 59_999) === GATE, 'a league was made at 2.11 17:59:59.999Z');
+  claim(typeof mk(Z(2026, 11, 2, 18)) !== 'string', `no league at 2.11 20:00 Israel: ${mk(Z(2026, 11, 2, 18))}`);
+  claim(typeof mk(Z(2026, 11, 5, 14, 59)) !== 'string', `no league at Thursday 5.11 16:59 Israel: ${mk(Z(2026, 11, 5, 14, 59))}`);
+  claim(typeof mk(Z(2026, 11, 5, 15)) === 'string', 'a league was made at Thursday 5.11 17:00 Israel');
+  claim(typeof mkOpen(Z(2026, 11, 2, 17, 59)) === 'string' && typeof mkOpen(Z(2026, 11, 2, 18)) !== 'string' && typeof mkOpen(Z(2026, 11, 5, 14, 59)) !== 'string' && typeof mkOpen(Z(2026, 11, 5, 15)) === 'string', 'the open league\'s door is not the same window');
+  claim(W.registrationGate(Z(2026, 10, 26, 10)) === GATE && W.registrationGate(Z(2026, 10, 29, 18)) === GATE && W.registrationGate(Z(2026, 11, 1, 18, 30)) === GATE && W.registrationGate(Z(2026, 11, 2, 18)) === null, 'registrationGate is wrong');
+  const made = mk(Z(2026, 11, 2, 18));
   if (typeof made !== 'string') {
-    claim(made.cycle.final === Z(2026, 11, 8, 18) && made.planned === 6, 'the league made on the Thursday is not the 5-8.11 weekend');
-    claim(W.join(made, 'd1', 'דודו', Z(2026, 10, 29, 18)) === null, 'nobody can join on the Thursday');
-    claim(W.join(made, 'd2', 'רועי', Z(2026, 11, 1, 18, 30)) === null, 'nobody can join on Sunday 1.11 after 20:00');
-    claim(W.join(made, 'd3', 'יוסי', Z(2026, 11, 5, 15)) !== null, 'joining after the lock of 5.11 was allowed');
-    // nothing at all in the 25.10 cycle: every instant of it is gated or belongs to the first cycle
-    for (const t of [Z(2026, 10, 25, 18), Z(2026, 10, 27, 12), Z(2026, 10, 29, 14), Z(2026, 10, 29, 17, 59)]) claim(typeof mk(t) === 'string', `a league could be made in the 25.10 cycle at ${new Date(t).toISOString()}`);
-    const open = W.createLeague({ id: 'O', kind: 'open', name: '', opener: 'game', nick: '', slots: [], seed: 2 }, Z(2026, 10, 29, 17));
-    claim(typeof open === 'string', 'the open league opened before the Thursday');
-    const open2 = W.createLeague({ id: 'O', kind: 'open', name: '', opener: 'game', nick: '', slots: [], seed: 2 }, Z(2026, 10, 29, 18));
-    claim(typeof open2 !== 'string' && open2.planned === W.OPEN_MEMBERS, 'the open league did not open on the Thursday');
-    // a join into a league of the first cycle is refused before the Thursday (the gate sits in join too)
+    claim(made.cycle.final === Z(2026, 11, 8, 18) && made.cycle.opens === Z(2026, 11, 2, 18) && made.planned === 6, 'the league made on the Monday is not the 5-8.11 weekend');
+    claim(W.join(made, 'd1', 'דודו', Z(2026, 11, 2, 18)) === null, 'nobody can join on the Monday 20:00');
+    claim(W.join(made, 'd2', 'רועי', Z(2026, 11, 3, 12)) === null, 'nobody can join on Tuesday 3.11');
+    claim(W.join(made, 'd4', 'משה', Z(2026, 11, 5, 14, 59)) === null, 'nobody can join on Thursday 5.11 16:59');
+    claim(W.join(made, 'd3', 'יוסי', Z(2026, 11, 5, 15)) !== null, 'joining at the lock of 5.11 17:00 was allowed');
+    // nothing at all before the Monday: the 25.10 cycle and the day of the 1.11 cycle before it
+    for (const t of [Z(2026, 10, 25, 18), Z(2026, 10, 27, 12), Z(2026, 10, 29, 18), Z(2026, 11, 1, 17, 59), Z(2026, 11, 1, 18), Z(2026, 11, 1, 22), Z(2026, 11, 2, 10)]) claim(typeof mk(t) === 'string', `a league could be made before the Monday at ${new Date(t).toISOString()}`);
+    // a join into a league of the first cycle is refused before the Monday (the gate sits in join too)
     const early = { ...made, members: [] } as W.League;
-    claim(W.join(early, 'd9', 'אבי', Z(2026, 10, 29, 17)) !== null, 'join is not gated');
-  }
+    claim(W.join(early, 'd9', 'אבי', Z(2026, 11, 2, 17, 59)) === GATE, 'join is not gated');
+  } else claim(false, `no league at 2.11 18:00:00Z: ${made}`);
 }
 
 /* 3. no leak: sixty regular cycles from 8.11.2026, across both clock changes */
@@ -114,13 +123,20 @@ const H = 3_600_000;
 
 /* 5. the lobby at the seam */
 {
-  const first = W.cycleOf(Z(2026, 10, 29, 18));
+  // Sunday 1.11 20:00 and the hours to the Monday: the lobby is empty (the gate), a sweep there and at the Monday loses nothing
+  const s0: W.LobbyCore = { codes: {}, devices: {}, open: [], last: {} };
+  W.sweepLobby(s0, W.cycleOf(Z(2026, 11, 1, 18)), Z(2026, 11, 1, 18));
+  W.sweepLobby(s0, W.cycleOf(Z(2026, 11, 2, 18)), Z(2026, 11, 2, 18));
+  claim(Object.keys(s0.devices).length === 0 && Object.keys(s0.last).length === 0, 'the sweeps before the Monday made something up');
+  const first = W.cycleOf(Z(2026, 11, 2, 18));
   const s: W.LobbyCore = { codes: { ABCDEF: { id: 'L1', opens: first.opens } }, devices: { dev1: { id: 'L1', opens: first.opens, final: first.final }, dev2: { id: 'L1', opens: first.opens } }, open: [{ id: 'O1', opens: first.opens, count: 3 }], last: {} };
-  // Sunday 1.11 20:00: nothing moves, the cycle is the same
-  const c1 = W.cycleOf(Z(2026, 11, 1, 18));
-  W.sweepLobby(s, c1, Z(2026, 11, 1, 18));
-  claim(Object.keys(s.devices).length === 2 && Object.keys(s.codes).length === 1 && s.open.length === 1 && Object.keys(s.last).length === 0, 'the sweep of Sunday 1.11 20:00 forgot someone');
-  claim(W.mineOf(s, 'dev1', c1, Z(2026, 11, 1, 18)).league === 'L1', 'on 1.11 20:00 dev1 lost his league');
+  // Tuesday to the Thursday lock: nothing moves, the cycle is the same
+  for (const t of [Z(2026, 11, 3, 10), Z(2026, 11, 5, 15), Z(2026, 11, 7, 12)]) {
+    const c1 = W.cycleOf(t);
+    W.sweepLobby(s, c1, t);
+    claim(Object.keys(s.devices).length === 2 && Object.keys(s.codes).length === 1 && s.open.length === 1 && Object.keys(s.last).length === 0, `the sweep at ${new Date(t).toISOString()} forgot someone`);
+    claim(W.mineOf(s, 'dev1', c1, t).league === 'L1', `at ${new Date(t).toISOString()} dev1 lost his league`);
+  }
   // Sunday 8.11 20:00: the cycle moves on, the league goes to last, the code and the open league are forgotten
   const t0 = Z(2026, 11, 8, 18);
   const c2 = W.cycleOf(t0);
@@ -157,7 +173,7 @@ const H = 3_600_000;
 
 /* 6. the league after Sunday 20:00: the final round still happens, with the clock in the next cycle */
 {
-  const T = Z(2026, 10, 29, 18);
+  const T = Z(2026, 11, 2, 18);
   const l = W.createLeague({ id: 'F', kind: 'friend', name: 'ליגת הגמר', opener: 'd0', nick: 'איציק', slots: ['fri-12', 'fri-14', 'sat-20'], seed: 77, size: 6 }, T);
   if (typeof l === 'string') throw new Error(l);
   for (let i = 1; i < 6; i++) W.join(l, `d${i}`, `חבר ${i}`, T + i);
@@ -206,13 +222,13 @@ const H = 3_600_000;
 
 /* 8. the words */
 {
-  const thu = Z(2026, 10, 29, 18);
-  const c = W.cycleOf(thu);
-  claim(ilWhen(c.locks, thu) === 'חמישי 5.11 17:00', `on the Thursday the lock reads "${ilWhen(c.locks, thu)}"`);
-  claim(ilWhen(c.kickoff, thu) === 'חמישי 5.11 20:00', `on the Thursday the kickoff reads "${ilWhen(c.kickoff, thu)}"`);
-  claim(W.ilDayDate(W.FIRST_REGISTRATION_OPENS_AT) === 'חמישי 29.10' && W.ilTime(W.FIRST_REGISTRATION_OPENS_AT) === '20:00', 'the first registration\'s own words are wrong');
+  const mon = Z(2026, 11, 2, 18);
+  const c = W.cycleOf(mon);
+  claim(ilWhen(c.locks, mon, W.isFirstCycle(c)) === 'חמישי 5.11 17:00', `on the Monday the lock reads "${ilWhen(c.locks, mon, true)}"`);
+  claim(ilWhen(c.kickoff, mon, W.isFirstCycle(c)) === 'חמישי 5.11 20:00', `on the Monday the kickoff reads "${ilWhen(c.kickoff, mon, true)}"`);
+  claim(W.ilDayDate(W.FIRST_REGISTRATION_OPENS_AT) === 'שני 2.11' && W.ilTime(W.FIRST_REGISTRATION_OPENS_AT) === '20:00', 'the first registration\'s own words are wrong');
 }
 
 console.log(`${checked} checks`);
 if (fails.length) { console.log(`FAIL (${fails.length} of ${checked})`); for (const f of fails.slice(0, 40)) console.log('  - ' + f); process.exit(1); }
-console.log('OK, the first registration opens on Thursday 29.10 20:00 for 5-8.11 and nothing leaks past 8.11, a league survives Sunday 20:00 as last, and the teaser hands over to the entrance at one instant');
+console.log('OK, the first registration opens on Monday 2.11 20:00 for 5-8.11 (closed again Thursday 5.11 17:00) and nothing leaks past 8.11, a league survives Sunday 20:00 as last, and the teaser hands over to the entrance at one instant');

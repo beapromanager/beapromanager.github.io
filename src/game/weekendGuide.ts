@@ -73,14 +73,14 @@ export function openSlotsWords(): string {
   return [KICKOFF_WORDS, ...mids, FINAL_WORDS].join(', ');
 }
 
-/** the one-off: "הפעם בלבד: ההרשמה לסופ״ש הראשון נפתחה בחמישי 29.10." when the cycle in play is the first ever */
+/** the one-off: "הפעם בלבד: ההרשמה לסופ״ש הראשון נפתחה ביום שני 2.11." when the cycle in play is the first ever */
 export function firstCycleNote(now: number): string | null {
   const c = cycleOf(now);
-  return isFirstCycle(c) ? `הפעם בלבד: ההרשמה לסופ״ש הראשון נפתחה ב${ilDayDate(FIRST_REGISTRATION_OPENS_AT)}.` : null;
+  return isFirstCycle(c) ? `הפעם בלבד: ההרשמה לסופ״ש הראשון נפתחה ביום ${ilDayDate(FIRST_REGISTRATION_OPENS_AT)}.` : null;
 }
 function firstCycleFaqNote(now: number): string | null {
   const c = cycleOf(now);
-  return isFirstCycle(c) ? `הפעם בלבד: ההרשמה לסופ״ש הראשון, ${weekendSpan(c)}, נפתחה כבר ב${ilDayDate(FIRST_REGISTRATION_OPENS_AT)} ב-${ilTime(FIRST_REGISTRATION_OPENS_AT)}.` : null;
+  return isFirstCycle(c) ? `הפעם בלבד: ההרשמה לסופ״ש הראשון, ${weekendSpan(c)}, נפתחה כבר ביום ${ilDayDate(FIRST_REGISTRATION_OPENS_AT)} ב-${ilTime(FIRST_REGISTRATION_OPENS_AT)}.` : null;
 }
 
 /* ------------------------------------------------------------------ the four cards */
@@ -126,7 +126,7 @@ export const INTRO: IntroCard[] = [
   },
 ];
 
-/** the cards as shown now: in the first cycle ever, the second card also says the registration opened on a Thursday */
+/** the cards as shown now: in the first cycle ever, the second card also says the registration opened on Monday 2.11 */
 export function introCards(now: number): IntroCard[] {
   const note = firstCycleNote(now);
   if (!note) return INTRO;
@@ -204,7 +204,7 @@ function ilDayIndex(t: number): number { const p = ilParts(t); return Math.round
 /**
  * "היום 17:00", "מחר 20:00", "חמישי 17:00", and with the date when it is six days or more away, or the same weekday
  * as today but not today, or when `dated` asks for it: "חמישי 5.11 17:00". Israel's clock throughout, whatever the
- * phone is set to. The first weekend ever is always dated: its registration runs a week, and "חמישי 17:00" on the
+ * phone is set to. The first weekend ever is always dated: its registration starts on an odd day, and "חמישי 17:00" on the
  * Friday before would sound like the day it is not.
  */
 export function ilWhen(at: number, now: number, dated = false): string {

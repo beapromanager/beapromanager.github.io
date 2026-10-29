@@ -5,9 +5,10 @@
  *   npx wrangler dev -c wrangler.weekend.toml --port 8788 --var DEBUG:1
  * then: node --experimental-strip-types scripts/weekend-launch-smoke.mts
  *
- *   29.10 17:59Z  nobody can open or join: the gate says Thursday 29.10 20:00
- *   29.10 18:00Z  a league of seven opens (five slots), seven get in, the eighth is told it is full
- *   1.11 18:00Z   Sunday 20:00 of the ordinary calendar: everyone is still in, the code still works, nothing swept
+ *   (Itzik, 29.10: the first registration moved to Monday 2.11 20:00 Israel; the weekend stays 5-8.11)
+ *   2.11 17:59Z   nobody can open or join: the gate says Monday 2.11 20:00
+ *   2.11 18:00Z   a league of seven opens (five slots), seven get in, the eighth is told it is full
+ *   3.11 10:00Z   Tuesday: everyone is still in, the code still works, nothing swept
  *   5.11 15:00Z   the lock: seven rounds, a bye each, every pair once
  *   5.11 18:00Z   the rounds are played on a fast clock, one manager never shows up
  *   8.11 18:05Z   the final round is played with the clock already in the next cycle: /mine says league null, last = this one,
@@ -22,7 +23,7 @@ const claim = (ok: boolean, msg: string) => { if (!ok) fails.push(msg); };
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 const Z = (y: number, m: number, d: number, hh: number, mm = 0) => Date.UTC(y, m - 1, d, hh, mm);
 
-let OFFSET = Z(2026, 10, 29, 17, 59) - Date.now();
+let OFFSET = Z(2026, 11, 2, 17, 59) - Date.now();
 const now = () => Date.now() + OFFSET;
 const setNow = (t: number) => { OFFSET = t - Date.now(); };
 async function api<T>(path: string, b?: unknown, at = now()): Promise<{ ok: boolean; status: number; data: T }> {
@@ -39,15 +40,15 @@ const SLOTS = ['fri-12', 'fri-14', 'sat-20', 'sat-22', 'sun-10'];   // seven man
 // 1. the gate
 {
   const r = await api<Err>('/league', { device: devices[0], nick: nicks[0], name: 'ליגת הפתיחה', slots: SLOTS, size: 7 });
-  claim(!r.ok && r.data.error === 'ההרשמה נפתחת בחמישי 29.10 ב-20:00', `at 17:59Z the door said ${JSON.stringify(r.data)}`);
+  claim(!r.ok && r.data.error === 'ההרשמה נפתחת ביום שני 2.11 ב-20:00', `at 17:59Z the door said ${JSON.stringify(r.data)}`);
   const o = await api<Err>('/league/open', { device: devices[1], nick: nicks[1] });
-  claim(!o.ok && o.data.error === 'ההרשמה נפתחת בחמישי 29.10 ב-20:00', `at 17:59Z the open league said ${JSON.stringify(o.data)}`);
+  claim(!o.ok && o.data.error === 'ההרשמה נפתחת ביום שני 2.11 ב-20:00', `at 17:59Z the open league said ${JSON.stringify(o.data)}`);
   const m = await api<{ league: string | null; last: string | null }>(`/mine?device=${devices[0]}`);
   claim(m.ok && m.data.league === null && m.data.last === null, `/mine before the launch: ${JSON.stringify(m.data)}`);
 }
 
 // 2. 18:00:00Z: a league of seven
-setNow(Z(2026, 10, 29, 18));
+setNow(Z(2026, 11, 2, 18));
 const made = await api<{ id: string; code: string } & Err>('/league', { device: devices[0], nick: nicks[0], name: 'ליגת הפתיחה', slots: SLOTS, size: 7 });
 claim(made.ok && !!made.data.code, `at 18:00Z the league was not made: ${JSON.stringify(made.data)}`);
 const id = made.data.id, code = made.data.code;
@@ -60,21 +61,21 @@ for (let i = 1; i < 7; i++) {
   claim(!eighth.ok && eighth.data.error === 'הליגה מלאה', `the eighth was told ${JSON.stringify(eighth.data)}`);
   const v = await api<Record<string, any>>(`/league/${id}?device=${devices[0]}`);
   claim(v.ok && v.data.members.length === 7 && v.data.capacity === 7 && v.data.status === 'open', `the view: ${JSON.stringify(v.data).slice(0, 160)}`);
-  claim(v.data.cycle.opens === Z(2026, 10, 29, 18) && v.data.cycle.locks === Z(2026, 11, 5, 15) && v.data.cycle.final === Z(2026, 11, 8, 18), `the league's cycle is ${JSON.stringify(v.data.cycle)}`);
+  claim(v.data.cycle.opens === Z(2026, 11, 2, 18) && v.data.cycle.locks === Z(2026, 11, 5, 15) && v.data.cycle.final === Z(2026, 11, 8, 18), `the league's cycle is ${JSON.stringify(v.data.cycle)}`);
   claim(v.data.roundKeys.length === 7, `${v.data.roundKeys.length} planned rounds for seven`);
 }
 
-// 3. Sunday 1.11 20:00: nothing moves
-setNow(Z(2026, 11, 1, 18, 0, ) + 30_000);
+// 3. Tuesday 3.11: nothing moves
+setNow(Z(2026, 11, 3, 10));
 {
   const m = await api<{ league: string | null; last: string | null; phase: string }>(`/mine?device=${devices[3]}`);
-  claim(m.data.league === id && m.data.last === null && m.data.phase === 'open', `on Sunday 1.11 20:00 /mine says ${JSON.stringify(m.data)}`);
+  claim(m.data.league === id && m.data.last === null && m.data.phase === 'open', `on Tuesday 3.11 /mine says ${JSON.stringify(m.data)}`);
   const v = await api<Record<string, any>>(`/league/${id}?device=${devices[3]}`);
-  claim(v.ok && v.data.status === 'open' && v.data.members.length === 7, 'the league changed on Sunday 1.11 20:00');
+  claim(v.ok && v.data.status === 'open' && v.data.members.length === 7, 'the league changed on Tuesday 3.11');
   const eighth = await api<Err>('/league/join', { device: devices[7], nick: nicks[7], code });
-  claim(!eighth.ok && eighth.data.error === 'הליגה מלאה', `on 1.11 the code was forgotten or the league emptied: ${JSON.stringify(eighth.data)}`);
+  claim(!eighth.ok && eighth.data.error === 'הליגה מלאה', `on 3.11 the code was forgotten or the league emptied: ${JSON.stringify(eighth.data)}`);
   const again = await api<Err>('/league', { device: devices[2], nick: 'שוב', name: 'עוד ליגה', slots: ['fri-12', 'fri-14', 'sat-20'], size: 6 });
-  claim(again.status === 409, `a member could open a second league on 1.11: ${again.status} ${JSON.stringify(again.data)}`);
+  claim(again.status === 409, `a member could open a second league on 3.11: ${again.status} ${JSON.stringify(again.data)}`);
 }
 
 // 4. the lock
@@ -159,4 +160,4 @@ for (let round = 0; round < 7; round++) {
 }
 
 if (fails.length) { console.log('FAIL'); for (const f of fails) console.log('  - ' + f); process.exit(1); }
-console.log('OK, the first weekend over HTTP: gated until Thursday 20:00, seven in and the eighth out, nothing swept on Sunday 1.11, seven rounds, and the final, the table and the prize all there after Sunday 8.11 20:00');
+console.log('OK, the first weekend over HTTP: gated until Monday 2.11 20:00, seven in and the eighth out, nothing swept on Tuesday 3.11, seven rounds, and the final, the table and the prize all there after Sunday 8.11 20:00');

@@ -5,18 +5,18 @@
  */
 
 /**
- * Thursday 29.10.2026, 20:00 on the clock of Israel (Itzik, 25.10: the launch moved a week, and the first
- * registration opens on a Thursday, once). The clocks went back in the night of Sunday 25.10, so Israel is
- * already on winter time, UTC+2, and 20:00 there is 18:00 UTC. Pinned in teaser-check against the
+ * Monday 2.11.2026, 20:00 on the clock of Israel (Itzik, 29.10: the first registration moved from Thursday 29.10
+ * to Monday 2.11, once; the first weekend itself stays 5-8.11). The clocks went back in the night of Sunday 25.10,
+ * so Israel is on winter time, UTC+2, and 20:00 there is 18:00 UTC. Pinned in teaser-check against the
  * Asia/Jerusalem zone, not against a sum done by hand.
  */
-export const TEASER_OPENS_AT = Date.UTC(2026, 9, 29, 18, 0, 0);
+export const TEASER_OPENS_AT = Date.UTC(2026, 10, 2, 18, 0, 0);
 
 const HE_DAY = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const EN_DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /**
- * The date under the count, "חמישי 29.10 · 20:00", read off TEASER_OPENS_AT in Israel's own zone so the
+ * The date under the count, "שני 2.11 · 20:00", read off TEASER_OPENS_AT in Israel's own zone so the
  * one constant above is the only place the date lives.
  */
 export function teaserDateLabel(at: number = TEASER_OPENS_AT): string {

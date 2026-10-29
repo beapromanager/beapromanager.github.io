@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 const fails: string[] = [];
 let checked = 0;
 const claim = (ok: boolean, msg: string) => { checked++; if (!ok) fails.push(msg); };
-const T0 = Date.UTC(2026, 10, 2, 9, 0);   // Monday 2.11 11:00 Israel, inside the first cycle (registration open)
+const T0 = Date.UTC(2026, 10, 3, 9, 0);   // Tuesday 3.11 11:00 Israel, inside the first cycle (registration open from Monday 2.11 20:00)
 const NINE = ['fri-10', 'fri-12', 'fri-14', 'sat-10', 'sat-14', 'sat-20', 'sat-22', 'sun-10', 'sun-18'];
 
 function league(planned: number, n: number): W.League {

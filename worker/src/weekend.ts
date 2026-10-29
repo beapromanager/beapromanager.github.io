@@ -223,7 +223,7 @@ export class LobbyDO {
     const b = await body<{ device: string; nick: string; name?: string; slots?: string[]; code?: string; consent?: string }>(req);
     if (!b || !isDevice(b.device)) return bad('device');
     if (b.consent !== W.LEGAL_VERSION) return bad('צריך לאשר את תנאי השימוש ואת מדיניות הפרטיות');
-    // the first registration ever opens on a Thursday (the core knows when); before it, this door says so too
+    // the first registration ever opens on Monday 2.11 20:00 (the core knows when); before it, this door says so too
     const gate = W.registrationGate(now); if (gate) return bad(gate);
     if (W.cyclePhase(cycle, now) !== 'open') return bad('ההרשמה פתוחה מראשון 20:00 עד חמישי 17:00');
     if (s.devices[b.device]) return bad('אתה כבר בליגה הסופשבוע הזה', 409);
