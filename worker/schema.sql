@@ -10,10 +10,16 @@
 -- posts its queue twice does not become two people who reached round three.
 -- `open` is the exception the funnel needs to be a funnel, and it is counted
 -- per session instead, in sessions below.
+--
+-- Retention (29.10): every table has `ts`, and the worker's daily cron deletes
+-- each row 364 days after its `ts`, so none outlives twelve months
+-- (RETAIN_MS and purgeOld in src/index.ts).
+-- `ts` is never later than the row's arrival: a device clock in the future
+-- lands on the arrival time.
 CREATE TABLE IF NOT EXISTS steps (
   aid   TEXT NOT NULL,
   step  TEXT NOT NULL,
-  ts    INTEGER NOT NULL,    -- ms since epoch, the device's own clock
+  ts    INTEGER NOT NULL,    -- ms since epoch, the device's clock, never later than arrival
   day   TEXT NOT NULL,       -- YYYY-MM-DD, worked out on the server
   PRIMARY KEY (aid, step)
 );

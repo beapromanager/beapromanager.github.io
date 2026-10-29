@@ -52,6 +52,13 @@ Until you do, the game counts nothing at all and behaves exactly as it did.
 https://beapromanager.github.io/?admin=THE_KEY_YOU_SET
 ```
 
+## How long it keeps anything
+
+A year at most. Once a day (the cron in `wrangler.toml`) the worker deletes
+every row whose `ts` is more than 364 days old, from all three tables, so no
+row outlives twelve months. The cron starts only once `wrangler deploy` has
+been run with it.
+
 ## What it costs
 
 Nothing, at anything like this size. Cloudflare's free tier is 100,000 worker

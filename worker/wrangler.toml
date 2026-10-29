@@ -14,3 +14,9 @@ workers_dev = true
 binding = "DB"
 database_name = "beapro-count"
 database_id = "695c34b0-42ad-4fda-b7c4-ab5b39a98922"
+
+# Retention (Itzik, 29.10): once a day, 03:17 UTC, the worker's scheduled() deletes every row of steps, sessions and
+# crashes whose ts is older than 364 days (RETAIN_MS in src/index.ts), so no row outlives twelve months.
+# The cron runs only once this file is deployed (npx wrangler deploy).
+[triggers]
+crons = ["17 3 * * *"]
