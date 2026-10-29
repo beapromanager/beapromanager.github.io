@@ -1,7 +1,9 @@
 /**
  * The ראש העין regulars.
  *
- * Ten real characters, written by Itzik, who only ever turn out for one club.
+ * Ten made-up characters, written by Itzik, who only ever turn out for one club.
+ * The names are invented (29.10.2026): none of them is a real person, and the
+ * jokes about them name no real player or club.
  * A squad that opens a season in ראש העין has exactly one of them in it, and
  * because he lives up the road and the club is his home he never asks to leave,
  * never listens to an offer, and is still there the season after.
@@ -38,64 +40,64 @@ export interface Legend {
 
 export const LEGENDS: Legend[] = [
   {
-    key: 'shahaf-minoi', name: 'שחף מינואי', position: 'ST',
+    key: 'doron-shkedi', name: 'דורון שקדי', position: 'ST',
     attrs: { pace: 42, shooting: 58, passing: 48, dribbling: 52, defending: 30, physical: 88 },
     label: 'גב רחב', tone: 'pro',
     says: 'חלוץ גבוה אבל איטי. אומרים עליו שהוא לא החלטי, אבל אם הוא שם את התחת על השחקן אי אפשר לקחת לו את הכדור.',
   },
   {
-    key: 'shahar-hilali', name: 'שחר הילאלי', position: 'ST',
+    key: 'ofir-nahmani', name: 'אופיר נחמני', position: 'ST',
     attrs: { pace: 58, shooting: 62, passing: 62, dribbling: 82, defending: 25, physical: 40 },
     label: 'רגל מדויקת', tone: 'heart',
-    says: 'חלוץ נמוך עם טכניקה גבוהה. אומרים עליו שהיה יכול להיות החלוץ הבא של צעירי רמת השרון, אבל קרע ברצועות שלח אותו לעשן נרגילה.',
+    says: 'חלוץ נמוך עם טכניקה גבוהה. אומרים עליו שהיה יכול להיות החלוץ הבא של הנבחרת הצעירה, אבל קרע ברצועות שלח אותו לעשן נרגילה.',
   },
   {
-    key: 'niv-parhi', name: 'ניב פרחי', position: 'CB',
+    key: 'elad-tzurieli', name: 'אלעד צוריאלי', position: 'CB',
     attrs: { pace: 55, shooting: 25, passing: 45, dribbling: 40, defending: 66, physical: 74 },
     label: 'קיר', tone: 'fun',
-    says: 'בלם נמוך אבל חזק מאוד. אומרים עליו שאם היה לו רצון להצליח בכדורגל היה יכול להיות קנאברו הבא, נשאר בליגה ג׳ רק כי הוא מעדיף לעשן במחצית.',
+    says: 'בלם נמוך אבל חזק מאוד. אומרים עליו שאם היה לו רצון להצליח בכדורגל היה יכול להיות הבלם הכי טוב בארץ, נשאר בליגה ג׳ רק כי הוא מעדיף לעשן במחצית.',
   },
   {
-    key: 'tamir-maimon', name: 'תמיר מימון', position: 'RW',
+    key: 'matan-bargil', name: 'מתן ברגיל', position: 'RW',
     attrs: { pace: 92, shooting: 44, passing: 38, dribbling: 50, defending: 28, physical: 55 },
     label: 'רגליים בלבד', tone: 'warn',
     says: 'קשר אגף, מהיר מאוד בלי טכניקה. אומרים עליו שהוא אוהב לקבל החלטות פוליטיות בלבד, הראש שלו כבר מזמן לא בכדורגל.',
   },
   {
-    key: 'shahar-green', name: 'שחר גרין', position: 'CB',
+    key: 'yoav-karni', name: 'יואב קרני', position: 'CB',
     attrs: { pace: 44, shooting: 30, passing: 72, dribbling: 58, defending: 60, physical: 62 },
     label: 'דם חם', tone: 'warn',
     says: 'בלם, טוב עם הכדור והגנתית לא משהו, קצת איטי. אומרים עליו שאם לא היה עצבני ומקלל שופטים כל משחק היה מגיע לליגה לאומית.',
   },
   {
-    key: 'adi-yeini', name: 'עדי ייני', position: 'CM',
+    key: 'segev-madmoni', name: 'שגב מדמוני', position: 'CM',
     attrs: { pace: 38, shooting: 50, passing: 66, dribbling: 40, defending: 66, physical: 90 },
     label: 'אהוב על כולם', tone: 'heart',
-    says: 'קשר גבוה בלי טכניקה ובלי מהירות, אבל מאוד חביב על השחקנים ועל השופטים. עדי רץ בלי ידיים, אבל שהוא מקבל את הכדור ליד הרחבה כולם קמים.',
+    says: 'קשר גבוה בלי טכניקה ובלי מהירות, אבל מאוד חביב על השחקנים ועל השופטים. שגב רץ בלי ידיים, אבל כשהוא מקבל את הכדור ליד הרחבה כולם קמים.',
   },
   {
-    key: 'barak-yogev', name: 'ברק יוגב', position: 'ST',
+    key: 'gil-tamari', name: 'גיל תמרי', position: 'ST',
     attrs: { pace: 48, shooting: 66, passing: 32, dribbling: 35, defending: 25, physical: 92 },
     label: 'כוח', tone: 'fun',
     says: 'חלוץ גבוה וחזק מאוד, אבל בלי טכניקה ובלי הבנה בכדורגל. אומרים עליו שמה שמעניין אותו זה סטלות וישיבות, שאם היה משקיע מגיל קטן עדיין היה מגיע לליגה ג׳.',
   },
   {
-    key: 'ravid-vahav', name: 'רביד והב', position: 'ST',
+    key: 'noy-shalosh', name: 'נוי שלוש', position: 'ST',
     attrs: { pace: 36, shooting: 68, passing: 66, dribbling: 72, defending: 28, physical: 52 },
     label: 'קפטן', tone: 'heart',
     says: 'חלוץ לא מהיר, טכני ושמן. קפטן אמיתי, אבל חייב להבין שלא כל מספרת שלו זה גול. פעם אחת זה קרה, ומאז הוא מנסה כל הזמן.',
   },
   {
-    key: 'omri-peled', name: 'עומרי פלד', position: 'RB',
+    key: 'asaf-leibovitz', name: 'אסף ליבוביץ', position: 'RB',
     attrs: { pace: 72, shooting: 35, passing: 52, dribbling: 48, defending: 60, physical: 74 },
     label: 'ריאות', tone: 'pro',
     says: 'מגן ימני עם כושר, אבל לא הכי מבריק עם הכדור. אהוב בחדר ההלבשה ועם מוטיבציה להצליח, למרות שהראש שלו בעיקר בקריירה שלו כמהנדס.',
   },
   {
-    key: 'itzik-uziel', name: 'איציק עוזיאל', position: 'CM',
+    key: 'tzahi-azran', name: 'צחי עזרן', position: 'CM',
     attrs: { pace: 28, shooting: 55, passing: 84, dribbling: 64, defending: 45, physical: 48 },
-    label: 'מסירה של זידאן', tone: 'fun',
-    says: 'קשר אמצע, איטי מאוד, מסירות מדויקות ומדהימות וטכניקה סבבה. אומרים עליו שכל כדור שלו נראה כמו של דה לה פנייה, אבל התנועה שלו על המגרש היא של משאית.',
+    label: 'מסירה של קוסם', tone: 'fun',
+    says: 'קשר אמצע, איטי מאוד, מסירות מדויקות ומדהימות וטכניקה סבבה. אומרים עליו שכל כדור שלו נראה כמו של קוסם, אבל התנועה שלו על המגרש היא של משאית.',
   },
 ];
 

@@ -338,6 +338,8 @@ export function styleTitle(style: ManagerStyle): { title: string; note: string }
 }
 
 export interface GameState {
+  /** which set of renamed names this save has been brought up to (see game/renames.ts) */
+  namesVersion?: number;
   phase: Phase;
   seasonSeed: number;
   clubId: string;

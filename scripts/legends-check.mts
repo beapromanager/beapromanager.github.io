@@ -16,6 +16,7 @@ import { overall, createRng } from '../src/engine/matchEngine.ts';
 import { assignTraits } from '../src/data/personalities.ts';
 import { readFileSync } from 'node:fs';
 import { starTarget, youngTarget } from '../src/game/preseason.ts';
+import { renameWith, renameLegacy, nameHash, NAMES_VERSION } from '../src/game/renames.ts';
 
 const fails: string[] = [];
 let checked = 0;
@@ -96,13 +97,13 @@ const squadOf = (gs: G.GameState, clubId = gs.clubId) => {
   // and he can still be given any of the other nine
   const seen = new Set<string>();
   for (let seed = 0; seed < 60; seed++) {
-    const gs = career('איציק עוזיאל', LEGEND_TOWN, 3000 + seed * 11);
+    const gs = career('צחי עזרן', LEGEND_TOWN, 3000 + seed * 11);
     for (const p of squadOf(gs)) if (isLegend(p)) seen.add(p.name);
   }
   checked++;
   if (seen.size < 5) fails.push(`managing as himself, only ${seen.size} different team mates ever turned up`);
-  if (seen.has('איציק עוזיאל')) fails.push('he was handed himself after all');
-  console.log(`  managing as איציק עוזיאל: ${seen.size} of the other 9 seen, himself never`);
+  if (seen.has('צחי עזרן')) fails.push('he was handed himself after all');
+  console.log(`  managing as צחי עזרן: ${seen.size} of the other 9 seen, himself never`);
 }
 
 /* 5. the draw is not stuck on one name */
@@ -246,6 +247,39 @@ const squadOf = (gs: G.GameState, clubId = gs.clubId) => {
   if (squadOf(mine).length !== squadOf(other).length) {
     fails.push(`a new ${LEGEND_TOWN} career starts with ${squadOf(mine).length} men against ${squadOf(other).length}`);
   }
+}
+
+/* 12. a career saved under the old names comes back with the new ones (29.10).
+ *     The old names are not in the code, so a made up name stands in for one. */
+{
+  const OLD = 'פלוני אלמוני', OLD_KEY = 'ploni-almoni', MINE = 'אלמוני פלוני';
+  const l = LEGENDS[0];
+  const gs = career('בדיקה', LEGEND_TOWN, 5150);
+  const sq = gs.league.squads[gs.clubId];
+  const him = [...sq.starters, ...sq.bench].find(isLegend)!;
+  const raw = JSON.parse(JSON.stringify(gs)) as G.GameState & Record<string, unknown>;
+  const rawSq = raw.league.squads[raw.clubId];
+  const rawHim = [...rawSq.starters, ...rawSq.bench].find(p => p.id === him.id)!;
+  rawHim.name = OLD;
+  (raw as Record<string, unknown>).probe = { news: `${OLD} כבש, ו${OLD}, שוב.`, trait: `legend-${OLD_KEY}`, kept: 'פלוני אחר', mine: `המאמן ${MINE} חתם` };
+  raw.profile = { ...raw.profile, name: MINE };
+  const names = new Map([[nameHash(OLD), l.name], [nameHash(MINE), LEGENDS[1].name]]);
+  const keys = new Map([[nameHash(OLD_KEY), l.key]]);
+  const out = renameWith(raw, names, keys) as typeof raw;
+  const outSq = out.league.squads[out.clubId];
+  const probe = (out as Record<string, unknown>).probe as Record<string, string>;
+  checked += 6;
+  if (![...outSq.starters, ...outSq.bench].some(p => p.id === him.id && p.name === l.name)) fails.push('the old name on the regular was not brought up to date');
+  if ([...outSq.starters, ...outSq.bench].filter(isLegend).length !== 1) fails.push('after the rename the squad does not have exactly one regular');
+  if (probe.news !== `${l.name} כבש, ו${l.name}, שוב.`) fails.push(`the news line read "${probe.news}"`);
+  if (probe.trait !== `legend-${l.key}`) fails.push(`the trait id read "${probe.trait}"`);
+  if (probe.kept !== 'פלוני אחר') fails.push('a name that only shares a first name was changed');
+  if (out.profile.name !== MINE || probe.mine !== `המאמן ${MINE} חתם`) fails.push('the manager\'s own typed name was renamed');
+  checked += 2;
+  if (out.namesVersion !== NAMES_VERSION) fails.push('the save was not marked as renamed');
+  const fresh = JSON.parse(JSON.stringify(gs));
+  if (JSON.stringify({ ...renameLegacy(fresh), namesVersion: undefined }) !== JSON.stringify({ ...gs, namesVersion: undefined })) fails.push('a save with no old names in it came out changed');
+  console.log('  an old save: the regular, his news and his trait take the new name, the manager keeps his own');
 }
 
 console.log(`\n${checked} checks`);

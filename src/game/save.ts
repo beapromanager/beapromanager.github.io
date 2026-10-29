@@ -22,6 +22,7 @@ import { emptyMate } from './mate.ts';
 import { emptyScout } from './scout.ts';
 import { DEFAULT_FORMATION } from '../data/formations.ts';
 import { BRANDS, type BrandId } from '../data/sponsors.ts';
+import { renameLegacy } from './renames.ts';
 
 const KEY = 'beapro.career.v1';
 const VERSION = 1;
@@ -73,7 +74,8 @@ export function loadCareer(): GameState | null {
   const env = readEnvelope();
   if (!env) return null;
   // a match in progress cannot be resumed mid minute, send them back to the hub
-  const s = env.state;
+  // (and names that have since left the game are brought up to date first)
+  const s = renameLegacy(env.state);
   // an index of every player still in the division, to backfill records that
   // predate name and club being stored on the season stat
   const playerById = new Map<string, { name: string; clubId: string }>();
@@ -294,7 +296,7 @@ export function loadCareer(): GameState | null {
 export function savedSummary(): SaveSummary | null {
   const env = readEnvelope();
   if (!env) return null;
-  const s = env.state;
+  const s = renameLegacy(env.state);
   const club = s.league.clubs.find(c => c.id === s.clubId);
   return {
     clubName: club?.name ?? 'המועדון שלי',

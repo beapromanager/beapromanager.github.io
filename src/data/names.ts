@@ -36,7 +36,7 @@ const JEWISH_LAST = [
   'כץ', 'יוסף', 'דוד', 'אוחנה', 'קליין', 'שפירא', 'חן', 'טל', 'שחר', 'מור',
   'גולן', 'אוחיון', 'סוויסה', 'גבאי', 'ואקנין', 'עמר', 'גולדברג', 'ברקוביץ׳', 'לוין', 'מילר',
   'סמירנוב', 'טספה', 'מנגיסטו', 'לביא', 'ארז', 'בנימיני', 'זהבי', 'פלג', 'סיבוני', 'עוזיאל',
-  'ייני', 'פרחי', 'יוגב', 'עצמון', 'גלנטי',
+  'שושן', 'נגר', 'אשכנזי', 'עצמון', 'גלנטי',
   // the second forty, from Itzik. Forty five families across a squad, a youth
   // intake and a market of thirty three men meant three of the same name in a
   // sixth of all squads, and four of them once in a while
