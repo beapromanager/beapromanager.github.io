@@ -22,7 +22,8 @@ import { createRng } from '../src/engine/matchEngine.ts';
 import { LobbyDO, MatchDO } from '../worker/src/weekend.ts';
 import { LEGAL_TEXT_READY } from '../src/data/legalText.ts';
 import { CONTACT_EMAIL } from '../src/game/legal.ts';
-import count, { RETAIN_MS, PURGE_SQL } from '../worker/src/index.ts';
+import count from '../worker/src/index.ts';
+import { RETAIN_MS, PURGE_SQL } from '../worker/src/retention.ts';
 
 const fails: string[] = [];
 let checked = 0;
@@ -228,6 +229,9 @@ function fakeEnv() {
   claim(left('year-aid').join() === '0,0,0', `rows a year old are still there: ${left('year-aid')}`);
   claim(left('edge-aid').join() === '1,1,1', `rows inside the year were deleted: ${left('edge-aid')}`);
   claim(left('fresh-aid').join() === '1,1,1', `today's rows were deleted: ${left('fresh-aid')}`);
+  // the entry module may export only the handler, interfaces and the REACH_SQL object: wrangler dev showed a number export stops the worker
+  const extra = [...read('worker/src/index.ts').matchAll(/^export (?:const|let|var|async function|function|class) (\w+)/gm)].map(m => m[1]).filter(n => n !== 'REACH_SQL');
+  claim(extra.length === 0, `worker/src/index.ts exports ${extra.join(', ')}, and the Workers runtime refuses non-handler exports of the entry module`);
   claim(PURGE_SQL.length === 3 && ['steps', 'sessions', 'crashes'].every(t => PURGE_SQL.some(q => q.includes(`FROM ${t} `))), 'the cron does not cover all three tables');
   Date.now = real;
 

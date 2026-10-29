@@ -29,8 +29,10 @@
  * database is readable in the same file that uses it.
  */
 interface D1Result<T = Record<string, unknown>> { results: T[] }
-interface D1Stmt { bind(...v: unknown[]): D1Stmt; all<T = Record<string, unknown>>(): Promise<D1Result<T>>; run(): Promise<unknown> }
+interface D1Stmt { bind(...v: unknown[]): D1Stmt; all<T = Record<string, unknown>>(): Promise<D1Result<T>> }
 interface D1Database { prepare(sql: string): D1Stmt; batch(s: D1Stmt[]): Promise<unknown> }
+// the year's deletes live in their own file: the Workers runtime rejects a number or array exported from the entry module
+import { purgeOld } from './retention.ts';
 
 export interface Env {
   DB: D1Database;
@@ -86,27 +88,6 @@ export const REACH_SQL = {
   /** devices that took a first daily gift, reached a full week, reached thirty days: one row per mark */
   daily: "SELECT step, COUNT(*) AS n FROM steps WHERE step IN ('daily_1', 'daily_7', 'daily_30') GROUP BY step ORDER BY step",
 };
-
-/**
- * How long a row is kept: a year at most (Itzik, 29.10). Every row in every table carries `ts`, and the daily cron
- * (wrangler.toml [triggers]) deletes each row once its `ts` is older than this. 364 days and not 365, so that with up
- * to a day between two runs of the cron no row outlives twelve months. A device that keeps playing writes new rows,
- * and each of them goes in its turn.
- */
-export const RETAIN_MS = 364 * 86_400_000;
-
-/** the three deletes the cron runs; exported so a check can run them against real rows */
-export const PURGE_SQL = [
-  'DELETE FROM steps WHERE ts < ?',
-  'DELETE FROM sessions WHERE ts < ?',
-  'DELETE FROM crashes WHERE ts < ?',
-];
-
-/** delete every row written more than RETAIN_MS before `now` */
-export async function purgeOld(db: D1Database, now: number): Promise<void> {
-  const cutoff = now - RETAIN_MS;
-  await db.batch(PURGE_SQL.map(sql => db.prepare(sql).bind(cutoff)));
-}
 
 /** the error kinds the game may report; anything else is dropped */
 const ERROR_NAMES = new Set(['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'other']);
