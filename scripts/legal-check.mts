@@ -159,6 +159,15 @@ function fakeEnv() {
   claim(!!live, 'WEEKEND_LIVE not found');
   claim(!live || live[1] !== 'true' || LEGAL_TEXT_READY, 'the league is open but the text of the terms and privacy policy is not in');
   claim(!/טיוטה|draft|עו״ד|עורך דין/i.test(read('src/data/legalText.ts')), 'the legal text carries a note meant for the lawyer or the word draft');
+  // a decision still open is marked [[להשלים: ...]] in the text (29.10); the league's door stays shut while one is left
+  const open = (read('src/data/legalText.ts').match(/\[\[להשלים/g) ?? []).length;
+  claim(!live || live[1] !== 'true' || open === 0, `the league is open but the legal text still has ${open} open [[להשלים]] marker(s)`);
+  // the review of 29.10: the operator line, the jurisdiction sentence, no "at any time", nothing called anonymous
+  const legal = read('src/data/legalText.ts');
+  claim(legal.includes('איציק עוזיאל, הפועל בשם העסקי ISRU-E') && !legal.includes('עוסק פטור'), 'the operator line is not the agreed one');
+  claim(legal.includes('על תנאי השימוש יחול הדין הישראלי. סמכות השיפוט תהיה לבתי המשפט המוסמכים בהתאם להוראות הדין'), 'the jurisdiction sentence is not the agreed one');
+  claim(!/בכל זמן|30 יום|חסימ/.test(legal), 'the legal text promises a time or a block it cannot keep, or says "at any time"');
+  claim(!/אנונימי נספר/.test(title) && /לא בהכרח אנונימיים/.test(legal), 'the game still calls the counting anonymous');
 }
 
 if (fails.length) { console.log(`FAIL (${fails.length} of ${checked}):`); for (const f of fails) console.log(' - ' + f); process.exit(1); }

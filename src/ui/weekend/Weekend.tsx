@@ -194,7 +194,7 @@ function Home({ saved, booting, err, go, onFaq }: { saved: SaveSummary | null; b
           <button className="wk-btn ghost" disabled={booting} onClick={() => go('open')}>הליגה הפתוחה, למי שבא לבד</button>
         </div>
       )}
-      <p className="wk-muted" style={{ fontSize: 12 }}>בליגה נשמרים בשרת הכינוי שבחרת, שם הליגה, הסגל שהמשחק הגריל לך, הבחירות שלך והתוצאות, ונמחקים שבוע אחרי הגמר. נשאר רק מספר האליפויות של המכשיר, בלי כינוי. לא טלפון, לא מיקום, לא מייל.</p>
+      <p className="wk-muted" style={{ fontSize: 12 }}>בליגה נשמרים בשרת הכינוי שבחרת, שם הליגה, הסגל שהמשחק הגריל לך, הבחירות שלך והתוצאות, ונמחקים מהשרת שבוע אחרי הגמר. בשרת נשאר מספר האליפויות של המכשיר, בלי כינוי, ואצלך במכשיר הכינוי ושם הליגה נשארים בקריירה. לא טלפון, לא מיקום, לא מייל.</p>
       <button className="wk-link" onClick={onFaq}>שאלות נפוצות: מתי משחקים, מה הפרס, מה עושה מי שפותח</button>
       <WkFooter />
     </>

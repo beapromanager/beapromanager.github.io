@@ -122,7 +122,7 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall, extra }: {
 
         <p className="title-credit title-rise" style={{ ['--i' as string]: 5 }}>
           <span>נעשה ע״י <b dir="ltr">ITZIK UZIEL</b> · <b dir="ltr">ISRU-E</b></span>
-          <span>© <span dir="ltr">ISRU-E</span> · כל הזכויות שמורות · השמות והמועדונים בדיוניים · שימוש אנונימי נספר</span>
+          <span>© <span dir="ltr">ISRU-E</span> · כל הזכויות שמורות · השמות והמועדונים בדיוניים · השימוש נספר בלי שם</span>
           <span><LegalLinks open={setLegal} /></span>
         </p>
         {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
