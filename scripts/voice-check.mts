@@ -443,8 +443,8 @@ const state = readFileSync('src/game/state.ts', 'utf8');
   }
   // the regulars, each pinned on the phrase his rewrite turns on
   const legPins: Array<[string, string]> = [
-    ['קשר גבוה בלי טכניקה וב', 'עדי רץ בלי ידיים'],
-    ['קשר אמצע, איטי מאוד, מ', 'דה לה פנייה'],
+    ['קשר גבוה בלי טכניקה וב', 'שגב רץ בלי ידיים'],
+    ['קשר אמצע, איטי מאוד, מ', 'נראה כמו של קוסם'],
     ['חלוץ לא מהיר, טכני ושמ', 'מספרת שלו'],
   ];
   for (const [head, frag] of legPins) {
