@@ -11,6 +11,8 @@
  *      itself, and the wording in the game says what is true
  *   5. the contact address is a mailto link on the title screen and in the league; the text of the two documents
  *      is in before the league's door may open
+ *   6. twelve months (Itzik, 29.10): the statistics in D1 and the champions count in the lobby delete themselves within
+ *      twelve months, the code does it (a daily cron on the counting house, the lobby's alarm), and the text says so
  * Run: npm run check:legal
  */
 import { readFileSync } from 'node:fs';
@@ -20,6 +22,7 @@ import { createRng } from '../src/engine/matchEngine.ts';
 import { LobbyDO, MatchDO } from '../worker/src/weekend.ts';
 import { LEGAL_TEXT_READY } from '../src/data/legalText.ts';
 import { CONTACT_EMAIL } from '../src/game/legal.ts';
+import count, { RETAIN_MS, PURGE_SQL } from '../worker/src/index.ts';
 
 const fails: string[] = [];
 let checked = 0;
@@ -170,5 +173,101 @@ function fakeEnv() {
   claim(!/אנונימי נספר/.test(title) && /לא בהכרח אנונימיים/.test(legal), 'the game still calls the counting anonymous');
 }
 
+/* 6. twelve months */
+{
+  const DAY = 86_400_000;
+  const legal = read('src/data/legalText.ts');
+  // the code keeps nothing past twelve months, counted with the cron's day between runs
+  claim(RETAIN_MS + DAY <= 365 * DAY, `the statistics can outlive twelve months (RETAIN_MS ${RETAIN_MS / DAY} days and a day between runs)`);
+  claim(W.CHAMPIONS_KEEP_MS <= 365 * DAY, 'a champions count can outlive twelve months');
+  claim(/\[triggers\][\s\S]*crons\s*=\s*\["17 3 \* \* \*"\]/.test(read('worker/wrangler.toml')), 'the counting house has no daily cron, so nothing deletes the statistics');
+  // and the text says the same: the statistics and the champions count, twelve months, deleted on their own
+  claim(/כמה זמן: עד 12 חודשים\. .*נמחק אוטומטית מהשרת לא יאוחר מ-12 חודשים אחרי שנרשם/.test(legal), 'the policy does not say the statistics go within twelve months');
+  claim(/מספר האליפויות של כל מכשיר: .*נמחק מהשרת אוטומטית 12 חודשים אחרי האליפות האחרונה של המכשיר/.test(legal), 'the policy does not say the champions count goes twelve months after the last championship');
+  claim(/המספר האקראי עצמו נשמר גם במכשיר שלך/.test(legal) && /הכינוי, שם הליגה והתוצאה נשארים בתוך הקריירה שלך/.test(legal), 'the policy hides what stays on the device');
+  claim(!/אין לו מחיקה אוטומטית|אין להם מחיקה אוטומטית/.test(legal), 'the policy still says nothing deletes them');
+  claim(/12 חודשים אחרי האליפות האחרונה/.test(guide) && /12 חודשים אחרי האליפות האחרונה/.test(screens), 'the FAQ or the league screen does not say the champions count goes after twelve months');
+
+  // the counting house: real rows in SQLite behind a D1-shaped door, the cron run in process
+  const { DatabaseSync } = await import('node:sqlite');
+  const db = new DatabaseSync(':memory:');
+  db.exec(read('worker/schema.sql'));
+  const d1 = {
+    prepare(sql: string) {
+      const make = (args: unknown[]) => ({
+        bind: (...v: unknown[]) => make(v),
+        all: async () => ({ results: db.prepare(sql).all(...(args as never[])) }),
+        run: async () => db.prepare(sql).run(...(args as never[])),
+      });
+      return make([]);
+    },
+    async batch(stmts: { run(): Promise<unknown> }[]) { db.exec('BEGIN'); try { for (const st of stmts) await st.run(); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } return []; },
+  };
+  const env = { DB: d1, ADMIN_KEY: '' } as never;
+  const real = Date.now;
+  const T = Date.UTC(2027, 10, 20, 12, 0);
+  Date.now = () => T;
+  // a device whose clock is a week ahead lands on its arrival, never after it
+  await count.fetch(new Request('https://c/', { method: 'POST', body: JSON.stringify({ e: [{ a: 'fresh-aid', s: 's1', k: 'open', t: T + 7 * DAY }, { a: 'fresh-aid', s: 's1', k: 'crash', t: T, w: 'title', n: 'Error' }] }) }), env);
+  const fresh = db.prepare("SELECT ts FROM steps WHERE aid = 'fresh-aid'").get() as { ts: number } | undefined;
+  claim(fresh?.ts === T, `a future device clock was written as ${fresh?.ts}, not the arrival ${T}`);
+  const put = (aid: string, ts: number) => {
+    db.prepare('INSERT INTO steps VALUES (?, ?, ?, ?)').run(aid, 'title', ts, new Date(ts).toISOString().slice(0, 10));
+    db.prepare('INSERT INTO sessions VALUES (?, ?, ?, ?)').run('sid-' + aid, aid, ts, new Date(ts).toISOString().slice(0, 10));
+    db.prepare('INSERT INTO crashes VALUES (?, ?, ?, ?, ?, ?)').run(aid, 'sid-' + aid, ts, new Date(ts).toISOString().slice(0, 10), 'title', 'Error');
+  };
+  put('old-aid', T - RETAIN_MS - 1);
+  put('edge-aid', T - RETAIN_MS + 60_000);
+  put('year-aid', T - 365 * DAY);
+  const left = (aid: string) => ['steps', 'sessions', 'crashes'].map(t => (db.prepare(`SELECT COUNT(*) AS n FROM ${t} WHERE aid = ?`).get(aid) as { n: number }).n);
+  const runs: Promise<unknown>[] = [];
+  const sched = (count as unknown as { scheduled?: (e: unknown, env: unknown, ctx: { waitUntil(p: Promise<unknown>): void }) => Promise<void> }).scheduled;
+  claim(typeof sched === 'function', 'the counting house has no scheduled() for its cron');
+  if (sched) { await sched({ cron: '17 3 * * *', scheduledTime: T }, env, { waitUntil: p => { runs.push(p); } }); await Promise.all(runs); }
+  claim(left('old-aid').join() === '0,0,0', `rows older than RETAIN_MS are still there: ${left('old-aid')}`);
+  claim(left('year-aid').join() === '0,0,0', `rows a year old are still there: ${left('year-aid')}`);
+  claim(left('edge-aid').join() === '1,1,1', `rows inside the year were deleted: ${left('edge-aid')}`);
+  claim(left('fresh-aid').join() === '1,1,1', `today's rows were deleted: ${left('fresh-aid')}`);
+  claim(PURGE_SQL.length === 3 && ['steps', 'sessions', 'crashes'].every(t => PURGE_SQL.some(q => q.includes(`FROM ${t} `))), 'the cron does not cover all three tables');
+  Date.now = real;
+
+  // the lobby: a count from before 29.10 is stamped when first read; each count goes a year after its last championship
+  const K = W.CHAMPIONS_KEEP_MS;
+  const store = new Map<string, unknown>([['lobby', { codes: {}, devices: {}, open: [], last: {}, champions: { 'champ-old-xx': 2, 'champ-two-xx': 1 }, counter: 0 }]]);
+  let alarmAt = 0;
+  const lobby = new LobbyDO(fakeState(store, t => { alarmAt = t; }), fakeEnv());
+  const L0 = Date.UTC(2026, 11, 1, 12, 0);
+  const at = (t: number) => ({ 'x-now': String(t) });
+  Date.now = () => L0;
+  await lobby.fetch(new Request('https://do/mine?device=champ-old-xx', { headers: at(L0) }));
+  let saved = store.get('lobby') as { champions: Record<string, number>; championsAt?: Record<string, number> };
+  claim(saved.championsAt?.['champ-old-xx'] === L0 && saved.championsAt?.['champ-two-xx'] === L0, 'an old count was not stamped with the moment it was first read');
+  claim(alarmAt > L0 && alarmAt <= L0 + K, 'the lobby does not wake by the time a count is due');
+  const L1 = L0 + 200 * DAY;
+  Date.now = () => L1;
+  await lobby.fetch(new Request('https://do/champion', { method: 'POST', headers: at(L1), body: JSON.stringify({ device: 'champ-two-xx' }) }));
+  saved = store.get('lobby') as typeof saved;
+  claim(saved.champions['champ-two-xx'] === 2 && saved.championsAt?.['champ-two-xx'] === L1, 'a new championship did not restart the year');
+  Date.now = () => L0 + K - 60_000;
+  await lobby.alarm();
+  saved = store.get('lobby') as typeof saved;
+  claim(saved.champions['champ-old-xx'] === 2, 'a count was deleted before its year was out');
+  Date.now = () => L0 + K;
+  await lobby.alarm();
+  saved = store.get('lobby') as typeof saved;
+  claim(!('champ-old-xx' in saved.champions) && !('champ-old-xx' in (saved.championsAt ?? {})), 'a count a year after the last championship is still on the server');
+  claim(saved.champions['champ-two-xx'] === 2, 'a count still inside its year was deleted');
+  claim(alarmAt <= L1 + K, 'the lobby does not wake by the time the next count is due');
+  const res = await lobby.fetch(new Request('https://do/champions', { method: 'POST', headers: at(L0 + K), body: JSON.stringify({ devices: ['champ-old-xx', 'champ-two-xx'] }) }));
+  const seen = await res.json() as Record<string, number>;
+  claim(seen['champ-old-xx'] === 0 && seen['champ-two-xx'] === 2, `the prize reads the wrong counts after a deletion: ${JSON.stringify(seen)}`);
+  // and on access, without waiting for the alarm
+  Date.now = () => L1 + K;
+  await lobby.fetch(new Request('https://do/mine?device=champ-two-xx', { headers: at(L1 + K) }));
+  saved = store.get('lobby') as typeof saved;
+  claim(Object.keys(saved.champions).length === 0 && Object.keys(saved.championsAt ?? {}).length === 0, 'a request a year after the last championship did not delete the count');
+  Date.now = real;
+}
+
 if (fails.length) { console.log(`FAIL (${fails.length} of ${checked}):`); for (const f of fails) console.log(' - ' + f); process.exit(1); }
-console.log(`ok: ${checked} claims. no mail; consent on all three doors, in the screen and on the server; names filtered; a finished match deletes itself.`);
+console.log(`ok: ${checked} claims. no mail; consent on all three doors, in the screen and on the server; names filtered; a finished match deletes itself; statistics and champions counts go within twelve months.`);
