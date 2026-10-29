@@ -50,6 +50,7 @@
     "check:scroll": "node --experimental-strip-types scripts/scroll-check.mts",
     "check:summer": "node --experimental-strip-types scripts/summer-check.mts",
     "check:legends": "node --experimental-strip-types scripts/legends-check.mts",
+    "check:clubnames": "node --experimental-strip-types scripts/clubnames-check.mts",
     "check:seasonkit": "node --experimental-strip-types scripts/season-kit-check.mts",
     "check:penalty": "node --experimental-strip-types scripts/penalty-check.mts",
     "check:discipline": "node --experimental-strip-types scripts/discipline-check.mts",

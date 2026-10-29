@@ -15,7 +15,9 @@ const SHAPE_PATH: Record<Club['shape'], string> = {
 
 function initials(club: Club): string {
   // strip the common prefix words so the letters are the town, not the movement
-  const cleaned = club.short.replace(/^(הפועל|מכבי|בני|בית"ר)\s*/, '').trim();
+  // (the invented words of 29.10 stand in for the old four; the old ones stay for
+  // the fixed leagues and any save that still carries them)
+  const cleaned = club.short.replace(/^(?:(?:הפועל|מכבי|בני|בית"ר)\s*|(?:רעם|להב|ברק|שחף)\s+)/, '').trim();
   const parts = cleaned.split(' ').filter(Boolean);
   if (parts.length >= 2) return parts[0][0] + parts[1][0];
   return cleaned.slice(0, 2);

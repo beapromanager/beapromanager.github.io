@@ -9,10 +9,62 @@
  * The old names are not written here. Only a hash of each one is kept, so the
  * names that were taken out of the game stay out of its code too.
  *
+ * The same day the clubs of the towns got invented words in front of the
+ * town (see `Prefix` in cities.ts). Those are not people, so the old club
+ * names are written out below in plain text.
+ *
  * Never renamed: what the manager typed himself. His own name and nickname,
  * and the friends he brought in, are his, even if one of them happens to share
  * a name with somebody who used to be in the game.
  */
+
+import { CITIES } from '../data/cities.ts';
+
+/* ------------------------------------------------------------- the clubs */
+
+/**
+ * 29.10.2026: the word in front of the town changed, one for one, so a town's
+ * club keeps its colours, crest and id and only its name moves. A save made
+ * before that carries the old names in its tables, its cup, its history and
+ * its news.
+ */
+const OLD_PREFIX: Record<string, string> = {
+  'מ.ס': 'סער', 'הפועל': 'רעם', 'מכבי': 'להב', 'בני': 'ברק', 'צעירי': 'אופק',
+  'איחוד': 'נחשול', 'הכוח': 'זוהר', 'עירוני': 'גל', 'בית"ר': 'שחף',
+};
+/** the hand picked names that did not follow "word + town" */
+const OLD_EXACT: [string, string][] = [
+  ['צעירי ב"ש', 'אופק ב"ש'],
+  ['מכבי שעריים', 'להב רחובות'],
+  ["בני סח'נין", 'ברק סחנין'],
+  ['מועדון סביליה', 'סביליה האנדלוסית'],
+  ['מועדון קייב', 'קייב הדנייפרית'],
+];
+/** short names that changed on their own, by town */
+const OLD_SHORT: Record<string, [string, string]> = {
+  'רחובות': ['שעריים', 'רחובות'],
+  'סחנין': ["סח'נין", 'סחנין'],
+};
+const OLD_EURO_SHORT: Record<string, string> = { 'מועדון סביליה': 'סביליה', 'מועדון קייב': 'קייב' };
+
+const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+let clubRx: RegExp | null = null;
+function clubRegex(): RegExp {
+  if (clubRx) return clubRx;
+  const towns = CITIES.map(c => c.name).sort((a, b) => b.length - a.length).map(esc);
+  const pre = Object.keys(OLD_PREFIX).map(esc);
+  // an optional one or two letter Hebrew prefix (ו, ב, ל, מ, ש, ה, כ) may sit on the word
+  clubRx = new RegExp(`(?<![\\p{L}"'.])([ובלמשהכ]{0,2})(${pre.join('|')}) (${towns.join('|')})(?![\\p{L}])`, 'gu');
+  return clubRx;
+}
+const ANY_OLD = /מ\.ס|הפועל|מכבי|בני|צעירי|איחוד|הכוח|עירוני|בית"ר|מועדון/;
+
+function renameClubsInText(s: string): string {
+  if (!ANY_OLD.test(s)) return s;
+  let out = s;
+  for (const [a, b] of OLD_EXACT) if (out.includes(a)) out = out.split(a).join(b);
+  return out.replace(clubRegex(), (_m, lead: string, p: string, town: string) => `${lead}${OLD_PREFIX[p]} ${town}`);
+}
 
 /** the same small FNV-1a hash the club ids use */
 export function nameHash(s: string): number {
@@ -99,7 +151,7 @@ function renameKey(s: string, ctx: Ctx): string {
 function renameString(s: string, ctx: Ctx): string {
   if (!s) return s;
   if (/^[a-z-]+$/.test(s)) return renameKey(s, ctx);
-  return renameInText(s, ctx);
+  return renameClubsInText(renameInText(s, ctx));
 }
 
 /** walk the save in place: it is a fresh JSON parse, nobody else holds it */
@@ -113,6 +165,13 @@ function walk(v: unknown, ctx: Ctx, depth: number): unknown {
   const o = v as Record<string, unknown>;
   // a friend of his keeps the name he was given, whatever it is
   if (typeof o.id === 'string' && ctx.friendIds.has(o.id)) return v;
+  // a club whose short name changed on its own
+  if (typeof o.short === 'string' && typeof o.city === 'string') {
+    const sh = OLD_SHORT[o.city];
+    if (sh && o.short === sh[0]) o.short = sh[1];
+    const eu = OLD_EURO_SHORT[o.short as string];
+    if (eu) o.short = eu;
+  }
   for (const k of Object.keys(o)) {
     const nk = renameString(k, ctx);
     const nv = walk(o[k], ctx, depth + 1);

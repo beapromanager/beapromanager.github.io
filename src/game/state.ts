@@ -2615,7 +2615,7 @@ function withLocalRival(
       // back the town as the short name, the same one my club already carries,
       // and the table, the fixture list and the match header all read shorts:
       // measured on אילת and on טבריה, the division printed the same word
-      // twice. The prefix is what tells הפועל from מכבי on any real table, so
+      // twice. The word in front of the town is what tells the two apart on any table, so
       // the second club goes by its full name.
       const made = siblingClub(me.city, tier, myId);
       const twin = { ...made, short: made.name };

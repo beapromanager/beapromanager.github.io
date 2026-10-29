@@ -8,10 +8,9 @@
  * of the better known towns gets a hand picked club identity, everyone else
  * gets a stable one derived from the name, so every city produces something.
  *
- * Legal note, same as clubs.ts: specific real club names are trademarks. These
- * lean on generic movement words (מ.ס, איחוד, צעירי, בני) plus the real town,
- * and deliberately avoid a city's famous flagship, both because the underdog
- * fits starting in ליגה ג׳ and because it is safer. A store launch still needs
+ * Legal note, same as clubs.ts: specific real club names are trademarks. The
+ * real town stays, the word in front of it is invented (see Prefix below), so
+ * no club in the game carries a real club's name. A store launch still needs
  * a legal pass.
  */
 import type { Club, ClubTraits, CrestShape, CrestPattern } from './clubs.ts';
@@ -147,7 +146,15 @@ export function searchCities(q: string, limit = 8): City[] {
 
 /* --------------------------------------------------------- club identity */
 
-type Prefix = 'מ.ס' | 'הפועל' | 'מכבי' | 'בית"ר' | 'בני' | 'צעירי' | 'איחוד' | 'הכוח' | 'עירוני';
+/**
+ * The words in front of the town. Invented on purpose (29.10.2026): every real
+ * movement word (מכבי, הפועל, בית"ר, בני, עירוני, מ.ס...) is already on a real
+ * club in almost every town, so "word + town" kept landing on a real club's
+ * exact name. These nine are not used by any Israeli club, and each one stands
+ * in for exactly one of the old words, so every town keeps the same identity it
+ * had. Swap them here and nowhere else.
+ */
+type Prefix = 'סער' | 'רעם' | 'להב' | 'שחף' | 'ברק' | 'אופק' | 'נחשול' | 'זוהר' | 'גל';
 
 interface CitySpec {
   prefix: Prefix;
@@ -168,42 +175,42 @@ interface CitySpec {
  * town, which is the right feeling for starting at the bottom.
  */
 const CURATED: Record<string, CitySpec> = {
-  'תל אביב':   { prefix: 'מ.ס', primary: '#1f6fd6', secondary: '#0b1f3a', accent: '#ffd233', shape: 'shield', pattern: 'sash' },
-  'ירושלים':   { prefix: 'מכבי', primary: '#e23a3a', secondary: '#f4e7d8', accent: '#111111', shape: 'shield', pattern: 'half' },
-  'חיפה':      { prefix: 'מ.ס', primary: '#2e8b57', secondary: '#04331b', accent: '#ffffff', shape: 'round', pattern: 'stripes' },
-  'באר שבע':   { prefix: 'צעירי', name: 'צעירי ב"ש', short: 'צעירי ב"ש', primary: '#e2001a', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'chevron' },
-  'ראש העין':  { prefix: 'מ.ס', primary: '#e67e22', secondary: '#3a2109', accent: '#fff1e0', shape: 'shield', pattern: 'stripes' },
-  'לוד':       { prefix: 'מכבי', primary: '#f1c40f', secondary: '#1a1a1a', accent: '#ffffff', shape: 'round', pattern: 'half' },
-  'רמלה':      { prefix: 'הפועל', primary: '#c0392b', secondary: '#f4e7d8', accent: '#f1c40f', shape: 'round', pattern: 'sash' },
-  'נתניה':     { prefix: 'בני', primary: '#f5c518', secondary: '#0b2540', accent: '#ffffff', shape: 'diamond', pattern: 'stripes' },
-  'אשדוד':     { prefix: 'מ.ס', primary: '#c0392b', secondary: '#f5c518', accent: '#ffffff', shape: 'shield', pattern: 'half' },
-  'אשקלון':    { prefix: 'הפועל', primary: '#e2001a', secondary: '#0b2540', accent: '#ffffff', shape: 'round', pattern: 'chevron' },
-  'ראשון לציון': { prefix: 'הפועל', primary: '#c0392b', secondary: '#0b2540', accent: '#ecf6ff', shape: 'shield', pattern: 'stripes' },
-  'פתח תקווה': { prefix: 'איחוד', primary: '#1a7a3a', secondary: '#f4e7d8', accent: '#111111', shape: 'shield', pattern: 'half' },
-  'רחובות':    { prefix: 'מכבי', name: 'מכבי שעריים', short: 'שעריים', primary: '#e23a3a', secondary: '#f5c518', accent: '#111111', shape: 'round', pattern: 'sash' },
-  'בת ים':     { prefix: 'הפועל', primary: '#2980b9', secondary: '#0b2540', accent: '#ecf6ff', shape: 'round', pattern: 'stripes' },
-  'חולון':     { prefix: 'הפועל', primary: '#e2001a', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'sash' },
-  'רמת גן':    { prefix: 'הכוח', primary: '#16a085', secondary: '#04302a', accent: '#e0fbf6', shape: 'diamond', pattern: 'solid' },
-  'הרצליה':    { prefix: 'הפועל', primary: '#8e44ad', secondary: '#2a123a', accent: '#f0e4f7', shape: 'diamond', pattern: 'half' },
-  'כפר סבא':   { prefix: 'הפועל', primary: '#1a7a3a', secondary: '#f4e7d8', accent: '#111111', shape: 'shield', pattern: 'stripes' },
-  'רעננה':     { prefix: 'מכבי', primary: '#2980b9', secondary: '#f4e7d8', accent: '#f1c40f', shape: 'round', pattern: 'half' },
-  'טבריה':     { prefix: 'עירוני', name: 'עירוני טבריה', short: 'טבריה', primary: '#e67e22', secondary: '#0b2540', accent: '#ffffff', shape: 'shield', pattern: 'chevron' },
-  'עכו':       { prefix: 'הפועל', primary: '#16a085', secondary: '#f4e7d8', accent: '#111111', shape: 'round', pattern: 'stripes' },
-  'נצרת':      { prefix: 'הפועל', primary: '#e2001a', secondary: '#04331b', accent: '#ffffff', shape: 'shield', pattern: 'half' },
-  'עפולה':     { prefix: 'הפועל', primary: '#27ae60', secondary: '#04331b', accent: '#eafaf1', shape: 'round', pattern: 'chevron' },
-  'קריית שמונה': { prefix: 'עירוני', name: 'עירוני קריית שמונה', short: 'ק.שמונה', primary: '#e23a3a', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'sash' },
-  'טירה':      { prefix: 'מכבי', primary: '#1a7a3a', secondary: '#ffffff', accent: '#111111', shape: 'round', pattern: 'half' },
-  'סחנין':     { prefix: 'בני', name: 'בני סח\'נין', short: 'סח\'נין', primary: '#e2001a', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'chevron' },
-  'אום אל פחם': { prefix: 'הפועל', primary: '#1a7a3a', secondary: '#f4e7d8', accent: '#111111', shape: 'round', pattern: 'stripes' },
-  'דימונה':    { prefix: 'הפועל', primary: '#8e44ad', secondary: '#2a123a', accent: '#ffffff', shape: 'diamond', pattern: 'sash' },
-  'קריית גת':  { prefix: 'מכבי', primary: '#2980b9', secondary: '#f5c518', accent: '#ffffff', shape: 'shield', pattern: 'half' },
-  'נהריה':     { prefix: 'עירוני', name: 'עירוני נהריה', short: 'נהריה', primary: '#2980b9', secondary: '#ffffff', accent: '#f1c40f', shape: 'round', pattern: 'chevron' },
-  'אילת':      { prefix: 'הפועל', primary: '#e67e22', secondary: '#0b2540', accent: '#ffffff', shape: 'diamond', pattern: 'stripes' },
-  'מודיעין':   { prefix: 'מ.ס', name: 'מ.ס מודיעין', short: 'מודיעין', primary: '#1f6fd6', secondary: '#f4e7d8', accent: '#f1c40f', shape: 'shield', pattern: 'half' },
-  'בית שמש':   { prefix: 'הפועל', primary: '#c0392b', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'sash' },
+  'תל אביב':   { prefix: 'סער', primary: '#1f6fd6', secondary: '#0b1f3a', accent: '#ffd233', shape: 'shield', pattern: 'sash' },
+  'ירושלים':   { prefix: 'להב', primary: '#e23a3a', secondary: '#f4e7d8', accent: '#111111', shape: 'shield', pattern: 'half' },
+  'חיפה':      { prefix: 'סער', primary: '#2e8b57', secondary: '#04331b', accent: '#ffffff', shape: 'round', pattern: 'stripes' },
+  'באר שבע':   { prefix: 'אופק', name: 'אופק ב"ש', short: 'אופק ב"ש', primary: '#e2001a', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'chevron' },
+  'ראש העין':  { prefix: 'סער', primary: '#e67e22', secondary: '#3a2109', accent: '#fff1e0', shape: 'shield', pattern: 'stripes' },
+  'לוד':       { prefix: 'להב', primary: '#f1c40f', secondary: '#1a1a1a', accent: '#ffffff', shape: 'round', pattern: 'half' },
+  'רמלה':      { prefix: 'רעם', primary: '#c0392b', secondary: '#f4e7d8', accent: '#f1c40f', shape: 'round', pattern: 'sash' },
+  'נתניה':     { prefix: 'ברק', primary: '#f5c518', secondary: '#0b2540', accent: '#ffffff', shape: 'diamond', pattern: 'stripes' },
+  'אשדוד':     { prefix: 'סער', primary: '#c0392b', secondary: '#f5c518', accent: '#ffffff', shape: 'shield', pattern: 'half' },
+  'אשקלון':    { prefix: 'רעם', primary: '#e2001a', secondary: '#0b2540', accent: '#ffffff', shape: 'round', pattern: 'chevron' },
+  'ראשון לציון': { prefix: 'רעם', primary: '#c0392b', secondary: '#0b2540', accent: '#ecf6ff', shape: 'shield', pattern: 'stripes' },
+  'פתח תקווה': { prefix: 'נחשול', primary: '#1a7a3a', secondary: '#f4e7d8', accent: '#111111', shape: 'shield', pattern: 'half' },
+  'רחובות':    { prefix: 'להב', name: 'להב רחובות', short: 'רחובות', primary: '#e23a3a', secondary: '#f5c518', accent: '#111111', shape: 'round', pattern: 'sash' },
+  'בת ים':     { prefix: 'רעם', primary: '#2980b9', secondary: '#0b2540', accent: '#ecf6ff', shape: 'round', pattern: 'stripes' },
+  'חולון':     { prefix: 'רעם', primary: '#e2001a', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'sash' },
+  'רמת גן':    { prefix: 'זוהר', primary: '#16a085', secondary: '#04302a', accent: '#e0fbf6', shape: 'diamond', pattern: 'solid' },
+  'הרצליה':    { prefix: 'רעם', primary: '#8e44ad', secondary: '#2a123a', accent: '#f0e4f7', shape: 'diamond', pattern: 'half' },
+  'כפר סבא':   { prefix: 'רעם', primary: '#1a7a3a', secondary: '#f4e7d8', accent: '#111111', shape: 'shield', pattern: 'stripes' },
+  'רעננה':     { prefix: 'להב', primary: '#2980b9', secondary: '#f4e7d8', accent: '#f1c40f', shape: 'round', pattern: 'half' },
+  'טבריה':     { prefix: 'גל', name: 'גל טבריה', short: 'טבריה', primary: '#e67e22', secondary: '#0b2540', accent: '#ffffff', shape: 'shield', pattern: 'chevron' },
+  'עכו':       { prefix: 'רעם', primary: '#16a085', secondary: '#f4e7d8', accent: '#111111', shape: 'round', pattern: 'stripes' },
+  'נצרת':      { prefix: 'רעם', primary: '#e2001a', secondary: '#04331b', accent: '#ffffff', shape: 'shield', pattern: 'half' },
+  'עפולה':     { prefix: 'רעם', primary: '#27ae60', secondary: '#04331b', accent: '#eafaf1', shape: 'round', pattern: 'chevron' },
+  'קריית שמונה': { prefix: 'גל', name: 'גל קריית שמונה', short: 'ק.שמונה', primary: '#e23a3a', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'sash' },
+  'טירה':      { prefix: 'להב', primary: '#1a7a3a', secondary: '#ffffff', accent: '#111111', shape: 'round', pattern: 'half' },
+  'סחנין':     { prefix: 'ברק', name: 'ברק סחנין', short: 'סחנין', primary: '#e2001a', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'chevron' },
+  'אום אל פחם': { prefix: 'רעם', primary: '#1a7a3a', secondary: '#f4e7d8', accent: '#111111', shape: 'round', pattern: 'stripes' },
+  'דימונה':    { prefix: 'רעם', primary: '#8e44ad', secondary: '#2a123a', accent: '#ffffff', shape: 'diamond', pattern: 'sash' },
+  'קריית גת':  { prefix: 'להב', primary: '#2980b9', secondary: '#f5c518', accent: '#ffffff', shape: 'shield', pattern: 'half' },
+  'נהריה':     { prefix: 'גל', name: 'גל נהריה', short: 'נהריה', primary: '#2980b9', secondary: '#ffffff', accent: '#f1c40f', shape: 'round', pattern: 'chevron' },
+  'אילת':      { prefix: 'רעם', primary: '#e67e22', secondary: '#0b2540', accent: '#ffffff', shape: 'diamond', pattern: 'stripes' },
+  'מודיעין':   { prefix: 'סער', name: 'סער מודיעין', short: 'מודיעין', primary: '#1f6fd6', secondary: '#f4e7d8', accent: '#f1c40f', shape: 'shield', pattern: 'half' },
+  'בית שמש':   { prefix: 'רעם', primary: '#c0392b', secondary: '#1a1a1a', accent: '#ffffff', shape: 'shield', pattern: 'sash' },
 };
 
-const PREFIX_POOL: Prefix[] = ['מ.ס', 'הפועל', 'מכבי', 'בני', 'איחוד', 'צעירי', 'הכוח'];
+const PREFIX_POOL: Prefix[] = ['סער', 'רעם', 'להב', 'ברק', 'נחשול', 'אופק', 'זוהר'];
 const PALETTE: [string, string, string][] = [
   ['#c0392b', '#f4e7d8', '#f1c40f'], ['#2980b9', '#0b2540', '#ecf6ff'],
   ['#27ae60', '#04331b', '#eafaf1'], ['#8e44ad', '#2a123a', '#f0e4f7'],
@@ -413,7 +420,7 @@ export function buildSiblingLeague(cityName: string, tier: number, avoidId: stri
 /**
  * How far a neighbouring town can be and still be a local fight.
  *
- * A derby is the same town: two clubs, one city, מ.ס ראש העין against הפועל
+ * A derby is the same town: two clubs, one city, סער ראש העין against רעם
  * ראש העין. What the game had been calling a derby is almost never that. It is
  * ראש העין against אורנית, two towns nine kilometres apart, which is a fight
  * over a piece of the map and not a derby, and it now has its own name.

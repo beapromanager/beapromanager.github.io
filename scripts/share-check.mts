@@ -41,7 +41,7 @@ const store = new Map<string, string>();
 
 /* 2. THE WORDS: every kind names the club and the game, says nothing unfinished, and is short enough to send */
 {
-  const facts = { club: 'מ.ס ראש העין', league: 'ליגה ג׳', nextLeague: 'ליגה ב׳', season: 4 };
+  const facts = { club: 'סער ראש העין', league: 'ליגה ג׳', nextLeague: 'ליגה ב׳', season: 4 };
   const kinds: ShareKind[] = ['top', 'champion', 'promoted', 'euro'];
   checked += kinds.length * 5 + 2;
   for (const k of kinds) {

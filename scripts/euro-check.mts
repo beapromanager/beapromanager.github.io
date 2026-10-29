@@ -89,7 +89,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   // Itzik's eight, his names and countries, pinned word for word
   const his: Array<[string, string]> = [
     ['רד בלגרד', 'סרביה'], ['ר.ב אמסטרדם', 'הולנד'], ['אתלטיק אתונה', 'יוון'], ['בלוז גלזגו', 'סקוטלנד'],
-    ['מועדון סביליה', 'ספרד'], ['בית באזל', 'שוויץ'], ['מועדון קייב', 'אוקראינה'], ['רומא האיטלקית', 'איטליה'],
+    ['סביליה האנדלוסית', 'ספרד'], ['בית באזל', 'שוויץ'], ['קייב הדנייפרית', 'אוקראינה'], ['רומא האיטלקית', 'איטליה'],
   ];
   for (const [name, country] of his) {
     const c = EURO_CLUBS.find(x => x.name === name);

@@ -75,7 +75,7 @@ const BLOCK = new Set<string>([
 /**
  * Arab majority towns in the game's city list. A club from one of these is an
  * Arab club, and its squad is drawn from the Arab pool. Matching is by token,
- * so "סחנין" and the club "בני סח׳" both resolve, and a generated club whose
+ * so "סחנין" and an older save's "סח׳" both resolve, and a generated club whose
  * name carries the town resolves too.
  */
 const ARAB_TOWNS = [

@@ -89,7 +89,7 @@ const ORIGINS = ['אוקראינה', 'צרפת', 'אתיופיה', 'רוסיה',
 
 // A few lines belong to one sector's life and not the other's: kiddush,
 // reserve duty, aliyah. A man from the Arab pool does not get them, or a
-// player in הפועל נצרת reads that his centre back runs home for kiddush.
+// player in רעם נצרת reads that his centre back runs home for kiddush.
 const jewish = (p: Player) => originOfName(p.name) === 'jewish';
 const HALLS = ['גן אירועים', 'אולם בפריפריה', 'מסעדה על המים'];
 
