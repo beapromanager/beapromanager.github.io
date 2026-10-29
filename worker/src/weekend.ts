@@ -25,7 +25,7 @@
  *
  * WHAT IT KNOWS OF A PERSON: a nickname, a random device id, and a mail only if
  * the box was ticked. No IP is written. A league and its matches are deleted a
- * week after the final.
+ * week after the final; a device's champions count a year after its last championship.
  *
  * DEBUG: with the DEBUG var set (wrangler dev only) the clock can be moved with
  * an x-now header and a league can be pushed through its stages by hand, so a
@@ -158,8 +158,10 @@ async function route(req: Request, env: Env): Promise<Response> {
 /* ------------------------------------------------------------------ lobby */
 
 interface LobbyState extends W.LobbyCore {
-  /** device → how many times champion */
+  /** device → how many times champion; deleted a year after the device's last championship (29.10) */
   champions: Record<string, number>;
+  /** device → when it was last champion (ms); a count without one is stamped when first read (W.stampChampions) */
+  championsAt: Record<string, number>;
   counter: number;
 }
 
@@ -169,20 +171,26 @@ export class LobbyDO {
 
   private async load(): Promise<LobbyState> {
     if (this.s) return this.s;
-    this.s = (await this.state.storage.get<LobbyState>('lobby')) ?? { codes: {}, devices: {}, open: [], last: {}, champions: {}, counter: 0 };
+    this.s = (await this.state.storage.get<LobbyState>('lobby')) ?? { codes: {}, devices: {}, open: [], last: {}, champions: {}, championsAt: {}, counter: 0 };
     this.s.last ??= {};   // a lobby written before 25.10 has no `last` yet
-    if (W.stripLegacyMails(this.s)) await this.save();   // no mail is kept any more (27.10): what an earlier build stored goes at the first request
+    const stripped = W.stripLegacyMails(this.s);   // no mail is kept any more (27.10): what an earlier build stored goes at the first request
+    const stamped = W.stampChampions(this.s, Date.now());   // counts from before 29.10 get a time, so their year can run out
+    if (stripped || stamped) await this.save();
     return this.s;
   }
   private async save() {
     await this.state.storage.put('lobby', this.s!);
-    // the lobby sweeps itself a week after the final, even if nobody calls (27.10)
-    await this.state.storage.setAlarm(W.cycleOf(Date.now()).final + KEEP_MS + 60_000);
+    // the lobby sweeps itself a week after the final, even if nobody calls (27.10), and wakes earlier when a
+    // champions count is due to go (29.10)
+    const sweep = W.cycleOf(Date.now()).final + KEEP_MS + 60_000;
+    const expiry = W.nextChampionExpiry(this.s!);
+    await this.state.storage.setAlarm(expiry === null ? sweep : Math.min(sweep, expiry));
   }
   async alarm() {
     const s = await this.load();
     const now = Date.now();
     W.sweepLobby(s, W.cycleOf(now), now);
+    W.pruneChampions(s, now);
     await this.save();
   }
 
@@ -194,6 +202,8 @@ export class LobbyDO {
     // codes and open leagues of an earlier cycle are forgotten; a device's league of an earlier cycle moves to
     // `last` for a week, so Sunday 20:00 does not take the final away from the people playing it (25.10)
     W.sweepLobby(s, cycle, now);
+    // a champions count a year after the device's last championship is deleted (29.10)
+    if (W.pruneChampions(s, now)) await this.save();
     const league = (id: string) => this.env.LEAGUE.get(this.env.LEAGUE.idFromString(id));
     const call = (id: string, path: string, b: unknown) => league(id).fetch(new Request(`https://do${path}`, { method: 'POST', body: JSON.stringify(b), headers: { 'x-now': String(now) } }));
 
@@ -205,7 +215,7 @@ export class LobbyDO {
 
     if (url.pathname === '/champion') {   // a league reporting its champion
       const b = await body<{ device: string }>(req);
-      if (b && isDevice(b.device)) { s.champions[b.device] = (s.champions[b.device] ?? 0) + 1; await this.save(); }
+      if (b && isDevice(b.device)) { s.champions[b.device] = (s.champions[b.device] ?? 0) + 1; s.championsAt[b.device] = now; await this.save(); }
       return json({ ok: true });
     }
     if (url.pathname === '/champions') {

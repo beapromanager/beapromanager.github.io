@@ -413,6 +413,41 @@ export interface LobbyCore {
   last: Record<string, { id: string; final: number }>;
 }
 
+/**
+ * How many times a device was champion is kept for a year after its last championship, and then deleted (Itzik,
+ * 29.10). `championsAt` is when each device was last champion; a lobby written before 29.10 has counts without it, and
+ * those are stamped with the moment they are first read (stampChampions), so their year starts then.
+ * 365 days, never more than twelve months.
+ */
+export const CHAMPIONS_KEEP_MS = 365 * 86_400_000;
+export interface ChampionsBook { champions: Record<string, number>; championsAt?: Record<string, number> }
+
+/** gives every count without a time the time `now`; true if anything was stamped */
+export function stampChampions(s: ChampionsBook, now: number): boolean {
+  const at = (s.championsAt ??= {});
+  let changed = false;
+  for (const d of Object.keys(s.champions)) if (typeof at[d] !== 'number') { at[d] = now; changed = true; }
+  for (const d of Object.keys(at)) if (!(d in s.champions)) { delete at[d]; changed = true; }
+  return changed;
+}
+
+/** deletes the count (and its time) of every device whose last championship is CHAMPIONS_KEEP_MS old; true if any went */
+export function pruneChampions(s: ChampionsBook, now: number): boolean {
+  const at = (s.championsAt ??= {});
+  let changed = false;
+  for (const d of Object.keys(s.champions)) {
+    if (typeof at[d] === 'number' && now >= at[d] + CHAMPIONS_KEEP_MS) { delete s.champions[d]; delete at[d]; changed = true; }
+  }
+  return changed;
+}
+
+/** when the next count is due to go, or null if there is none */
+export function nextChampionExpiry(s: ChampionsBook): number | null {
+  let next: number | null = null;
+  for (const t of Object.values(s.championsAt ?? {})) { const due = t + CHAMPIONS_KEEP_MS; if (next === null || due < next) next = due; }
+  return next;
+}
+
 /** the end of the cycle a record was made in */
 function finalOf(rec: { opens: number; final?: number }): number {
   return rec.final ?? cycleOf(rec.opens).final;
