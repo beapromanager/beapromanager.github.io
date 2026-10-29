@@ -244,7 +244,7 @@ const BAD_WORDS = ['זונה', 'שרמוטה', 'מניאק', 'בן זונה', '�
  * The version of the terms of use and the privacy policy a person ticks before joining (Itzik, 27.10). The server
  * refuses a registration that does not carry it, so a client without the tick cannot get in.
  */
-export const LEGAL_VERSION = '2026-10-27';
+export const LEGAL_VERSION = '2026-10-29';
 
 /** the league's name goes through the same filter as a nickname (27.10) */
 export function nameProblem(name: string): string | null {
