@@ -242,6 +242,24 @@ function roundTrip(gs: G.GameState): G.GameState | null {
   if (scout && /מטומטם/.test(scout.line)) fails.push('an old save still gets the old insult before a match');
 }
 
+/* 6. THE AMSTERDAM CLUB IS KYIV NOW (31.10.2026).
+      A career that played ר.ב אמסטרדם, saved under the first set of renames, loads with קייב הכחולה in its chronicle,
+      and nothing of the old name is left anywhere in it. */
+{
+  const gs = career('תל אביב');
+  const old = JSON.parse(JSON.stringify(gs)) as G.GameState & { namesVersion?: number };
+  old.namesVersion = 1;
+  old.chronicle = [...old.chronicle, { id: 'euro-s2', kind: 'euro' as never, week: 3, title: 'ליגת אירופה', body: 'ניצחון 2:1 על ר.ב אמסטרדם בשמינית.', icon: 'star' as never, tint: 'gold' }];
+  const loaded = roundTrip(old)!;
+  checked += 3;
+  if (!loaded) fails.push('a save that met ר.ב אמסטרדם did not load');
+  else {
+    const line = loaded.chronicle.find(c => c.id === 'euro-s2')?.body ?? '';
+    if (line !== 'ניצחון 2:1 על קייב הכחולה בשמינית.') fails.push(`the chronicle still reads: ${line}`);
+    if (JSON.stringify(loaded).includes('ר.ב אמסטרדם')) fails.push('ר.ב אמסטרדם is still somewhere in the loaded save');
+  }
+}
+
 console.log(`\n${checked} checks`);
 if (fails.length) console.log('\n  ' + fails.slice(0, 8).join('\n  '));
 console.log(fails.length ? '\nFAIL' : '\nOK, a career started on an older build gets all of it');

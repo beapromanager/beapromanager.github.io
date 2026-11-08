@@ -86,6 +86,7 @@
     "check:chats": "node --experimental-strip-types scripts/chats-check.mts",
     "check:friendly": "node --experimental-strip-types scripts/friendly-check.mts",
     "check:money": "node --experimental-strip-types scripts/money-check.mts",
+    "check:summit": "node --experimental-strip-types scripts/summit-check.mts",
     "check:euro": "node --experimental-strip-types scripts/euro-check.mts",
     "check:cup": "node --experimental-strip-types scripts/cup-check.mts",
     "check:cupqf": "node --experimental-strip-types scripts/cup-qf-check.mts",

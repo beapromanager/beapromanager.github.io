@@ -9,7 +9,7 @@
  */
 import { CITIES, clubFromCity, siblingClub } from '../src/data/cities.ts';
 import { EURO_CLUBS } from '../src/data/europeClubs.ts';
-import { renameLegacy } from '../src/game/renames.ts';
+import { renameLegacy, NAMES_VERSION } from '../src/game/renames.ts';
 
 const fails: string[] = [];
 const OLD = /^(מ\.ס|הפועל|מכבי|בני|צעירי|איחוד|הכוח|עירוני|בית"ר|בית״ר)\s/;
@@ -42,7 +42,10 @@ const old = {
       { id: 'c-5', name: 'הפועל נחל עוז', short: 'נחל עוז', city: 'נחל עוז' },
     ],
   },
-  euro: [{ id: 'eu-sevilla', name: 'מועדון סביליה', short: 'מועדון סביליה', city: 'סביליה' }],
+  euro: [
+    { id: 'eu-sevilla', name: 'מועדון סביליה', short: 'מועדון סביליה', city: 'סביליה' },
+    { id: 'eu-amsterdam', name: 'ר.ב אמסטרדם', short: 'ר.ב אמסטרדם', city: 'אמסטרדם' },
+  ],
   news: ['ניצחון גדול על מכבי תל אביב ועל צעירי ב"ש', 'הדרבי מול ומכבי ראש העין', 'סיור בבני ברק'],
 };
 const s = renameLegacy(JSON.parse(JSON.stringify(old))) as typeof old & { namesVersion?: number };
@@ -60,15 +63,29 @@ const want: [string, unknown, unknown][] = [
   ['ids kept', s.league.clubs.map(c => c.id).join(','), 'c-1,c-1x,c-2,c-3,c-4,c-5'],
   ['euro', s.euro[0].name, 'סביליה האנדלוסית'],
   ['euro short', s.euro[0].short, 'סביליה'],
+  ['euro, Amsterdam to Kyiv (31.10.2026)', s.euro[1].name, 'קייב הכחולה'],
+  ['euro, Amsterdam to Kyiv short', s.euro[1].short, 'קייב הכחולה'],
+  ['euro, Amsterdam keeps its id', s.euro[1].id, 'eu-amsterdam'],
   ['news', s.news[0], 'ניצחון גדול על להב תל אביב ועל אופק ב"ש'],
   ['news with a prefix letter', s.news[1], 'הדרבי מול ולהב ראש העין'],
   ['the town in prose', s.news[2], 'סיור בבני ברק'],
   ['his name', s.profile.name, 'מכבי חיפה'],
   ['his nickname', s.profile.nickname, 'בני'],
   ['his friend', s.friends[0].name, 'הפועל חולון'],
-  ['marked', s.namesVersion, 1],
+  ['marked', s.namesVersion, NAMES_VERSION],
+  ['the set is the Kyiv one', NAMES_VERSION, 2],
 ];
 for (const [what, got, exp] of want) if (got !== exp) fails.push(`${what}: got ${String(got)}, wanted ${String(exp)}`);
+
+// 2b. a save renamed under the first set is walked again for the second, and only the new name moves
+{
+  const once = { namesVersion: 1, league: { clubs: [{ id: 'c-1', name: 'סער ראש העין', short: 'ראש העין', city: 'ראש העין' }] },
+    news: ['הודחנו מול ר.ב אמסטרדם'] };
+  const t = renameLegacy(JSON.parse(JSON.stringify(once))) as typeof once;
+  if (t.news[0] !== 'הודחנו מול קייב הכחולה') fails.push(`a save of the first set kept ר.ב אמסטרדם: ${t.news[0]}`);
+  if (t.league.clubs[0].name !== 'סער ראש העין') fails.push('the second walk moved a name of the first set');
+  if (t.namesVersion !== NAMES_VERSION) fails.push('a save of the first set was not marked with the second');
+}
 
 // 3. a save that has been through it is not walked again
 const again = renameLegacy(s);

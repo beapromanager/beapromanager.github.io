@@ -88,7 +88,8 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   if (new Set(EURO_CLUBS.map(c => c.id)).size !== 20 || new Set(EURO_CLUBS.map(c => c.name)).size !== 20) fails.push('two clubs share an id or a name');
   // Itzik's eight, his names and countries, pinned word for word
   const his: Array<[string, string]> = [
-    ['רד בלגרד', 'סרביה'], ['ר.ב אמסטרדם', 'הולנד'], ['אתלטיק אתונה', 'יוון'], ['בלוז גלזגו', 'סקוטלנד'],
+    // ר.ב אמסטרדם became קייב הכחולה: Itzik's decision of 31.10.2026 (the same id, eu-amsterdam). Still eight names pinned.
+    ['רד בלגרד', 'סרביה'], ['קייב הכחולה', 'אוקראינה'], ['אתלטיק אתונה', 'יוון'], ['בלוז גלזגו', 'סקוטלנד'],
     ['סביליה האנדלוסית', 'ספרד'], ['בית באזל', 'שוויץ'], ['קייב הדנייפרית', 'אוקראינה'], ['רומא האיטלקית', 'איטליה'],
   ];
   for (const [name, country] of his) {
