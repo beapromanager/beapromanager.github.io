@@ -126,7 +126,7 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
   const opp = sides.opp;
   // cupPensSides already hands back a full Club; euroPensSides hands back a EuroClub, which needs asClub for the crest
   const oppClub: Club | undefined = opp ? (cup ? (opp as Club) : asClub(opp as never)) : undefined;
-  const compLabel = cup ? 'גביע' : 'אירופה';
+  const compLabel = cup ? 'גביע' : gs.euro?.level === 1 ? 'הפסגה' : 'אירופה';
   const mine = kicks.filter(k => k.side === 'me').map(k => k.scored);
   const theirs = kicks.filter(k => k.side === 'them').map(k => k.scored);
   const status = shootoutStatus(mine, theirs);

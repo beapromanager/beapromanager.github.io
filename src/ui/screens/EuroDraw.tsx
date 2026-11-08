@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as G from '../../game/state.ts';
-import { ROUND_NAMES } from '../../game/euro.ts';
+import { ROUND_NAMES, competitionName } from '../../game/euro.ts';
 import { euroClub, asClub } from '../../data/europeClubs.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
@@ -27,7 +27,7 @@ export function EuroDrawScreen({ gs, onDone }: { gs: G.GameState; onDone: () => 
     <div className="screen pad stack pad-b" style={{ gap: 14, minHeight: '100%' }}>
       <div className="match-hero" data-euro="1">
         <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
-          <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>ליגת אירופה</span>
+          <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>{competitionName(gs.euro?.level ?? 0)}</span>
           <span className="chip chip-euro">הגרלת {ROUND_NAMES[0]}</span>
         </div>
         <p className="hint" style={{ margin: 0 }}>

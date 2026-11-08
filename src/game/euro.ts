@@ -15,7 +15,7 @@
  */
 
 import { createRng } from '../engine/matchEngine.ts';
-import { EURO_CLUBS } from '../data/europeClubs.ts';
+import { poolFor, summitClub } from '../data/europeClubs.ts';
 
 /** The door. Off until Itzik says the top flight has enough managers in it. */
 export const EURO_LIVE = true;
@@ -37,6 +37,33 @@ export const legsIn = (round: number): 1 | 2 => (round === EURO_ROUNDS - 1 ? 1 :
 export const STAGE_TARGET = [74, 78, 82, 84] as const;
 /** each club carries a small fixed edge around its round's target, so the draw matters */
 export const CLUB_EDGE = 2;
+
+/* ---------------------------------------------------- פסגת אירופה (level 1) */
+
+/**
+ * The two European tiers: level 0 ליגת אירופה, level 1 פסגת אירופה (Itzik, 31.10.2026). One competition a season.
+ * The summit is the top: the last sixteen already plays at 82 and the final at 89. Each club plays at its own rating
+ * around the round's target (rating - SUMMIT_CENTRE), not at a random edge. Starting points from his prompt; the
+ * calibration against the real engine (scripts/summit-calibrate.mts) reports, Itzik decides, and the final never
+ * goes past 89 without him.
+ */
+export const SUMMIT_STAGE_TARGET = [82, 85, 87, 89] as const;
+export const SUMMIT_CENTRE = 87;
+/** Paid on reaching the round, as in the lower tier; the whole road is 9.1M. */
+export const SUMMIT_PRIZE = [0, 600_000, 1_400_000, 2_600_000, 4_500_000] as const;
+export const SUMMIT_TRAVEL = 250_000;
+export const SUMMIT_SECURITY = 250_000;
+/** Gems: once a career on the first night in the summit, and on every summit trophy. */
+export const SUMMIT_FIRST_GEMS = 5;
+export const SUMMIT_TITLE_GEMS = 15;
+
+/** The competition's name, for every screen and line that says it. */
+export const competitionName = (level: number): string => (level === 1 ? 'פסגת אירופה' : 'ליגת אירופה');
+/** The targets a level plays to. */
+export const stageTargets = (level: number): readonly number[] => (level === 1 ? SUMMIT_STAGE_TARGET : STAGE_TARGET);
+/** The money of a European night by level: travel away, security at home. */
+export const travelFor = (level: number): number => (level === 1 ? SUMMIT_TRAVEL : TRAVEL);
+export const securityFor = (level: number): number => (level === 1 ? SUMMIT_SECURITY : SECURITY);
 
 /** Paid on REACHING the round, nothing for taking part. Index by the round reached; 4 is the trophy. */
 export const PRIZE = [0, 300_000, 700_000, 1_300_000, 2_200_000] as const;
@@ -98,19 +125,22 @@ const shuffle = <T,>(xs: T[], rng: () => number): T[] => {
 };
 
 /**
- * The draw. The manager and fifteen of the twenty, paired by the seed. The
- * five who miss out are remembered so the next season can prefer them.
+ * The draw. The manager and fifteen of the twenty of the level's pool, paired by the seed. The five who miss out
+ * are remembered so the next season of the same level can prefer them. In the summit every club's edge is its own
+ * rating against SUMMIT_CENTRE; in the lower tier it is the small random edge it always was, drawn exactly as before.
  */
 export function drawEuro(seed: number, myId: string, season: number, level = 0, preferIn: string[] = []): EuroState {
   const rng = createRng(seed);
-  const others = shuffle(EURO_CLUBS.map(c => c.id), rng);
+  const others = shuffle(poolFor(level).map(c => c.id), rng);
   // the clubs rested last season come first in the queue, the rest in draw order
   const queue = [...preferIn.filter(id => others.includes(id)), ...others.filter(id => !preferIn.includes(id))];
   const field = queue.slice(0, EURO_FIELD - 1);
   const rested = queue.slice(EURO_FIELD - 1);
-  const clubs = shuffle([myId, ...field], rng).map(id => ({
-    id, edge: id === myId ? ME_EDGE : Math.round((rng() * 2 - 1) * CLUB_EDGE),
-  }));
+  const clubs = shuffle([myId, ...field], rng).map(id => {
+    // the lower tier draws its random edge whatever the level, so a ליגת אירופה draw is the same draw it always was
+    const edge = id === myId ? ME_EDGE : Math.round((rng() * 2 - 1) * CLUB_EDGE);
+    return { id, edge: level === 1 && id !== myId ? (summitClub(id)?.rating ?? SUMMIT_CENTRE) - SUMMIT_CENTRE : edge };
+  });
   const ties: EuroTie[] = [];
   for (let i = 0; i < clubs.length; i += 2) ties.push({ a: clubs[i].id, b: clubs[i + 1].id, legs: [] });
   return { level, season, clubs, rested, round: 0, leg: 0, ties: [ties], status: 'on', bans: {}, played: 0 };
@@ -122,7 +152,8 @@ export const myTie = (e: EuroState, myId: string): EuroTie | undefined =>
 /** The strength a club plays at in the given round. */
 export function strengthOf(e: EuroState, id: string, round = e.round): number {
   const edge = e.clubs.find(c => c.id === id)?.edge ?? 0;
-  return STAGE_TARGET[Math.min(round, STAGE_TARGET.length - 1)] + edge;
+  const targets = stageTargets(e.level);
+  return targets[Math.min(round, targets.length - 1)] + edge;
 }
 
 function poisson(lambda: number, rng: () => number): number {
@@ -273,6 +304,15 @@ export function advanceRound(e: EuroState, myId: string): EuroState {
 }
 
 /**
+ * Which European tier a ליגת העל champion plays (Itzik, 31.10.2026): the summit once a ליגת אירופה has been won in
+ * this career (the standing is for the whole career) and the international pro licence is held; otherwise ליגת אירופה.
+ * Who gets in at all is still euroEntry's: the title, every season.
+ */
+export function summitLevel(standing: boolean, licence: string): 0 | 1 {
+  return standing && licence === 'international' ? 1 : 0;
+}
+
+/**
  * Who gets in: the ליגת העל champion, and nobody else. The report's tier is the
  * one the title was won in; a champion of a lower division is promoted, not
  * invited. `live` is the flag, passed in so a check can prove the rule with the
@@ -319,8 +359,11 @@ export function iHost(e: EuroState, myId: string): boolean | null {
   return (e.leg === 0) === (t.a === myId);
 }
 
-/** The prize for reaching a round (the trophy is index 4). */
-export const prizeFor = (roundReached: number): number => PRIZE[Math.min(roundReached, PRIZE.length - 1)];
+/** The prize for reaching a round (the trophy is index 4), by level. */
+export const prizeFor = (roundReached: number, level = 0): number => {
+  const table = level === 1 ? SUMMIT_PRIZE : PRIZE;
+  return table[Math.min(roundReached, table.length - 1)];
+};
 
 /** A red card here is a ban here: the next European match, and no more. */
 export function banFor(e: EuroState, playerId: string): EuroState {
@@ -365,8 +408,10 @@ export function closeEuroSeason(e: EuroState, myId: string, seed: number): EuroS
 }
 
 /** Each round he reached paid its own prize, so a whole run is the sum of the rounds from the quarter up. */
-export const prizeTotal = (roundReached: number): number =>
-  PRIZE.slice(1, Math.min(roundReached, PRIZE.length - 1) + 1).reduce<number>((s, x) => s + x, 0);
+export const prizeTotal = (roundReached: number, level = 0): number => {
+  const table = level === 1 ? SUMMIT_PRIZE : PRIZE;
+  return table.slice(1, Math.min(roundReached, table.length - 1) + 1).reduce<number>((s, x) => s + x, 0);
+};
 
 /** 'in the quarter', for a sentence: the name with its preposition, because ב and הגמר do not join. */
 export const ROUND_IN = ['בשמינית הגמר', 'ברבע הגמר', 'בחצי הגמר', 'בגמר'] as const;
@@ -380,14 +425,16 @@ export interface EuroVerdict {
   prize: number;
   /** the legs he played */
   played: number;
+  /** 0 ליגת אירופה, 1 פסגת אירופה */
+  level: number;
 }
 
 export function euroVerdict(e: EuroState | null, myId: string): EuroVerdict | null {
   if (!e || e.status === 'on') return null;
   let round = 0;
   e.ties.forEach((ties, r) => { if (ties.some(t => t.a === myId || t.b === myId)) round = r; });
-  const prize = prizeTotal(e.status === 'won' ? EURO_ROUNDS : round);
-  return { outcome: e.status === 'won' ? 'won' : e.cut ? 'cut' : 'out', round, prize, played: e.played };
+  const prize = prizeTotal(e.status === 'won' ? EURO_ROUNDS : round, e.level);
+  return { outcome: e.status === 'won' ? 'won' : e.cut ? 'cut' : 'out', round, prize, played: e.played, level: e.level };
 }
 
 /**

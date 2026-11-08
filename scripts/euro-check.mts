@@ -270,8 +270,11 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const rescue = src.slice(src.indexOf('export function takeRescue'), src.indexOf('export function takeRescue') + 2500);
   if (!rescue.includes('    sacking: null,\n    euro: null,')) fails.push('a rescued manager keeps the European season of the club that sacked him');
   // the summer draws it through drawSeed with its own salt and carries the rested five forward
-  const summerLine = 'euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null\n      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])';
-  if (!src.includes(summerLine)) fails.push('the summer does not draw the competition through the flag, the entry rule, a calendar that can play it, drawSeed and the rested five');
+  // 31.10.2026: the entry rule is one line (euroIn), the tier is summitLevel, and the rested queue is the one of the tier drawn
+  const summerLine = "const euroIn = euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null;";
+  const summerDraw = "euro: euroIn\n      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, euroLevel, preferIn)";
+  const summerQueue = "const preferIn = !gs.euro ? [] : gs.euro.level === euroLevel ? gs.euro.rested : (standing.rested[String(euroLevel)] ?? []);";
+  if (!src.includes(summerLine) || !src.includes(summerDraw) || !src.includes(summerQueue)) fails.push('the summer does not draw the competition through the flag, the entry rule, a calendar that can play it, drawSeed and the rested five');
   // and the save gives an old career the field
   checked++;
   if (!readFileSync('src/game/save.ts', 'utf8').includes('euro: s.euro ?? null,')) fails.push('an old save would load without the euro field');
@@ -715,7 +718,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const br = readFileSync('src/ui/screens/EuroBracket.tsx', 'utf8');
   if (br.includes('setGs') || br.includes('G.commit') || br.includes('G.finish')) fails.push('the bracket writes into the state');
   const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
-  if (!hub.includes('{drawDue && <EuroDrawCard onGo={onEuroDraw} />}') || !hub.includes('const drawDue = G.euroDrawDue(gs);')) fails.push('the hub does not offer the draw off euroDrawDue');
+  if (!hub.includes('{drawDue && <EuroDrawCard level={gs.euro?.level ?? 0} onGo={onEuroDraw} />}') || !hub.includes('const drawDue = G.euroDrawDue(gs);')) fails.push('the hub does not offer the draw off euroDrawDue');
   if (!hub.includes('label="אירופה" onClick={onEuroBracket}')) fails.push('the hub has no European room');
   const app = readFileSync('src/ui/App.tsx', 'utf8');
   if (!app.includes("{gs.phase === 'euro-draw' && <EuroDrawScreen gs={gs} onDone={() => setGs(g => G.finishEuroDraw(g))} />}") || !app.includes("{gs.phase === 'euro-bracket' && <EuroBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}")) fails.push('the app does not show the draw and the bracket');
@@ -878,7 +881,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   // settleEuroSeason still takes the exact same argument and still feeds settleLoans; the domestic cup (stage 1,
   // 20.10) now wraps the same point in the pipeline, closed on the same night Europe is, before the summer draws either
   if (!src.includes("const settled = settleLoans(settleCupSeason(settleEuroSeason(finale ? { ...gs, chronicle: [...gs.chronicle, finale] } : gs)), 'season');") || !src.includes("return { ...settled, phase: 'season-end', press: null, chat: null, fanHistory };")) fails.push('the cup is not closed where the last league round ends');
-  if (!src.includes('euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null')) fails.push('a cup is drawn for a league too short to play it');
+  if (!src.includes('const euroIn = euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null;') || !src.includes('euro: euroIn\n      ? drawEuro(')) fails.push('a cup is drawn for a league too short to play it');
   if (euroWeeks(10) !== null || euroWeeks(14) === null) fails.push('the calendar guard does not say which leagues can play the cup');
   const end = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');
   if (!end.includes('const europe = G.euroDoorOpen();') || !end.includes("(europe ? 'אלופי המדינה. עכשיו הולכים על אירופה.' : 'אלופי המדינה.')")) fails.push('the headline promises Europe with the door shut');

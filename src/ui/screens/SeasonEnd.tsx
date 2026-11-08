@@ -8,7 +8,7 @@ import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { formatMoney } from '../components/bits.tsx';
 import { LEAGUE_NAMES } from '../../data/clubs.ts';
-import { ROUND_IN } from '../../game/euro.ts';
+import { ROUND_IN, competitionName } from '../../game/euro.ts';
 import { shareKindFor, shareText, shareLink } from '../../game/share.ts';
 import { ShareMoment } from '../components/ShareMoment.tsx';
 import { Portal } from '../components/Portal.tsx';
@@ -166,7 +166,7 @@ function EuroSeasonCard({ v }: { v: NonNullable<ReturnType<typeof G.euroSeasonVe
       padding: '13px 15px', textAlign: 'center',
       background: 'linear-gradient(180deg,#0f1626,#070b14)', border: `1px solid ${won ? 'var(--gold)' : '#2b3a55'}`,
     }}>
-      <div className="label-cap" style={{ color: '#7f93b4' }}>ליגת אירופה</div>
+      <div className="label-cap" style={{ color: '#7f93b4' }}>{competitionName(v.level)}</div>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.1, marginTop: 5, color: won ? 'var(--gold)' : '#CFE0FF' }}>{headline}</div>
       <div className="sub" style={{ marginTop: 6 }}>
         {legs}{v.prize > 0 ? ` · פרסים ${formatMoney(v.prize)}` : ''}

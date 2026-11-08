@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as G from '../../game/state.ts';
-import { ROUND_NAMES, EURO_ROUNDS, legsIn, aggregate, champion, prizeFor } from '../../game/euro.ts';
+import { ROUND_NAMES, EURO_ROUNDS, legsIn, aggregate, champion, prizeFor, competitionName } from '../../game/euro.ts';
 import type { EuroTie } from '../../game/euro.ts';
 import { euroClub, asClub } from '../../data/europeClubs.ts';
 import { moneyShort } from '../../data/money.ts';
@@ -25,14 +25,14 @@ export function EuroBracketScreen({ gs, onBack }: { gs: G.GameState; onBack: () 
   return (
     <div className="screen pad stack pad-b" style={{ gap: 14, minHeight: '100%' }}>
       <Meters {...gs.meters} gems={gs.gems} />
-      <TopBack onBack={onBack} title="ליגת אירופה" />
+      <TopBack onBack={onBack} title={competitionName(e?.level ?? 0)} />
 
       <div className="match-hero" data-euro="1">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <b style={{ fontSize: 16 }}>{status}</b>
             <div className="sub" style={{ fontSize: 13 }}>
-              {e && e.status === 'on' ? `הפרס על ${ROUND_NAMES[Math.min(e.round + 1, 3)]}: ${moneyShort(prizeFor(e.round + 1))} שקל` : champ ? `האלופה: ${clubOf(champ).name}` : ''}
+              {e && e.status === 'on' ? `הפרס על ${ROUND_NAMES[Math.min(e.round + 1, 3)]}: ${moneyShort(prizeFor(e.round + 1, e.level))} שקל` : champ ? `האלופה: ${clubOf(champ).name}` : ''}
             </div>
           </div>
           {champ && <Crest club={clubOf(champ)} size={48} />}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
-import { ROUND_NAMES, EURO_LIVE } from '../../game/euro.ts';
+import { ROUND_NAMES, EURO_LIVE, competitionName } from '../../game/euro.ts';
 import type { EuroNight } from '../../game/euro.ts';
 import { CUP_LIVE } from '../../game/cup.ts';
 import type { CupNight } from '../../game/cup.ts';
@@ -105,7 +105,7 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
         {!night && !pensDue && !cupBlocking && <TransferBanner where="hub" />}
 
         <div ref={hero}>
-          {drawDue && <EuroDrawCard onGo={onEuroDraw} />}
+          {drawDue && <EuroDrawCard level={gs.euro?.level ?? 0} onGo={onEuroDraw} />}
           {night && <EuroHero night={night} onGo={onEuro} />}
           {!night && pensDue && <EuroPensCard gs={gs} onGo={onEuro} />}
           {cupDrawDue && <CupDrawCard onGo={onCupDraw} />}
@@ -355,11 +355,11 @@ function EuroHero({ night, onGo }: { night: EuroNight; onGo: () => void }) {
 }
 
 /** The draw was made in the summer; the ceremony is owed once. */
-function EuroDrawCard({ onGo }: { onGo: () => void }) {
+function EuroDrawCard({ level, onGo }: { level: number; onGo: () => void }) {
   return (
     <div className="match-hero" data-euro="1">
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
-        <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>ליגת אירופה</span>
+        <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>{competitionName(level)}</span>
         <span className="chip chip-euro">ההגרלה</span>
       </div>
       <p className="hint" style={{ margin: 0 }}>האליפות פתחה את הדלת. שישה עשר כדורים בקערה, ואתם אחד מהם.</p>

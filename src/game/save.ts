@@ -8,7 +8,7 @@
  */
 
 import type { GameState, PlayerSeason } from './state.ts';
-import { NO_REPORTS, repairStuckCup } from './state.ts';
+import { NO_REPORTS, repairStuckCup, summitStandingOf } from './state.ts';
 import { STADIUM_START, FANS_START } from './career.ts';
 import { GEMS_AT_START } from './packs.ts';
 import { primePlayerIds } from '../data/squadGen.ts';
@@ -144,6 +144,8 @@ export function loadCareer(): GameState | null {
     seasonDilemmas: s.seasonDilemmas ?? [],
     seasonChatEvents: s.seasonChatEvents ?? [],
     euro: s.euro ?? null,
+    // פסגת אירופה arrived after these careers began: a ליגת אירופה already won gives the standing (31.10.2026)
+    summit: s.summit ?? summitStandingOf(s.chronicle ?? [], s.euro ?? null),
     cup: s.cup ?? null,
     daily: s.daily ?? emptyDaily(),
     loyalGift: s.loyalGift ?? null,

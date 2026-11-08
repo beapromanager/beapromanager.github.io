@@ -13,6 +13,17 @@
  *      tier finds its club
  *   6. every country of the summit has a bank of names, England among them
  *   7. ר.ב אמסטרדם is קייב הכחולה, under the same id, and an old save, even one renamed once before, says so
+ *
+ * Stage 1, the competition and the career:
+ *   8. the agreed numbers: targets 82 / 85 / 87 / 89, every club at its own rating against 87, prizes summing 9.1M,
+ *      travel and security 250K, gems 5 and 15, and the names of the two tiers
+ *   9. the draw by level: the summit pool or the lower one, never both, fifteen and five rested, seeded
+ *  10. who goes where, through a real summer: champion or not, standing or not, licence or not
+ *  11. the gems: five on the first summit season and never again, fifteen on every summit trophy
+ *  12. a trophy on the night: ליגת אירופה opens the summit for the career, the summit is counted and paid by level
+ *  13. the chronicle names its tier, and the lower tier's line stays word for word
+ *  14. a save from before: the standing read off its chronicle or its season, a cup already running stays its level
+ *  15. each tier keeps its own queue of the clubs left out
  */
 import {
   EURO_CLUBS, EURO_SUMMIT_CLUBS, SUMMIT_FINAL_STADIUMS, summitFinalStadium, poolFor, euroClub, summitClub,
@@ -20,6 +31,22 @@ import {
 import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
 import { renameLegacy, NAMES_VERSION } from '../src/game/renames.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
+import {
+  SUMMIT_STAGE_TARGET, SUMMIT_CENTRE, SUMMIT_PRIZE, SUMMIT_TRAVEL, SUMMIT_SECURITY, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
+  STAGE_TARGET, PRIZE, TRAVEL, SECURITY, drawEuro, strengthOf, prizeFor, prizeTotal, competitionName, summitLevel,
+  travelFor, securityFor, myTie, recordMyLeg, EURO_ROUNDS,
+} from '../src/game/euro.ts';
+import * as G from '../src/game/state.ts';
+import * as L from '../src/game/liveMatch.ts';
+import { saveCareer, loadCareer } from '../src/game/save.ts';
+import { LEGEND_TOWN } from '../src/data/legends.ts';
+
+/* localStorage, which node does not have and the loader insists on */
+const lsStore = new Map<string, string>();
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true, writable: true,
+  value: { getItem: (k: string) => lsStore.get(k) ?? null, setItem: (k: string, v: string) => { lsStore.set(k, v); }, removeItem: (k: string) => { lsStore.delete(k); } },
+});
 
 const fails: string[] = [];
 let checked = 0;
@@ -199,6 +226,152 @@ for (const country of new Set(EURO_SUMMIT_CLUBS.map(c => c.country))) {
   claim(JSON.stringify(twice) === JSON.stringify(s), 'a second walk changed a renamed save');
 }
 
+/* ------------------------------------------------- 8. the agreed numbers */
+claim(JSON.stringify(SUMMIT_STAGE_TARGET) === '[82,85,87,89]', `summit targets ${JSON.stringify(SUMMIT_STAGE_TARGET)}, agreed 82 / 85 / 87 / 89`);
+claim(SUMMIT_STAGE_TARGET[3] <= 89, 'the summit final is past 89 without Itzik');
+claim(SUMMIT_CENTRE === 87, 'a summit club does not play at its rating against 87');
+claim(JSON.stringify(SUMMIT_PRIZE) === '[0,600000,1400000,2600000,4500000]', `summit prizes ${JSON.stringify(SUMMIT_PRIZE)}`);
+claim(prizeTotal(4, 1) === 9_100_000, `the whole summit road pays ${prizeTotal(4, 1)}, agreed 9.1M`);
+claim(prizeFor(4, 1) === 4_500_000 && prizeFor(1, 1) === 600_000 && prizeFor(0, 1) === 0, 'a summit round does not pay its prize');
+claim(prizeFor(4) === PRIZE[4] && prizeFor(4, 0) === 2_200_000 && prizeTotal(4, 0) === 4_500_000, 'the lower tier\'s prizes moved');
+claim(SUMMIT_TRAVEL === 250_000 && SUMMIT_SECURITY === 250_000 && travelFor(1) === 250_000 && securityFor(1) === 250_000, 'summit travel or security is not 250K');
+claim(travelFor(0) === TRAVEL && securityFor(0) === SECURITY && TRAVEL === 150_000 && SECURITY === 175_000, 'the lower tier\'s travel or security moved');
+claim(JSON.stringify(STAGE_TARGET) === '[74,78,82,84]', 'the lower tier\'s targets moved');
+claim(SUMMIT_FIRST_GEMS === 5 && SUMMIT_TITLE_GEMS === 15, 'the gems are not 5 on the first summit season and 15 a summit trophy');
+claim(competitionName(1) === 'פסגת אירופה' && competitionName(0) === 'ליגת אירופה', 'the tiers are not named פסגת אירופה and ליגת אירופה');
+
+// a new career carries no standing: newGame stays byte for byte as it was (onboardv2-flag-check), read with ?? emptySummit()
+claim(G.newGame(5).summit === undefined && JSON.stringify(G.emptySummit()) === '{"unlocked":false,"firstEntryGemPaid":false,"titles":0,"rested":{}}', 'a new career starts with a standing, or the empty standing is not empty');
+
+/* ------------------------------------------------- 9. the draw by level */
+{
+  const ME = 'me';
+  const up = drawEuro(77, ME, 4, 1), up2 = drawEuro(77, ME, 4, 1), low = drawEuro(77, ME, 4, 0);
+  const field = up.clubs.map(c => c.id).filter(id => id !== ME);
+  claim(up.level === 1 && low.level === 0, 'a draw does not carry its level');
+  claim(JSON.stringify(up) === JSON.stringify(up2), 'the same seed drew two different summits');
+  claim(field.length === 15 && field.every(id => id.startsWith('eu2-')) && up.rested.length === 5 && up.rested.every(id => id.startsWith('eu2-')), 'the summit draw is not fifteen of the summit and five rested');
+  claim(new Set([...field, ...up.rested]).size === 20, 'the summit field and its rested are not the twenty once each');
+  claim(low.clubs.every(c => c.id === ME || c.id.startsWith('eu-')) && low.rested.every(id => id.startsWith('eu-')), 'the lower tier draws a summit club');
+  claim(up.clubs.every(c => c.id === ME ? c.edge === 0 : c.edge === (summitClub(c.id)!.rating - 87)), 'a summit club does not play at its own rating');
+  const munich = drawEuro(1, ME, 4, 1, ['eu2-munich']);
+  claim(strengthOf(munich, 'eu2-munich', 0) === 84 && strengthOf(munich, 'eu2-munich', 3) === 91, `מינכן plays at ${strengthOf(munich, 'eu2-munich', 0)} and ${strengthOf(munich, 'eu2-munich', 3)}, wanted 84 and 91`);
+  const weak = drawEuro(1, ME, 4, 1, ['eu2-amsterdam-mad']);
+  claim(strengthOf(weak, 'eu2-amsterdam-mad', 3) === 87, 'an 85 club does not play the final at 87');
+}
+
+/* ------------------------------------------------- 10 to 13: a real summer */
+function topCareer(seed = 4242): G.GameState {
+  let gs = G.newGame(seed);
+  gs = G.setProfile(gs, { name: 'בדיקה', nickname: '', type: 'hunter', age: 40 } as never);
+  gs = G.pickCity(gs, LEGEND_TOWN);
+  gs = G.afterSigning(gs, {});
+  // the same men, carried to the top flight: every club of the division at tier 5
+  return { ...gs, league: { ...gs.league, clubs: gs.league.clubs.map(c => ({ ...c, tier: 5 })) }, phase: 'season-end' as const };
+}
+function seasonEnd(gs: G.GameState, champion: boolean, unlocked: boolean, licence: string, extra: Partial<G.GameState> = {}): G.GameState {
+  const pts = champion ? 99 : 0;
+  // a title, or another club ninety nine points clear of him
+  const other = gs.league.clubs.find(c => c.id !== gs.clubId)!.id;
+  const table = { ...gs.league.table, [gs.clubId]: { ...gs.league.table[gs.clubId], pts, won: champion ? 14 : 0, played: 14 },
+    ...(champion ? {} : { [other]: { ...gs.league.table[other], pts: 99, won: 14, played: 14 } }) };
+  return { ...gs, league: { ...gs.league, table }, summit: { ...G.emptySummit(), ...(gs.summit ?? {}), unlocked }, coach: { ...gs.coach, licence: licence as never }, ...extra };
+}
+const base = topCareer();
+const titleOf = (n: G.GameState) => n.notices.map(x => (x as { title?: string }).title ?? '');
+{
+  // the six: champion or not, standing or not, licence or not
+  for (const champ of [true, false]) for (const unlocked of [true, false]) for (const lic of ['international', 'pro']) {
+    const n = G.startNextSeason(seasonEnd(base, champ, unlocked, lic));
+    const want = !champ ? null : unlocked && lic === 'international' ? 1 : 0;
+    const got = n.euro ? n.euro.level : null;
+    claim(got === want, `champion ${champ}, standing ${unlocked}, licence ${lic}: tier ${got}, wanted ${want}`);
+    const waiting = titleOf(n).includes('פסגת אירופה מחכה לרישיון');
+    claim(waiting === (champ && unlocked && lic !== 'international'), `champion ${champ}, standing ${unlocked}, licence ${lic}: the licence word ${waiting ? 'shown' : 'missing'}`);
+  }
+  claim(summitLevel(true, 'international') === 1 && summitLevel(true, 'pro') === 0 && summitLevel(false, 'international') === 0, 'summitLevel is not standing and the international licence');
+}
+/* 11. the gems */
+{
+  const plain = G.startNextSeason(seasonEnd(base, true, false, 'international'));
+  const first = G.startNextSeason(seasonEnd(base, true, true, 'international'));
+  claim(first.gems - plain.gems === SUMMIT_FIRST_GEMS, `the first summit season pays ${first.gems - plain.gems} gems over a plain one, agreed 5`);
+  claim(first.summit.firstEntryGemPaid === true, 'the first summit gems are not marked as paid');
+  const again = G.startNextSeason(seasonEnd({ ...base, summit: first.summit }, true, true, 'international'));
+  claim(again.euro?.level === 1 && again.gems - plain.gems === 0, 'the summit pays its first-season gems a second time');
+  claim(titleOf(first).includes('פסגת אירופה') && titleOf(again).includes('פסגת אירופה'), 'the hub does not say the summit is on');
+}
+/* 12. a trophy on the night, by level */
+function finalLevel(gs: G.GameState, level: 0 | 1): G.GameState {
+  const e = drawEuro(9, gs.clubId, gs.season, level);
+  const opp = e.clubs.find(c => c.id !== gs.clubId)!.id;
+  const fin = { ...e, round: EURO_ROUNDS - 1, leg: 0, ties: [...e.ties, [], [], [{ a: gs.clubId, b: opp, legs: [] }]] };
+  return { ...gs, phase: 'hub', week: 13, euro: recordMyLeg(fin, gs.clubId, [1, 1]) };
+}
+{
+  const hub = { ...topCareer(), phase: 'hub' as const };
+  const s1 = finalLevel(hub, 1), s0 = finalLevel(hub, 0);
+  const won1 = G.finishEuroPens(s1, [5, 4]), won0 = G.finishEuroPens(s0, [5, 4]), lost1 = G.finishEuroPens(s1, [2, 4]);
+  claim(won1.euro?.status === 'won' && won1.summit.titles === 1 && won1.gems - s1.gems === SUMMIT_TITLE_GEMS, `a summit trophy: titles ${won1.summit.titles}, gems +${won1.gems - s1.gems}`);
+  claim(won1.meters.money - s1.meters.money === 4_500_000, `a summit trophy pays ${won1.meters.money - s1.meters.money}`);
+  claim(won0.euro?.status === 'won' && won0.summit.unlocked === true && won0.summit.titles === 0 && won0.gems === s0.gems, 'a ליגת אירופה trophy does not open the summit, or pays summit gems');
+  claim(won0.meters.money - s0.meters.money === 2_200_000, `a ליגת אירופה trophy pays ${won0.meters.money - s0.meters.money}`);
+  claim((lost1.summit?.titles ?? 0) === 0 && lost1.gems === s1.gems && !lost1.summit?.unlocked, 'a lost summit final counts or pays');
+  // 13. the chronicle names its tier
+  const c1 = G.settleEuroSeason({ ...won1, season: won1.euro!.season }), c0 = G.settleEuroSeason({ ...won0, season: won0.euro!.season });
+  const line = (g: G.GameState) => g.chronicle.find(c => /^euro-s\d+$/.test(c.id))?.title ?? '';
+  claim(line(c1) === 'פסגת אירופה: הגביע אצלנו', `the summit chronicle reads ${line(c1)}`);
+  claim(line(c0) === 'ליגת אירופה: הגביע אצלנו', `the lower tier's chronicle reads ${line(c0)}`);
+  /* 14. a save from before */
+  const strip = (g: G.GameState) => { const raw = JSON.parse(JSON.stringify(g)); delete raw.summit; return raw as G.GameState; };
+  lsStore.clear(); saveCareer(strip(c0)); const back0 = loadCareer();
+  claim(!!back0 && back0.summit.unlocked === true && back0.summit.firstEntryGemPaid === false, 'an old save with a ליגת אירופה won does not get the standing');
+  lsStore.clear(); saveCareer(strip(hub)); const backNone = loadCareer();
+  claim(!!backNone && backNone.summit.unlocked === false && backNone.summit.titles === 0, 'an old save that never won gets the standing');
+  lsStore.clear(); saveCareer(strip(won0)); const backLive = loadCareer();
+  claim(!!backLive && backLive.summit.unlocked === true, 'an old save with this season\'s ליגת אירופה won does not get the standing');
+  const running = finalLevel({ ...hub, summit: { ...G.emptySummit(), unlocked: true }, coach: { ...hub.coach, licence: 'international' } }, 0);
+  lsStore.clear(); saveCareer(running); const backRun = loadCareer();
+  claim(backRun?.euro?.level === 0, 'a ליגת אירופה already running moved to the summit on load');
+}
+/* 12b. a summit night away costs the summit's travel, played in the real engine */
+{
+  const hub = { ...topCareer(), phase: 'hub' as const, week: 2 };
+  let gs: G.GameState = { ...hub, euro: drawEuro(31, hub.clubId, hub.season, 1) };
+  let night = G.euroNight(gs, true)!;
+  // the away leg: when the first is at home, it is written in and the return is the one played
+  if (night.host === true) { gs = { ...gs, week: 3, euro: recordMyLeg(gs.euro!, gs.clubId, [1, 0]) }; night = G.euroNight(gs, true)!; }
+  claim(!!night && night.host === false, 'no away summit night to play');
+  const st = L.createLive(G.euroMatchInput(gs, true));
+  let guard = 0;
+  while (st.phase !== 'done' && guard++ < 4000) {
+    if (st.phase === 'halftime') { L.resumeFromHalfTime(st); continue; }
+    if (st.phase === 'moment') { st.pending = null as never; st.phase = 'play'; continue; }
+    L.step(st);
+  }
+  const after = G.commitEuroLeg(gs, L.finalize(st), L.mySide(st).onPitch.map(p => p.id), true);
+  const paidOut = gs.meters.money - after.meters.money - (after.euro!.status === 'on' && after.euro!.round > gs.euro!.round ? -SUMMIT_PRIZE[after.euro!.round] : 0);
+  claim(paidOut === SUMMIT_TRAVEL, `an away summit night cost ${paidOut}, the summit's travel is ${SUMMIT_TRAVEL}`);
+}
+
+/* 15. each tier keeps its own queue */
+{
+  // a career that comes into the summit from ליגת אירופה with a summit queue already kept (not a road the game has
+  // today, the standing and the licence never go; kept so each queue stays honest if one ever can): the summit queue
+  const kept = drawEuro(5, base.clubId, 1, 1).rested;
+  const low = drawEuro(6, base.clubId, 1, 0);
+  const back = G.startNextSeason(seasonEnd({ ...base, euro: low, summit: { ...G.emptySummit(), unlocked: true, rested: { '1': kept } } }, true, true, 'international'));
+  claim(back.euro?.level === 1 && kept.every(id => back.euro!.clubs.some(c => c.id === id)), 'the summit queue was not read when the summit came round again');
+  const after0 = G.startNextSeason(seasonEnd(base, true, false, 'international'));        // ליגת אירופה drawn
+  const lowRested = after0.euro!.rested;
+  const toSummit = G.startNextSeason(seasonEnd({ ...base, euro: after0.euro, summit: after0.summit }, true, true, 'international'));
+  claim(toSummit.euro?.level === 1 && JSON.stringify(toSummit.summit.rested['0']) === JSON.stringify(lowRested), 'the lower tier\'s rested were lost on the way up');
+  const sumRested = toSummit.euro!.rested;
+  const nextSummit = G.startNextSeason(seasonEnd({ ...base, euro: toSummit.euro, summit: toSummit.summit }, true, true, 'international'));
+  claim(sumRested.every(id => nextSummit.euro!.clubs.some(c => c.id === id)), 'the summit clubs rested last season were not preferred into the next summit draw');
+  claim(JSON.stringify(nextSummit.summit.rested['0']) === JSON.stringify(lowRested), 'the lower tier\'s queue moved during the summit seasons');
+}
+
 console.log(`${checked} checks`);
 if (fails.length) { console.log(`FAIL (${fails.length})`); for (const f of fails.slice(0, 30)) console.log('  - ' + f); process.exit(1); }
-console.log('OK, his twenty word for word, forty crests each its own, nothing real, and קייב הכחולה in old saves too');
+console.log('OK, his twenty and קייב הכחולה, the summit drawn, entered, paid and chronicled by its own rules, and ליגת אירופה as it was');

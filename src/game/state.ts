@@ -15,7 +15,7 @@ import {
   EURO_LIVE, euroEntry, drawEuro, nightFor, ROUND_NAMES, legsIn, strengthOf, recordMyLeg, needsPens, settleMyPens,
   serveBans, banFor, playAiRound, advanceRound, playOutWithoutMe, prizeFor, aggregate, myTie,
   euroWeeks, closeEuroSeason, euroVerdict, euroMarks, ROUND_IN,
-  GATE_SHARE, TRAVEL, SECURITY,
+  GATE_SHARE, travelFor, securityFor, competitionName, summitLevel, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
 } from './euro.ts';
 import type { EuroState, EuroNight, EuroTie } from './euro.ts';
 import { euroClub, asClub } from '../data/europeClubs.ts';
@@ -232,6 +232,30 @@ export type SquadNotice =
   /** the scout is back, three rounds after he was sent */
   | { kind: 'scout' };
 
+/**
+ * פסגת אירופה, the career's own record of it (Itzik, 31.10.2026). Unlocked by one ליגת אירופה won, for the whole
+ * career; the five gems of the first summit night paid once; the summit trophies counted, the hook for the manager
+ * abroad that comes later (HANDOFF-NEXT); and the clubs each tier's last draw left out, kept apart so a season in one
+ * tier does not empty the other's queue.
+ */
+export interface SummitStanding {
+  unlocked: boolean;
+  firstEntryGemPaid: boolean;
+  titles: number;
+  rested: Record<string, string[]>;
+}
+export const emptySummit = (): SummitStanding => ({ unlocked: false, firstEntryGemPaid: false, titles: 0, rested: {} });
+
+/**
+ * The standing of a save from before the summit existed: a ליגת אירופה already won is in its chronicle
+ * ("ליגת אירופה: הגביע אצלנו", one line a season), or in this season's competition if the season has not closed yet.
+ */
+export function summitStandingOf(chronicle: ChronicleEntry[], euro: EuroState | null): SummitStanding {
+  const won = chronicle.some(c => /^euro-s\d+$/.test(c.id) && c.title === 'ליגת אירופה: הגביע אצלנו')
+    || (!!euro && euro.level === 0 && euro.status === 'won');
+  return { ...emptySummit(), unlocked: won };
+}
+
 /** A man of yours who went to another club in the league. */
 export interface PlayerExit {
   id: string;
@@ -384,8 +408,13 @@ export interface GameState {
   seasonDilemmas: string[];
   /** the season nights the phone already rang for: clinched, crowned, sealed */
   seasonChatEvents: string[];
-  /** ליגת אירופה this season, when the title opened the door; null otherwise */
+  /** ליגת אירופה or פסגת אירופה (euro.level) this season, when the title opened the door; null otherwise */
   euro: EuroState | null;
+  /**
+   * where this career stands with פסגת אירופה, across clubs and seasons (31.10.2026). Absent on a new career (the old
+   * builder stays byte for byte as it was, onboardv2-flag-check) and on an old save until it loads; read with ?? emptySummit()
+   */
+  summit?: SummitStanding;
   /** גביע המדינה this season, drawn every summer a club lands in tier 4 or 5; null otherwise */
   cup: CupState | null;
   /** the loyalty gift past ten seasons: null until it is shown, then the season and the man it brought */
@@ -3793,16 +3822,27 @@ function euroAfterTie(gs: GameState, euro: EuroState, money: number): { euro: Eu
   e = advanceRound(e, me);
   let line = '';
   if (e.status === 'won') {
-    money += prizeFor(4);
-    line = 'הגביע שלך. הפרס על הזכייה נכנס לקופה.';
+    money += prizeFor(4, e.level);
+    line = e.level === 1 ? `הגביע שלך. הפרס על הזכייה ו־${SUMMIT_TITLE_GEMS} יהלומים נכנסו.` : 'הגביע שלך. הפרס על הזכייה נכנס לקופה.';
   } else if (e.status === 'on') {
-    money += prizeFor(e.round);
+    money += prizeFor(e.round, e.level);
     line = `עלית ל${ROUND_NAMES[e.round]}. הפרס על ההעפלה נכנס לקופה.`;
   } else {
     e = playOutWithoutMe(e, me, drawSeed(gs, 156_000));
     line = 'הדרך באירופה נגמרה העונה.';
   }
   return { euro: e, money, line };
+}
+
+/**
+ * A European trophy just lifted, on the night it was lifted: a ליגת אירופה opens פסגת אירופה for the rest of the
+ * career, a summit trophy is counted and pays its gems. Anything else leaves the career as it was.
+ */
+function withEuroTrophy(gs: GameState, before: EuroState, after: EuroState): GameState {
+  if (before.status === 'won' || after.status !== 'won') return gs;
+  const summit = gs.summit ?? emptySummit();
+  if (after.level === 1) return { ...gs, gems: gs.gems + SUMMIT_TITLE_GEMS, summit: { ...summit, unlocked: true, titles: summit.titles + 1 } };
+  return { ...gs, summit: { ...summit, unlocked: true } };
 }
 
 /** The night's score as the manager reads it, [mine, theirs], from the engine's [home, away]. */
@@ -3839,13 +3879,13 @@ export function commitEuroLeg(gs: GameState, r: MatchResult, onPitchIds: string[
   for (const id of hurt) sitOut[id] = 'פצוע';
   // the money, straight to the purse
   let money = gs.meters.money;
-  if (night.host === true) money += Math.round(gateIncome(homeAttendance(gs, false), club(gs).tier) * GATE_SHARE) - SECURITY;
-  else if (night.host === false) money -= TRAVEL;
+  if (night.host === true) money += Math.round(gateIncome(homeAttendance(gs, false), club(gs).tier) * GATE_SHARE) - securityFor(euro.level);
+  else if (night.host === false) money -= travelFor(euro.level);
   const pensDue = needsPens(euro, me);
   const after = pensDue ? { euro, money, line: '' } : euroAfterTie(gs, euro, money);
   const notice = euroNightNotice(gs, night, goals, myTie(euro, me), after.line, hurt);
   return markPlayed({
-    ...gs,
+    ...withEuroTrophy(gs, euro, after.euro),
     euro: after.euro,
     meters: { ...gs.meters, money: after.money },
     matchMods: { ...gs.matchMods, fitness },
@@ -3872,7 +3912,7 @@ export function finishEuroPens(gs: GameState, score: [number, number]): GameStat
   const title = won ? 'עברת בפנדלים' : 'הודחת בפנדלים';
   const body = `${score[0]}:${score[1]} בפנדלים מול ${opp?.name ?? ''}. ${after.line}`.trim();
   return {
-    ...gs,
+    ...withEuroTrophy(gs, euro, after.euro),
     euro: after.euro,
     meters: { ...gs.meters, money: after.money },
     notices: [...gs.notices, { kind: 'story', title, body }],
@@ -3894,15 +3934,17 @@ export function settleEuroSeason(gs: GameState): GameState {
   // Europe belongs to the ליגת העל and to nothing below it: a cup on a club in a lower division is shut but never written down
   if (!v || club(gs).tier < TOP_TIER || gs.chronicle.some(c => c.id === id)) return { ...gs, euro };
   const legs = v.played === 1 ? 'משחק אחד' : `${v.played} משחקים`;
+  // the lower tier's lines stay word for word: a save's summit standing is read off "ליגת אירופה: הגביע אצלנו"
+  const name = competitionName(euro.level);
   const paid = v.prize > 0 ? ` הפרסים שנכנסו לקופה: ${formatShekels(v.prize)}.` : '';
   const entry: ChronicleEntry = v.outcome === 'won'
     ? { id, kind: 'season_end', week: gs.week, icon: 'trophy', tint: 'gold',
-        title: 'ליגת אירופה: הגביע אצלנו', body: `${legs} בארבעה סבבים, ובסוף הגביע.${paid}` }
+        title: `${name}: הגביע אצלנו`, body: `${legs} בארבעה סבבים, ובסוף הגביע.${paid}` }
     : v.outcome === 'cut'
       ? { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: 'draw',
-          title: `ליגת אירופה: העונה נגמרה ${ROUND_IN[v.round]}`, body: `הזוג לא הוכרע בזמן ונחשב הפסד.${paid}` }
+          title: `${name}: העונה נגמרה ${ROUND_IN[v.round]}`, body: `הזוג לא הוכרע בזמן ונחשב הפסד.${paid}` }
       : { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: 'draw',
-          title: `ליגת אירופה: הדרך נגמרה ${ROUND_IN[v.round]}`, body: `${legs} באירופה.${paid} הדרך חזרה עוברת דרך אליפות נוספת.` };
+          title: `${name}: הדרך נגמרה ${ROUND_IN[v.round]}`, body: `${legs} באירופה.${paid} הדרך חזרה עוברת דרך אליפות נוספת.` };
   return { ...gs, euro, chronicle: [...gs.chronicle, entry] };
 }
 
@@ -6232,6 +6274,25 @@ export function startNextSeason(gs: GameState): GameState {
     ? drawCup(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 170_000), gs.clubId, gs.season + 1, r.newTier, seededForCup, cupPool())
     : null;
 
+  // פסגת אירופה (Itzik, 31.10.2026): a champion with the standing and the international licence goes to the summit;
+  // with the standing and no licence he plays ליגת אירופה again and is told what is missing; the five gems of the
+  // first summit season are paid once a career. Each tier draws on its own queue of the clubs left out last time
+  const euroIn = euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null;
+  const standing = gs.summit ?? emptySummit();
+  const euroLevel = summitLevel(standing.unlocked, gs.coach.licence);
+  const restedBy = gs.euro ? { ...standing.rested, [String(gs.euro.level)]: gs.euro.rested } : standing.rested;
+  // a career that played ליגת אירופה last season draws ליגת אירופה exactly as before; only a change of tier reads the queue
+  const preferIn = !gs.euro ? [] : gs.euro.level === euroLevel ? gs.euro.rested : (standing.rested[String(euroLevel)] ?? []);
+  const firstSummit = euroIn && euroLevel === 1 && !standing.firstEntryGemPaid;
+  const summitWord: SquadNotice[] = !euroIn ? []
+    : euroLevel === 1
+      ? [{ kind: 'story', title: 'פסגת אירופה', icon: 'trophy', body: firstSummit
+          ? `אלופי ליגת העל, עם זכייה בליגת אירופה ורישיון בינלאומי: העונה משחקים בפסגת אירופה, מול הגדולות של היבשת. ${SUMMIT_FIRST_GEMS} יהלומים לכבוד הכניסה הראשונה.`
+          : 'אלופי ליגת העל, וחוזרים לפסגת אירופה. הגדולות של היבשת מחכות בהגרלה.' }]
+      : standing.unlocked
+        ? [{ kind: 'story', title: 'פסגת אירופה מחכה לרישיון', icon: 'trophy', body: `זכית כבר בליגת אירופה, אז הפסגה פתוחה בפניך. כדי לשחק בה צריך רישיון מאמן בינלאומי פרו (${formatShekels(licence('international').cost)}, במסך המאמן). העונה משחקים שוב בליגת אירופה.` }]
+        : [];
+
   const summer: GameState = {
     ...gs,
     // the summer sits between the seasons, where the report of who aged, who
@@ -6241,9 +6302,10 @@ export function startNextSeason(gs: GameState): GameState {
     lastReport: report,
     // the door to Europe opens on a ליגת העל title and on nothing else. The five
     // clubs rested last season come first in the new draw
-    euro: euroEntry(EURO_LIVE, report, TOP_TIER) && euroWeeks(league.rounds) !== null
-      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, 0, gs.euro?.rested ?? [])
+    euro: euroIn
+      ? drawEuro(drawSeed({ seasonSeed: gs.seasonSeed, season: gs.season + 1, week: 0 }, 140_000), gs.clubId, gs.season + 1, euroLevel, preferIn)
       : null,
+    summit: { ...standing, rested: restedBy, firstEntryGemPaid: standing.firstEntryGemPaid || firstSummit },
     cup: nextCup,
     purseEarlier: 0,
     week: 1,
@@ -6282,7 +6344,8 @@ export function startNextSeason(gs: GameState): GameState {
     nemesis: back.met ? null : gs.nemesis,
     // climbing a division is the milestone the premium currency is pinned to,
     // and the ad allowance refills with the new season
-    gems: gs.gems + (r.result === 'champion' || r.result === 'promoted' ? GEMS_ON_PROMOTION : 0) + adFreeGems(),
+    gems: gs.gems + (r.result === 'champion' || r.result === 'promoted' ? GEMS_ON_PROMOTION : 0) + adFreeGems()
+      + (firstSummit ? SUMMIT_FIRST_GEMS : 0),
     adsWatched: 0,
     pull: null,
     // his CV, which is what his standing is read off. A division won counts as
@@ -6302,7 +6365,7 @@ export function startNextSeason(gs: GameState): GameState {
     youthLeaveRisk: null,
     notices: [...(academy.left
       ? [...gs.notices, { kind: 'story' as const, title: ` עזב את הנוער`, body: 'מאמן הנוער הזהיר שאם לא יעלה, הוא ילך. הוא הלך. קבוצה אחרת חתמה אותו בקיץ.' }]
-      : gs.notices), ...bonusNotice],
+      : gs.notices), ...bonusNotice, ...summitWord],
   };
   // the man who was told "until the end of the season" goes now, to a club
   // in the league he is about to play in
