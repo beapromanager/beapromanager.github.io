@@ -24,9 +24,18 @@
  *  13. the chronicle names its tier, and the lower tier's line stays word for word
  *  14. a save from before: the standing read off its chronicle or its season, a cup already running stays its level
  *  15. each tier keeps its own queue of the clubs left out
+ *
+ * Stage 2, the black and gold (R1, R12):
+ *  16. the gold road: the four stops read right off the competition at every point of a run
+ *  17. the frame turns summit only for a summit competition's own screens, and the hub's cards and the season card
+ *      wear it only at level 1
+ *  18. the look's own rules: the sheet is loaded, body text at 7:1 or more, foil only at 22px and up, every movement
+ *      stopped under reduced motion, the one that repeats is the hub's main button, the font is loaded with swap
+ *  19. the elite crest: every summit club wears it, with its own emblem, and no colour is written into the new
+ *      components outside the tokens
  */
 import {
-  EURO_CLUBS, EURO_SUMMIT_CLUBS, SUMMIT_FINAL_STADIUMS, summitFinalStadium, poolFor, euroClub, summitClub,
+  EURO_CLUBS, EURO_SUMMIT_CLUBS, SUMMIT_FINAL_STADIUMS, SUMMIT_DRAFT, summitFinalStadium, poolFor, euroClub, summitClub,
 } from '../src/data/europeClubs.ts';
 import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
 import { renameLegacy, NAMES_VERSION } from '../src/game/renames.ts';
@@ -40,6 +49,9 @@ import * as G from '../src/game/state.ts';
 import * as L from '../src/game/liveMatch.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
+import { summitStops } from '../src/game/summitPath.ts';
+import { readFileSync } from 'node:fs';
+import { advanceRound, playAiRound, settleMyPens } from '../src/game/euro.ts';
 
 /* localStorage, which node does not have and the loader insists on */
 const lsStore = new Map<string, string>();
@@ -378,6 +390,96 @@ function finalLevel(gs: G.GameState, level: 0 | 1): G.GameState {
   claim(JSON.stringify(nextSummit.summit.rested['0']) === JSON.stringify(lowRested), 'the lower tier\'s queue moved during the summit seasons');
 }
 
+/* ------------------------------------------------- 16. the gold road */
+{
+  const ME = 'me';
+  const st = (e: ReturnType<typeof drawEuro>) => summitStops(e, ME).map(x => x.state).join(' ');
+  const fresh = drawEuro(11, ME, 2, 1);
+  claim(st(fresh) === 'now ahead ahead ahead', `a fresh summit reads ${st(fresh)}`);
+  claim(summitStops(fresh, ME)[0].oppId !== null && summitStops(fresh, ME)[1].oppId === null, 'the last sixteen has no opponent, or the quarter has one before its draw');
+  claim(summitStops(fresh, ME).map(x => x.name).join(',') === 'שמינית הגמר,רבע הגמר,חצי הגמר,הגמר', 'the stops are not the four rounds');
+  const r16 = advanceRound(playAiRound(recordMyLeg(recordMyLeg(fresh, ME, [2, 1]), ME, [1, 1]), ME, 5), ME);
+  claim(st(r16) === 'done now ahead ahead', `after the last sixteen it reads ${st(r16)}`);
+  claim(summitStops(r16, ME)[0].score === '3:2', `the last sixteen's score reads ${summitStops(r16, ME)[0].score}, his goals first`);
+  const lostQ = advanceRound(playAiRound(recordMyLeg(recordMyLeg(r16, ME, [0, 1]), ME, [0, 2]), ME, 6), ME);
+  claim(st(lostQ) === 'done out gone gone', `out in the quarter it reads ${st(lostQ)}`);
+  const pens = settleMyPens(recordMyLeg(recordMyLeg(r16, ME, [1, 0]), ME, [0, 1]), ME, [5, 4]);
+  claim(summitStops(pens, ME)[1].score === '1:1 (5:4 פנ׳)' && summitStops(pens, ME)[1].state === 'done', `a shootout won reads ${summitStops(pens, ME)[1].score}`);
+  let w = advanceRound(playAiRound(pens, ME, 7), ME);
+  w = advanceRound(playAiRound(recordMyLeg(recordMyLeg(w, ME, [2, 0]), ME, [1, 1]), ME, 8), ME);
+  w = advanceRound(playAiRound(recordMyLeg(w, ME, [2, 1]), ME, 9), ME);
+  claim(w.status === 'won' && st(w) === 'done done done done', `a summit won reads ${st(w)}`);
+}
+
+/* ------------------------------------------------- 17. where the gold is worn */
+const appSrc = readFileSync('src/ui/App.tsx', 'utf8');
+const hubSrc = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
+const seasonSrc = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');
+const bracketSrc = readFileSync('src/ui/screens/EuroBracket.tsx', 'utf8');
+claim(appSrc.includes("gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? (gs.euro?.level === 1 ? 'summit' : 'euro') :"), 'the frame is not summit for a summit competition\'s screens, euro for the lower tier');
+claim(appSrc.includes('<EliteDefs />'), 'the gold gradients are not on the page');
+claim((hubSrc.match(/data-summit=\{level === 1 \? '1' : undefined\}/g) ?? []).length === 2 && hubSrc.includes("data-summit={top ? '1' : undefined}"), 'a hub card wears the summit at the lower tier, or not at the summit');
+claim(/gs\.euro\?\.level === 1 && gs\.euro\.status !== 'out' && <SummitHubCard/.test(hubSrc), 'the gold road is shown on the hub outside the summit, or after he is out');
+claim(seasonSrc.includes('if (v.level === 1) return (') && seasonSrc.includes("className=\"tile-flat el-season\""), 'the season card is not black and gold at the summit');
+claim(bracketSrc.includes('{e?.level === 1 && <><EliteRule /><SummitPath euro={e} myId={gs.clubId} /></>}'), 'the bracket does not show the gold road at the summit only');
+{
+  const hubSummit = (h: string) => /{night && <EuroHero night={night} level={gs\.euro\?\.level \?\? 0} onGo={onEuro} \/>}/.test(h);
+  claim(hubSummit(hubSrc), 'the night card is not told its level');
+}
+
+/* ------------------------------------------------- 18. the look's own rules */
+// read without its comments, so a comment above a rule is not taken for its selector
+const cssSrc = readFileSync('src/ui/summit.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+claim(readFileSync('src/main.tsx', 'utf8').includes("import './ui/summit.css';"), 'the summit sheet is not loaded');
+claim(/family=Frank\+Ruhl\+Libre:wght@700;900/.test(readFileSync('index.html', 'utf8')) && /display=swap/.test(readFileSync('index.html', 'utf8')), 'Frank Ruhl Libre is not loaded, or not with swap');
+{
+  const tok = (name: string) => cssSrc.match(new RegExp(`--${name}:(#[0-9A-Fa-f]{6})`))?.[1] ?? '#000000';
+  const L = (hex: string) => { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a: string, b: string) => { const [x, y] = [L(a), L(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  for (const bg of ['el-bg1', 'el-bg2', 'el-bg3']) for (const ink of ['el-ink', 'el-ink-dim']) {
+    claim(ratio(tok(ink), tok(bg)) >= 7, `${ink} on ${bg} is ${ratio(tok(ink), tok(bg)).toFixed(1)}:1, under 7:1`);
+  }
+  const frames = [...cssSrc.matchAll(/@keyframes ([\w-]+)/g)].map(m => m[1]);
+  const used = [...cssSrc.matchAll(/animation:([\w-]+)/g)].map(m => m[1]).filter(u => u !== 'none');
+  const reduced = cssSrc.slice(cssSrc.indexOf('@media (prefers-reduced-motion:reduce)'));
+  claim(frames.length >= 4 && used.every(u => frames.includes(u)), 'an animation names no keyframes');
+  // every selector that moves is stopped by name in the reduced-motion block (animation:none)
+  const stoppedRules = [...reduced.matchAll(/([^{}]+){[^{}]*animation:none[^{}]*}/g)].flatMap(m => m[1].split(',').map(x => x.trim()));
+  const moving = [...cssSrc.slice(0, cssSrc.indexOf('@media (prefers-reduced-motion:reduce)')).matchAll(/([^{}]+){[^{}]*animation:[\w-]+/g)]
+    .flatMap(m => m[1].split(',').map(x => x.trim())).filter(sel => !sel.startsWith('@') && !sel.includes('@media'));
+  claim(moving.length >= 5, `only ${moving.length} moving selectors found, the reader of the sheet is broken`);
+  for (const sel of moving) claim(stoppedRules.includes(sel), `${sel} keeps moving under reduced motion`);
+  const infinite = [...cssSrc.matchAll(/([^{}]+)\{[^{}]*infinite[^{}]*\}/g)].map(m => m[1].trim());
+  claim(infinite.length === 1 && infinite[0] === '.el-breathe', `what repeats forever: ${infinite.join(' | ') || 'nothing'}, only the hub's main button may`);
+  claim(/el-breathe/.test(hubSrc) && !/el-breathe/.test(bracketSrc + seasonSrc), 'the breath is not on the hub\'s main summit button, or is somewhere else');
+  // foil: every element that wears it is set at 22px or more
+  const tsx = ['src/ui/screens/SeasonEnd.tsx', 'src/ui/screens/Hub.tsx', 'src/ui/screens/EuroBracket.tsx', 'src/ui/screens/EuroDraw.tsx', 'src/ui/components/SummitPath.tsx', 'src/ui/components/Elite.tsx'].map(p => readFileSync(p, 'utf8')).join('\n');
+  const foils = [...tsx.matchAll(/el-foil-text[^>]*fontSize: (\d+)/g)].map(m => Number(m[1]));
+  const foilUses = (tsx.match(/el-foil-text/g) ?? []).length;
+  claim(foilUses >= 1 && foils.length === foilUses && foils.every(n => n >= 22), `foil below 22px or without a size: ${foils.join(', ')} of ${foilUses}`);
+  claim(/\.el-foil-text\{color:var\(--el-g3\);\}/.test(cssSrc), 'foil has no plain gold underneath');
+  claim(/:focus-visible\{outline:2px solid var\(--el-g4\)/.test(cssSrc), 'a gold button has no focus ring of its own');
+}
+
+/* ------------------------------------------------- 19. the elite crest */
+{
+  const crest = readFileSync('src/ui/components/Crest.tsx', 'utf8');
+  const elite = readFileSync('src/ui/components/Elite.tsx', 'utf8');
+  const path = readFileSync('src/ui/components/SummitPath.tsx', 'utf8');
+  claim(crest.includes('const top = summitClub(club.id);') && crest.includes('if (top && elite !== false) return <EliteCrest'), 'a summit club does not wear the elite crest');
+  claim(crest.includes('const stars = Math.max(1, Math.min(5, rating - 84));'), 'the stars are not the rating, one at 85 to five at 89');
+  const names = [...elite.matchAll(/^  ([a-z0-9]+): /gm)].map(m => m[1]);
+  const wanted = Object.values(EMBLEMS).sort();
+  claim(JSON.stringify(names.slice().sort()) === JSON.stringify(wanted), `the drawn emblems are not his twenty: ${names.join(', ')}`);
+  const eliteCrest = crest.slice(crest.indexOf('function EliteCrest'));
+  for (const [what, src] of [['Elite.tsx', elite], ['SummitPath.tsx', path], ['the elite crest', eliteCrest]] as const) {
+    claim(!/#[0-9A-Fa-f]{3,6}\b|rgba?\(/.test(src), `${what} writes a colour outside the tokens`);
+  }
+  // the plain crest is drawn exactly as it was for every club that is not of the summit
+  claim(crest.includes("fontFamily=\"Heebo, Rubik, sans-serif\" fontWeight=\"900\" fontSize=\"38\""), 'the plain crest changed');
+}
+
 console.log(`${checked} checks`);
 if (fails.length) { console.log(`FAIL (${fails.length})`); for (const f of fails.slice(0, 30)) console.log('  - ' + f); process.exit(1); }
+console.log('  still temporary, waiting for Itzik:\n    - ' + SUMMIT_DRAFT.join('\n    - '));
 console.log('OK, his twenty and קייב הכחולה, the summit drawn, entered, paid and chronicled by its own rules, and ליגת אירופה as it was');

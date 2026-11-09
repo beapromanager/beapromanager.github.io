@@ -37,7 +37,8 @@ export interface ChronicleEntry {
   title: string;
   body: string;
   icon: IconName;
-  tint: 'gold' | 'win' | 'loss' | 'draw';
+  /** summit: פסגת אירופה's black and gold (31.10.2026) */
+  tint: 'gold' | 'win' | 'loss' | 'draw' | 'summit';
 }
 
 const tint = (kind: ChronicleKind): ChronicleEntry['tint'] => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { ROUND_NAMES, EURO_LIVE, competitionName } from '../../game/euro.ts';
+import { SummitPath } from '../components/SummitPath.tsx';
 import type { EuroNight } from '../../game/euro.ts';
 import { CUP_LIVE } from '../../game/cup.ts';
 import type { CupNight } from '../../game/cup.ts';
@@ -106,8 +107,9 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
 
         <div ref={hero}>
           {drawDue && <EuroDrawCard level={gs.euro?.level ?? 0} onGo={onEuroDraw} />}
-          {night && <EuroHero night={night} onGo={onEuro} />}
+          {night && <EuroHero night={night} level={gs.euro?.level ?? 0} onGo={onEuro} />}
           {!night && pensDue && <EuroPensCard gs={gs} onGo={onEuro} />}
+          {!night && !pensDue && !drawDue && gs.euro?.level === 1 && gs.euro.status !== 'out' && <SummitHubCard gs={gs} onGo={onEuroBracket} />}
           {cupDrawDue && <CupDrawCard onGo={onCupDraw} />}
           {cupNight && <CupHero gs={gs} night={cupNight} onGo={onCup} />}
           {!cupNight && cupPensDue && <CupPensCard gs={gs} onGo={onCup} />}
@@ -323,7 +325,7 @@ function MatchHero({ club, rival, iAmHome, derby, gs, onStart, waiting, waitingL
  * played first, on the Wednesday, and the league round waits for it. Blue and
  * silver, so the eye knows at once this is not the league.
  */
-function EuroHero({ night, onGo }: { night: EuroNight; onGo: () => void }) {
+function EuroHero({ night, level, onGo }: { night: EuroNight; level: number; onGo: () => void }) {
   const opp = euroClub(night.oppId);
   if (!opp) return null;
   const legLine = night.host === null ? 'הגמר, מגרש ניטרלי'
@@ -333,9 +335,9 @@ function EuroHero({ night, onGo }: { night: EuroNight; onGo: () => void }) {
   const firstLeg = night.leg === 1 && night.tie.legs[0]
     ? (night.tie.a === opp.id ? `${b}:${a}` : `${a}:${b}`) : null;
   return (
-    <div className="match-hero" data-euro="1">
+    <div className="match-hero" data-euro="1" data-summit={level === 1 ? '1' : undefined}>
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
-        <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>ערב אירופי</span>
+        <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>{level === 1 ? 'ערב בפסגה' : 'ערב אירופי'}</span>
         <span className="chip chip-euro">{ROUND_NAMES[night.round]}</span>
       </div>
       <div className="row" style={{ gap: 12, alignItems: 'center' }}>
@@ -347,9 +349,29 @@ function EuroHero({ night, onGo }: { night: EuroNight; onGo: () => void }) {
         </div>
       </div>
       <p className="hint" style={{ margin: '12px 0 0' }}>משחק הליגה של השבוע אחרי הערב הזה.</p>
-      <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>
-        <Icon name="whistle" size={18} /> יוצאים לערב האירופי
+      <button className={level === 1 ? 'btn el-breathe' : 'btn'} style={{ marginTop: 12 }} onClick={onGo}>
+        <Icon name="whistle" size={18} /> {level === 1 ? 'יוצאים לערב בפסגה' : 'יוצאים לערב האירופי'}
       </button>
+    </div>
+  );
+}
+
+/**
+ * פסגת אירופה between its nights: where he stands on the gold road, and the way to the bracket (R12). Only while he
+ * is in it or has lifted it, never on a night that has to be played first.
+ */
+function SummitHubCard({ gs, onGo }: { gs: G.GameState; onGo: () => void }) {
+  const e = gs.euro!;
+  const words = e.status === 'won' ? 'הגביע אצלכם. פסגת אירופה נכבשה.' : `בדרך לגמר. השלב הבא: ${ROUND_NAMES[e.round]}.`;
+  return (
+    <div className="match-hero" data-euro="1" data-summit="1">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+        <span className="el-kicker">פסגת אירופה</span>
+        <span className="chip chip-euro">{e.status === 'won' ? 'אלופים' : ROUND_NAMES[e.round]}</span>
+      </div>
+      <p className="hint" style={{ margin: 0 }}>{words}</p>
+      <SummitPath euro={e} myId={gs.clubId} />
+      <button className="btn dark" style={{ marginTop: 12 }} onClick={onGo}>לעץ הפסגה</button>
     </div>
   );
 }
@@ -357,13 +379,13 @@ function EuroHero({ night, onGo }: { night: EuroNight; onGo: () => void }) {
 /** The draw was made in the summer; the ceremony is owed once. */
 function EuroDrawCard({ level, onGo }: { level: number; onGo: () => void }) {
   return (
-    <div className="match-hero" data-euro="1">
+    <div className="match-hero" data-euro="1" data-summit={level === 1 ? '1' : undefined}>
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
         <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>{competitionName(level)}</span>
         <span className="chip chip-euro">ההגרלה</span>
       </div>
-      <p className="hint" style={{ margin: 0 }}>האליפות פתחה את הדלת. שישה עשר כדורים בקערה, ואתם אחד מהם.</p>
-      <button className="btn" style={{ marginTop: 12 }} onClick={onGo}>להגרלה</button>
+      <p className="hint" style={{ margin: 0 }}>{level === 1 ? 'האליפות, הזכייה באירופה והרישיון פתחו את הפסגה. שישה עשר כדורים בקערה, הגדולות של היבשת, ואתם אחד מהם.' : 'האליפות פתחה את הדלת. שישה עשר כדורים בקערה, ואתם אחד מהם.'}</p>
+      <button className={level === 1 ? 'btn el-breathe' : 'btn'} style={{ marginTop: 12 }} onClick={onGo}>להגרלה</button>
     </div>
   );
 }
@@ -373,10 +395,11 @@ function EuroPensCard({ gs, onGo }: { gs: G.GameState; onGo: () => void }) {
   const tie = gs.euro ? G.euroMyTie(gs) : null;
   const opp = tie ? euroClub(tie.a === gs.clubId ? tie.b : tie.a) : null;
   if (!opp) return null;
+  const top = gs.euro?.level === 1;
   return (
-    <div className="match-hero" data-euro="1">
+    <div className="match-hero" data-euro="1" data-summit={top ? '1' : undefined}>
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
-        <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>ערב אירופי</span>
+        <span className="label-cap" style={{ color: 'var(--euro, #6FA8FF)' }}>{top ? 'ערב בפסגה' : 'ערב אירופי'}</span>
         <span className="chip chip-euro">{ROUND_NAMES[gs.euro?.round ?? 0]}</span>
       </div>
       <div className="row" style={{ gap: 12, alignItems: 'center' }}>

@@ -171,6 +171,17 @@ export const EURO_SUMMIT_CLUBS: SummitClub[] = [
     rating: 85, stadium: 'זירת התעלות', flares: ['#F5F5F5', '#D2122E'], emblem: 'windmill' },
 ];
 
+/**
+ * TEMPORARY until Itzik approves (9.11.2026: "החלטות שלב 0 כזמניות ומסומנות"). The game runs on them as they are;
+ * each is one line to change. summit-check prints this list on every run so it is not forgotten.
+ */
+export const SUMMIT_DRAFT: readonly string[] = [
+  'the short names of the twenty (השנהבית, הפייטרים, קטלוניה, ... ; טורינו בשחור לבן is שחור לבן)',
+  'the twenty invented grounds (זירת הנהר for the Madrid fighters) and the six final grounds',
+  'the colours of קייב הכחולה (blue, white, a touch of yellow; round, half)',
+  'טורינו, מילאנו and גלזגו הירוקה, for the lawyer',
+];
+
 /** The final of פסגת אירופה is played on neutral ground, a different invented one each season. */
 export const SUMMIT_FINAL_STADIUMS = [
   'היכל הכתרים', 'זירת הזהב', 'אצטדיון האגמים', 'היכל הפסגה', 'זירת הכוכבים', 'אמפיתיאטרון הלילה',

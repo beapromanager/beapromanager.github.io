@@ -7,6 +7,8 @@ import { moneyShort } from '../../data/money.ts';
 import { Crest } from '../components/Crest.tsx';
 import { TopBack } from '../components/TopBack.tsx';
 import { Meters } from '../components/bits.tsx';
+import { SummitPath } from '../components/SummitPath.tsx';
+import { EliteRule } from '../components/Elite.tsx';
 
 /**
  * The competition as it stands: a tab a round, the ties of that round with
@@ -37,6 +39,7 @@ export function EuroBracketScreen({ gs, onBack }: { gs: G.GameState; onBack: () 
           </div>
           {champ && <Crest club={clubOf(champ)} size={48} />}
         </div>
+        {e?.level === 1 && <><EliteRule /><SummitPath euro={e} myId={gs.clubId} /></>}
       </div>
 
       <div className="row eu-tabs">

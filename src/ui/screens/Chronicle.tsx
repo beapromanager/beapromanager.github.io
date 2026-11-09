@@ -44,6 +44,7 @@ export function ChronicleScreen({ gs, onBack }: { gs: G.GameState; onBack: () =>
 
 function ChronicleCard({ entry }: { entry: ChronicleEntry }) {
   const color =
+    entry.tint === 'summit' ? 'var(--el-g3)' :
     entry.tint === 'gold' ? 'var(--gold)' :
     entry.tint === 'win' ? 'var(--win)' :
     entry.tint === 'loss' ? 'var(--loss)' :
@@ -51,7 +52,7 @@ function ChronicleCard({ entry }: { entry: ChronicleEntry }) {
   // tokens are var() references, so alpha has to come from color-mix, not a hex suffix
   const fade = (pct: number) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
   return (
-    <div className="tile" style={{ borderColor: fade(34), padding: 14 }}>
+    <div className="tile" data-tint={entry.tint === 'summit' ? 'summit' : undefined} style={{ borderColor: fade(34), padding: 14 }}>
       <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
         <div style={{
           width: 40, height: 40, borderRadius: 10,

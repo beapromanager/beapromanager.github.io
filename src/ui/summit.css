@@ -1,0 +1,146 @@
+/*
+ * פסגת אירופה, black and gold (Itzik, 31.10.2026, europe_tier2_luxury_design_he.md). The world of the summit only:
+ * the frame of its screens (data-stage="summit"), its cards on the hub (data-summit="1"), its plaques, rules,
+ * foil and sheen. ליגת אירופה stays blue and silver and the cup amber, untouched in tokens.css.
+ *
+ * Contrast: body text #F3E6C4 on #0B0907 is about 16:1 and the dim #CDBB8E about 10:1 (both over 7:1). Foil is
+ * only for display text of 22px and more, and always has a plain gold colour under it. Every movement here stops
+ * under prefers-reduced-motion; the one that repeats is the breath of the hub's main summit button.
+ */
+:root{
+  --el-bg0:#050403; --el-bg1:#0B0907; --el-bg2:#14110C; --el-bg3:#1C1810;
+  --el-g0:#5C4313; --el-g1:#8F6B1E; --el-g2:#C9A227; --el-g3:#E8C766; --el-g4:#FFF1C1;
+  --el-ink:#F3E6C4; --el-ink-dim:#CDBB8E; --el-line:rgba(201,162,39,.34); --el-line-soft:rgba(201,162,39,.16);
+  --el-etch:#3a2a08; --el-snow:#FFF8E0; --el-edge:#1a1206; --el-shine:#fff;
+  --el-crest-shadow:drop-shadow(0 2px 5px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(201,162,39,.25));
+  --font-elite:"Frank Ruhl Libre","Secular One","Rubik",serif;
+}
+
+/* ------------------------------------------------------------ the frame */
+.frame[data-stage="summit"]{
+  --euro:var(--el-g3); --euro-ink:var(--el-ink);
+  --ink:var(--el-ink); --ink-dim:var(--el-ink-dim);
+  background:
+    radial-gradient(90% 40% at 50% -8%, rgba(232,199,102,.16), transparent 66%),
+    radial-gradient(60% 30% at 50% 108%, rgba(143,107,30,.18), transparent 70%),
+    linear-gradient(180deg, var(--el-bg1) 0%, var(--el-bg0) 70%);
+  color:var(--el-ink);
+}
+.frame[data-stage="summit"] .tile,
+.frame[data-stage="summit"] .tile-flat{background:linear-gradient(180deg,var(--el-bg3),var(--el-bg1)); border-color:var(--el-line-soft);}
+.frame[data-stage="summit"] .tile-hero{background:linear-gradient(180deg,#221B10,var(--el-bg1)); border-color:var(--el-line);}
+.frame[data-stage="summit"] .sub,.frame[data-stage="summit"] .hint{color:var(--el-ink-dim);}
+.frame[data-stage="summit"] .live-dot{background:var(--el-g3);}
+.frame[data-stage="summit"] .btn.dark{background:var(--el-bg2); border-color:var(--el-line); color:var(--el-ink);}
+.frame[data-stage="summit"] .btn:not(.dark),.el-btn{
+  background:linear-gradient(180deg,var(--el-g3),var(--el-g2) 55%,var(--el-g1)); color:#1A1206;
+  border:1px solid var(--el-g4); box-shadow:0 0 0 1px rgba(0,0,0,.4) inset, 0 6px 18px rgba(201,162,39,.22);
+}
+.frame[data-stage="summit"] .btn:focus-visible,.el-btn:focus-visible,
+[data-summit="1"] .btn:focus-visible{outline:2px solid var(--el-g4); outline-offset:3px;}
+.frame[data-stage="summit"] .eu-glow{color:var(--el-g4); text-shadow:0 0 6px var(--el-g3), 0 0 18px rgba(232,199,102,.5);}
+.frame[data-stage="summit"] .eu-venue{color:var(--el-ink-dim);}
+
+/* the draw and the bracket share Europe's structure, read in gold */
+.frame[data-stage="summit"] .eu-tie{background:linear-gradient(180deg,var(--el-bg3),var(--el-bg1)); border-color:var(--el-line-soft);}
+.frame[data-stage="summit"] .eu-tie[data-mine="1"]{border-color:var(--el-g2); box-shadow:0 0 0 1px rgba(201,162,39,.3), 0 0 18px rgba(232,199,102,.18);}
+.frame[data-stage="summit"] .eu-tie-vs,.frame[data-stage="summit"] .eu-tie-score,.frame[data-stage="summit"] .eu-ft{color:var(--el-g3);}
+.frame[data-stage="summit"] .eu-tie-empty{color:var(--el-ink-dim); border-color:var(--el-line-soft);}
+.frame[data-stage="summit"] .eu-tabs .chip{border-color:var(--el-line-soft); color:var(--el-ink-dim); background:transparent;}
+.frame[data-stage="summit"] .eu-tabs .chip[data-on="1"]{background:rgba(201,162,39,.16); color:var(--el-g4); border-color:var(--el-g2);}
+.frame[data-stage="summit"] .eu-board{background:linear-gradient(180deg,var(--el-bg3),var(--el-bg0)); border-color:var(--el-line);}
+.frame[data-stage="summit"] .eu-board-top,.frame[data-stage="summit"] .eu-name{color:var(--el-ink-dim);}
+.frame[data-stage="summit"] .eu-digits{color:var(--el-g4);}
+.frame[data-stage="summit"] .eu-bowl{background:radial-gradient(120% 90% at 50% 20%, #2A2112, var(--el-bg0)); border-color:var(--el-g1);}
+.frame[data-stage="summit"] .eu-ball{background:radial-gradient(circle at 35% 30%, var(--el-g4), var(--el-g2) 55%, var(--el-g0));}
+.frame[data-stage="summit"] .eu-bowl-word{color:var(--el-ink);}
+.frame[data-stage="summit"] .chip-euro,[data-summit="1"] .chip-euro{background:rgba(201,162,39,.14); color:var(--el-g4); border:1px solid rgba(201,162,39,.45);}
+.frame[data-stage="summit"] .match-hero[data-euro="1"],
+.match-hero[data-summit="1"]{
+  --euro:var(--el-g3);
+  position:relative; overflow:hidden; isolation:isolate;
+  background:linear-gradient(180deg,#1E170C 0%, var(--el-bg1) 60%, var(--el-bg0) 100%);
+  border:1px solid var(--el-g1); color:var(--el-ink);
+  box-shadow:0 0 0 1px rgba(0,0,0,.6) inset, 0 10px 30px rgba(0,0,0,.5), 0 0 24px rgba(201,162,39,.1);
+}
+.match-hero[data-summit="1"] .sub,.match-hero[data-summit="1"] .hint{color:var(--el-ink-dim);}
+.match-hero[data-summit="1"] .btn.dark{background:rgba(201,162,39,.08); color:var(--el-g4); border:1px solid var(--el-g1); box-shadow:none;}
+.match-hero[data-summit="1"] .btn:not(.dark){
+  background:linear-gradient(180deg,var(--el-g3),var(--el-g2) 55%,var(--el-g1)); color:#1A1206; border:1px solid var(--el-g4);
+}
+/* the sheen: one pass of light across the card when it arrives */
+.match-hero[data-summit="1"]::after,.el-sheen::after{
+  content:""; position:absolute; inset:-20% auto -20% -40%; width:30%; z-index:1; pointer-events:none;
+  background:linear-gradient(100deg, transparent, rgba(255,241,193,.22), transparent);
+  transform:skewX(-18deg); animation:el-sheen 1.6s ease-out .3s 1 both;
+}
+@keyframes el-sheen{ from{left:-40%} to{left:130%} }
+.match-hero[data-summit="1"] > *{position:relative; z-index:2;}
+/* the one breath that repeats: the hub's main summit button */
+.el-breathe{animation:el-breathe 2.8s ease-in-out infinite;}
+@keyframes el-breathe{ 0%,100%{box-shadow:0 0 0 1px rgba(0,0,0,.4) inset, 0 6px 18px rgba(201,162,39,.22);} 50%{box-shadow:0 0 0 1px rgba(0,0,0,.4) inset, 0 6px 28px rgba(232,199,102,.48);} }
+
+/* ------------------------------------------------------------ type */
+.el-title{font-family:var(--font-elite); font-weight:900; letter-spacing:.01em; line-height:1.05;}
+.el-kicker{font-family:var(--font-elite); font-weight:700; font-size:12.5px; letter-spacing:.14em; color:var(--el-g3);}
+/* foil: display sizes only (22px and up), plain gold underneath for anything that cannot clip a background */
+.el-foil-text{color:var(--el-g3);}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .el-foil-text{
+    background:linear-gradient(180deg,var(--el-g4) 0%, var(--el-g3) 38%, var(--el-g2) 62%, var(--el-g1) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 1px 0 rgba(0,0,0,.6));
+  }
+}
+
+/* ------------------------------------------------------------ plaque, rule, corners */
+.el-plaque{
+  position:relative; border-radius:14px; padding:16px 16px 14px;
+  background:linear-gradient(180deg,var(--el-bg3),var(--el-bg1)); border:1px solid var(--el-line);
+  box-shadow:0 0 0 1px rgba(0,0,0,.6) inset;
+}
+.el-corner{position:absolute; width:20px; height:20px; pointer-events:none;}
+.el-corner-tl{top:5px; left:5px;}
+.el-corner-tr{top:5px; right:5px; transform:scaleX(-1);}
+.el-corner-bl{bottom:5px; left:5px; transform:scaleY(-1);}
+.el-corner-br{bottom:5px; right:5px; transform:scale(-1,-1);}
+.el-rule{display:flex; align-items:center; gap:8px; margin:6px 0;}
+.el-rule span{flex:1; height:1px; background:linear-gradient(90deg, transparent, var(--el-g2), transparent);}
+.el-rule i{width:7px; height:7px; transform:rotate(45deg); background:var(--el-g3); box-shadow:0 0 6px rgba(232,199,102,.6);}
+
+/* ------------------------------------------------------------ the elite crest */
+.el-crest .el-crest-sheen{animation:el-crest-sheen 1.4s ease-out .2s 1 both;}
+@keyframes el-crest-sheen{ 0%{opacity:0; transform:translateX(0) rotate(20deg)} 30%{opacity:.35} 100%{opacity:0; transform:translateX(170px) rotate(20deg)} }
+
+/* ------------------------------------------------------------ the gold road (SummitPath) */
+.el-path{position:relative; margin-top:12px;}
+.el-path svg{display:block; width:100%; height:auto; overflow:visible;}
+.el-path-line{fill:none; stroke:var(--el-g1); stroke-width:3; stroke-dasharray:2 6; stroke-linecap:round;}
+.el-path-done{fill:none; stroke:url(#el-gold); stroke-width:4; stroke-linecap:round;}
+.el-stops{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:-6px;}
+.el-stop{display:flex; flex-direction:column; align-items:center; gap:5px; text-align:center; min-width:0;}
+.el-stop-name{font-size:11.5px; font-weight:700; color:var(--el-ink-dim); letter-spacing:.02em;}
+.el-stop-score{font-size:12px; color:var(--el-ink); font-variant-numeric:tabular-nums;}
+.el-stop-opp{font-size:11px; color:var(--el-ink-dim); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.el-stop[data-state="now"] .el-stop-name{color:var(--el-g4);}
+.el-stop[data-state="out"]{opacity:.45; filter:grayscale(.7);}
+.el-stop[data-state="out"] .el-stop-name{text-decoration:line-through; text-decoration-color:var(--el-g1);}
+.el-dot{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; background:var(--el-bg2); border:1.5px solid var(--el-g1);}
+.el-stop[data-state="done"] .el-dot{background:radial-gradient(circle at 35% 30%, var(--el-g4), var(--el-g2) 60%, var(--el-g0)); border-color:var(--el-g4);}
+.el-stop[data-state="now"] .el-dot{border-color:var(--el-g3); box-shadow:0 0 0 0 rgba(232,199,102,.6); animation:el-now 2.6s ease-in-out 3;}
+@keyframes el-now{ 0%,100%{box-shadow:0 0 0 0 rgba(232,199,102,.0)} 50%{box-shadow:0 0 0 6px rgba(232,199,102,.22)} }
+.el-dot-empty{font-size:10px; color:var(--el-ink-dim);}
+
+/* ------------------------------------------------------------ the chronicle and the season's end */
+.el-season{background:linear-gradient(180deg,#1E170C,var(--el-bg0)) !important; border:1px solid var(--el-g1) !important; color:var(--el-ink);}
+.el-season .sub{color:var(--el-ink-dim);}
+.tile[data-tint="summit"]{background:linear-gradient(180deg,#1C160C,var(--el-bg1)); border-color:rgba(201,162,39,.5) !important;}
+.tile[data-tint="summit"] b{color:var(--el-g4);}
+.tile[data-tint="summit"] div{color:var(--el-ink-dim);}
+
+@media (max-width:360px){ .el-stop-name{font-size:10.5px;} .el-stop-opp{font-size:10px;} .el-dot{width:26px; height:26px;} }
+
+@media (prefers-reduced-motion:reduce){
+  .match-hero[data-summit="1"]::after,.el-sheen::after,.el-crest .el-crest-sheen,.el-breathe,.el-stop[data-state="now"] .el-dot{animation:none !important;}
+  .match-hero[data-summit="1"]::after,.el-sheen::after{display:none;}
+}

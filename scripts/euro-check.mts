@@ -345,7 +345,7 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   if (G.euroNight(drawn, false) !== null) fails.push('the Hub would announce a European night with the door shut');
   if (G.euroNight(gs) !== null) fails.push('a career with no competition has a night');
   const hub = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
-  if (!hub.includes('const night = G.euroNight(gs);') || !hub.includes('{night && <EuroHero night={night} onGo={onEuro} />}')) fails.push('the Hub does not announce the night off euroNight');
+  if (!hub.includes('const night = G.euroNight(gs);') || !hub.includes('{night && <EuroHero night={night} level={gs.euro?.level ?? 0} onGo={onEuro} />}')) fails.push('the Hub does not announce the night off euroNight');
 }
 /* ----------------------------------- 9. the men have names of their country */
 {
@@ -633,8 +633,9 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
 {
   checked += 6;
   const app = readFileSync('src/ui/App.tsx', 'utf8');
-  // the same four phases still turn the frame European, whatever else the expression now also checks for the cup (stage 1, 20.10)
-  if (!app.includes("data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : gs.phase === 'cup-match' || gs.phase === 'cup-pens' || gs.phase === 'cup-draw' || gs.phase === 'cup-bracket' ? 'cup' : undefined}")) fails.push('the frame does not turn European for the night, the shootout, the draw and the bracket');
+  // the same four phases still turn the frame European, whatever else the expression now also checks for the cup (stage 1, 20.10);
+  // since 9.11.2026 a summit competition turns the same four phases black and gold instead (summit-check, 17)
+  if (!app.includes("data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? (gs.euro?.level === 1 ? 'summit' : 'euro') : gs.phase === 'cup-match' || gs.phase === 'cup-pens' || gs.phase === 'cup-draw' || gs.phase === 'cup-bracket' ? 'cup' : undefined}")) fails.push('the frame does not turn European for the night, the shootout, the draw and the bracket');
   const css = readFileSync('src/ui/tokens.css', 'utf8');
   if (!css.includes('.frame[data-stage="euro"]{') || !css.includes('.eu-entrance{') || !css.includes('.eu-entrance-vs{')) fails.push('the European frame or the entrance has no css');
   if (!css.includes('.eu-entrance-light,.eu-entrance-round,.eu-entrance-home,.eu-entrance-away,.eu-entrance-vs,.eu-entrance-venue{animation:none;}')) fails.push('the entrance does not honour reduced motion');

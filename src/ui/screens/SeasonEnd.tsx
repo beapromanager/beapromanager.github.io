@@ -161,6 +161,15 @@ function EuroSeasonCard({ v }: { v: NonNullable<ReturnType<typeof G.euroSeasonVe
   const won = v.outcome === 'won';
   const legs = v.played === 1 ? 'משחק אחד' : `${v.played} משחקים`;
   const headline = won ? 'הגביע אצלנו' : v.outcome === 'cut' ? `העונה נגמרה ${ROUND_IN[v.round]}` : `הדרך נגמרה ${ROUND_IN[v.round]}`;
+  if (v.level === 1) return (
+    <div className="tile-flat el-season" style={{ padding: '15px 15px 13px', textAlign: 'center' }}>
+      <div className="el-kicker">{competitionName(v.level)}</div>
+      <div className={`el-title ${won ? 'el-foil-text' : ''}`} style={{ fontSize: 26, marginTop: 6 }}>{headline}</div>
+      <div className="sub" style={{ marginTop: 6 }}>
+        {legs}{v.prize > 0 ? ` · פרסים ${formatMoney(v.prize)}` : ''}
+      </div>
+    </div>
+  );
   return (
     <div className="tile-flat" style={{
       padding: '13px 15px', textAlign: 'center',

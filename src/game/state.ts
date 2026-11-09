@@ -3936,14 +3936,16 @@ export function settleEuroSeason(gs: GameState): GameState {
   const legs = v.played === 1 ? 'משחק אחד' : `${v.played} משחקים`;
   // the lower tier's lines stay word for word: a save's summit standing is read off "ליגת אירופה: הגביע אצלנו"
   const name = competitionName(euro.level);
+  // the summit's lines are written in its own black and gold
+  const top = euro.level === 1;
   const paid = v.prize > 0 ? ` הפרסים שנכנסו לקופה: ${formatShekels(v.prize)}.` : '';
   const entry: ChronicleEntry = v.outcome === 'won'
-    ? { id, kind: 'season_end', week: gs.week, icon: 'trophy', tint: 'gold',
+    ? { id, kind: 'season_end', week: gs.week, icon: 'trophy', tint: top ? 'summit' : 'gold',
         title: `${name}: הגביע אצלנו`, body: `${legs} בארבעה סבבים, ובסוף הגביע.${paid}` }
     : v.outcome === 'cut'
-      ? { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: 'draw',
+      ? { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: top ? 'summit' : 'draw',
           title: `${name}: העונה נגמרה ${ROUND_IN[v.round]}`, body: `הזוג לא הוכרע בזמן ונחשב הפסד.${paid}` }
-      : { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: 'draw',
+      : { id, kind: 'season_end', week: gs.week, icon: 'flag', tint: top ? 'summit' : 'draw',
           title: `${name}: הדרך נגמרה ${ROUND_IN[v.round]}`, body: `${legs} באירופה.${paid} הדרך חזרה עוברת דרך אליפות נוספת.` };
   return { ...gs, euro, chronicle: [...gs.chronicle, entry] };
 }

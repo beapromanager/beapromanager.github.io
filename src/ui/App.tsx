@@ -68,6 +68,7 @@ import { CoachScreen } from './screens/Coach.tsx';
 import { InviteScreen } from './screens/Invite.tsx';
 import { setInviteHandler, setInstallHandler, setReportHandler, setHomeHandler } from './components/bits.tsx';
 import { Icon } from './components/Icon.tsx';
+import { EliteDefs } from './components/Elite.tsx';
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
@@ -112,6 +113,7 @@ const NO_WAY_HOME = new Set<G.Phase>([
 export function App() {
   return (
     <>
+      <EliteDefs />
       <TransferGate />
       <AppInner />
     </>
@@ -478,7 +480,7 @@ function AppInner() {
   }
 
   return (
-    <div className="frame" data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : gs.phase === 'cup-match' || gs.phase === 'cup-pens' || gs.phase === 'cup-draw' || gs.phase === 'cup-bracket' ? 'cup' : undefined}>
+    <div className="frame" data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? (gs.euro?.level === 1 ? 'summit' : 'euro') : gs.phase === 'cup-match' || gs.phase === 'cup-pens' || gs.phase === 'cup-draw' || gs.phase === 'cup-bracket' ? 'cup' : undefined}>
       {!NO_WAY_HOME.has(gs.phase) && (
         <button className="home-float" onClick={goHome} aria-label="לדף הבית של המשחק" title="לדף הבית" data-testid="go-home-float">
           <Icon name="home" size={19} />
