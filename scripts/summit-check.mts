@@ -32,7 +32,7 @@ import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
 import { renameLegacy, NAMES_VERSION } from '../src/game/renames.ts';
 import { createRng } from '../src/engine/matchEngine.ts';
 import {
-  SUMMIT_STAGE_TARGET, SUMMIT_CENTRE, SUMMIT_PRIZE, SUMMIT_TRAVEL, SUMMIT_SECURITY, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
+  SUMMIT_STAGE_TARGET, SUMMIT_CENTRE, SUMMIT_CAP, SUMMIT_PRIZE, SUMMIT_TRAVEL, SUMMIT_SECURITY, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
   STAGE_TARGET, PRIZE, TRAVEL, SECURITY, drawEuro, strengthOf, prizeFor, prizeTotal, competitionName, summitLevel,
   travelFor, securityFor, myTie, recordMyLeg, EURO_ROUNDS,
 } from '../src/game/euro.ts';
@@ -255,7 +255,10 @@ claim(G.newGame(5).summit === undefined && JSON.stringify(G.emptySummit()) === '
   claim(low.clubs.every(c => c.id === ME || c.id.startsWith('eu-')) && low.rested.every(id => id.startsWith('eu-')), 'the lower tier draws a summit club');
   claim(up.clubs.every(c => c.id === ME ? c.edge === 0 : c.edge === (summitClub(c.id)!.rating - 87)), 'a summit club does not play at its own rating');
   const munich = drawEuro(1, ME, 4, 1, ['eu2-munich']);
-  claim(strengthOf(munich, 'eu2-munich', 0) === 84 && strengthOf(munich, 'eu2-munich', 3) === 91, `מינכן plays at ${strengthOf(munich, 'eu2-munich', 0)} and ${strengthOf(munich, 'eu2-munich', 3)}, wanted 84 and 91`);
+  // Itzik, 9.11.2026: nobody past 89, the final included
+  claim(strengthOf(munich, 'eu2-munich', 0) === 84 && strengthOf(munich, 'eu2-munich', 2) === 89 && strengthOf(munich, 'eu2-munich', 3) === 89, `מינכן plays at ${strengthOf(munich, 'eu2-munich', 0)}, ${strengthOf(munich, 'eu2-munich', 2)} and ${strengthOf(munich, 'eu2-munich', 3)}, wanted 84, 89 and 89`);
+  claim(SUMMIT_CAP === 89 && EURO_SUMMIT_CLUBS.every(c => [0, 1, 2, 3].every(r => strengthOf(drawEuro(2, ME, 4, 1, [c.id]), c.id, r) <= 89)), 'a summit club plays past 89');
+  claim(strengthOf(low, low.clubs.find(c => c.id !== ME)!.id, 3) === 84 + low.clubs.find(c => c.id !== ME)!.edge, 'the cap reached the lower tier');
   const weak = drawEuro(1, ME, 4, 1, ['eu2-amsterdam-mad']);
   claim(strengthOf(weak, 'eu2-amsterdam-mad', 3) === 87, 'an 85 club does not play the final at 87');
 }

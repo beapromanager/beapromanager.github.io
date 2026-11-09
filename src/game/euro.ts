@@ -49,6 +49,8 @@ export const CLUB_EDGE = 2;
  */
 export const SUMMIT_STAGE_TARGET = [82, 85, 87, 89] as const;
 export const SUMMIT_CENTRE = 87;
+/** Nobody plays the summit past 89, the final included (Itzik, 9.11.2026: an 89 club would otherwise play its final at 91). */
+export const SUMMIT_CAP = 89;
 /** Paid on reaching the round, as in the lower tier; the whole road is 9.1M. */
 export const SUMMIT_PRIZE = [0, 600_000, 1_400_000, 2_600_000, 4_500_000] as const;
 export const SUMMIT_TRAVEL = 250_000;
@@ -153,7 +155,8 @@ export const myTie = (e: EuroState, myId: string): EuroTie | undefined =>
 export function strengthOf(e: EuroState, id: string, round = e.round): number {
   const edge = e.clubs.find(c => c.id === id)?.edge ?? 0;
   const targets = stageTargets(e.level);
-  return targets[Math.min(round, targets.length - 1)] + edge;
+  const s = targets[Math.min(round, targets.length - 1)] + edge;
+  return e.level === 1 ? Math.min(SUMMIT_CAP, s) : s;
 }
 
 function poisson(lambda: number, rng: () => number): number {
