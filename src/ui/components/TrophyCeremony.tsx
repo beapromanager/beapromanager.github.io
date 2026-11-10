@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useSummitAsset } from '../summitAsset.ts';
 import { buzz } from '../haptics.ts';
 import { Portal } from './Portal.tsx';
-import { ShareMoment } from './ShareMoment.tsx';
+import { SummitShare } from './SummitShare.tsx';
+import type { ShareCardData } from '../shareCard.ts';
+import type { Club } from '../../data/clubs.ts';
+import { playSummit } from '../sound.ts';
 
 /**
  * The summit won (R5). The trophy rises among fireworks and the camera turns around it (Itzik's clip,
@@ -90,7 +93,7 @@ function Cup() {
   );
 }
 
-export function TrophyCeremony({ season, share, onDone }: { season: number; share?: { text: string; link: string } | null; onDone: () => void }) {
+export function TrophyCeremony({ season, share, onDone }: { season: number; share?: { club: Club; card: ShareCardData; text: string; link: string } | null; onDone: () => void }) {
   const still = reduced();
   const clip = useSummitAsset('trophy/ceremony');
   const [broken, setBroken] = useState(false);
@@ -101,7 +104,7 @@ export function TrophyCeremony({ season, share, onDone }: { season: number; shar
   const drawn = (clip.failed || broken) && !still;
 
   useEffect(() => {
-    if (!buzzed.current) { buzzed.current = true; buzz(BUZZ_TROPHY); }
+    if (!buzzed.current) { buzzed.current = true; buzz(BUZZ_TROPHY); playSummit('trophy'); }
   }, []);
   useEffect(() => {
     if (atEnd) return;
@@ -130,9 +133,9 @@ export function TrophyCeremony({ season, share, onDone }: { season: number; shar
             <div className="el-title el-foil-text" style={{ fontSize: 40 }}>אלופי אירופה</div>
             <div className="el-ceremony-sub">פסגת אירופה · עונה <span className="num">{season}</span></div>
             <div className="row" style={{ gap: 10, justifyContent: 'center', marginTop: 18 }}>
-              {share && <ShareMoment text={share.text} link={share.link} />}
               <button className="btn dark" onClick={onDone}>המשך</button>
             </div>
+            {share && <SummitShare club={share.club} card={share.card} text={share.text} link={share.link} />}
           </div>
         )}
       </div>

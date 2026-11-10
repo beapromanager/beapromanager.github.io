@@ -146,6 +146,9 @@ export function loadCareer(): GameState | null {
     euro: s.euro ?? null,
     // פסגת אירופה arrived after these careers began: a ליגת אירופה already won gives the standing (31.10.2026)
     summit: s.summit ?? summitStandingOf(s.chronicle ?? [], s.euro ?? null),
+    // what the summit remembers (stage 5): a save from before starts with no meetings and an empty book
+    summitHistory: s.summitHistory ?? {},
+    goldenBook: s.goldenBook ?? [],
     cup: s.cup ?? null,
     daily: s.daily ?? emptyDaily(),
     loyalGift: s.loyalGift ?? null,

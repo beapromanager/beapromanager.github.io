@@ -8,7 +8,7 @@
  * Run: node --experimental-strip-types scripts/share-check.mts
  */
 import { readFileSync, existsSync } from 'node:fs';
-import { shareKindFor, shareText, shareLink } from '../src/game/share.ts';
+import { shareKindFor, shareText, shareLink, summitShareText } from '../src/game/share.ts';
 import type { ShareKind } from '../src/game/share.ts';
 import { refFromUrl } from '../src/game/invite.ts';
 
@@ -37,12 +37,17 @@ const store = new Map<string, string>();
   if (shareKindFor({ ...base, atTop: true }) !== null) fails.push('standing in the top flight is worth sending without a title');
   if (shareKindFor({ ...base, champion: false, atTop: true, promoted: false }) !== null) fails.push('a mid table top flight season is worth sending');
   if (shareKindFor({ champion: true, promoted: false, atTop: false, euroWon: false }) !== 'champion') fails.push('a champion who is not promoted (blocked) is not a champion');
+  // פסגת אירופה (10.11.2026): its trophy comes before everything, ליגת אירופה's own trophy still reads euro
+  checked += 3;
+  if (shareKindFor({ ...base, champion: true, atTop: true, euroWon: true, summitWon: true }) !== 'summit') fails.push('the summit does not come before the cup of ליגת אירופה');
+  if (shareKindFor({ ...base, euroWon: true, summitWon: false }) !== 'euro') fails.push('a ליגת אירופה trophy is sent as the summit');
+  if (shareKindFor({ ...base, summitWon: true, cupWon: true }) !== 'summit') fails.push('the summit does not come before גביע המדינה');
 }
 
 /* 2. THE WORDS: every kind names the club and the game, says nothing unfinished, and is short enough to send */
 {
   const facts = { club: 'סער ראש העין', league: 'ליגה ג׳', nextLeague: 'ליגה ב׳', season: 4 };
-  const kinds: ShareKind[] = ['top', 'champion', 'promoted', 'euro'];
+  const kinds: ShareKind[] = ['top', 'champion', 'promoted', 'euro', 'summit'];
   checked += kinds.length * 5 + 2;
   for (const k of kinds) {
     const t = shareText(k, facts);
@@ -54,6 +59,13 @@ const store = new Map<string, string>();
   }
   if (!shareText('champion', facts).includes('ב' + facts.league) || !shareText('champion', facts).includes('4')) fails.push('the title does not say which league and which season');
   if (!shareText('promoted', facts).includes('ל' + facts.nextLeague)) fails.push('the promotion does not say which league it is to');
+  // the summit's words carry the game's tag, so a manager can paste it himself where a tag cannot be made for him
+  checked += 4;
+  for (const k of ['trophy', 'final', 'win'] as const) {
+    const t = summitShareText(k, { club: facts.club, season: 4 });
+    if (!t.includes('@be.a.pro.il') || !t.includes(facts.club) || !t.includes('BE A PRO') || /undefined|NaN|\{|\}|https?:/.test(t) || t.length > 160) fails.push(`the summit's ${k} words are not ready to send: ${t}`);
+  }
+  if (!shareText('summit', facts).includes('פסגת אירופה')) fails.push('the summit trophy does not say which trophy');
 }
 
 /* 3. THE LINK carries the manager's own invite code, so a friend who plays pays him the invite gems */
@@ -77,7 +89,7 @@ const store = new Map<string, string>();
   const css = readFileSync('src/ui/tokens.css', 'utf8');
   const icon = readFileSync('src/ui/components/Icon.tsx', 'utf8');
 
-  if (!end.includes("shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won', cupWon: cupVerdict?.outcome === 'won' })")) fails.push('the season end does not ask which moment this was');
+  if (!end.includes("shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won', cupWon: cupVerdict?.outcome === 'won', summitWon: euroVerdict?.outcome === 'won' && euroVerdict.level === 1 })")) fails.push('the season end does not ask which moment this was');
   if (!end.includes('const shareKind = blocked ? null :')) fails.push('a promotion the ground blocked is sent to a friend as a promotion');
   if (!end.includes('<ShareMoment text={share.text} link={share.link} onShared={() => shareMark(\'share_tap\')} />')) fails.push('the season end card has no share button that reports');
   if (!end.includes('<ShareMoment glass text={share.text} link={share.link} onShared={() => shareMark(\'share_tap\')} />')) fails.push('the celebration has no share button that reports');

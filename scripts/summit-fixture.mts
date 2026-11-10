@@ -11,6 +11,9 @@ import * as G from '../src/game/state.ts';
 import { drawEuro, recordMyLeg, playAiRound, advanceRound, settleMyPens } from '../src/game/euro.ts';
 import { saveCareer } from '../src/game/save.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
+import { storyFor } from '../src/game/summitStory.ts';
+import { meetingOf } from '../src/game/summitMemory.ts';
+import type { LegDigest, GoldenPage } from '../src/game/summitMemory.ts';
 
 const store = new Map<string, string>();
 Object.defineProperty(globalThis, 'localStorage', {
@@ -59,6 +62,25 @@ for (const level of [1, 0] as const) {
   let e = recordMyLeg(recordMyLeg(seen, base.clubId, [2, 1]), base.clubId, [1, 1]);
   e = advanceRound(playAiRound(e, base.clubId, 77), base.clubId);
   out[`${tag}-hub-road`] = write({ ...base, week: 4, euro: e });
+  if (level === 1) {
+    // stage 5: the same road with a book (a trophy and a final lost), a win for the reel, and a history with the next club
+    const leg = (goals: [number, number], scorers: LegDigest['scorers']): LegDigest => ({ goals, host: null, scorers, redMine: false, redTheirs: false });
+    const g = (minute: number, name: string, mine: boolean) => ({ minute, name, mine, pen: false });
+    const finals: Array<[number, string, LegDigest, boolean]> = [
+      [1, 'eu2-munich', leg([1, 2], [g(20, 'יוסי כהן', true), g(55, 'א', false), g(81, 'ב', false)]), false],
+      [2, 'eu2-catalonia', leg([2, 1], [g(15, 'א', false), g(60, 'דוד לוי', true), g(90, 'יוסי כהן', true)]), true],
+    ];
+    let book: GoldenPage[] = [];
+    for (const [season, oppId, l, won] of finals) {
+      const st = storyFor(l, { opp: oppId === 'eu2-munich' ? 'מינכן הבווארית' : 'קטלוניה הגדולה', city: 'ראש העין', stadium: 'היכל הכתרים', season, won, pens: null, lastTpl: book[book.length - 1]?.tpl }, 500 + season);
+      book = [...book, { season, kind: won ? 'trophy' : 'final', oppId, score: l.goals, pens: null, title: st.title, line: st.line, momentId: st.momentId, tpl: st.tpl }];
+    }
+    const nextOpp = (() => { const t = e.ties[e.round].find(t => t.a === base.clubId || t.b === base.clubId)!; return t.a === base.clubId ? t.b : t.a; })();
+    const history = { [nextOpp]: [meetingOf(1, 1, [leg([0, 1], [g(30, 'א', false)]), leg([0, 0], [])], null, false, 3)] };
+    const reel = { season: base.season, round: 0, score: [2, 1] as [number, number], pens: null, goals: [g(12, 'א', false), g(48, 'דוד לוי', true), g(89, 'יוסי כהן', true)].map(({ minute, name, mine }) => ({ minute, name, mine })) };
+    out[`${tag}-hub-book`] = write({ ...base, week: 4, euro: e, goldenBook: book, summitLast: reel, summitHistory: history });
+    out[`${tag}-night-rival`] = write({ ...base, week: finalWeek({ ...base, euro: e }), euro: e, summitHistory: history });
+  }
   out[`${tag}-bracket`] = write({ ...base, week: 4, euro: e, phase: 'euro-bracket' });
   // the quarter level after both legs: the shootout owed
   const lvl = recordMyLeg(recordMyLeg(e, base.clubId, [1, 0]), base.clubId, [0, 1]);

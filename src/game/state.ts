@@ -16,10 +16,15 @@ import {
   serveBans, banFor, playAiRound, advanceRound, playOutWithoutMe, prizeFor, aggregate, myTie,
   euroWeeks, closeEuroSeason, euroVerdict, euroMarks, ROUND_IN,
   GATE_SHARE, travelFor, securityFor, competitionName, summitLevel, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
+  EURO_ROUNDS,
 } from './euro.ts';
 import type { EuroState, EuroNight, EuroTie } from './euro.ts';
 import { euroClub, asClub, summitClub, summitFinalStadium } from '../data/europeClubs.ts';
 import { sideRating, keyPlayer } from './summitOdds.ts';
+import type { LegDigest, SummitHistory, GoldenPage, ReelData } from './summitMemory.ts';
+import { digestLeg, meetingOf, addMeeting, addPage, reelOf } from './summitMemory.ts';
+import { storyFor } from './summitStory.ts';
+import { rivalryLine } from './summitRivalry.ts';
 import { makeEuroName } from '../data/europeNames.ts';
 import {
   CUP_LIVE, CUP_MIN_TIER, CUP_TIRED, CUP_INJURY_RISK, CUP_GATE_SHARE, CUP_TRAVEL,
@@ -416,6 +421,15 @@ export interface GameState {
    * builder stays byte for byte as it was, onboardv2-flag-check) and on an old save until it loads; read with ?? emptySummit()
    */
   summit?: SummitStanding;
+  /**
+   * What פסגת אירופה remembers (stage 5), all absent on a new game and on a save from before, like `summit`:
+   * every tie against each summit club (R10), the golden book's pages (R7, finals and trophies only), the legs of
+   * the tie being played now, and his last summit win for the five-second reel (R9).
+   */
+  summitHistory?: SummitHistory;
+  goldenBook?: GoldenPage[];
+  summitTie?: LegDigest[];
+  summitLast?: ReelData | null;
   /** גביע המדינה this season, drawn every summer a club lands in tier 4 or 5; null otherwise */
   cup: CupState | null;
   /** the loyalty gift past ten seasons: null until it is shown, then the season and the man it brought */
@@ -3900,6 +3914,39 @@ function myGoals(gs: GameState, r: MatchResult): [number, number] {
 }
 
 /**
+ * What a summit leg leaves in the career's memory: the leg itself while the tie is open; when the tie has its
+ * winner, the meeting against that club, and for a final a page of the golden book. His win tonight is kept for
+ * the reel, anything else clears it. Nothing at all outside פסגת אירופה.
+ */
+function summitRemember(gs: GameState, euro: EuroState, oppId: string, round: number, legs: LegDigest[], pens: [number, number] | null): Partial<GameState> {
+  if (euro.level !== 1) return {};
+  const last = legs[legs.length - 1];
+  const wonTonight = pens ? pens[0] > pens[1] : !!last && last.goals[0] > last.goals[1];
+  const summitLast = wonTonight && last ? reelOf(gs.season, round, last, pens) : null;
+  const tie = euro.ties[round]?.find(t => t.a === gs.clubId || t.b === gs.clubId);
+  if (!tie?.winner) return { summitTie: legs, summitLast };
+  const won = tie.winner === gs.clubId;
+  const summitHistory = addMeeting(gs.summitHistory ?? {}, oppId, meetingOf(gs.season, round, legs, pens, won, EURO_ROUNDS - 1));
+  if (round !== EURO_ROUNDS - 1 || !last) return { summitTie: [], summitLast, summitHistory };
+  const book = gs.goldenBook ?? [];
+  const story = storyFor(last, {
+    opp: euroClub(oppId)?.name ?? '', city: club(gs).city, stadium: summitFinalStadium(gs.season), season: gs.season, won, pens,
+    lastTpl: book[book.length - 1]?.tpl,
+  }, drawSeed(gs, 158_000 + round));
+  // the history as it stood before tonight, so the page remembers what this final was a chapter of
+  const rivalry = rivalryLine(gs.summitHistory?.[oppId], { club: euroClub(oppId)?.name ?? '', season: gs.season, round }, drawSeed(gs, 159_000 + round)) ?? undefined;
+  const page: GoldenPage = { season: gs.season, kind: won ? 'trophy' : 'final', oppId, score: [last.goals[0], last.goals[1]], pens, title: story.title, line: story.line, momentId: story.momentId, tpl: story.tpl, ...(rivalry ? { rivalry } : {}) };
+  return { summitTie: [], summitLast, summitHistory, goldenBook: addPage(book, page) };
+}
+
+/** Tonight's line of history against the summit club he meets (R10), or null when they never met or it is no summit night. */
+export function summitRivalry(gs: GameState, live: boolean = EURO_LIVE): string | null {
+  const night = euroNight(gs, live);
+  if (!night || gs.euro?.level !== 1) return null;
+  return rivalryLine(gs.summitHistory?.[night.oppId], { club: euroClub(night.oppId)?.name ?? '', season: gs.season, round: night.round }, drawSeed(gs, 159_000 + night.round));
+}
+
+/**
  * The European night is over. Nothing of the league is touched: no table, no
  * season record, no form, no ledger. What it leaves behind is the leg in the
  * tie, the men's legs for the week's league match (EURO_TIRED), anyone hurt
@@ -3933,8 +3980,10 @@ export function commitEuroLeg(gs: GameState, r: MatchResult, onPitchIds: string[
   const pensDue = needsPens(euro, me);
   const after = pensDue ? { euro, money, line: '' } : euroAfterTie(gs, euro, money);
   const notice = euroNightNotice(gs, night, goals, myTie(euro, me), after.line, hurt);
+  const memory = summitRemember(gs, euro, night.oppId, night.round, [...(gs.summitTie ?? []), digestLeg(r, me, night.host)], null);
   return markPlayed({
     ...withEuroTrophy(gs, euro, after.euro),
+    ...memory,
     euro: after.euro,
     meters: { ...gs.meters, money: after.money },
     matchMods: { ...gs.matchMods, fitness },
@@ -3960,8 +4009,14 @@ export function finishEuroPens(gs: GameState, score: [number, number]): GameStat
   const won = tie.winner === gs.clubId;
   const title = won ? 'עברת בפנדלים' : 'הודחת בפנדלים';
   const body = `${score[0]}:${score[1]} בפנדלים מול ${opp?.name ?? ''}. ${after.line}`.trim();
+  // the legs as they were played; a save that reached its shootout before stage 5 has only their scores
+  const mineIsA = tie.a === gs.clubId;
+  const legs: LegDigest[] = gs.summitTie?.length ? gs.summitTie
+    : tie.legs.map(l => ({ goals: (mineIsA ? [l[0], l[1]] : [l[1], l[0]]) as [number, number], host: null, scorers: [], redMine: false, redTheirs: false }));
+  const memory = summitRemember(gs, euro, opp?.id ?? '', gs.euro.round, legs, score);
   return {
     ...withEuroTrophy(gs, euro, after.euro),
+    ...memory,
     euro: after.euro,
     meters: { ...gs.meters, money: after.money },
     notices: [...gs.notices, { kind: 'story', title, body }],

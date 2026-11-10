@@ -140,10 +140,12 @@ function oldAddress(): M {
   for (const k of [...moved, ...left]) claim(/^beapro\.[a-z0-9.]+$/.test(k), `${k} is not a well formed key`);
   for (const k of ['beapro.career.v1', 'beapro.device', 'beapro.aid', 'beapro.tq']) claim(found.has(k), `the game no longer uses ${k}; the lists are stale`);
   // the places that touch the browser's storage are the ones known and read: a new one has to be looked at
-  const known = new Set(['game/save.ts', 'game/invite.ts', 'game/telemetry.ts', 'game/weekend.ts', 'game/weekendGuide.ts', 'game/transfer.ts', 'game/transferLock.ts', 'game/onboardV2.ts']);
+  // ui/sound.ts (10.11.2026): the summit's sound switch, one key, beapro.sound, read and left behind (SKIP_KEYS)
+  const known = new Set(['game/save.ts', 'game/invite.ts', 'game/telemetry.ts', 'game/weekend.ts', 'game/weekendGuide.ts', 'game/transfer.ts', 'game/transferLock.ts', 'game/onboardV2.ts', 'ui/sound.ts']);
   for (const u of users) claim(known.has(u), `${u} uses browser storage and is not among the files the transfer was built around`);
   claim(T.TRANSFER_KEYS.join() === 'beapro.career.v1,beapro.device,beapro.aid,beapro.weekend.v1,beapro.weekend.intro', 'the moved keys changed');
   claim(T.SKIP_KEYS.includes('beapro.tq'), 'the counting queue is not left behind');
+  claim(T.SKIP_KEYS.includes('beapro.sound') && !T.TRANSFER_KEYS.includes('beapro.sound'), 'the sound switch is not left behind');
   claim(!T.TRANSFER_KEYS.includes('beapro.tq'), 'the counting queue would be moved and sent twice');
 }
 
@@ -659,6 +661,8 @@ let measured = { careerChars: 0, codeChars: 0, codeKB: 0, fileChars: 0 };
     if (f === 'src/game/transfer.ts' || f === 'src/game/transferLock.ts' || f === 'src/ui/components/TransferUi.tsx') continue;
     // the weekend server's CORS list (both addresses, by design) and the legal pages, which name the site in words (domain-move, 3.11)
     if (f === 'src/game/weekendRoutes.ts' || f === 'src/data/legalText.ts') continue;
+    // the one address written on a summit share card, whichever address it was made on (Itzik, 10.11.2026); nothing else may import an address but through it
+    if (f === 'src/data/site.ts') continue;
     const code = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
     claim(!/beapromanager\.github\.io|beapro\.co\.il/.test(code), `${f} names one of the two addresses, so it would be wrong on the other`);
   }

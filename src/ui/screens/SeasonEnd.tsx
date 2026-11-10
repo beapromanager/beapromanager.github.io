@@ -59,7 +59,7 @@ export function SeasonEnd({ gs, onContinue }: { gs: G.GameState; onContinue: () 
   const [celebrating, setCelebrating] = useState((champion || promoted) && !blocked);
 
   // the moment worth sending to a friend: the cup, the title, the promotion
-  const shareKind = blocked ? null : shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won', cupWon: cupVerdict?.outcome === 'won' });
+  const shareKind = blocked ? null : shareKindFor({ champion, promoted, atTop: champion && c.tier >= TOP_TIER, euroWon: euroVerdict?.outcome === 'won', cupWon: cupVerdict?.outcome === 'won', summitWon: euroVerdict?.outcome === 'won' && euroVerdict.level === 1 });
   const share = shareKind ? {
     text: shareText(shareKind, { club: c.name, league: LEAGUE_NAMES[c.tier], nextLeague: LEAGUE_NAMES[nextTier], season: gs.season }),
     link: shareLink(),

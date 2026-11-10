@@ -3,6 +3,7 @@ import type { SummitEntranceData } from '../../game/state.ts';
 import { entranceAssetId } from '../../data/summitAssets.ts';
 import { useSummitAsset } from '../summitAsset.ts';
 import { Portal } from './Portal.tsx';
+import { playSummit } from '../sound.ts';
 
 /**
  * The beat before a summit night (R3): from high above a full ground, the stands lit by the home end's fires, the
@@ -178,6 +179,7 @@ export function SummitEntrance({ data, onDone }: { data: SummitEntranceData; onD
   const useCanvas = clip.failed || broken;
 
   useEffect(() => {
+    playSummit('entrance');   // silent unless he turned the sounds on
     const t = window.setTimeout(end, still ? SUMMIT_ENTRANCE_STILL_MS : SUMMIT_ENTRANCE_MS);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps

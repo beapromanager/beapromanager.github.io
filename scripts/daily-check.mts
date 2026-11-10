@@ -205,7 +205,8 @@ for (const seed of [6161, 5151, 31, 9091, 555, 12007]) {
   if (!/export const DAILY_LIVE = true;/.test(daily)) fails.push('the door is shut: DAILY_LIVE is not true (Itzik opened it on 12.10)');
   if (!state.includes('return markPlayed(maybeCrisis(checkTheBooks(')) fails.push('a league round does not count as a round played');
   // 31.10.2026: the trophy of a European night is written on the night (withEuroTrophy), the round still counts
-  if (!state.includes('return markPlayed({\n    ...withEuroTrophy(gs, euro, after.euro),\n    euro: after.euro,') && !state.includes('return markPlayed({\r\n    ...withEuroTrophy(gs, euro, after.euro),\r\n    euro: after.euro,')) fails.push('a European night does not count as a round played');
+  // stage 5 of פסגת אירופה (10.11.2026) spreads the summit's memory of the night into the same return; it is still markPlayed
+  if (!state.includes('return markPlayed({\n    ...withEuroTrophy(gs, euro, after.euro),\n    ...memory,\n    euro: after.euro,') && !state.includes('return markPlayed({\r\n    ...withEuroTrophy(gs, euro, after.euro),\r\n    ...memory,\r\n    euro: after.euro,')) fails.push('a European night does not count as a round played');
   if (!sheet.includes("return st === 'today' ? (") || !sheet.includes('<button key={pos} className="daily-tile" data-state="today"')) fails.push("today's gift is not the one button");
   if (!/<div key=\{pos\} className="daily-tile" data-state=\{st\}[^>]*aria-disabled="true">/.test(sheet)) fails.push('the other days are not dead divs');
   if (!sheet.includes('onClick={v.canClaim ? onClaim : undefined}')) fails.push("today's tile takes a press when the gift cannot be taken");

@@ -174,7 +174,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   /** which cup this is, when `clubs` is set: Europe (the default, for every existing call site) or גביע המדינה */
   comp?: 'euro' | 'cup';
   /** a night of פסגת אירופה: the top-down entrance and the rival card take the place of the crests face to face */
-  summit?: { entrance: G.SummitEntranceData; rival: NonNullable<ReturnType<typeof G.summitRival>> } | null;
+  summit?: { entrance: G.SummitEntranceData; rival: NonNullable<ReturnType<typeof G.summitRival>>; rivalry?: string | null } | null;
 }) {
   const liveRef = useRef<LiveState | null>(null);
   if (!liveRef.current) liveRef.current = L.createLive(live ?? G.liveMatchInput(gs));
@@ -485,7 +485,7 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
           layer inside it would pin itself to the screen instead of the viewport */}
       {entrance && summit && summitStep === 'ground' && <SummitEntrance data={summit.entrance} onDone={() => setSummitStep('rival')} />}
       {entrance && summit && summitStep === 'rival' && (
-        <RivalCard oppId={summit.rival.oppId} rating={summit.rival.rating} keyMan={summit.rival.key} chance={chance}
+        <RivalCard oppId={summit.rival.oppId} rating={summit.rival.rating} keyMan={summit.rival.key} chance={chance} rivalry={summit.rivalry}
           onDone={() => { setSummitStep(null); setEntrance(false); }} />
       )}
       {entrance && !summit && clubs && euroLines && <EuroEntrance home={clubs.home} away={clubs.away} lines={euroLines} kind={cup ? 'cup' : 'euro'} onDone={() => setEntrance(false)} />}

@@ -49,6 +49,20 @@
  * Stage 4, the coach in the shootout (R6):
  *  26. which of his six reactions follows each kick and the end, how each falls back to the coach the game already
  *      has, for how long, never holding the next kick, and the summit shootout dark at the edges the whole way
+ *
+ * Stage 5, the memory, the book, the card, the reel, the sound (R7 to R11):
+ *  27. what the summit remembers: every tie against each club with what happened in it, through the career's own
+ *      functions, nothing outside the summit, kept by the save, empty on a save from before
+ *  28. the rivalries: forty lines and more in fifteen kinds, none without a meeting, every kind true to the history,
+ *      every kind met in a long simulation, the same night the same line
+ *  29. the golden book: a page for a final and a double page for the trophy only, written from the match, 25
+ *      phrasings and more over a thousand finals, never the same phrasing twice running, sixty whole pages kept
+ *  30. the share card: 1080 by 1350, his own club, the score, the game's mark and beapro.co.il, and no summit club
+ *      at all (Itzik, 10.11); sent as a file where a phone can, and honestly where it cannot
+ *  31. the five-second reel: what it says is what happened, on a five-second clock, saved only where the browser
+ *      can record, still under reduced motion, no summit club in it
+ *  32. the sound: off on a clean install, nothing before a touch or in a hidden tab, no file loaded, a switch that
+ *      says which way it stands
  */
 import {
   EURO_CLUBS, EURO_SUMMIT_CLUBS, SUMMIT_FINAL_STADIUMS, SUMMIT_DRAFT, summitFinalStadium, poolFor, euroClub, summitClub,
@@ -59,6 +73,12 @@ import { winChanceNow, roundTo5, ODDS_RUNS, sideRating, keyPlayer, oddsSeed, pla
 import { summitTension, TENSE_FROM } from '../src/game/summitPath.ts';
 import { makeSquad } from '../src/data/squadGen.ts';
 import { coachClipForKick, coachClipForEnd, COACH_FALLBACK, COACH_MS, SHOOTOUT_TENSION } from '../src/game/summitCoach.ts';
+import { digestLeg, cameBack, meetingOf, addMeeting, addPage, MEETINGS_KEPT, BOOK_PAGES_KEPT } from '../src/game/summitMemory.ts';
+import { RIVALRY, RIVALRY_TEMPLATES, rivalryPick } from '../src/game/summitRivalry.ts';
+import { STORIES, storyFor } from '../src/game/summitStory.ts';
+import { reelScript, reelAt, REEL_MS, REEL_GOALS_SHOWN } from '../src/game/summitReel.ts';
+import { summitShareText } from '../src/game/share.ts';
+import { soundOn, setSound, playSummit } from '../src/ui/sound.ts';
 import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
 import { renameLegacy, NAMES_VERSION } from '../src/game/renames.ts';
 import { createRng, overall } from '../src/engine/matchEngine.ts';
@@ -477,7 +497,7 @@ claim(/family=Frank\+Ruhl\+Libre:wght@700;900/.test(readFileSync('index.html', '
   claim(/el-breathe/.test(hubSrc) && !/el-breathe/.test(bracketSrc + seasonSrc), 'the breath is not on the hub\'s main summit button, or is somewhere else');
   // foil: every element that wears it is set at 22px or more
   const tsx = ['src/ui/screens/SeasonEnd.tsx', 'src/ui/screens/Hub.tsx', 'src/ui/screens/EuroBracket.tsx', 'src/ui/screens/EuroDraw.tsx', 'src/ui/components/SummitPath.tsx', 'src/ui/components/Elite.tsx',
-    'src/ui/components/SummitEntrance.tsx', 'src/ui/components/RivalCard.tsx', 'src/ui/components/TrophyCeremony.tsx'].map(p => readFileSync(p, 'utf8')).join('\n');
+    'src/ui/components/SummitEntrance.tsx', 'src/ui/components/RivalCard.tsx', 'src/ui/components/TrophyCeremony.tsx', 'src/ui/components/GoldenBook.tsx'].map(p => readFileSync(p, 'utf8')).join('\n');
   const foils = [...tsx.matchAll(/el-foil-text[^>]*fontSize: (\d+)/g)].map(m => Number(m[1]));
   const foilUses = (tsx.match(/el-foil-text/g) ?? []).length;
   claim(foilUses >= 1 && foils.length === foilUses && foils.every(n => n >= 22), `foil below 22px or without a size: ${foils.join(', ')} of ${foilUses}`);
@@ -496,7 +516,7 @@ claim(/family=Frank\+Ruhl\+Libre:wght@700;900/.test(readFileSync('index.html', '
   const wanted = Object.values(EMBLEMS).sort();
   claim(JSON.stringify(names.slice().sort()) === JSON.stringify(wanted), `the drawn emblems are not his twenty: ${names.join(', ')}`);
   const eliteCrest = crest.slice(crest.indexOf('function EliteCrest'));
-  const stage3 = ['SummitEntrance', 'RivalCard', 'TrophyCeremony'].map(n => [`${n}.tsx`, readFileSync(`src/ui/components/${n}.tsx`, 'utf8')] as const);
+  const stage3 = ['SummitEntrance', 'RivalCard', 'TrophyCeremony', 'CoachReaction', 'GoldenBook', 'SummitShare', 'SummitReel'].map(n => [`${n}.tsx`, readFileSync(`src/ui/components/${n}.tsx`, 'utf8')] as const);
   for (const [what, src] of [['Elite.tsx', elite], ['SummitPath.tsx', path], ['the elite crest', eliteCrest], ...stage3] as const) {
     claim(!/#[0-9A-Fa-f]{3,6}\b|rgba?\(/.test(src), `${what} writes a colour outside the tokens`);
   }
@@ -732,6 +752,254 @@ claim(/family=Frank\+Ruhl\+Libre:wght@700;900/.test(readFileSync('index.html', '
   for (const m of ['leap', 'head-down', 'tight-clap', 'fist', 'run-off', 'tunnel']) {
     claim(new RegExp(`\\.el-coach-frame\\[data-move="${m}"\\]\\{animation:el-coach-[a-z]+ var\\(--coach-ms\\) [a-z-]+ 1 both;\\}`).test(cssSrc), `the ${m} movement does not play once for its own time`);
   }
+}
+
+/* ------------------------------------------------- 27. what the summit remembers */
+// a result written by hand, his club at home: goals as [minute, mine?, name], reds as [minute, mine?]
+function resultOf(gs: G.GameState, oppId: string, goals: Array<[number, boolean, string]>, reds: Array<[number, boolean]> = []) {
+  const me = gs.clubId;
+  const events = [
+    ...goals.map(([minute, mine, name]) => ({ minute, type: 'goal', teamId: mine ? me : oppId, playerId: `p${minute}`, playerName: name, text: '' })),
+    ...reds.map(([minute, mine]) => ({ minute, type: 'red', teamId: mine ? me : oppId, playerId: `r${minute}`, playerName: 'אדום', text: '' })),
+  ];
+  const mine = goals.filter(g => g[1]).length, theirs = goals.length - mine;
+  return { seed: 1, home: { id: me, name: '', stats: {} }, away: { id: oppId, name: '', stats: {} }, score: [mine, theirs], events, ratings: {} } as never;
+}
+const nightOf = (gs: G.GameState): G.GameState | null => {
+  for (let w = 1; w <= gs.league.rounds + 2; w++) { const g = { ...gs, week: w }; if (G.euroNight(g, true)) return g; }
+  return null;
+};
+{
+  const hub = { ...topCareer(), phase: 'hub' as const, season: 3 };
+  // the digest of one leg
+  const d = digestLeg(resultOf(hub, 'x', [[70, true, 'ב'], [12, false, 'א'], [90, true, 'ג']], [[55, false]]), hub.clubId, true);
+  claim(d.goals[0] === 2 && d.goals[1] === 1 && d.scorers.map(s => s.minute).join(',') === '12,70,90' && d.scorers[0].mine === false && d.redTheirs && !d.redMine && d.host === true, 'a leg is not read off its result');
+  claim(cameBack(d) === true, 'a leg won from behind is not a comeback');
+  const leg = (mine: number, theirs: number, at: number[] = [], redTheirs = false): typeof d => ({
+    goals: [mine, theirs], host: true, redMine: false, redTheirs,
+    scorers: [...Array.from({ length: theirs }, (_, i) => ({ minute: 5 + i, name: 'הם', mine: false, pen: false })), ...Array.from({ length: mine }, (_, i) => ({ minute: at[i] ?? 20 + i, name: `שלי${i}`, mine: true, pen: false }))].sort((a, b) => a.minute - b.minute),
+  });
+  const m1 = meetingOf(3, 1, [leg(0, 1), leg(3, 0, [50, 60, 89])], null, true, 3);
+  claim(m1.flags.lastMinute && m1.flags.comeback && !m1.flags.final && !m1.flags.pens && !m1.flags.cleanSheet && !m1.flags.bigWin && JSON.stringify(m1.legs) === '[[0,1],[3,0]]', `a tie lost then won late reads ${JSON.stringify(m1.flags)}`);
+  // the late goal starts at the 88th minute, not before, and only in a tie he won
+  claim(!meetingOf(3, 1, [leg(1, 0, [87])], null, true, 3).flags.lastMinute && meetingOf(3, 1, [leg(1, 0, [88])], null, true, 3).flags.lastMinute && !meetingOf(3, 1, [leg(1, 2, [90])], null, false, 3).flags.lastMinute, 'a late goal is not a goal of his from the 88th on in a tie he won');
+  const m2 = meetingOf(4, 3, [leg(4, 0)], null, true, 3);
+  claim(m2.flags.final && m2.flags.bigWin && m2.flags.cleanSheet && !m2.flags.comeback && !m2.flags.lastMinute, `a final won 4:0 reads ${JSON.stringify(m2.flags)}`);
+  const m3 = meetingOf(4, 2, [leg(1, 1, [], true), leg(0, 0)], [3, 4], false, 3);
+  claim(m3.flags.pens && m3.flags.redCard && !m3.won && !m3.flags.lastMinute && !m3.flags.bigWin, `a tie lost on penalties reads ${JSON.stringify(m3.flags)}`);
+  let h: Record<string, typeof m1[]> = {};
+  for (let i = 0; i < 13; i++) h = addMeeting(h, 'c', { ...m1, season: i });
+  claim(h.c.length === MEETINGS_KEPT && h.c[h.c.length - 1].season === 12 && h.c[0].season === 3, 'the meetings kept are not the newest ten, oldest first');
+
+  // through the career itself: a two-legged summit tie, then a final
+  const s0 = nightOf({ ...hub, euro: drawEuro(31, hub.clubId, hub.season, 1) })!;
+  const opp = G.euroNight(s0, true)!.oppId;
+  const a1 = G.commitEuroLeg(s0, resultOf(s0, opp, [[10, false, 'א'], [30, true, 'כהן'], [80, true, 'לוי']]), [], true);
+  claim(a1.summitTie?.length === 1 && !a1.summitHistory?.[opp] && a1.summitLast?.score.join(':') === '2:1' && (a1.goldenBook ?? []).length === 0, 'the first leg of a tie is not kept as a leg only, with his win for the reel');
+  const s1 = nightOf({ ...a1, phase: 'hub' })!;
+  const a2 = G.commitEuroLeg(s1, resultOf(s1, opp, [[20, true, 'כהן']]), [], true);
+  const met = a2.summitHistory?.[opp] ?? [];
+  claim(met.length === 1 && met[0].won && JSON.stringify(met[0].legs) === '[[2,1],[1,0]]' && met[0].season === 3 && met[0].round === 0 && met[0].flags.comeback && (a2.summitTie ?? []).length === 0, `the tie is not remembered as it was: ${JSON.stringify(met)}`);
+  claim((a2.goldenBook ?? []).length === 0, 'a tie that is not a final wrote a page in the golden book');
+  // a leg lost clears the reel
+  const lostLeg = G.commitEuroLeg(s0, resultOf(s0, opp, [[10, false, 'א']]), [], true);
+  claim(lostLeg.summitLast === null, 'a night he lost is kept for the reel');
+  // ליגת אירופה remembers nothing of this
+  const low0 = nightOf({ ...hub, euro: drawEuro(31, hub.clubId, hub.season, 0) })!;
+  const low = G.commitEuroLeg(low0, resultOf(low0, G.euroNight(low0, true)!.oppId, [[30, true, 'כהן']]), [], true);
+  claim(low.summitHistory === undefined && low.goldenBook === undefined && low.summitTie === undefined && low.summitLast === undefined, 'a night of ליגת אירופה is written into the summit\'s memory');
+
+  // the final: a page of the golden book, the trophy on its own kind
+  const fin0 = finalLevel(hub, 1);
+  const finNight = nightOf({ ...fin0, euro: { ...fin0.euro!, ties: fin0.euro!.ties.map((r, i) => i === EURO_ROUNDS - 1 ? r.map(t => ({ ...t, legs: [] })) : r) } })!;
+  const fOpp = G.euroNight(finNight, true)!.oppId;
+  const won = G.commitEuroLeg({ ...finNight, summitHistory: { [fOpp]: [m3] } }, resultOf(finNight, fOpp, [[15, false, 'א'], [60, true, 'כהן'], [90, true, 'לוי']]), [], true);
+  const page = (won.goldenBook ?? [])[0];
+  claim((won.goldenBook ?? []).length === 1 && page.kind === 'trophy' && page.score.join(':') === '2:1' && page.season === 3 && page.oppId === fOpp && page.pens === null, `the final won is not a trophy page: ${JSON.stringify(page)}`);
+  claim(!!page && (BOOK_MOMENTS as readonly string[]).includes(page.momentId) && page.tpl.startsWith('w-') && /2:1|90|60|לוי|כהן/.test(page.title + page.line) && !/[{}]|undefined/.test(page.title + page.line), `the page says nothing real of its final: ${page?.title} / ${page?.line}`);
+  claim(typeof page?.rivalry === 'string' && page.rivalry.length > 5, 'the page forgot the history that stood before this final');
+  claim(won.summitHistory?.[fOpp]?.length === 2 && won.summitHistory[fOpp][1].flags.final && won.summitHistory[fOpp][1].flags.lastMinute, 'the final is not remembered as a final');
+  const lostFin = G.commitEuroLeg(finNight, resultOf(finNight, fOpp, [[15, false, 'א']]), [], true);
+  claim(lostFin.goldenBook?.[0]?.kind === 'final' && lostFin.goldenBook[0].tpl.startsWith('l-') && lostFin.goldenBook[0].rivalry === undefined, 'a final lost is not a page of its own kind, or invents a history');
+  // level, then penalties
+  const lvl = G.commitEuroLeg(finNight, resultOf(finNight, fOpp, [[15, false, 'א'], [60, true, 'כהן']]), [], true);
+  claim(lvl.phase === 'euro-pens' && (lvl.goldenBook ?? []).length === 0 && lvl.summitTie?.length === 1, 'a final gone to penalties wrote its page before the shootout');
+  const pensWon = G.finishEuroPens(lvl, [5, 4]);
+  const pp = pensWon.goldenBook?.[0];
+  claim(!!pp && pp.kind === 'trophy' && pp.pens?.join(':') === '5:4' && /^w-pens/.test(pp.tpl) && pp.line.includes('5:4') && pensWon.summitLast?.pens?.join(':') === '5:4', `a final won on penalties: ${JSON.stringify(pp)}`);
+  // the save: kept as it is, and a save from before starts empty
+  saveCareer(won);
+  const back = loadCareer()!;
+  claim(JSON.stringify(back.summitHistory) === JSON.stringify(won.summitHistory) && JSON.stringify(back.goldenBook) === JSON.stringify(won.goldenBook), 'the summit\'s memory does not survive the save');
+  const { summitHistory: _h, goldenBook: _b, summitTie: _t, summitLast: _l, ...old } = won;
+  saveCareer(old as G.GameState);
+  const fresh = loadCareer()!;
+  claim(JSON.stringify(fresh.summitHistory) === '{}' && JSON.stringify(fresh.goldenBook) === '[]', 'a save from before does not start with no meetings and an empty book');
+  // the book keeps sixty whole pages, older ones one line each
+  let book: typeof won.goldenBook = [];
+  for (let i = 0; i < BOOK_PAGES_KEPT + 3; i++) book = addPage(book!, { ...page, season: i });
+  claim(book!.length === BOOK_PAGES_KEPT + 3 && book!.filter(p => !p.compact).length === BOOK_PAGES_KEPT && book!.slice(0, 3).every(p => p.compact && p.line === '' && p.title.length > 0) && !book![3].compact, 'the book does not keep sixty whole pages and press the older ones to a line');
+  // tonight's line on the rival card
+  const again = nightOf({ ...hub, euro: drawEuro(31, hub.clubId, hub.season + 2, 1), season: hub.season + 2, summitHistory: a2.summitHistory })!;
+  const againOpp = G.euroNight(again, true)!.oppId;
+  claim(typeof G.summitRivalry({ ...again, summitHistory: { [againOpp]: met } }, true) === 'string', 'a club he met before has no line of history');
+  claim(G.summitRivalry({ ...again, summitHistory: {} }, true) === null && G.summitRivalry(low0, true) === null, 'a line of history without a meeting, or outside the summit');
+}
+
+/* ------------------------------------------------- 28. the rivalries */
+{
+  claim(RIVALRY_TEMPLATES >= 40 && RIVALRY.length === 15 && RIVALRY.every(c => c.lines.length >= 3), `${RIVALRY_TEMPLATES} lines in ${RIVALRY.length} kinds, agreed at least forty`);
+  const all = RIVALRY.flatMap(c => c.lines);
+  claim(new Set(all).size === all.length && all.every(l => !/[—–]/.test(l) && l.trim().length > 8), 'a rivalry line is repeated, empty, or has a long dash');
+  claim(rivalryPick(undefined, { club: 'X', season: 3, round: 0 }, 1) === null && rivalryPick([], { club: 'X', season: 3, round: 0 }, 1) === null, 'a line of history with no meeting behind it');
+  const mk = (season: number, round: number, won: boolean, f: Partial<Record<string, boolean>> = {}) => ({
+    season, round, legs: (won ? [[2, 0]] : [[0, 1]]) as Array<[number, number]>, pens: f.pens ? ([4, 3] as [number, number]) : null, won,
+    flags: { lastMinute: false, comeback: false, redCard: false, final: round === 3, bigWin: false, cleanSheet: false, pens: false, ...f } as never,
+  });
+  // one meeting: the second meeting, or what that meeting left
+  const seen1 = new Set<string>();
+  for (let s = 0; s < 200; s++) { seen1.add(rivalryPick([mk(2, 1, true)], { club: 'X', season: 3, round: 1 }, s)!.category); }
+  claim([...seen1].every(c => c === 'second'), `one plain meeting won reads ${[...seen1].join(', ')}`);
+  const seenLost = new Set<string>();
+  for (let s = 0; s < 200; s++) seenLost.add(rivalryPick([mk(2, 1, false)], { club: 'X', season: 3, round: 1 }, s)!.category);
+  claim(seenLost.has('revenge') && seenLost.has('second') && [...seenLost].every(c => c === 'revenge' || c === 'second'), `one meeting lost reads ${[...seenLost].join(', ')}`);
+  // a long simulation: every kind comes up, every line is whole, every kind is true to the history
+  const rng = createRng(77);
+  const kinds = new Set<string>(), tpls = new Set<string>();
+  let broken = '', untrue = '';
+  for (let i = 0; i < 6000; i++) {
+    const n = 1 + Math.floor(rng() * 5);
+    let season = 1;
+    const ms = Array.from({ length: n }, () => {
+      season += 1 + Math.floor(rng() * 3);
+      const won = rng() < 0.5, round = Math.floor(rng() * 4);
+      return mk(season, round, won, { lastMinute: won && rng() < 0.2, comeback: won && rng() < 0.2, redCard: rng() < 0.2, bigWin: won && rng() < 0.2, cleanSheet: won && rng() < 0.3, pens: rng() < 0.2 });
+    });
+    const ctx = { club: 'מועדון הבדיקה', season: season + Math.floor(rng() * 4), round: Math.floor(rng() * 4) };
+    const seed = Math.floor(rng() * 1e9);
+    const p = rivalryPick(ms, ctx, seed)!;
+    if (!p) { broken = 'no line for a history'; break; }
+    kinds.add(p.category); tpls.add(p.tpl);
+    if (/[{}]|undefined|NaN/.test(p.text) || p.text.length < 8) broken = p.text;
+    if (rivalryPick(ms, ctx, seed)!.text !== p.text) broken = 'the same night read two lines';
+    const wins = ms.filter(m => m.won).length, last = ms[ms.length - 1];
+    if ((p.category === 'revenge' && last.won) || (p.category === 'curse' && wins > 0) || (p.category === 'dominance' && wins < 2) || (p.category === 'thirdDecides' && (n !== 2 || wins !== 1))
+      || (p.category === 'second' && n !== 1) || (p.category === 'familiar' && n < 2) || (p.category === 'finalAgain' && (ctx.round !== 3 || !ms.some(m => m.flags.final))) || (p.category === 'seasonsGap' && ctx.season - last.season < 2)
+      || (p.category === 'pensMemory' && !ms.some(m => m.flags.pens)) || (p.category === 'redMemory' && !ms.some(m => m.flags.redCard)) || (p.category === 'eternalDraw' && wins !== n - wins)) untrue = `${p.category}: ${p.text}`;
+  }
+  claim(!broken, `a rivalry line came out unfinished: ${broken}`);
+  claim(!untrue, `a rivalry line is not true to the history: ${untrue}`);
+  claim(kinds.size === 15, `only ${kinds.size} of the 15 kinds ever came up: missing ${RIVALRY.map(c => c.id).filter(c => !kinds.has(c)).join(', ')}`);
+  claim(tpls.size >= 40, `only ${tpls.size} lines ever came up`);
+}
+
+/* ------------------------------------------------- 29. the golden book's stories */
+{
+  claim(STORIES.length >= 25 && new Set(STORIES.map(s => s.id)).size === STORIES.length, `${STORIES.length} phrasings, agreed at least 25`);
+  claim(STORIES.every(s => !/[—–]/.test(s.title + s.line) && /\{score\}|\{pens\}|\{min\}|\{scorer\}/.test(s.title + s.line) && (BOOK_MOMENTS as readonly string[]).includes(s.moment)), 'a phrasing carries nothing real of the match, a long dash, or a picture the list does not have');
+  const rng = createRng(2026);
+  const used = new Set<string>();
+  let bad = '', repeat = '';
+  for (let career = 0; career < 100; career++) {
+    let lastTpl: string | undefined;
+    for (let k = 0; k < 10; k++) {
+      const mine = Math.floor(rng() * 5), theirs = Math.floor(rng() * 5);
+      const pens = mine === theirs ? ((rng() < 0.5 ? [5, 4] : [3, 4]) as [number, number]) : null;
+      const wonIt = pens ? pens[0] > pens[1] : mine > theirs;
+      const scorers = [
+        ...Array.from({ length: mine }, (_, i) => ({ minute: 1 + Math.floor(rng() * 93), name: `כובש${i}`, mine: true, pen: false })),
+        ...Array.from({ length: theirs }, () => ({ minute: 1 + Math.floor(rng() * 93), name: 'יריב', mine: false, pen: false })),
+      ].sort((a, b) => a.minute - b.minute);
+      const leg = { goals: [mine, theirs] as [number, number], host: null, scorers, redMine: rng() < 0.1, redTheirs: rng() < 0.1 };
+      const ctx = { opp: 'היריבה', city: 'ראש העין', stadium: 'היכל הכתרים', season: 3 + k, won: wonIt, pens, lastTpl };
+      const seed = Math.floor(rng() * 1e9);
+      const st = storyFor(leg, ctx, seed);
+      used.add(st.tpl);
+      if (st.tpl === lastTpl) repeat = st.tpl;
+      if (/[{}]|undefined|NaN/.test(st.title + st.line) || st.title.length < 3 || st.line.length < 12) bad = `${st.tpl}: ${st.title} / ${st.line}`;
+      const real = [`${mine}:${theirs}`, ...(pens ? [`${pens[0]}:${pens[1]}`] : []), ...scorers.filter(s => s.mine).flatMap(s => [s.name, String(s.minute)])];
+      if (!real.some(r => (st.title + ' ' + st.line).includes(r))) bad = `nothing real in ${st.tpl}: ${st.line}`;
+      if (st.tpl.startsWith('w-') !== wonIt) bad = `${st.tpl} for a final ${wonIt ? 'won' : 'lost'}`;
+      if (/^[wl]-pens/.test(st.tpl) !== !!pens) bad = `${st.tpl} with${pens ? '' : 'out'} a shootout`;
+      if (storyFor(leg, ctx, seed).line !== st.line) bad = 'the same final wrote two pages';
+      lastTpl = st.tpl;
+    }
+  }
+  claim(!bad, `a page of the golden book is wrong: ${bad}`);
+  claim(!repeat, `the same phrasing wrote two pages in a row: ${repeat}`);
+  claim(used.size >= 25, `only ${used.size} phrasings in 1,000 finals, agreed at least 25`);
+  const gb = readFileSync('src/ui/components/GoldenBook.tsx', 'utf8');
+  claim(gb.includes('const pages = [...(gs.goldenBook ?? [])].reverse();') && gb.includes("useSummitAsset(`book/${momentId}`)") && gb.includes('<Medallion />') && gb.includes('הספר מחכה לגמר הראשון שלך'), 'the golden book does not show the newest page first, the picture or the medallion, or says nothing when empty');
+  claim(readFileSync('src/ui/screens/Chronicle.tsx', 'utf8').includes('{hasBook && <button className="btn dark" data-summit-book="1" onClick={() => setBook(true)}>ספר הזהב</button>}') && hubSrc.includes("<button className=\"btn dark btn-sm\" onClick={() => setOpen('book')}>ספר הזהב</button>"), 'the golden book cannot be reached from the chronicle and from the summit card');
+}
+
+/* ------------------------------------------------- 30. the share card */
+{
+  const sc = readFileSync('src/ui/shareCard.ts', 'utf8');
+  claim(/export const CARD_W = 1080;/.test(sc) && /export const CARD_H = 1350;/.test(sc) && sc.includes('export const CARD_SITE = SHARE_SITE;') && readFileSync('src/data/site.ts', 'utf8').includes("export const SHARE_SITE_URL = 'https://beapro.co.il';") && sc.includes('c.fillText(CARD_SITE,'), 'the card is not 1080 by 1350 with the game\'s address on it');
+  // Itzik, 10.11: no summit club on the card until the lawyer has cleared them
+  const code = sc.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  claim(!/europeClubs|euroClub|summitClub|oppId|opponent|\bopp\b/.test(code), 'the share card can be handed a summit club');
+  const fields = sc.match(/export interface ShareCardData \{([\s\S]*?)\n\}/)?.[1] ?? '';
+  claim(['headline', 'club', 'season', 'score', 'pens'].every(k => new RegExp(`\\b${k}:`).test(fields)) && (fields.match(/^\s+\w+:/gm) ?? []).length === 5, 'the card carries something other than the headline, his club, the season and the score');
+  claim(sc.includes("c.drawImage(art.logo,") && sc.includes("const name = 'BE A PRO'") && sc.includes("c.fillText(data.club,") && sc.includes("c.drawImage(art.crest,"), 'the card lost his club, his crest, the mark of the game or its name');
+  const sh = readFileSync('src/ui/components/SummitShare.tsx', 'utf8');
+  claim(sh.includes('await document.fonts?.ready') && sh.includes("navigator.canShare?.({ files: [pic.file] })") && sh.includes('navigator.share({ files: [pic.file], text, url: link })'), 'the card is drawn before the fonts are in, or is not sent as a file where a phone can');
+  claim(sh.includes('https://wa.me/?text=') && sh.includes("a.download = 'be-a-pro.png'") && sh.includes('navigator.clipboard?.writeText(`${text}\\n${link}`)'), 'no WhatsApp, no saving the picture, or no copying the words');
+  claim(sh.includes('אי אפשר לתייג אוטומטית באינסטגרם') && sh.includes('@be.a.pro.il') && sh.includes('בוואטסאפ דרך קישור עובר רק הטקסט'), 'the screen promises a tag it cannot make, or hides that WhatsApp by link carries words only');
+  claim(!/useEffect/.test(sh) && (sh.match(/await picture\(\)/g) ?? []).length === 2, 'the picture is made before he asks for it');
+  const gb = readFileSync('src/ui/components/GoldenBook.tsx', 'utf8');
+  const reel = readFileSync('src/ui/components/SummitReel.tsx', 'utf8');
+  claim(gb.includes("card={{ headline: trophy ? 'אלופי אירופה' : 'גמר פסגת אירופה', club: me.name, season: page.season, score: page.score, pens: page.pens }}")
+    && reel.includes("card={{ headline: 'ניצחון בפסגה', club: me.name, season: data.season, score: data.score, pens: data.pens }}")
+    && appSrc.includes("card: { headline: 'אלופי אירופה', club: G.club(gs).name, season: ceremony, score: gs.summitLast?.score ?? null, pens: gs.summitLast?.pens ?? null },"), 'a card is handed something other than his own club and the score');
+  claim(appSrc.includes("text: summitShareText('trophy', { club: G.club(gs).name, season: ceremony })"), 'the ceremony does not send the summit\'s own words');
+  for (const k of ['trophy', 'final', 'win'] as const) {
+    const t = summitShareText(k, { club: 'סער ראש העין', season: 4 });
+    claim(t.includes('@be.a.pro.il') && t.includes('סער ראש העין') && !EURO_SUMMIT_CLUBS.some(c => t.includes(c.name) || t.includes(c.short)), `the ${k} words name a summit club, or lack the tag: ${t}`);
+  }
+}
+
+/* ------------------------------------------------- 31. the five-second reel */
+{
+  claim(REEL_MS === 5000, `the reel runs ${REEL_MS}ms`);
+  const data = { season: 4, round: 1, score: [3, 1] as [number, number], pens: null, goals: [{ minute: 12, name: 'כהן', mine: true }, { minute: 40, name: 'סמית', mine: false }, { minute: 71, name: 'לוי', mine: true }, { minute: 90, name: 'כהן', mine: true }] };
+  const sc = reelScript(data, 'סער ראש העין');
+  claim(sc.score === '3 : 1' && sc.club === 'סער ראש העין' && JSON.stringify(sc.goals) === JSON.stringify(["12' כהן", "40' שער ליריבה", "71' לוי", "90' כהן"]) && sc.pens === null && sc.more === null, `the reel does not say what happened: ${JSON.stringify(sc)}`);
+  claim(!JSON.stringify(sc).includes('סמית'), 'the reel names the other side\'s scorer');
+  claim(sc.footer === 'BE A PRO · beapro.co.il', `the reel's footer reads ${sc.footer}`);
+  const many = reelScript({ ...data, goals: Array.from({ length: 9 }, (_, i) => ({ minute: 10 + i, name: 'כהן', mine: true })), pens: [5, 4] }, 'א');
+  claim(many.goals.length === REEL_GOALS_SHOWN && many.more === 'ועוד 3 שערים' && many.pens === '5:4 בפנדלים', 'nine goals do not fit as six and three more, or the shootout is missing');
+  const at = (t: number) => reelAt(sc, t);
+  claim(at(0).headline && !at(0).score && at(799).score === false && at(800).score && at(1499).goals === 0 && at(1500).goals === 1 && at(1950).goals === 2 && at(3999).footer === false && at(4000).footer && at(5000).goals === 4, 'the reel\'s clock is not the headline, the score, a goal at a time, the footer');
+  claim(reelAt(many, 4000).goals === REEL_GOALS_SHOWN, 'six goals are not all on by the fourth second');
+  const reel = readFileSync('src/ui/components/SummitReel.tsx', 'utf8');
+  claim(reel.includes("if (typeof MediaRecorder === 'undefined' || typeof HTMLCanvasElement === 'undefined' || !('captureStream' in HTMLCanvasElement.prototype)) return null;") && reel.includes('{!still && mime && <button'), 'the save button shows where the browser cannot record');
+  claim(reel.includes('if (still) { drawFrame(c, T, script, REEL_MS, null, null);') && reel.includes('const t = Math.min(REEL_MS, now - t0);') && reel.includes('}, REEL_MS + 150);'), 'under reduced motion the reel moves, or it does not stop at five seconds');
+  claim(reel.includes("useSummitAsset('reel/win-base')") && reel.includes('reelScript(data, me.name)') && !/euroClub|oppId/.test(reel), 'the reel does not take its background from the list, or is handed a summit club');
+  claim(hubSrc.includes("{gs.summitLast && <button className=\"btn dark btn-sm\" onClick={() => setOpen('reel')}>תקציר 5 שניות</button>}"), 'the reel is offered without a win behind it');
+}
+
+/* ------------------------------------------------- 32. the sound, off until asked for */
+{
+  lsStore.clear();
+  claim(soundOn() === false, 'a clean install has the sounds on');
+  claim(playSummit('entrance') === false && playSummit('trophy') === false, 'a clean install made a sound');
+  setSound(true);
+  claim(soundOn() === true && lsStore.get('beapro.sound') === '1', 'turning the sounds on is not kept');
+  claim(playSummit('entrance') === false, 'a sound played before he touched the screen');
+  setSound(false);
+  claim(soundOn() === false && !lsStore.has('beapro.sound'), 'turning the sounds off leaves them on');
+  const snd = readFileSync('src/ui/sound.ts', 'utf8');
+  claim(snd.includes("if (!soundOn() || !touched || typeof document === 'undefined' || document.hidden) return null;"), 'a sound can play with the sounds off, before a touch, or in a hidden tab');
+  claim(!/new Audio\(|\.mp3|\.ogg|\.wav|fetch\(|import\(/.test(snd), 'the sounds load a file');
+  claim(snd.includes("window.addEventListener('pointerdown', mark, { once: true, capture: true });") && /ctx = ctx \?\? new AC\(\);/.test(snd), 'the audio engine is made before he touched the screen');
+  claim(readFileSync('src/ui/components/SummitEntrance.tsx', 'utf8').includes("playSummit('entrance');") && readFileSync('src/ui/components/TrophyCeremony.tsx', 'utf8').includes("playSummit('trophy');"), 'the entrance and the trophy have no sound to turn on');
+  claim(hubSrc.includes('const [sounds, setSounds] = useState(soundOn);') && hubSrc.includes("aria-pressed={sounds} onClick={() => { setSound(!sounds); setSounds(!sounds); }}>צלילים: {sounds ? 'דולקים' : 'כבויים'}</button>"), 'there is no switch for the sounds, or it does not say which way it stands');
+  claim(hubSrc.includes("{level === 1 && <div className=\"row\" style={{ marginTop: 10 }}><SoundSwitch /></div>}") && (hubSrc.match(/<SoundSwitch \/>/g) ?? []).length === 2, 'the switch is not on the summit night card and on the summit road card, or is on a card of ליגת אירופה');
+  // the rival card is handed tonight's line of history
+  const match = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  claim(appSrc.includes('rivalry: G.summitRivalry(gs)') && match.includes('rivalry={summit.rivalry}'), 'the rival card is not handed the line of history');
 }
 
 console.log(`${checked} checks`);

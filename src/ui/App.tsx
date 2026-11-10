@@ -86,12 +86,12 @@ import { AdPlayer } from './components/AdPlayer.tsx';
 import { pickAd } from '../game/adWatch.ts';
 import type { Ad } from '../data/ads.ts';
 import { TrophyCeremony } from './components/TrophyCeremony.tsx';
-import { shareText, shareLink } from '../game/share.ts';
+import { summitShareText, shareLink } from '../game/share.ts';
 
 /** A summit night's entrance and rival card, or null on any other night (ליגת אירופה keeps its own entrance). */
 const summitNightOf = (gs: G.GameState) => {
   const entrance = G.summitEntrance(gs), rival = G.summitRival(gs);
-  return entrance && rival ? { entrance, rival } : null;
+  return entrance && rival ? { entrance, rival, rivalry: G.summitRivalry(gs) } : null;
 };
 
 /**
@@ -710,7 +710,10 @@ function AppInner() {
       {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} comp={gs.euro?.level === 1 ? 'summit' : 'euro'} onDone={score => setGs(g => liftIfWon(g, G.finishEuroPens(g, score)))} />}
       {ceremony !== null && (
         <TrophyCeremony season={ceremony} onDone={() => setCeremony(null)}
-          share={{ text: shareText('euro', { club: G.club(gs).name, league: '', nextLeague: '', season: ceremony }), link: shareLink() }} />
+          share={{
+            club: G.club(gs), link: shareLink(), text: summitShareText('trophy', { club: G.club(gs).name, season: ceremony }),
+            card: { headline: 'אלופי אירופה', club: G.club(gs).name, season: ceremony, score: gs.summitLast?.score ?? null, pens: gs.summitLast?.pens ?? null },
+          }} />
       )}
       {gs.phase === 'euro-draw' && <EuroDrawScreen gs={gs} onDone={() => setGs(g => G.finishEuroDraw(g))} />}
       {gs.phase === 'euro-bracket' && <EuroBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}

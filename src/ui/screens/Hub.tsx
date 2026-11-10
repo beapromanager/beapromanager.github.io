@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { askWinChance } from '../winChance.ts';
+import { GoldenBook } from '../components/GoldenBook.tsx';
+import { SummitReel } from '../components/SummitReel.tsx';
+import { soundOn, setSound } from '../sound.ts';
 import { ROUND_NAMES, EURO_LIVE, competitionName } from '../../game/euro.ts';
 import { SummitPath } from '../components/SummitPath.tsx';
 import type { EuroNight } from '../../game/euro.ts';
@@ -358,6 +361,7 @@ function EuroHero({ night, level, onGo }: { night: EuroNight; level: number; onG
       <button className={level === 1 ? 'btn el-breathe' : 'btn'} style={{ marginTop: 12 }} onClick={onGo}>
         <Icon name="whistle" size={18} /> {level === 1 ? 'יוצאים לערב בפסגה' : 'יוצאים לערב האירופי'}
       </button>
+      {level === 1 && <div className="row" style={{ marginTop: 10 }}><SoundSwitch /></div>}
     </div>
   );
 }
@@ -366,8 +370,17 @@ function EuroHero({ night, level, onGo }: { night: EuroNight; level: number; onG
  * פסגת אירופה between its nights: where he stands on the gold road, and the way to the bracket (R12). Only while he
  * is in it or has lifted it, never on a night that has to be played first.
  */
+/** The summit's sounds are off until he turns them on here (R11); the button says which way it stands. Nothing is ever told by sound alone. */
+function SoundSwitch() {
+  const [sounds, setSounds] = useState(soundOn);
+  return (
+    <button type="button" className="btn dark btn-sm" aria-pressed={sounds} onClick={() => { setSound(!sounds); setSounds(!sounds); }}>צלילים: {sounds ? 'דולקים' : 'כבויים'}</button>
+  );
+}
+
 function SummitHubCard({ gs, onGo }: { gs: G.GameState; onGo: () => void }) {
   const e = gs.euro!;
+  const [open, setOpen] = useState<'book' | 'reel' | null>(null);
   const words = e.status === 'won' ? 'הגביע אצלכם. פסגת אירופה נכבשה.' : `בדרך לגמר. השלב הבא: ${ROUND_NAMES[e.round]}.`;
   return (
     <div className="match-hero" data-euro="1" data-summit="1">
@@ -378,6 +391,13 @@ function SummitHubCard({ gs, onGo }: { gs: G.GameState; onGo: () => void }) {
       <p className="hint" style={{ margin: 0 }}>{words}</p>
       <SummitPath euro={e} myId={gs.clubId} />
       <button className="btn dark" style={{ marginTop: 12 }} onClick={onGo}>לעץ הפסגה</button>
+      <div className="row el-hub-more" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        <button className="btn dark btn-sm" onClick={() => setOpen('book')}>ספר הזהב</button>
+        {gs.summitLast && <button className="btn dark btn-sm" onClick={() => setOpen('reel')}>תקציר 5 שניות</button>}
+        <SoundSwitch />
+      </div>
+      {open === 'book' && <GoldenBook gs={gs} onClose={() => setOpen(null)} />}
+      {open === 'reel' && gs.summitLast && <SummitReel gs={gs} data={gs.summitLast} onClose={() => setOpen(null)} />}
     </div>
   );
 }
