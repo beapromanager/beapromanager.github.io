@@ -33,13 +33,29 @@
  *      stopped under reduced motion, the one that repeats is the hub's main button, the font is loaded with swap
  *  19. the elite crest: every summit club wears it, with its own emblem, and no colour is written into the new
  *      components outside the tokens
+ *
+ * Stage 3, the entrance, the rival card, the trophy (R2 to R5, and R6's last minutes):
+ *  20. every file the summit asks for is in one list, named by the one rule, every one in HIGGSFIELD-SUMMIT.md and
+ *      the other way round, no prompt without "no text", nothing real in the prompts, nothing precached
+ *  21. the entrance: two to three seconds, a hard cut, the home club's ground and fires (or the final's), a clip
+ *      path for every club, his own ground for a home night
+ *  22. the rival card: one second, their strength and best man off the very eleven the engine fields, his chance
+ *      counted by the engine itself, the same on every reload and higher for a stronger side
+ *  23. the trophy: once, on the night the summit is won and only then, the summit's buzz, the foil confetti counts
+ *  24. the last minutes: darker edges and a breathing crowd only at the summit, from the 80th, a goal or less apart
+ *  25. Itzik's answers of 9.11: קייב הכחולה blue and yellow, the lawyer's four, the golden book's scope
  */
 import {
   EURO_CLUBS, EURO_SUMMIT_CLUBS, SUMMIT_FINAL_STADIUMS, SUMMIT_DRAFT, summitFinalStadium, poolFor, euroClub, summitClub,
+  SUMMIT_DECIDED, LAWYER_REVIEW, GOLDEN_BOOK_SCOPE,
 } from '../src/data/europeClubs.ts';
+import { SUMMIT_ASSETS, entranceAssetId, BOOK_MOMENTS, COACH_CLIPS } from '../src/data/summitAssets.ts';
+import { winChanceNow, roundTo5, ODDS_RUNS, sideRating, keyPlayer, oddsSeed, playOut } from '../src/game/summitOdds.ts';
+import { summitTension, TENSE_FROM } from '../src/game/summitPath.ts';
+import { makeSquad } from '../src/data/squadGen.ts';
 import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
 import { renameLegacy, NAMES_VERSION } from '../src/game/renames.ts';
-import { createRng } from '../src/engine/matchEngine.ts';
+import { createRng, overall } from '../src/engine/matchEngine.ts';
 import {
   SUMMIT_STAGE_TARGET, SUMMIT_CENTRE, SUMMIT_CAP, SUMMIT_PRIZE, SUMMIT_TRAVEL, SUMMIT_SECURITY, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
   STAGE_TARGET, PRIZE, TRAVEL, SECURITY, drawEuro, strengthOf, prizeFor, prizeTotal, competitionName, summitLevel,
@@ -450,10 +466,12 @@ claim(/family=Frank\+Ruhl\+Libre:wght@700;900/.test(readFileSync('index.html', '
   claim(moving.length >= 5, `only ${moving.length} moving selectors found, the reader of the sheet is broken`);
   for (const sel of moving) claim(stoppedRules.includes(sel), `${sel} keeps moving under reduced motion`);
   const infinite = [...cssSrc.matchAll(/([^{}]+)\{[^{}]*infinite[^{}]*\}/g)].map(m => m[1].trim());
-  claim(infinite.length === 1 && infinite[0] === '.el-breathe', `what repeats forever: ${infinite.join(' | ') || 'nothing'}, only the hub's main button may`);
+  // two things may repeat for as long as they are on: the hub's main button, and the crowd of a close summit finish (R6)
+  claim(JSON.stringify(infinite.slice().sort()) === JSON.stringify(['.el-breathe', '.el-tense-crowd']), `what repeats forever: ${infinite.join(' | ') || 'nothing'}, only the hub's main button and the tense crowd may`);
   claim(/el-breathe/.test(hubSrc) && !/el-breathe/.test(bracketSrc + seasonSrc), 'the breath is not on the hub\'s main summit button, or is somewhere else');
   // foil: every element that wears it is set at 22px or more
-  const tsx = ['src/ui/screens/SeasonEnd.tsx', 'src/ui/screens/Hub.tsx', 'src/ui/screens/EuroBracket.tsx', 'src/ui/screens/EuroDraw.tsx', 'src/ui/components/SummitPath.tsx', 'src/ui/components/Elite.tsx'].map(p => readFileSync(p, 'utf8')).join('\n');
+  const tsx = ['src/ui/screens/SeasonEnd.tsx', 'src/ui/screens/Hub.tsx', 'src/ui/screens/EuroBracket.tsx', 'src/ui/screens/EuroDraw.tsx', 'src/ui/components/SummitPath.tsx', 'src/ui/components/Elite.tsx',
+    'src/ui/components/SummitEntrance.tsx', 'src/ui/components/RivalCard.tsx', 'src/ui/components/TrophyCeremony.tsx'].map(p => readFileSync(p, 'utf8')).join('\n');
   const foils = [...tsx.matchAll(/el-foil-text[^>]*fontSize: (\d+)/g)].map(m => Number(m[1]));
   const foilUses = (tsx.match(/el-foil-text/g) ?? []).length;
   claim(foilUses >= 1 && foils.length === foilUses && foils.every(n => n >= 22), `foil below 22px or without a size: ${foils.join(', ')} of ${foilUses}`);
@@ -472,14 +490,198 @@ claim(/family=Frank\+Ruhl\+Libre:wght@700;900/.test(readFileSync('index.html', '
   const wanted = Object.values(EMBLEMS).sort();
   claim(JSON.stringify(names.slice().sort()) === JSON.stringify(wanted), `the drawn emblems are not his twenty: ${names.join(', ')}`);
   const eliteCrest = crest.slice(crest.indexOf('function EliteCrest'));
-  for (const [what, src] of [['Elite.tsx', elite], ['SummitPath.tsx', path], ['the elite crest', eliteCrest]] as const) {
+  const stage3 = ['SummitEntrance', 'RivalCard', 'TrophyCeremony'].map(n => [`${n}.tsx`, readFileSync(`src/ui/components/${n}.tsx`, 'utf8')] as const);
+  for (const [what, src] of [['Elite.tsx', elite], ['SummitPath.tsx', path], ['the elite crest', eliteCrest], ...stage3] as const) {
     claim(!/#[0-9A-Fa-f]{3,6}\b|rgba?\(/.test(src), `${what} writes a colour outside the tokens`);
   }
   // the plain crest is drawn exactly as it was for every club that is not of the summit
   claim(crest.includes("fontFamily=\"Heebo, Rubik, sans-serif\" fontWeight=\"900\" fontSize=\"38\""), 'the plain crest changed');
 }
 
+/* ------------------------------------------------- 20. the files, in one list and in the doc */
+{
+  const ids = SUMMIT_ASSETS.map(a => a.id);
+  claim(new Set(ids).size === ids.length, 'two summit files share an id');
+  for (const a of SUMMIT_ASSETS) {
+    const ext = a.kind === 'video' ? 'mp4' : 'webp';
+    claim(a.path === `/summit/${a.id}.${ext}` && /^[a-z]+\/[a-z0-9-]+$/.test(a.id) && a.id.startsWith(a.group + '/'), `${a.id} is not named public/summit/<group>/<name>.${ext}: ${a.path}`);
+    claim(a.kind === 'image' ? a.poster === undefined : a.poster === `/summit/${a.id}.webp`, `${a.id} has no poster beside it, or an image has one`);
+  }
+  for (const c of EURO_SUMMIT_CLUBS) {
+    claim(ids.includes(`entrance/${c.id}`) && ids.includes(`crest/${c.id}`), `${c.name} has no entrance clip or crest picture in the list`);
+  }
+  for (const want of ['entrance/home', 'entrance/final', 'trophy/ceremony', 'share/bg', 'map/path-bg', 'reel/win-base', ...COACH_CLIPS.map(n => `coach/${n}`), ...BOOK_MOMENTS.map(n => `book/${n}`)]) {
+    claim(ids.includes(want), `the list has no ${want}`);
+  }
+  claim(SUMMIT_ASSETS.length === 64 && COACH_CLIPS.length === 6 && BOOK_MOMENTS.length >= 10 && BOOK_MOMENTS.length <= 14, `the list holds ${SUMMIT_ASSETS.length} files, 64 agreed`);
+  const doc = readFileSync('HIGGSFIELD-SUMMIT.md', 'utf8');
+  const headed = [...doc.matchAll(/^### `([a-z]+\/[a-z0-9-]+)`/gm)].map(m => m[1]);
+  for (const id of ids) claim(headed.includes(id), `HIGGSFIELD-SUMMIT.md has no prompt for ${id}`);
+  for (const id of headed) claim(ids.includes(id), `HIGGSFIELD-SUMMIT.md asks for ${id}, which the code never loads`);
+  const negs = [...doc.matchAll(/negative: ([^\n]+)/g)].map(m => m[1]);
+  claim(negs.length >= 6 && negs.every(n => /\btext\b/.test(n) && /\bletters\b/.test(n) && /\blogos\b/.test(n)), 'a negative prompt does not forbid text, letters and logos');
+  const blocks = [...doc.matchAll(/```\n([\s\S]*?)```/g)].map(m => m[1]).filter(b => !b.startsWith('ffmpeg'));
+  claim(blocks.length >= 7, `only ${blocks.length} prompt skeletons`);
+  const realHit = [doc].map(d => REAL_GROUNDS.find(g => d.includes(g)) ?? NICKNAMES.find(n => d.includes(n)) ?? null)[0];
+  claim(!realHit, `HIGGSFIELD-SUMMIT.md names a real ground or nickname: ${realHit}`);
+  const englishReal = ['Real Madrid', 'Barcelona', 'Atletico', 'Manchester', 'Liverpool', 'Chelsea', 'Arsenal', 'Bayern', 'Dortmund', 'Juventus', 'Milan', 'Inter', 'Napoli', 'Paris Saint', 'Porto', 'Benfica', 'Galatasaray', 'Celtic', 'Ajax', 'Champions League', 'Bernabeu', 'Anfield', 'Old Trafford', 'San Siro'];
+  const inPrompt = englishReal.filter(w => blocks.some(b => b.includes(w)) || [...doc.matchAll(/\{[A-Z]+\} = ([^\n]+)/g)].some(m => m[1].includes(w)));
+  claim(inPrompt.length === 0, `a prompt names a real club, competition or ground: ${inPrompt.join(', ')}`);
+  claim(/guide\.webp/.test(doc) && /celebrate\.mp4/.test(doc) && /flat vector illustration/i.test(doc), 'the coach clips do not take the existing coach as their reference');
+  // no screen names a summit file by hand, and nothing is kept on the phone
+  const ui = ['src/ui/App.tsx', 'src/ui/screens/Hub.tsx', 'src/ui/screens/Match.tsx', 'src/ui/screens/SeasonEnd.tsx', 'src/ui/screens/EuroBracket.tsx',
+    'src/ui/components/SummitEntrance.tsx', 'src/ui/components/RivalCard.tsx', 'src/ui/components/TrophyCeremony.tsx', 'src/ui/components/SummitPath.tsx']
+    .map(p => [p, readFileSync(p, 'utf8')] as const);
+  for (const [p, src] of ui) claim(!/['"`]\/?summit\//.test(src), `${p} names a summit file by hand instead of through the list`);
+  const sw = readFileSync('public/sw.js', 'utf8').replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '');
+  claim(!/caches\.open|addAll|respondWith/.test(sw), 'the service worker keeps files: the summit files would be precached');
+  const hook = readFileSync('src/ui/summitAsset.ts', 'utf8');
+  claim(/export const SUMMIT_ASSET_WAIT = (\d+);/.test(hook) && Number(hook.match(/SUMMIT_ASSET_WAIT = (\d+)/)![1]) <= 400, 'a summit file is waited on for more than 400ms');
+  claim(hook.includes('v.onerror = () => done(false);') && hook.includes('img.onerror = () => done(false);'), 'a missing summit file is not caught');
+  for (const n of ['SummitEntrance', 'TrophyCeremony']) {
+    const src = readFileSync(`src/ui/components/${n}.tsx`, 'utf8');
+    claim(src.includes('onError={() => setBroken(true)}'), `${n}: a clip that breaks while playing does not fall back`);
+  }
+}
+
+/* ------------------------------------------------- 21. the entrance */
+{
+  const ent = readFileSync('src/ui/components/SummitEntrance.tsx', 'utf8');
+  const ms = Number(ent.match(/export const SUMMIT_ENTRANCE_MS = (\d+);/)?.[1]);
+  const still = Number(ent.match(/export const SUMMIT_ENTRANCE_STILL_MS = (\d+);/)?.[1]);
+  claim(ms >= 2000 && ms <= 3000, `the entrance runs ${ms}ms, agreed 2000 to 3000`);
+  claim(still === 1500 && ent.includes('still ? SUMMIT_ENTRANCE_STILL_MS : SUMMIT_ENTRANCE_MS'), 'under reduced motion the entrance is not one still frame for 1.5 seconds');
+  claim(ent.includes('onClick={end}'), 'a tap does not cut the entrance');
+  // his own ground's clip is white fire: his colours, which change from career to career, are laid over it, and only there
+  claim(ent.includes("const homeClip = clipId === 'entrance/home';") && ent.includes('{useClip && homeClip && (')
+    && ent.includes('${data.flares[0]} 0%') && /\.el-entrance-tint\{[^}]*mix-blend-mode:color/.test(cssSrc), 'his own ground\'s clip is not tinted in his colours, or another ground\'s is');
+  const rule = (sel: string) => cssSrc.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}'))?.[1] ?? '';
+  claim(rule('.el-entrance').length > 0 && !/transition|animation|opacity/.test(rule('.el-entrance')), 'the entrance fades instead of cutting');
+  claim(!/opacity|transition/.test(rule('.el-entrance-media')), 'the entrance picture fades');
+  claim(/className="el-entrance-title el-foil-text"/.test(ent) && /\{data\.title\}/.test(ent) && /\{data\.stadium\}/.test(ent), 'the name and the ground are not drawn by the code');
+  // a night of each kind
+  const hub = { ...topCareer(), phase: 'hub' as const, season: 3 };
+  const summitOn = (gs: G.GameState) => {
+    for (let w = 1; w <= gs.league.rounds + 2; w++) { const g = { ...gs, week: w }; if (G.euroNight(g, true)) return g; }
+    return null;
+  };
+  const s = summitOn({ ...hub, euro: drawEuro(31, hub.clubId, hub.season, 1) })!;
+  claim(!!s, 'no summit night found');
+  const night = G.euroNight(s, true)!;
+  const homeNight = night.host ? s : null;
+  const e1 = G.summitEntrance(s, true)!;
+  const them = summitClub(night.oppId)!;
+  if (homeNight) {
+    claim(e1.title === G.club(s).name && e1.homeId === s.clubId && e1.flares.length === 2 && !e1.final, `a home night reads ${e1.title}`);
+    claim(entranceAssetId(e1.homeId, e1.final) === 'entrance/home', 'his own ground does not take the home clip');
+  }
+  // the same night turned round: their ground
+  const away = { ...s, euro: { ...s.euro!, ties: s.euro!.ties.map((r, i) => i === night.round ? r.map(t => t.a === s.clubId ? { ...t, a: t.b, b: t.a } : t) : r) } };
+  const eAway = G.summitEntrance(away, true);
+  const nAway = G.euroNight(away, true);
+  if (eAway && nAway && nAway.host === false) {
+    claim(eAway.title === them.name && eAway.stadium === them.stadium && JSON.stringify(eAway.flares) === JSON.stringify(them.flares) && eAway.homeId === them.id,
+      `an away night reads ${eAway.title} at ${eAway.stadium}`);
+    claim(entranceAssetId(eAway.homeId, false) === `entrance/${them.id}`, 'their ground does not take their clip');
+  } else claim(false, 'the away night could not be built');
+  const fin = finalLevel(hub, 1);
+  const finNight = summitOn({ ...fin, euro: { ...fin.euro!, ties: fin.euro!.ties.map((r, i) => i === EURO_ROUNDS - 1 ? r.map(t => ({ ...t, legs: [] })) : r) } });
+  const eFin = finNight ? G.summitEntrance(finNight, true) : null;
+  claim(!!eFin && eFin.final && eFin.title === 'גמר פסגת אירופה' && (SUMMIT_FINAL_STADIUMS as readonly string[]).includes(eFin.stadium) && eFin.flares.length === 2,
+    `the final reads ${eFin?.title} at ${eFin?.stadium}`);
+  claim(entranceAssetId('final', true) === 'entrance/final', 'the final does not take its own clip');
+  const lower = summitOn({ ...hub, euro: drawEuro(31, hub.clubId, hub.season, 0) });
+  claim(!!lower && G.summitEntrance(lower, true) === null && G.summitRival(lower, true) === null, 'a night of ליגת אירופה gets the summit entrance');
+  for (const c of EURO_SUMMIT_CLUBS) claim(c.flares.length === 2 && c.flares.every(f => HEX.test(f)) && c.stadium.length > 2 && !!SUMMIT_ASSETS.find(a => a.id === entranceAssetId(c.id, false)), `${c.name} lacks flares, a ground or a clip`);
+  claim(G.flareOf('#141414') === '#C9A227' && G.flareOf('#C8102E') === '#C8102E', 'a black flare is not lifted to gold, or a red one is');
+  const match = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  claim(match.includes('{entrance && !summit && clubs && euroLines && <EuroEntrance'), 'the summit night still shows ליגת אירופה\'s entrance');
+  claim(match.includes("onDone={() => setSummitStep('rival')}") && match.includes('onDone={() => { setSummitStep(null); setEntrance(false); }}'), 'the entrance does not lead to the rival card and then the match');
+  claim(appSrc.includes('summit={summitNightOf(gs)}'), 'the summit night is not handed to the match');
+}
+
+/* ------------------------------------------------- 22. the rival card */
+{
+  const card = readFileSync('src/ui/components/RivalCard.tsx', 'utf8');
+  claim(/export const RIVAL_CARD_MS = 1000;/.test(card), 'the rival card does not stand for one second');
+  claim(card.includes('onClick={end}') && !/animation|transition/.test(card), 'a tap does not cut the card, or it moves on its own');
+  claim(/\.el-rival\{[^}]*animation:el-rival-in \.22s/.test(cssSrc), 'the card does not arrive');
+  claim(card.includes("chance === null ? 'נספר'"), 'a chance not yet counted is invented instead of said');
+  claim(ODDS_RUNS >= 200, `the chance counts ${ODDS_RUNS} matches, agreed at least 200`);
+  claim([0, 0.024, 0.026, 0.5, 0.51, 0.99, 1].map(roundTo5).join(',') === '5,5,5,50,50,95,95', 'the chance is not rounded to 5, between 5 and 95');
+  const hub = { ...topCareer(), phase: 'hub' as const, season: 3 };
+  let s: G.GameState | null = null;
+  for (let w = 1; w <= hub.league.rounds + 2 && !s; w++) { const g = { ...hub, week: w, euro: drawEuro(57, hub.clubId, hub.season, 1) }; if (G.euroNight(g, true)) s = g; }
+  claim(!!s, 'no summit night for the card');
+  if (s) {
+    const input = G.euroMatchInput(s, true);
+    const r = G.summitRival(s, true)!;
+    claim(r.rating === sideRating(input.oppStarters), `the card says ${r.rating}, the eleven on the pitch are ${sideRating(input.oppStarters)}`);
+    // the best of the eleven found here by hand, not through the function under test
+    const top = Math.max(...input.oppStarters.map(p => overall(p)));
+    const best = input.oppStarters.find(p => overall(p) === top)!;
+    claim(keyPlayer(input.oppStarters)?.id === best.id, 'keyPlayer does not pick the best of the eleven who start');
+    claim(!!r.key && r.key.name === best.name && r.key.ovr === top, `the key man is ${r.key?.name} (${r.key?.ovr}), the best of the eleven is ${best.name} (${top})`);
+    const a = winChanceNow(input), b = winChanceNow(input);
+    claim(a === b && a % 5 === 0, `the same night counted twice: ${a} and ${b}`);
+    // every run on its own fixed seed, the same on every reload: the seeds and the run-by-run results, on a side
+    // close enough to the other for the result to swing
+    claim(oddsSeed(input.seed, 0) === oddsSeed(input.seed, 0) && oddsSeed(input.seed, 7) === (input.seed + 8 * 0x9e3779b1) >>> 0
+      && new Set(Array.from({ length: ODDS_RUNS }, (_, i) => oddsSeed(input.seed, i))).size === ODDS_RUNS, 'the runs are not on fixed, distinct seeds');
+    const even = makeSquad(90, createRng(5));
+    const evenIn = { ...input, playerStarters: even.starters, playerBench: even.bench, seated: false };
+    const runsA = Array.from({ length: 40 }, (_, i) => playOut(evenIn, oddsSeed(evenIn.seed, i))).join(',');
+    const runsB = Array.from({ length: 40 }, (_, i) => playOut(evenIn, oddsSeed(evenIn.seed, i))).join(',');
+    claim(runsA === runsB && runsA.includes('true') && runsA.includes('false'), 'the same runs did not play the same way twice, or never swing');
+    const weak = makeSquad(70, createRng(9)), strong = makeSquad(96, createRng(9));
+    const pWeak = winChanceNow({ ...input, playerStarters: weak.starters, playerBench: weak.bench, seated: false });
+    const pStrong = winChanceNow({ ...input, playerStarters: strong.starters, playerBench: strong.bench, seated: false });
+    claim(pStrong > pWeak, `a far stronger side reads ${pStrong}%, a far weaker one ${pWeak}%`);
+  }
+  const hubSrc2 = readFileSync('src/ui/screens/Hub.tsx', 'utf8');
+  claim(hubSrc2.includes('askWinChance(G.euroMatchInput(gs))') && /const summitNight = !!night && gs\.euro\?\.level === 1;/.test(hubSrc2), 'the chance does not start counting on the hub of a summit night');
+  const wc = readFileSync('src/ui/winChance.ts', 'utf8');
+  claim(wc.includes("new Worker(new URL('../game/oddsWorker.ts', import.meta.url)") && wc.includes('winChance(input)'), 'the chance is not counted off the page, or has no way round a missing worker');
+}
+
+/* ------------------------------------------------- 23. the trophy */
+{
+  const cer = readFileSync('src/ui/components/TrophyCeremony.tsx', 'utf8');
+  const ms = Number(cer.match(/export const CEREMONY_MS = (\d+);/)?.[1]);
+  claim(ms >= 5000 && ms <= 6000, `the ceremony runs ${ms}ms, agreed five to six seconds`);
+  claim(cer.includes('export const BUZZ_TROPHY = [60, 80, 60, 80, 200];') && cer.includes('buzz(BUZZ_TROPHY)') && cer.includes('if (!buzzed.current)'), 'the trophy does not buzz its own pattern once');
+  claim(/export const CONFETTI_FULL = 150;/.test(cer) && /export const CONFETTI_LIGHT = 90;/.test(cer) && cer.includes('(isWeak ? CONFETTI_LIGHT : CONFETTI_FULL)'), 'the confetti is not 150, and 90 on a weak phone');
+  claim(cer.includes('useState(still)') && cer.includes("onClick={() => (atEnd ? onDone() : setAtEnd(true))}"), 'under reduced motion the title is not there at once, or a tap does not jump to the end');
+  claim(cer.includes('אלופי אירופה') && cer.includes('פסגת אירופה · עונה'), 'the ceremony does not say אלופי אירופה and the season');
+  claim(appSrc.includes("before.euro?.level === 1 && before.euro.status !== 'won' && after.euro?.level === 1 && after.euro.status === 'won'"), 'the ceremony is not tied to the night the summit is won');
+  claim(appSrc.includes('setGs(liftIfWon(gs, G.commitEuroLeg(gs, result, ids)))') && appSrc.includes('setGs(g => liftIfWon(g, G.finishEuroPens(g, score)))'), 'a final won in the match or in the shootout does not lift the trophy');
+  claim(/\.el-ceremony-cup\[data-rise="1"\] svg\{animation:el-cup-rise 5\.6s[^}]*1 both;\}/.test(cssSrc), 'the drawn cup does not rise once');
+}
+
+/* ------------------------------------------------- 24. the last minutes */
+{
+  claim(TENSE_FROM === 80, `the last minutes start at ${TENSE_FROM}`);
+  claim(summitTension(0, 88, [1, 1]) === 0 && summitTension(undefined, 88, [1, 1]) === 0, 'ליגת אירופה darkens its last minutes');
+  claim(summitTension(1, 79, [1, 1]) === 0 && summitTension(1, 80, [1, 1]) > 0, 'the summit darkens before the 80th, or not at it');
+  claim(summitTension(1, 85, [2, 1]) > 0 && summitTension(1, 85, [3, 1]) === 0 && summitTension(1, 85, [0, 2]) === 0, 'two goals apart still darkens, or one apart does not');
+  claim(summitTension(1, 90, [0, 0]) === 1 && summitTension(1, 95, [0, 0]) === 1 && summitTension(1, 84, [0, 0]) < summitTension(1, 88, [0, 0]), 'the dark does not grow to the 90th');
+  const match = readFileSync('src/ui/screens/Match.tsx', 'utf8');
+  claim(match.includes('{summit && <TenseEdges level={gs.euro?.level} minute={st.minute} score={st.score} />}'), 'the edges are not tied to the summit night');
+}
+
+/* ------------------------------------------------- 25. Itzik's answers of 9.11 */
+{
+  const k = euroClub('eu-amsterdam')!;
+  const h = (x: string) => hue(x);
+  claim(h(k.primary) >= 200 && h(k.primary) <= 240 && h(k.secondary) >= 40 && h(k.secondary) <= 60, `קייב הכחולה is ${k.primary} / ${k.secondary}, agreed blue and yellow`);
+  claim(JSON.stringify(LAWYER_REVIEW) === JSON.stringify(['טורינו בשחור לבן', 'מילאנו אדומה', 'מילאנו הכחולה', 'גלזגו הירוקה']) && LAWYER_REVIEW.every(n => EURO_SUMMIT_CLUBS.some(c => c.name === n)), 'the lawyer\'s list is not the four');
+  claim(GOLDEN_BOOK_SCOPE === 'finals', `the golden book takes ${GOLDEN_BOOK_SCOPE}, agreed finals and trophies`);
+  claim(SUMMIT_DECIDED.length === 4 && SUMMIT_DRAFT.length === 1 && /short/.test(SUMMIT_DRAFT[0]), 'what is decided and what is still open are not his answers of 9.11');
+}
+
 console.log(`${checked} checks`);
 if (fails.length) { console.log(`FAIL (${fails.length})`); for (const f of fails.slice(0, 30)) console.log('  - ' + f); process.exit(1); }
 console.log('  still temporary, waiting for Itzik:\n    - ' + SUMMIT_DRAFT.join('\n    - '));
+console.log('  decided by Itzik:\n    - ' + SUMMIT_DECIDED.join('\n    - '));
+console.log('  for the lawyer before going live: ' + LAWYER_REVIEW.join(', '));
 console.log('OK, his twenty and קייב הכחולה, the summit drawn, entered, paid and chronicled by its own rules, and ליגת אירופה as it was');

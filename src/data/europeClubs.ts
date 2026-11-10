@@ -42,7 +42,7 @@ export const EURO_CLUBS: EuroClub[] = [
   // The id is historical: this was ר.ב אמסטרדם until Itzik made it קייב הכחולה on 31.10.2026. An id sits in saves, in
   // a competition half played and in the chronicle, so the id stays and only the club behind it changed (renames.ts).
   { id: 'eu-amsterdam', name: 'קייב הכחולה', short: 'קייב הכחולה', city: 'קייב', country: 'אוקראינה',
-    primary: '#2559C7', secondary: '#F5F7FA', accent: '#F2C94C', shape: 'round', pattern: 'half' },
+    primary: '#2559C7', secondary: '#F2C94C', accent: '#F5F7FA', shape: 'round', pattern: 'half' },
   { id: 'eu-athens', name: 'אתלטיק אתונה', short: 'אתלטיק אתונה', city: 'אתונה', country: 'יוון',
     primary: '#0F7B6C', secondary: '#F3EDE0', accent: '#F3EDE0', shape: 'diamond', pattern: 'sash' },
   { id: 'eu-glasgow', name: 'בלוז גלזגו', short: 'בלוז גלזגו', city: 'גלזגו', country: 'סקוטלנד',
@@ -176,11 +176,26 @@ export const EURO_SUMMIT_CLUBS: SummitClub[] = [
  * each is one line to change. summit-check prints this list on every run so it is not forgotten.
  */
 export const SUMMIT_DRAFT: readonly string[] = [
-  'the short names of the twenty (השנהבית, הפייטרים, קטלוניה, ... ; טורינו בשחור לבן is שחור לבן)',
-  'the twenty invented grounds (זירת הנהר for the Madrid fighters) and the six final grounds',
-  'the colours of קייב הכחולה (blue, white, a touch of yellow; round, half)',
-  'טורינו, מילאנו and גלזגו הירוקה, for the lawyer',
+  'the short names of the twenty: the table is with Itzik (9.11)',
 ];
+
+/** Itzik's answers of 9.11.2026 to stage 0's open questions. */
+export const SUMMIT_DECIDED: readonly string[] = [
+  'grounds: invented only, the twenty and the six finals as they are',
+  'קייב הכחולה: blue and yellow (blue body, yellow half), no real crest copied',
+  '+5 gems: once per career, the first entry only',
+  'the golden book: trophy wins and finals only',
+];
+
+/**
+ * Names the lawyer reads before פסגת אירופה goes live (Itzik, 9.11.2026). Nothing ships while this list is not
+ * cleared: DEPLOY.md and HANDOFF-NEXT.md carry it (stage 6), check:summit prints it on every run.
+ */
+export const LAWYER_REVIEW: readonly string[] = ['טורינו בשחור לבן', 'מילאנו אדומה', 'מילאנו הכחולה', 'גלזגו הירוקה'];
+
+/** What earns a golden-book page (R7, Itzik 9.11): a final played, and a double page for the trophy. Not every win. */
+export const GOLDEN_BOOK_SCOPE = 'finals' as const;
+
 
 /** The final of פסגת אירופה is played on neutral ground, a different invented one each season. */
 export const SUMMIT_FINAL_STADIUMS = [

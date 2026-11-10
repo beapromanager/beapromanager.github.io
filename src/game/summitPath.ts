@@ -41,3 +41,15 @@ export function summitStops(e: EuroState, myId: string): Stop[] {
   }
   return out;
 }
+
+/** The last minutes of a close summit night (R6): from this minute, with a goal or less between the sides. */
+export const TENSE_FROM = 80;
+
+/**
+ * How dark the edges grow and whether the crowd breathes: 0 outside the summit, before the 80th minute, or with two
+ * goals or more between the sides; from there it grows to 1 by the 90th.
+ */
+export function summitTension(level: number | undefined, minute: number, score: readonly [number, number]): number {
+  if (level !== 1 || minute < TENSE_FROM || Math.abs(score[0] - score[1]) > 1) return 0;
+  return Math.min(1, 0.35 + ((minute - TENSE_FROM) / 10) * 0.65);
+}

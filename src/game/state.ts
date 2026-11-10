@@ -18,7 +18,8 @@ import {
   GATE_SHARE, travelFor, securityFor, competitionName, summitLevel, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
 } from './euro.ts';
 import type { EuroState, EuroNight, EuroTie } from './euro.ts';
-import { euroClub, asClub } from '../data/europeClubs.ts';
+import { euroClub, asClub, summitClub, summitFinalStadium } from '../data/europeClubs.ts';
+import { sideRating, keyPlayer } from './summitOdds.ts';
 import { makeEuroName } from '../data/europeNames.ts';
 import {
   CUP_LIVE, CUP_MIN_TIER, CUP_TIRED, CUP_INJURY_RISK, CUP_GATE_SHARE, CUP_TRAVEL,
@@ -3780,6 +3781,54 @@ export function euroEntranceLines(gs: GameState, live: boolean = EURO_LIVE): { r
     awayPlace: iAmHome ? theirPlace : myPlace,
     venue,
   };
+}
+
+/** A flare colour that reads as fire: one too dark to burn shows gold instead. */
+export function flareOf(hex: string): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  if (Number.isNaN(n)) return '#C9A227';
+  const l = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+  return l < 0.16 ? '#C9A227' : hex;
+}
+
+export interface SummitEntranceData {
+  final: boolean;
+  /** whose ground: the home club's id, the clip is chosen by it */
+  homeId: string;
+  /** the words in the middle of the grass: the home club's name, or the final's own */
+  title: string;
+  /** the ground, small under the name */
+  stadium: string;
+  /** the colours the ends burn: the home club's two, or one of each side in the final */
+  flares: string[];
+}
+
+/**
+ * The top-down beat before a summit night (R3): whose ground, its name and its fires. Null on any night that is not
+ * the summit's, so ליגת אירופה keeps its own entrance untouched.
+ */
+export function summitEntrance(gs: GameState, live: boolean = EURO_LIVE): SummitEntranceData | null {
+  const night = euroNight(gs, live);
+  if (!night || gs.euro?.level !== 1) return null;
+  const me = club(gs);
+  const them = summitClub(night.oppId);
+  const mine = [flareOf(me.primary), flareOf(me.secondary)];
+  const theirs = them ? them.flares : [flareOf(euroClub(night.oppId)?.primary ?? '#C9A227')];
+  if (night.host === null) return {
+    final: true, homeId: 'final', title: 'גמר פסגת אירופה', stadium: summitFinalStadium(gs.season),
+    flares: [mine[0], theirs[0]],
+  };
+  if (night.host) return { final: false, homeId: me.id, title: me.name, stadium: `האצטדיון ב${me.city}`, flares: mine };
+  return { final: false, homeId: night.oppId, title: them?.name ?? euroClub(night.oppId)?.name ?? '', stadium: them?.stadium ?? '', flares: [...theirs] };
+}
+
+/** The rival card's facts (R4), off the very squad the engine will field tonight: crest, strength, best man. */
+export function summitRival(gs: GameState, live: boolean = EURO_LIVE): { oppId: string; rating: number; key: { name: string; position: string; ovr: number } | null } | null {
+  const night = euroNight(gs, live);
+  if (!night || gs.euro?.level !== 1) return null;
+  const opp = euroOpponent(gs, night);
+  const k = keyPlayer(opp.starters);
+  return { oppId: night.oppId, rating: sideRating(opp.starters), key: k ? { name: k.name, position: k.position, ovr: overall(k) } : null };
 }
 
 /** The draw was made in the summer; the ceremony is owed once, until he has watched it or skipped it. */

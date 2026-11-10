@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as G from '../../game/state.ts';
+import { askWinChance } from '../winChance.ts';
 import { ROUND_NAMES, EURO_LIVE, competitionName } from '../../game/euro.ts';
 import { SummitPath } from '../components/SummitPath.tsx';
 import type { EuroNight } from '../../game/euro.ts';
@@ -69,6 +70,11 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
   const books = G.debt(gs);
   const hero = useRef<HTMLDivElement>(null);
   const night = G.euroNight(gs);
+  // a summit night ahead: the rival card's chance starts counting now, in a worker, so it is ready by kickoff
+  const summitNight = !!night && gs.euro?.level === 1;
+  useEffect(() => { if (summitNight) { try { askWinChance(G.euroMatchInput(gs)); } catch { /* no night after all */ } } },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [summitNight, gs.week, gs.season]);
   const pensDue = G.euroPensDue(gs);
   const drawDue = G.euroDrawDue(gs);
   const cupNight = G.cupNight(gs);

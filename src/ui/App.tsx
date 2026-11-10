@@ -85,6 +85,14 @@ import { ReportSheet } from './components/ReportSheet.tsx';
 import { AdPlayer } from './components/AdPlayer.tsx';
 import { pickAd } from '../game/adWatch.ts';
 import type { Ad } from '../data/ads.ts';
+import { TrophyCeremony } from './components/TrophyCeremony.tsx';
+import { shareText, shareLink } from '../game/share.ts';
+
+/** A summit night's entrance and rival card, or null on any other night (ליגת אירופה keeps its own entrance). */
+const summitNightOf = (gs: G.GameState) => {
+  const entrance = G.summitEntrance(gs), rival = G.summitRival(gs);
+  return entrance && rival ? { entrance, rival } : null;
+};
 
 /**
  * Screens whose way out is simply the hub.
@@ -127,6 +135,12 @@ function AppInner() {
   // title screen, which is alive on its own (Itzik, 12.10: the film for the first visit, the living picture for everyone).
   // (a career that has just arrived from the other address is a saved career, so this already skips the cold open for it)
   const [introDone, setIntroDone] = useState(() => savedSummary() !== null);
+  // פסגת אירופה lifted (R5): the ceremony plays once, straight after the final, over whatever screen comes next
+  const [ceremony, setCeremony] = useState<number | null>(null);
+  const liftIfWon = (before: G.GameState, after: G.GameState): G.GameState => {
+    if (before.euro?.level === 1 && before.euro.status !== 'won' && after.euro?.level === 1 && after.euro.status === 'won') setCeremony(after.season);
+    return after;
+  };
   // the old address (Itzik, 3.11): no new career there. With none saved it is only the way to beapro.co.il, read once
   // on load so an invite's ?league=CODE goes along before the address is tidied
   const [moved, setMoved] = useState<string | null>(() => (isOldDomainHere() && savedSummary() === null ? movedTarget(location.search, null) : null));
@@ -690,9 +704,14 @@ function AppInner() {
       {gs.phase === 'friendly' && <FriendlyScreen gs={gs} onDone={() => setGs(g => G.finishFriendly(g))} />}
       {gs.phase === 'euro-match' && (
         <MatchBroadcast gs={gs} live={G.euroMatchInput(gs)} clubs={G.euroMatchClubs(gs)} euroLines={G.euroEntranceLines(gs)} flare={null} doneLabel="סיום הערב"
-          onDone={(result, ids) => setGs(G.commitEuroLeg(gs, result, ids))} />
+          summit={summitNightOf(gs)}
+          onDone={(result, ids) => setGs(liftIfWon(gs, G.commitEuroLeg(gs, result, ids)))} />
       )}
-      {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} comp="euro" onDone={score => setGs(g => G.finishEuroPens(g, score))} />}
+      {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} comp="euro" onDone={score => setGs(g => liftIfWon(g, G.finishEuroPens(g, score)))} />}
+      {ceremony !== null && (
+        <TrophyCeremony season={ceremony} onDone={() => setCeremony(null)}
+          share={{ text: shareText('euro', { club: G.club(gs).name, league: '', nextLeague: '', season: ceremony }), link: shareLink() }} />
+      )}
       {gs.phase === 'euro-draw' && <EuroDrawScreen gs={gs} onDone={() => setGs(g => G.finishEuroDraw(g))} />}
       {gs.phase === 'euro-bracket' && <EuroBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}
       {gs.phase === 'cup-match' && (

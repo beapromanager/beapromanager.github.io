@@ -23,6 +23,10 @@ import type { EntranceLines } from '../components/EuroEntrance.tsx';
 import { LivePitch } from '../components/LivePitch.tsx';
 import { PitchTurf, shortNames } from '../components/LineupPitch.tsx';
 import { buzz, BUZZ_GOAL } from '../haptics.ts';
+import { SummitEntrance } from '../components/SummitEntrance.tsx';
+import { RivalCard } from '../components/RivalCard.tsx';
+import { useWinChance } from '../winChance.ts';
+import { summitTension } from '../../game/summitPath.ts';
 import type { PitchPlay } from '../components/LivePitch.tsx';
 import { eventToPlay } from '../../game/pitchSim.ts';
 import { ovrColor } from './Squad.tsx';
@@ -153,7 +157,7 @@ function preloadMoments(world: MomentWorld) {
   })();
 }
 
-export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines, flare, doneLabel, comp }: {
+export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines, flare, doneLabel, comp, summit }: {
   gs: G.GameState;
   /** the result, and the ids of his men on the grass or sent off at the whistle (the European night needs who played) */
   onDone: (r: MatchResult, onPitchIds: string[]) => void;
@@ -169,6 +173,8 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   doneLabel?: string;
   /** which cup this is, when `clubs` is set: Europe (the default, for every existing call site) or גביע המדינה */
   comp?: 'euro' | 'cup';
+  /** a night of פסגת אירופה: the top-down entrance and the rival card take the place of the crests face to face */
+  summit?: { entrance: G.SummitEntranceData; rival: NonNullable<ReturnType<typeof G.summitRival>> } | null;
 }) {
   const liveRef = useRef<LiveState | null>(null);
   if (!liveRef.current) liveRef.current = L.createLive(live ?? G.liveMatchInput(gs));
@@ -200,6 +206,9 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
   const [flares, setFlares] = useState<G.FlareReason | null>(() => flare === undefined ? G.flareReason(gs) : flare);
   // the two crests face to face before a European kickoff; the clock waits for it
   const [entrance, setEntrance] = useState<boolean>(!!clubs);
+  // at the summit the beat is two: the ground from above, then their card for a second
+  const [summitStep, setSummitStep] = useState<'ground' | 'rival' | null>(summit ? 'ground' : null);
+  const chance = useWinChance(summit && live ? live : null);
   const [subOpen, setSubOpen] = useState(false);   // the substitution sheet
   const [shapeOpen, setShapeOpen] = useState(false);   // the change of shape sheet
   const [subFocus, setSubFocus] = useState<string | null>(null);   // a player tapped for a quick swap
@@ -336,6 +345,8 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
 
   return (
     <div className="screen pad stack pad-b" style={{ gap: 12, minHeight: '100%' }}>
+      {/* the last minutes of a close summit night: the edges darken and the crowd breathes */}
+      {summit && <TenseEdges level={gs.euro?.level} minute={st.minute} score={st.score} />}
       {/* broadcast bar */}
       <div className="tile-hero" data-euro={euro ? '1' : undefined} style={{ padding: '14px 14px 12px' }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -472,7 +483,12 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
       {/* the terrace, before a ball is kicked. Portalled for the same reason the
           moment cards are: .screen animates in with a transform, and a fixed
           layer inside it would pin itself to the screen instead of the viewport */}
-      {entrance && clubs && euroLines && <EuroEntrance home={clubs.home} away={clubs.away} lines={euroLines} kind={cup ? 'cup' : 'euro'} onDone={() => setEntrance(false)} />}
+      {entrance && summit && summitStep === 'ground' && <SummitEntrance data={summit.entrance} onDone={() => setSummitStep('rival')} />}
+      {entrance && summit && summitStep === 'rival' && (
+        <RivalCard oppId={summit.rival.oppId} rating={summit.rival.rating} keyMan={summit.rival.key} chance={chance}
+          onDone={() => { setSummitStep(null); setEntrance(false); }} />
+      )}
+      {entrance && !summit && clubs && euroLines && <EuroEntrance home={clubs.home} away={clubs.away} lines={euroLines} kind={cup ? 'cup' : 'euro'} onDone={() => setEntrance(false)} />}
       {flares && (
         <Portal>
           <FlareBeat reason={flares} onDone={() => setFlares(null)} />
@@ -483,6 +499,19 @@ export function MatchBroadcast({ gs, onDone, onHalfTime, live, clubs, euroLines,
 }
 
 /* ------------------------------------------------------------------ parts */
+
+/** R6's atmosphere for the match: nothing at all outside a close summit finish (summitTension decides). */
+function TenseEdges({ level, minute, score }: { level: number | undefined; minute: number; score: readonly [number, number] }) {
+  const t = summitTension(level, minute, score);
+  if (t <= 0) return null;
+  return (
+    <Portal>
+      <div className="el-tense" aria-hidden="true" style={{ opacity: t }}>
+        <div className="el-tense-crowd" />
+      </div>
+    </Portal>
+  );
+}
 
 function TeamSide({ club, kit }: { club: Club; kit?: KitStrip }) {
   return (

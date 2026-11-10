@@ -35,6 +35,11 @@ function top(tier = 5): G.GameState {
 const write = (gs: G.GameState): string => { store.clear(); saveCareer(gs); return store.get('beapro.career.v1')!; };
 
 const out: Record<string, string> = {};
+/** the week the next night falls on */
+const finalWeek = (gs: G.GameState): number => {
+  for (let wk = 1; wk <= gs.league.rounds + 2; wk++) if (G.euroNight({ ...gs, week: wk }, true)) return wk;
+  return gs.week;
+};
 for (const level of [1, 0] as const) {
   const tag = level === 1 ? 'summit' : 'euro';
   const base = top();
@@ -45,6 +50,11 @@ for (const level of [1, 0] as const) {
   // the first night due before round 2
   const seen = { ...drawn, seen: true };
   out[`${tag}-hub-night`] = write({ ...base, euro: seen });
+  // the same night with the match itself open: the entrance, the rival card (stage 3), the kickoff
+  out[`${tag}-match`] = write({ ...base, week: finalWeek({ ...base, euro: seen }), euro: seen, phase: 'euro-match' });
+  // the same night with the two sides swapped: an away night at their ground
+  const swapped = { ...seen, ties: seen.ties.map((r, i) => i === seen.round ? r.map(t => t.a === base.clubId || t.b === base.clubId ? { ...t, a: t.b, b: t.a } : t) : r) };
+  out[`${tag}-match-away`] = write({ ...base, week: finalWeek({ ...base, euro: swapped }), euro: swapped, phase: 'euro-match' });
   // the last sixteen won and the quarter drawn: between nights, on the gold road
   let e = recordMyLeg(recordMyLeg(seen, base.clubId, [2, 1]), base.clubId, [1, 1]);
   e = advanceRound(playAiRound(e, base.clubId, 77), base.clubId);
@@ -56,6 +66,7 @@ for (const level of [1, 0] as const) {
   // all the way: the quarter on penalties, the semi, the final, and the trophy
   let w = advanceRound(playAiRound(settleMyPens(lvl, base.clubId, [5, 4]), base.clubId, 78), base.clubId);
   w = advanceRound(playAiRound(recordMyLeg(recordMyLeg(w, base.clubId, [2, 0]), base.clubId, [1, 1]), base.clubId, 79), base.clubId);
+  out[`${tag}-final-match`] = write({ ...base, week: G.euroNight({ ...base, euro: w }, true) ? base.week : finalWeek({ ...base, euro: w }), euro: w, phase: 'euro-match' });
   w = advanceRound(playAiRound(recordMyLeg(w, base.clubId, [2, 1]), base.clubId, 80), base.clubId);
   const settled = G.settleEuroSeason({ ...base, week: 14, euro: w });
   out[`${tag}-season-end`] = write({ ...settled, phase: 'season-end', seasonOver: true });

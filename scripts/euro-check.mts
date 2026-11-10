@@ -642,7 +642,8 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   const ent = readFileSync('src/ui/components/EuroEntrance.tsx', 'utf8');
   if (!ent.includes('onClick={onDone}') || !ent.includes('window.setTimeout(onDone, ENTRANCE_BEAT)')) fails.push('the entrance is not a beat that leaves on its own and on a tap');
   const match = readFileSync('src/ui/screens/Match.tsx', 'utf8');
-  if (!match.includes('{entrance && clubs && euroLines && <EuroEntrance') || !match.includes("&& !entrance && !paused")) fails.push('the match does not show the entrance before a European kickoff, or runs under it');
+  // פסגת אירופה has its own entrance (stage 3, 9.11); every other European night still shows this one
+  if (!match.includes('{entrance && !summit && clubs && euroLines && <EuroEntrance') || !match.includes("&& !entrance && !paused")) fails.push('the match does not show the entrance before a European kickoff, or runs under it');
   if (!match.includes('<div className="eu-venue">{euroLines.venue}</div>') || !match.includes('data-euro={euro ? \'1\' : undefined}')) fails.push('the broadcast bar does not carry the ground or the European look');
   // the moments wear the night's own pictures, every one of the eight, and the files are there
   checked += 2;

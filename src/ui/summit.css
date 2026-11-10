@@ -14,6 +14,9 @@
   --el-etch:#3a2a08; --el-snow:#FFF8E0; --el-edge:#1a1206; --el-shine:#fff;
   --el-crest-shadow:drop-shadow(0 2px 5px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(201,162,39,.25));
   --font-elite:"Frank Ruhl Libre","Secular One","Rubik",serif;
+  /* the entrance's ground from above (the canvas reads these, it carries no colour of its own) */
+  --el-grass-a:#1F4D2B; --el-grass-b:#245A32; --el-chalk:#E9F1E4; --el-crowd:#3B3326; --el-crowd-hi:#6B5B44;
+  --el-smoke:#9A9182;
 }
 
 /* ------------------------------------------------------------ the frame */
@@ -140,7 +143,56 @@
 
 @media (max-width:360px){ .el-stop-name{font-size:10.5px;} .el-stop-opp{font-size:10px;} .el-dot{width:26px; height:26px;} }
 
+/* ------------------------------------------------------------ R3 the entrance from above */
+.el-entrance{position:fixed; inset:0; z-index:90; background:var(--el-bg0); overflow:hidden; cursor:pointer;}
+.el-entrance-media{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;}
+.el-entrance-words{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:8px; padding:0 22px; text-align:center; pointer-events:none;}
+.el-entrance-tint{position:absolute; inset:0; mix-blend-mode:color; opacity:.55; pointer-events:none;}
+.el-entrance-plate{display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 18px 9px; border-radius:10px;
+  background:rgba(5,4,3,.66); border:1px solid var(--el-line); box-shadow:0 8px 30px rgba(0,0,0,.6);}
+.el-entrance-title{font-family:var(--font-elite); font-weight:900; line-height:1.15;}
+.el-entrance-ground{font-family:var(--font-elite); font-weight:700; font-size:15px; color:var(--el-ink);}
+.el-entrance-skip{position:absolute; bottom:calc(18px + env(safe-area-inset-bottom)); inset-inline:0; text-align:center;
+  font-size:13px; color:var(--el-ink-dim);}
+
+/* ------------------------------------------------------------ R4 the rival card */
+.el-rival-veil{position:fixed; inset:0; z-index:90; background:rgba(5,4,3,.9); display:flex; align-items:center; justify-content:center;
+  padding:22px; cursor:pointer;}
+.el-rival{width:min(340px,100%); background:linear-gradient(180deg,var(--el-bg3),var(--el-bg1)); border:1px solid var(--el-g2);
+  border-radius:16px; padding:20px 18px 18px; display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center;
+  box-shadow:0 0 0 1px rgba(0,0,0,.5) inset, 0 18px 50px rgba(0,0,0,.7), 0 0 34px rgba(201,162,39,.18);
+  animation:el-rival-in .22s ease-out 1 both;}
+@keyframes el-rival-in{from{transform:scale(.94);} to{transform:none;}}
+.el-rival-facts{display:flex; gap:10px; width:100%;}
+.el-rival-facts > div{flex:1; display:flex; flex-direction:column; gap:2px; padding:8px 6px; border-radius:10px;
+  background:var(--el-bg1); border:1px solid var(--el-line-soft);}
+.el-rival-facts b{font-size:24px; color:var(--el-g3);}
+.el-rival-label{font-size:12.5px; color:var(--el-ink-dim);}
+.el-rival-key{display:flex; flex-direction:column; gap:2px; color:var(--el-ink); font-size:15px;}
+.el-rival-history{font-size:14px; color:var(--el-ink-dim); font-style:italic;}
+
+/* ------------------------------------------------------------ R5 the trophy */
+.el-ceremony{position:fixed; inset:0; z-index:95; background:radial-gradient(90% 60% at 50% 30%, var(--el-bg3), var(--el-bg0) 70%);
+  overflow:hidden; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+.el-ceremony-media{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+.el-ceremony-sky{position:absolute; inset:0; width:100%; height:100%; pointer-events:none;}
+.el-ceremony-cup{position:absolute; top:16%; inset-inline:0; display:flex; justify-content:center; perspective:600px;
+  filter:drop-shadow(0 0 22px rgba(232,199,102,.35));}
+.el-ceremony-cup[data-rise="1"] svg{animation:el-cup-rise 5.6s cubic-bezier(.2,.7,.2,1) 1 both;}
+@keyframes el-cup-rise{0%{transform:translateY(60px) rotateY(-70deg); opacity:.2;} 45%{opacity:1;} 100%{transform:translateY(0) rotateY(360deg);}}
+.el-ceremony-words{position:absolute; bottom:calc(12% + env(safe-area-inset-bottom)); inset-inline:0; padding:0 20px; text-align:center; cursor:default;}
+.el-ceremony-sub{font-family:var(--font-elite); font-weight:700; font-size:17px; color:var(--el-ink); margin-top:6px;}
+
+/* ------------------------------------------------------------ R6 the last minutes of a close summit night */
+.el-tense{position:fixed; inset:0; z-index:40; pointer-events:none; transition:opacity 1.2s ease;
+  background:radial-gradient(115% 85% at 50% 45%, transparent 46%, rgba(5,4,3,.9) 100%);}
+.el-tense-crowd{position:absolute; inset:0; box-shadow:inset 0 0 90px 14px rgba(201,162,39,.26), inset 0 0 22px 2px rgba(232,199,102,.18);
+  animation:el-tense-breath 2.8s ease-in-out infinite;}
+@keyframes el-tense-breath{0%,100%{opacity:.35; transform:scale(1);} 50%{opacity:1; transform:scale(1.03);}}
+
 @media (prefers-reduced-motion:reduce){
-  .match-hero[data-summit="1"]::after,.el-sheen::after,.el-crest .el-crest-sheen,.el-breathe,.el-stop[data-state="now"] .el-dot{animation:none !important;}
+  .match-hero[data-summit="1"]::after,.el-sheen::after,.el-crest .el-crest-sheen,.el-breathe,.el-stop[data-state="now"] .el-dot,.el-rival,.el-ceremony-cup[data-rise="1"] svg,.el-tense-crowd{animation:none !important;}
+  .el-tense{transition:none;}
   .match-hero[data-summit="1"]::after,.el-sheen::after{display:none;}
 }
