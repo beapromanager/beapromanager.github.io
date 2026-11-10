@@ -707,7 +707,7 @@ function AppInner() {
           summit={summitNightOf(gs)}
           onDone={(result, ids) => setGs(liftIfWon(gs, G.commitEuroLeg(gs, result, ids)))} />
       )}
-      {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} comp="euro" onDone={score => setGs(g => liftIfWon(g, G.finishEuroPens(g, score)))} />}
+      {gs.phase === 'euro-pens' && <ShootoutScreen gs={gs} comp={gs.euro?.level === 1 ? 'summit' : 'euro'} onDone={score => setGs(g => liftIfWon(g, G.finishEuroPens(g, score)))} />}
       {ceremony !== null && (
         <TrophyCeremony season={ceremony} onDone={() => setCeremony(null)}
           share={{ text: shareText('euro', { club: G.club(gs).name, league: '', nextLeague: '', season: ceremony }), link: shareLink() }} />

@@ -175,9 +175,7 @@ export const EURO_SUMMIT_CLUBS: SummitClub[] = [
  * TEMPORARY until Itzik approves (9.11.2026: "החלטות שלב 0 כזמניות ומסומנות"). The game runs on them as they are;
  * each is one line to change. summit-check prints this list on every run so it is not forgotten.
  */
-export const SUMMIT_DRAFT: readonly string[] = [
-  'the short names of the twenty: the table is with Itzik (9.11)',
-];
+export const SUMMIT_DRAFT: readonly string[] = [];
 
 /** Itzik's answers of 9.11.2026 to stage 0's open questions. */
 export const SUMMIT_DECIDED: readonly string[] = [
@@ -185,13 +183,18 @@ export const SUMMIT_DECIDED: readonly string[] = [
   'קייב הכחולה: blue and yellow (blue body, yellow half), no real crest copied',
   '+5 gems: once per career, the first entry only',
   'the golden book: trophy wins and finals only',
+  'the short names: the table of 10.11, approved as it is, for now (until the lawyer)',
 ];
 
 /**
- * Names the lawyer reads before פסגת אירופה goes live (Itzik, 9.11.2026). Nothing ships while this list is not
- * cleared: DEPLOY.md and HANDOFF-NEXT.md carry it (stage 6), check:summit prints it on every run.
+ * What the lawyer reads before פסגת אירופה goes live: all twenty, names, short names, colours and emblems
+ * (Itzik, 10.11.2026: "כל 20 הקבוצות עוברות לבדיקת עורך הדין, לא רק 4"). SUMMIT-LAWYER-REVIEW.md is the table he
+ * reads. Nothing ships before he clears it: check:summit prints it on every run, DEPLOY.md and HANDOFF-NEXT.md carry
+ * it (stage 6).
  */
-export const LAWYER_REVIEW: readonly string[] = ['טורינו בשחור לבן', 'מילאנו אדומה', 'מילאנו הכחולה', 'גלזגו הירוקה'];
+export const LAWYER_REVIEW: readonly string[] = EURO_SUMMIT_CLUBS.map(c => c.name);
+/** Itzik's first four, the ones he named on 9.11 before widening the review to all twenty. */
+export const LAWYER_FIRST: readonly string[] = ['טורינו בשחור לבן', 'מילאנו אדומה', 'מילאנו הכחולה', 'גלזגו הירוקה'];
 
 /** What earns a golden-book page (R7, Itzik 9.11): a final played, and a double page for the trophy. Not every win. */
 export const GOLDEN_BOOK_SCOPE = 'finals' as const;

@@ -11,6 +11,9 @@ import { useAssetsReady } from '../assetReady.ts';
 import { Crest } from '../components/Crest.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { buzz, BUZZ_GOAL, BUZZ_SAVE, BUZZ_MISS } from '../haptics.ts';
+import { CoachReaction } from '../components/CoachReaction.tsx';
+import { Portal } from '../components/Portal.tsx';
+import { coachClipForKick, coachClipForEnd, SHOOTOUT_TENSION } from '../../game/summitCoach.ts';
 
 /**
  * The shootout after a level tie, from inside it. Itzik's rule: when his man
@@ -105,8 +108,10 @@ type Stage =
   | { kind: 'their-play'; kick: Kick; ended: boolean }
   | { kind: 'done' };
 
-export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState; onDone: (score: [number, number]) => void; /** which cup this shootout belongs to */ comp?: 'euro' | 'cup' }) {
+export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState; onDone: (score: [number, number]) => void; /** which cup this shootout belongs to: Europe, פסגת אירופה (Europe's frames, the coach and the dark edges on top), or גביע המדינה */ comp?: 'euro' | 'summit' | 'cup' }) {
   const cup = comp === 'cup';
+  // פסגת אירופה plays Europe's own kicks and frames; the coach answers each kick and the edges stay dark the whole way (R6)
+  const summit = comp === 'summit';
   const sides = useMemo(() => cup ? G.cupPensSides(gs) : G.euroPensSides(gs), [gs, cup]);
   const round = cup ? (gs.cup?.round ?? 0) : (gs.euro?.round ?? 0);
   const rng = useRef(cup ? createRng(G.drawSeed(gs, 173_000 + (gs.cup?.round ?? 0))) : createRng(G.drawSeed(gs, 152_000 + (gs.euro?.round ?? 0))));
@@ -167,6 +172,11 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
 
   return (
     <div className="screen pad stack pad-b" style={{ gap: 14, minHeight: '100%' }}>
+      {summit && (
+        <Portal>
+          <div className="el-tense" aria-hidden="true" style={{ opacity: SHOOTOUT_TENSION }}><div className="el-tense-crowd" /></div>
+        </Portal>
+      )}
       <div className="eu-board" data-lit="1" role="img" aria-label={`${me.short} ${status.score[0]}, ${opp?.short ?? ''} ${status.score[1]}`}>
         <div className="eu-board-top">
           <span>פנדלים · {compLabel} · {ROUND_NAMES[round]}</span>
@@ -219,6 +229,7 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
               onEnded={() => { buzz(stage.kick.scored ? BUZZ_GOAL : BUZZ_MISS); setStage({ ...stage, ended: true }); }} />
             {stage.ended && (
               <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--win)' : 'var(--loss)' }}>
+                {summit && <CoachReaction key={`me-${mine.length}`} clip={coachClipForKick('me', stage.kick.scored)} />}
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: stage.kick.scored ? 42 : 32, lineHeight: 1 }}>{stage.kick.scored ? 'גוווול!' : 'נעצר.'}</div>
                 <div className="sub" style={{ marginTop: 6 }}>{stage.kick.scored ? `${stage.kick.name} לא מפספס מ-11 מטר` : `השוער קרא את ${stage.kick.name}`}</div>
                 <button className="btn" style={{ marginTop: 14 }} onClick={() => settle(stage.kick)}>המשך <Icon name="chevron" size={17} /></button>
@@ -249,6 +260,7 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
               onEnded={() => { buzz(stage.kick.scored ? BUZZ_MISS : BUZZ_SAVE); setStage({ ...stage, ended: true }); }} />
             {stage.ended && (
               <div className="eu-pov-word" style={{ color: stage.kick.scored ? 'var(--loss)' : 'var(--win)' }}>
+                {summit && <CoachReaction key={`them-${theirs.length}`} clip={coachClipForKick('them', stage.kick.scored)} />}
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: stage.kick.scored ? 32 : 42, lineHeight: 1 }}>{stage.kick.scored ? 'ספגנו.' : 'עצר!'}</div>
                 <div className="sub" style={{ marginTop: 6 }}>
                   {stage.kick.scored
@@ -264,6 +276,7 @@ export function ShootoutScreen({ gs, onDone, comp = 'euro' }: { gs: G.GameState;
 
       {stage.kind === 'done' && (
         <div className="tile stack" style={{ gap: 10, textAlign: 'center' }}>
+          {summit && status.winner && <CoachReaction big clip={coachClipForEnd(status.winner)} />}
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, lineHeight: 1, color: status.winner === 'me' ? 'var(--win)' : 'var(--loss)' }}>
             {status.winner === 'me' ? 'עברנו!' : 'הודחנו.'}
           </div>

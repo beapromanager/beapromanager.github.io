@@ -63,6 +63,8 @@ for (const level of [1, 0] as const) {
   // the quarter level after both legs: the shootout owed
   const lvl = recordMyLeg(recordMyLeg(e, base.clubId, [1, 0]), base.clubId, [0, 1]);
   out[`${tag}-hub-pens`] = write({ ...base, week: 6, euro: lvl });
+  // the same shootout on other seeds: the kicks fall differently, so a browser walk can meet every outcome without forcing one
+  for (const k of [1, 2, 3, 4, 5, 6]) out[`${tag}-hub-pens-${k}`] = write({ ...base, seasonSeed: base.seasonSeed + k * 7919, week: 6, euro: lvl });
   // all the way: the quarter on penalties, the semi, the final, and the trophy
   let w = advanceRound(playAiRound(settleMyPens(lvl, base.clubId, [5, 4]), base.clubId, 78), base.clubId);
   w = advanceRound(playAiRound(recordMyLeg(recordMyLeg(w, base.clubId, [2, 0]), base.clubId, [1, 1]), base.clubId, 79), base.clubId);

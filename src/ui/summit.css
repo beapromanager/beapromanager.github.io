@@ -184,6 +184,30 @@
 .el-ceremony-words{position:absolute; bottom:calc(12% + env(safe-area-inset-bottom)); inset-inline:0; padding:0 20px; text-align:center; cursor:default;}
 .el-ceremony-sub{font-family:var(--font-elite); font-weight:700; font-size:17px; color:var(--el-ink); margin-top:6px;}
 
+/* ------------------------------------------------------------ R6 the coach in a summit shootout */
+.el-coach{display:flex; flex-direction:column; align-items:center; gap:6px; margin:0 auto 10px;}
+.el-coach-frame{width:96px; height:96px; border-radius:14px; overflow:hidden; border:1px solid var(--el-g2);
+  box-shadow:0 0 0 1px rgba(0,0,0,.5) inset, 0 6px 20px rgba(0,0,0,.55); background:var(--el-bg1);}
+.el-coach[data-big="1"] .el-coach-frame{width:150px; height:150px; border-radius:18px;}
+.el-coach-frame video,.el-coach-frame img{width:100%; height:100%; object-fit:cover; display:block;}
+.el-coach-label{font-size:13px; color:var(--el-ink-dim);}
+/* after a kick he sits on the picture's corner, so the word and the button below stay exactly where they were */
+.eu-pov .el-coach{position:absolute; top:12px; inset-inline-start:12px; margin:0; z-index:2; max-width:140px;}
+.eu-pov .el-coach-frame{width:84px; height:84px;}
+.eu-pov .el-coach-label{font-size:12px; color:var(--el-ink); background:rgba(5,4,3,.78); padding:2px 9px; border-radius:999px; text-align:center;}
+.el-coach-frame[data-move="leap"]{animation:el-coach-leap var(--coach-ms) ease-out 1 both;}
+.el-coach-frame[data-move="head-down"]{animation:el-coach-down var(--coach-ms) ease-out 1 both;}
+.el-coach-frame[data-move="tight-clap"]{animation:el-coach-clap var(--coach-ms) ease-in-out 1 both;}
+.el-coach-frame[data-move="fist"]{animation:el-coach-fist var(--coach-ms) ease-out 1 both;}
+.el-coach-frame[data-move="run-off"]{animation:el-coach-run var(--coach-ms) ease-in 1 both;}
+.el-coach-frame[data-move="tunnel"]{animation:el-coach-tunnel var(--coach-ms) ease-in 1 both;}
+@keyframes el-coach-leap{0%{transform:none;} 25%{transform:translateY(-14px) scale(1.06);} 50%{transform:none;} 70%{transform:translateY(-7px);} 100%{transform:none;}}
+@keyframes el-coach-down{0%{transform:none; filter:none;} 100%{transform:translateY(6px) rotate(-3deg) scale(.96); filter:saturate(.45) brightness(.8);}}
+@keyframes el-coach-clap{0%,100%{transform:none;} 15%,45%,75%{transform:translateX(-2px) scale(.985);} 30%,60%,90%{transform:translateX(2px) scale(.985);}}
+@keyframes el-coach-fist{0%{transform:none;} 30%{transform:translateY(-10px) rotate(-4deg) scale(1.08);} 60%{transform:translateY(-4px) scale(1.04);} 100%{transform:none;}}
+@keyframes el-coach-run{0%{transform:none; opacity:1;} 100%{transform:translateY(-22px) scale(.72); opacity:.55;}}
+@keyframes el-coach-tunnel{0%{transform:none; filter:none;} 70%{transform:scale(.86); filter:brightness(.5);} 100%{transform:scale(.8); filter:brightness(.12);}}
+
 /* ------------------------------------------------------------ R6 the last minutes of a close summit night */
 .el-tense{position:fixed; inset:0; z-index:40; pointer-events:none; transition:opacity 1.2s ease;
   background:radial-gradient(115% 85% at 50% 45%, transparent 46%, rgba(5,4,3,.9) 100%);}
@@ -192,7 +216,7 @@
 @keyframes el-tense-breath{0%,100%{opacity:.35; transform:scale(1);} 50%{opacity:1; transform:scale(1.03);}}
 
 @media (prefers-reduced-motion:reduce){
-  .match-hero[data-summit="1"]::after,.el-sheen::after,.el-crest .el-crest-sheen,.el-breathe,.el-stop[data-state="now"] .el-dot,.el-rival,.el-ceremony-cup[data-rise="1"] svg,.el-tense-crowd{animation:none !important;}
+  .match-hero[data-summit="1"]::after,.el-sheen::after,.el-crest .el-crest-sheen,.el-breathe,.el-stop[data-state="now"] .el-dot,.el-rival,.el-ceremony-cup[data-rise="1"] svg,.el-tense-crowd,.el-coach-frame[data-move="leap"],.el-coach-frame[data-move="head-down"],.el-coach-frame[data-move="tight-clap"],.el-coach-frame[data-move="fist"],.el-coach-frame[data-move="run-off"],.el-coach-frame[data-move="tunnel"]{animation:none !important;}
   .el-tense{transition:none;}
   .match-hero[data-summit="1"]::after,.el-sheen::after{display:none;}
 }

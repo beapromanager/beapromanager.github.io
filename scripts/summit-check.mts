@@ -43,16 +43,22 @@
  *      counted by the engine itself, the same on every reload and higher for a stronger side
  *  23. the trophy: once, on the night the summit is won and only then, the summit's buzz, the foil confetti counts
  *  24. the last minutes: darker edges and a breathing crowd only at the summit, from the 80th, a goal or less apart
- *  25. Itzik's answers of 9.11: קייב הכחולה blue and yellow, the lawyer's four, the golden book's scope
+ *  25. Itzik's answers of 9.11 and 10.11: קייב הכחולה blue and yellow, all twenty to the lawyer in
+ *      SUMMIT-LAWYER-REVIEW.md, the golden book's scope, the short names approved for now
+ *
+ * Stage 4, the coach in the shootout (R6):
+ *  26. which of his six reactions follows each kick and the end, how each falls back to the coach the game already
+ *      has, for how long, never holding the next kick, and the summit shootout dark at the edges the whole way
  */
 import {
   EURO_CLUBS, EURO_SUMMIT_CLUBS, SUMMIT_FINAL_STADIUMS, SUMMIT_DRAFT, summitFinalStadium, poolFor, euroClub, summitClub,
-  SUMMIT_DECIDED, LAWYER_REVIEW, GOLDEN_BOOK_SCOPE,
+  SUMMIT_DECIDED, LAWYER_REVIEW, LAWYER_FIRST, GOLDEN_BOOK_SCOPE,
 } from '../src/data/europeClubs.ts';
 import { SUMMIT_ASSETS, entranceAssetId, BOOK_MOMENTS, COACH_CLIPS } from '../src/data/summitAssets.ts';
 import { winChanceNow, roundTo5, ODDS_RUNS, sideRating, keyPlayer, oddsSeed, playOut } from '../src/game/summitOdds.ts';
 import { summitTension, TENSE_FROM } from '../src/game/summitPath.ts';
 import { makeSquad } from '../src/data/squadGen.ts';
+import { coachClipForKick, coachClipForEnd, COACH_FALLBACK, COACH_MS, SHOOTOUT_TENSION } from '../src/game/summitCoach.ts';
 import { EURO_NAMES, makeEuroName } from '../src/data/europeNames.ts';
 import { renameLegacy, NAMES_VERSION } from '../src/game/renames.ts';
 import { createRng, overall } from '../src/engine/matchEngine.ts';
@@ -66,7 +72,7 @@ import * as L from '../src/game/liveMatch.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
 import { LEGEND_TOWN } from '../src/data/legends.ts';
 import { summitStops } from '../src/game/summitPath.ts';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { advanceRound, playAiRound, settleMyPens } from '../src/game/euro.ts';
 
 /* localStorage, which node does not have and the loader insists on */
@@ -674,14 +680,63 @@ claim(/family=Frank\+Ruhl\+Libre:wght@700;900/.test(readFileSync('index.html', '
   const k = euroClub('eu-amsterdam')!;
   const h = (x: string) => hue(x);
   claim(h(k.primary) >= 200 && h(k.primary) <= 240 && h(k.secondary) >= 40 && h(k.secondary) <= 60, `קייב הכחולה is ${k.primary} / ${k.secondary}, agreed blue and yellow`);
-  claim(JSON.stringify(LAWYER_REVIEW) === JSON.stringify(['טורינו בשחור לבן', 'מילאנו אדומה', 'מילאנו הכחולה', 'גלזגו הירוקה']) && LAWYER_REVIEW.every(n => EURO_SUMMIT_CLUBS.some(c => c.name === n)), 'the lawyer\'s list is not the four');
+  // 10.11: all twenty go to the lawyer, his first four among them, and the file he reads has every one in full
+  claim(LAWYER_REVIEW.length === 20 && EURO_SUMMIT_CLUBS.every(c => LAWYER_REVIEW.includes(c.name)) && LAWYER_FIRST.every(n => LAWYER_REVIEW.includes(n)), `the lawyer's list holds ${LAWYER_REVIEW.length}, agreed all twenty`);
+  const review = readFileSync('SUMMIT-LAWYER-REVIEW.md', 'utf8');
+  const rows = review.split('\n').filter(l => /^\| \d+ \| /.test(l));
+  claim(rows.length === 20, `SUMMIT-LAWYER-REVIEW.md has ${rows.length} rows, agreed twenty`);
+  for (const c of EURO_SUMMIT_CLUBS) {
+    const row = rows.find(r => r.split('|')[2]?.trim() === c.name) ?? '';
+    claim(!!row && row.split('|')[3]?.trim() === c.short && row.includes(c.primary) && row.includes(c.secondary) && row.includes(c.stadium) && (row.split('|')[9]?.trim().length ?? 0) > 1,
+      `SUMMIT-LAWYER-REVIEW.md does not give ${c.name} with its short name, colours, ground and the real club it may recall`);
+  }
+  claim(/שום חלק מפסגת אירופה לא עולה לאוויר לפני אישור עורך הדין/.test(review), 'the review file does not say nothing goes live before the lawyer');
   claim(GOLDEN_BOOK_SCOPE === 'finals', `the golden book takes ${GOLDEN_BOOK_SCOPE}, agreed finals and trophies`);
-  claim(SUMMIT_DECIDED.length === 4 && SUMMIT_DRAFT.length === 1 && /short/.test(SUMMIT_DRAFT[0]), 'what is decided and what is still open are not his answers of 9.11');
+  claim(SUMMIT_DECIDED.length === 5 && /short names/.test(SUMMIT_DECIDED[4]) && SUMMIT_DRAFT.length === 0, 'what is decided and what is still open are not his answers of 9.11 and 10.11');
+}
+
+/* ------------------------------------------------- 26. the coach in a summit shootout */
+{
+  // every case, by hand: their goal is the tight clap, their miss the fist
+  const kicks: Array<[('me' | 'them'), boolean, string]> = [['me', true, 'pen-user-goal'], ['me', false, 'pen-user-miss'], ['them', true, 'pen-opp-goal'], ['them', false, 'pen-opp-miss']];
+  for (const [side, scored, want] of kicks) claim(coachClipForKick(side, scored) === want, `${side} ${scored ? 'scored' : 'missed'}: the coach plays ${coachClipForKick(side, scored)}, agreed ${want}`);
+  claim(coachClipForEnd('me') === 'pen-win' && coachClipForEnd('them') === 'pen-loss', 'the end of the shootout plays the wrong clip');
+  const moves: Record<string, [string, string]> = {
+    'pen-user-goal': ['celebrate', 'leap'], 'pen-user-miss': ['guide', 'head-down'], 'pen-opp-goal': ['guide', 'tight-clap'],
+    'pen-opp-miss': ['celebrate', 'fist'], 'pen-win': ['celebrate', 'run-off'], 'pen-loss': ['guide', 'tunnel'],
+  };
+  for (const [clip, [media, move]] of Object.entries(moves)) {
+    const fb = COACH_FALLBACK[clip as keyof typeof COACH_FALLBACK];
+    claim(fb.media === media && fb.move === move && fb.label.length > 4, `${clip} falls back to ${fb.media} ${fb.move}, agreed ${media} ${move} with a line under him`);
+  }
+  claim(new Set(Object.values(COACH_FALLBACK).map(f => f.label)).size === 6, 'two reactions share a line');
+  claim(COACH_FALLBACK['pen-opp-goal'].media !== 'celebrate' && /מתוחות/.test(COACH_FALLBACK['pen-opp-goal'].label), 'their goal plays the cheering clip, or the line is not tense');
+  for (const c of COACH_CLIPS) claim(COACH_MS[c] >= (c === 'pen-win' || c === 'pen-loss' ? 3000 : 1200) && COACH_MS[c] <= (c === 'pen-win' || c === 'pen-loss' ? 4000 : 2000), `${c} runs ${COACH_MS[c]}ms`);
+  claim(JSON.stringify([...COACH_CLIPS].sort()) === JSON.stringify(Object.keys(COACH_FALLBACK).sort()), 'the six clips in the list are not the six reactions');
+  claim(SHOOTOUT_TENSION >= 0.5 && SHOOTOUT_TENSION <= 1, `the shootout's dark is ${SHOOTOUT_TENSION}`);
+  const sh = readFileSync('src/ui/screens/Shootout.tsx', 'utf8');
+  claim(sh.includes("const summit = comp === 'summit';"), 'the shootout does not know a summit night');
+  claim(sh.includes("{summit && <CoachReaction key={`me-${mine.length}`} clip={coachClipForKick('me', stage.kick.scored)} />}")
+    && sh.includes("{summit && <CoachReaction key={`them-${theirs.length}`} clip={coachClipForKick('them', stage.kick.scored)} />}"), 'the coach does not answer every kick, or answers outside the summit');
+  claim(sh.includes('{summit && status.winner && <CoachReaction big clip={coachClipForEnd(status.winner)} />}'), 'the coach does not answer the end of the shootout');
+  claim(/\{summit && \(\s*<Portal>\s*<div className="el-tense" aria-hidden="true" style=\{\{ opacity: SHOOTOUT_TENSION \}\}><div className="el-tense-crowd" \/><\/div>/.test(sh), 'the summit shootout is not dark at the edges with the crowd breathing, or another is');
+  claim(appSrc.includes("<ShootoutScreen gs={gs} comp={gs.euro?.level === 1 ? 'summit' : 'euro'}") && appSrc.includes('<ShootoutScreen gs={gs} comp="cup"'), 'the summit shootout is not handed its level, or the cup\'s changed');
+  // the settle never waits on the coach: the continue buttons do not depend on him
+  claim(!/CoachReaction[^\n]*onEnded|CoachReaction[^\n]*onDone/.test(sh), 'the next kick waits on the coach');
+  const cr = readFileSync('src/ui/components/CoachReaction.tsx', 'utf8');
+  claim(cr.includes('useSummitAsset(`coach/${clip}`)') && cr.includes('onError={() => setBroken(true)}'), 'the coach clip is not loaded through the list, or a broken one does not fall back');
+  claim(cr.includes("asset('/coach/celebrate.mp4')") && cr.includes("asset('/coach/guide.webp')") && !/asset\('\/(?!coach\/(celebrate\.mp4|guide\.webp))/.test(cr), 'the fallback is not the coach the game already has');
+  claim(cr.includes('{fb.label}') && !/onEnded|setTimeout/.test(cr), 'the reaction has no line, or holds the screen');
+  for (const f of ['public/coach/guide.webp', 'public/coach/celebrate.mp4']) claim(existsSync(f), `${f} is missing`);
+  claim(/\.eu-pov \.el-coach\{position:absolute;/.test(cssSrc), 'after a kick the coach pushes the word and the button down instead of sitting on the picture');
+  for (const m of ['leap', 'head-down', 'tight-clap', 'fist', 'run-off', 'tunnel']) {
+    claim(new RegExp(`\\.el-coach-frame\\[data-move="${m}"\\]\\{animation:el-coach-[a-z]+ var\\(--coach-ms\\) [a-z-]+ 1 both;\\}`).test(cssSrc), `the ${m} movement does not play once for its own time`);
+  }
 }
 
 console.log(`${checked} checks`);
 if (fails.length) { console.log(`FAIL (${fails.length})`); for (const f of fails.slice(0, 30)) console.log('  - ' + f); process.exit(1); }
-console.log('  still temporary, waiting for Itzik:\n    - ' + SUMMIT_DRAFT.join('\n    - '));
+if (SUMMIT_DRAFT.length) console.log('  still temporary, waiting for Itzik:\n    - ' + SUMMIT_DRAFT.join('\n    - '));
 console.log('  decided by Itzik:\n    - ' + SUMMIT_DECIDED.join('\n    - '));
-console.log('  for the lawyer before going live: ' + LAWYER_REVIEW.join(', '));
+console.log(`  for the lawyer before going live: all ${LAWYER_REVIEW.length} (SUMMIT-LAWYER-REVIEW.md), nothing goes live before he clears them`);
 console.log('OK, his twenty and קייב הכחולה, the summit drawn, entered, paid and chronicled by its own rules, and ליגת אירופה as it was');
