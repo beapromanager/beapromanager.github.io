@@ -39,13 +39,26 @@ const OLD_EXACT: [string, string][] = [
   ["בני סח'נין", 'ברק סחנין'],
   ['מועדון סביליה', 'סביליה האנדלוסית'],
   ['מועדון קייב', 'קייב הדנייפרית'],
+  // 11.11.2026, after the legal review: five clubs of ליגת אירופה took invented names (the same ids). The full names
+  // first, then the two short names that were a city on their own, so a line in an old chronicle reads the new club.
+  ['בלוז גלזגו', 'קלדוניה העתיקה'],
+  ['רד בלגרד', 'הרי הבלקן'],
+  ['ר.ב אמסטרדם', 'טחנות הזהב'],
+  ['בוקרשט הכחולה', 'גדות הקרפטים'],
+  ['בריסל הסגולה', 'גינת אירופה'],
+  ['בוקרשט', 'הקרפטים'],
+  ['בריסל', 'גינת אירופה'],
 ];
 /** short names that changed on their own, by town */
 const OLD_SHORT: Record<string, [string, string]> = {
   'רחובות': ['שעריים', 'רחובות'],
   'סחנין': ["סח'נין", 'סחנין'],
 };
-const OLD_EURO_SHORT: Record<string, string> = { 'מועדון סביליה': 'סביליה', 'מועדון קייב': 'קייב' };
+const OLD_EURO_SHORT: Record<string, string> = {
+  'מועדון סביליה': 'סביליה', 'מועדון קייב': 'קייב',
+  // the three whose short name was their whole name; the two that were a city alone are in OLD_EXACT above
+  'בלוז גלזגו': 'קלדוניה', 'רד בלגרד': 'הבלקן', 'ר.ב אמסטרדם': 'הטחנות',
+};
 
 const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 let clubRx: RegExp | null = null;
@@ -57,7 +70,7 @@ function clubRegex(): RegExp {
   clubRx = new RegExp(`(?<![\\p{L}"'.])([ובלמשהכ]{0,2})(${pre.join('|')}) (${towns.join('|')})(?![\\p{L}])`, 'gu');
   return clubRx;
 }
-const ANY_OLD = /מ\.ס|הפועל|מכבי|בני|צעירי|איחוד|הכוח|עירוני|בית"ר|מועדון/;
+const ANY_OLD = /מ\.ס|הפועל|מכבי|בני|צעירי|איחוד|הכוח|עירוני|בית"ר|מועדון|בלוז גלזגו|רד בלגרד|ר\.ב אמסטרדם|בוקרשט|בריסל/;
 
 function renameClubsInText(s: string): string {
   if (!ANY_OLD.test(s)) return s;
@@ -102,7 +115,7 @@ const LEGEND_KEYS = new Map<number, string>([
 ]);
 
 /** bump when a new set of renames is added, so a save is walked once per set */
-export const NAMES_VERSION = 1;
+export const NAMES_VERSION = 2;
 
 interface Ctx {
   /** names the manager typed, never touched */

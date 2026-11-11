@@ -71,7 +71,8 @@ import { Icon } from './components/Icon.tsx';
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, obMark, xferMark, STEP_ORDER } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, obMark, xferMark, STEP_ORDER, statsNoticeSeen, acceptStatsNotice } from '../game/telemetry.ts';
+import { StatsNotice } from './components/LegalSheet.tsx';
 import { OWNER_VISIT } from './ownerVisit.ts';
 import { TransferGate } from './components/TransferUi.tsx';
 import { MovedScreen, movedTarget } from './screens/Moved.tsx';
@@ -190,6 +191,10 @@ function AppInner() {
   // A visit that came with an admin parameter (an old bookmark, a pasted link) has had it scrubbed from the address
   // before anything ran (ownerVisit.ts), sends it nowhere, and is not counted: it is the owner looking, not a player.
   const ownerVisit = OWNER_VISIT;
+  // the notice before the first count (11.11.2026): until "הבנתי" nothing is sent, and the sends below wait for it.
+  // The owner's own visit is never counted, so it has nothing to be told.
+  const [noticeOk, setNoticeOk] = useState(() => ownerVisit || statsNoticeSeen());
+  const acceptNotice = () => { acceptStatsNotice(); setNoticeOk(true); };
 
   // one handler for the share button that sits in the meters bar on every
   // screen. The functional update keeps it from closing over a stale state
@@ -226,9 +231,9 @@ function AppInner() {
   // career came is told once. All of it is nothing at the old address and nothing on a developer's machine.
   useEffect(() => { if (arrived) markEntered(); }, [arrived]);
   useEffect(() => {
-    if (ownerVisit) return;
+    if (ownerVisit || !noticeOk) return;
     if (currentRole() === 'new') xferMark('site_new');
-  }, [ownerVisit]);
+  }, [ownerVisit, noticeOk]);
   useEffect(() => { if (booted && !ownerVisit) tellArrival(); }, [booted, ownerVisit]);
 
   /**
@@ -296,22 +301,22 @@ function AppInner() {
     // A visit that carried an admin parameter is Itzik looking at the numbers, and he
     // will do that several times a day. Counting it would put him in his own
     // funnel and make the daily sittings mostly his.
-    if (ownerVisit) return;
+    if (ownerVisit || !noticeOk) return;
     track('open');
     void flush();
     // and again on the way out, because for most people on a phone there is
     // no later: the tab is switched away from and never comes back
     return flushOnLeaving();
-  }, [ownerVisit]);
+  }, [ownerVisit, noticeOk]);
   // And the moment the title screen is actually up, which is a different moment
   // from the one above: "open" is reported when the app mounts, and the cold
   // open plays for four and a half seconds before anybody sees a button. The
   // two together split the largest fall in the funnel into the part that is the
   // film's fault and the part that is the title screen's.
   useEffect(() => {
-    if (ownerVisit || !introDone || booted) return;
+    if (ownerVisit || !noticeOk || !introDone || booted) return;
     track('title');
-  }, [ownerVisit, introDone, booted]);
+  }, [ownerVisit, noticeOk, introDone, booted]);
 
   // 2.11 flow audit: a new player on the title is one tap from the prologue, so its code and
   // first two stills come down while he reads the title, not after he taps (it was ~1s of empty
@@ -472,6 +477,7 @@ function AppInner() {
             extra={weekendOn(wkNow) ? <WeekendEntry onOpen={() => (saved ? setWeekendOpen(true) : setNeedCareer(true))} /> : undefined} />
           {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
           {needCareer && <NeedCareerSheet onStart={() => { setNeedCareer(false); startNew(); }} onClose={() => setNeedCareer(false)} />}
+          {!noticeOk && <StatsNotice onOk={acceptNotice} />}
         </>
       </div>
     );
@@ -712,6 +718,8 @@ function AppInner() {
       )}
       {gs.phase === 'chat' && <ChatScreen gs={gs} onDone={() => setGs(G.closeChat(gs))} onAnswer={i => setGs(g => G.answerMateChat(g, i))} />}
       {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
+      {/* a career that arrived without passing the title (a move from the other address) is told here instead */}
+      {!noticeOk && <StatsNotice onOk={acceptNotice} />}
       {exitOpen && <ExitSheet onStay={() => setExitOpen(false)} onLeave={() => { setExitOpen(false); leaveGame(); }} />}
       {reportOpen && <ReportSheet gs={gs} onClose={() => setReportOpen(false)} onFiled={next => setGs(next)} />}
       {ad && (

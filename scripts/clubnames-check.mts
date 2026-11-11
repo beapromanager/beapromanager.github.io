@@ -9,7 +9,7 @@
  */
 import { CITIES, clubFromCity, siblingClub } from '../src/data/cities.ts';
 import { EURO_CLUBS } from '../src/data/europeClubs.ts';
-import { renameLegacy } from '../src/game/renames.ts';
+import { renameLegacy, NAMES_VERSION } from '../src/game/renames.ts';
 
 const fails: string[] = [];
 const OLD = /^(מ\.ס|הפועל|מכבי|בני|צעירי|איחוד|הכוח|עירוני|בית"ר|בית״ר)\s/;
@@ -66,9 +66,37 @@ const want: [string, unknown, unknown][] = [
   ['his name', s.profile.name, 'מכבי חיפה'],
   ['his nickname', s.profile.nickname, 'בני'],
   ['his friend', s.friends[0].name, 'הפועל חולון'],
-  ['marked', s.namesVersion, 1],
+  ['marked', s.namesVersion, 2],
 ];
 for (const [what, got, exp] of want) if (got !== exp) fails.push(`${what}: got ${String(got)}, wanted ${String(exp)}`);
+
+// 11.11.2026: five clubs of ליגת אירופה took invented names under the same ids. A save from before, even one already
+// walked for the first set of renames, reads the new names in its stored clubs, its chronicle and its news.
+{
+  const old = {
+    namesVersion: 1,
+    chronicle: [{ id: 'euro-s3', title: 'ההדחה', body: 'רד בלגרד הדיחה אותנו ברבע הגמר.' }, { id: 'euro-s4', title: 'הגביע', body: 'ניצחנו את בלוז גלזגו בגמר, אחרי בריסל הסגולה בחצי.' }],
+    news: ['מול ר.ב אמסטרדם בשמינית', 'בוקרשט הכחולה מחכה ברבע', 'ניצחון על בוקרשט'],
+    euroSeen: [
+      { id: 'eu-glasgow', name: 'בלוז גלזגו', short: 'בלוז גלזגו', city: 'גלזגו' },
+      { id: 'eu-bucharest', name: 'בוקרשט הכחולה', short: 'בוקרשט', city: 'בוקרשט' },
+      { id: 'eu-brussels', name: 'בריסל הסגולה', short: 'בריסל', city: 'בריסל' },
+    ],
+  };
+  const r = renameLegacy(JSON.parse(JSON.stringify(old))) as typeof old;
+  const got: Array<[string, unknown, unknown]> = [
+    ['the set', NAMES_VERSION, 2],
+    ['chronicle 1', r.chronicle[0].body, 'הרי הבלקן הדיחה אותנו ברבע הגמר.'],
+    ['chronicle 2', r.chronicle[1].body, 'ניצחנו את קלדוניה העתיקה בגמר, אחרי גינת אירופה בחצי.'],
+    ['news', r.news.join(' | '), 'מול טחנות הזהב בשמינית | גדות הקרפטים מחכה ברבע | ניצחון על הקרפטים'],
+    ['stored club 1', `${r.euroSeen[0].id} ${r.euroSeen[0].name} ${r.euroSeen[0].short}`, 'eu-glasgow קלדוניה העתיקה קלדוניה'],
+    ['stored club 2', `${r.euroSeen[1].id} ${r.euroSeen[1].name} ${r.euroSeen[1].short}`, 'eu-bucharest גדות הקרפטים הקרפטים'],
+    ['stored club 3', `${r.euroSeen[2].id} ${r.euroSeen[2].name} ${r.euroSeen[2].short}`, 'eu-brussels גינת אירופה גינת אירופה'],
+    ['marked', r.namesVersion, 2],
+    ['a second walk', JSON.stringify(renameLegacy(JSON.parse(JSON.stringify(r)))), JSON.stringify(r)],
+  ];
+  for (const [what, a, b] of got) if (a !== b) fails.push(`an old save, ${what}: got ${String(a)}, wanted ${String(b)}`);
+}
 
 // 3. a save that has been through it is not walked again
 const again = renameLegacy(s);

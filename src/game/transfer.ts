@@ -68,7 +68,9 @@ export const TRANSFER_KEYS: readonly string[] = [
  * keys of the transfer itself describe THIS origin's side of it.
  */
 // beapro.obv2 is a tester's switch for the new onboarding (onboardV2.ts), not part of a career: it stays too
-export const SKIP_KEYS: readonly string[] = ['beapro.tq', 'beapro.obv2', STATUS_KEY, IN_KEY, BACKUP_KEY];
+// beapro.statsnotice says the notice before the first count was read at THIS address (11.11.2026): it stays, and a
+// career that moves is told again where it lands, before anything is counted there
+export const SKIP_KEYS: readonly string[] = ['beapro.tq', 'beapro.obv2', 'beapro.statsnotice', STATUS_KEY, IN_KEY, BACKUP_KEY];
 
 /* ------------------------------------------------------------------ the store */
 

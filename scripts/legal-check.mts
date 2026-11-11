@@ -92,7 +92,9 @@ function fakeEnv() {
   claim((regs.match(/<AgeBox checked=\{age16\} onChange=\{setAge16\} \/>/g) ?? []).length === 3, 'not all three registration screens carry the age box');
   claim((regs.match(/const \[age16, setAge16\] = useState\(false\)/g) ?? []).length === 3, 'the age box is not false from the start on all three screens');
   claim((regs.match(/disabled=\{busy \|\| !ok \|\| !age16 \|\|/g) ?? []).length === 3, 'a registration button does not wait for the age box');
-  claim(W.LEGAL_VERSION === '2026-10-31', `LEGAL_VERSION is ${W.LEGAL_VERSION}, not the 16-and-up version 2026-10-31`);
+  // 11.11.2026: the rights, the IP and the backups wordings, the main address and the ownership line changed, so a tick
+  // given to the older text is asked for again. The game and the league's server read the same constant and go out together.
+  claim(W.LEGAL_VERSION === '2026-11-11', `LEGAL_VERSION is ${W.LEGAL_VERSION}, not the version of the second legal review, 2026-11-11`);
   {
     const legalTxt = read('src/data/legalText.ts');
     const terms = legalTxt.slice(legalTxt.indexOf('export const TERMS'));
@@ -100,7 +102,7 @@ function fakeEnv() {
     claim(/ליגת השכונה מיועדת לבני 16 ומעלה/.test(privacy) && /ליגת השכונה מיועדת לבני 16 ומעלה/.test(terms), 'the privacy policy or the terms do not say 16 and up');
     claim(!/אין הגבלת גיל/.test(legalTxt), 'the policy still says there is no age limit');
     claim(/נתוני הליגה נמחקים 7 ימים אחרי הגמר/.test(privacy) && /עד 12 חודשים/.test(privacy), 'the short retention line is missing');
-    claim(/Cloudflare[^"]*גיבויים/.test(privacy), 'the policy says nothing of the backups Cloudflare keeps');
+    claim(/### גיבויים אצל ספקי השירות/.test(privacy) && /שחזור טכני אצל Cloudflare/.test(privacy), 'the policy says nothing of the copies Cloudflare keeps for restoring');
   }
   claim(!/defaultChecked|useState\(true\)/.test(sheet), 'the consent box is ticked by default');
 
@@ -289,6 +291,84 @@ function fakeEnv() {
   saved = store.get('lobby') as typeof saved;
   claim(Object.keys(saved.champions).length === 0 && Object.keys(saved.championsAt ?? {}).length === 0, 'a request a year after the last championship did not delete the count');
   Date.now = real;
+}
+
+/* 11. the second legal review (Ariel, 11.11.2026): his wordings word for word, the notice above the fields, and
+       nothing counted before the first notice is read */
+{
+  const { PRIVACY, TERMS, LEAGUE_NOTICE, STATS_NOTICE } = await import('../src/data/legalText.ts');
+  const all = (d: { sections: { h: string; p: string[] }[] }) => d.sections.flatMap(s => s.p);
+  const priv = all(PRIVACY), terms = all(TERMS);
+  const IP = 'קוד המשחק אינו שומר כתובות IP במאגרי הסטטיסטיקה והליגה. ספקי התשתית מקבלים כתובת IP בעת הטיפול בבקשות הדפדפן ועשויים לעבד אותה, בין היתר לצורכי תפעול ואבטחה, בהתאם לשירות ולהגדרותיו.';
+  const BACKUP = 'לאחר מחיקה ממאגרי המשחק הפעילים, עותקים של המידע עשויים להישאר זמינים לשחזור טכני אצל Cloudflare. חלון השחזור של מאגר הסטטיסטיקה הוא 7 או 30 ימים, בהתאם לתוכנית החשבון. ככל שנתוני הליגה מאוחסנים ב־Durable Objects המבוססים על SQLite, חלון השחזור שלהם הוא עד 30 ימים.';
+  const RIGHTS = 'לעיון במידע, לתיקונו או לבקשת מחיקה, כתבו ל־beapromanager@gmail.com וצרפו את קוד הפנייה שמופיע במדיניות במכשיר שממנו שיחקתם. נבדוק אילו נתונים אפשר לשייך לפנייה ונסביר מה ניתן למחוק ומה יימחק במחיקה התקופתית. אם אתם מבקשים שנאתר נתונים בשרת, שמרו את קוד הפנייה לפני ניקוי נתוני האתר. ניקוי נתוני האתר בדפדפן מוחק את הקריירה המקומית.';
+  const TERMS1 = 'כדי לפתוח ליגה או להצטרף אליה יש לאשר את תנאי השימוש ולהצהיר על גיל 16 ומעלה. מדיניות הפרטיות מסבירה אילו נתונים מעובדים במשחק היחידני ובליגת השכונה, לאילו מטרות ואיך פונים אלינו בנוגע אליהם.';
+  const TERMS6 = 'הזכויות בקוד, בטקסטים ובעיצוב המקוריים שפיתחנו עבור המשחק שמורות לבעלי הזכויות בהם. רכיבים של צדדים שלישיים כפופים לרישיונות ולהרשאות החלים עליהם.';
+  const LEAGUE = 'ליגת השכונה מיועדת לבני ובנות 16 ומעלה. ההצטרפות לבחירתך ומחייבת מסירת כינוי ושימוש במזהה אקראי של הדפדפן. אם לא תרצה למסור אותם, תוכל להמשיך לשחק במצב היחידני. איציק עוזיאל, הפועל בשם ISRU-E, משתמש בנתונים להפעלת הליגה ולחישוב התוצאות והפרסים. נתוני הליגה מעובדים ב־Cloudflare לצורך הפעלת שרתי הליגה, והכינוי, הטבלה והתוצאות מוצגים למשתתפים. אפשר לפנות לעיון במידע או לבקש תיקון או מחיקה של מידע שאינו נכון, שלם, ברור או מעודכן, בכתובת beapromanager@gmail.com. פרטים נוספים במדיניות הפרטיות.';
+  const STATS = 'כדי לשפר את המשחק אנחנו סופרים כמה אנשים נכנסים ואיפה הם עוצרים, בעזרת מספר אקראי של המכשיר, בלי שם. הנתונים נשמרים אצל Cloudflare ונמחקים אחרי עד 12 חודשים. פירוט במדיניות הפרטיות.';
+  // word for word: a paragraph of the document IS the wording, or ends with it where it follows a bullet's own lead
+  claim(priv.includes(IP) && priv.some(p => p.startsWith('- Cloudflare') && p.endsWith(IP)), 'the IP wording is not his, in the list of what is not collected and by Cloudflare');
+  claim(priv.includes(BACKUP), 'the backups paragraph is not his wording');
+  claim(priv.includes(RIGHTS), 'the rights paragraph is not his wording');
+  claim(terms.includes(TERMS1), 'the terms do not open with his sentence on agreeing and on the policy');
+  claim(TERMS.sections.find(s => s.h.startsWith('6.'))?.p[0] === TERMS6, 'section 6 of the terms does not open with his wording');
+  claim(LEAGUE_NOTICE === LEAGUE, 'the notice above the league fields is not his wording');
+  claim(STATS_NOTICE === STATS, 'the notice before the first count is not the agreed wording');
+  const whole = [...priv, ...terms].join('\n');
+  for (const gone of ['מערב אירופה', 'שייכים לאיציק', 'והשם BE A PRO', 'לא שומרים כתובת IP', 'לא שומרים את ה-IP', 'אם אתה לא מסכים, אל תשתמש', 'נטפל בזה בהקדם', 'שומרת בעצמה גיבויים טכניים', '(ובהמשך גם beapro.co.il)']) {
+    claim(!whole.includes(gone), `the text still says "${gone}"`);
+  }
+  claim(priv[0].includes('בכתובת beapro.co.il.') && priv[0].indexOf('beapro.co.il') < priv[0].indexOf('beapromanager.github.io'), 'beapro.co.il is not the main address in the policy');
+  claim(priv[priv.length - 1] === 'עודכן לאחרונה: 11.11.2026' && terms[terms.length - 1] === 'עודכן לאחרונה: 11.11.2026', 'the two documents are not dated 11.11.2026');
+  claim(/הקבוצות, השחקנים, המאמנים, הבעלים והאירועים במשחק בדיוניים/.test(whole), 'the line that the clubs are fictional is gone from the terms');
+
+  // the three registration screens: the notice first, the age box its own box under it, then the fields, the terms box last
+  for (const fn of ['CreateLeague', 'JoinLeague', 'OpenJoin']) {
+    const from = screens.indexOf(`function ${fn}(`);
+    const body = screens.slice(from, screens.indexOf('\n}\n', from));
+    const notice = body.indexOf('<LeagueNotice open={setLegal} />'), age = body.indexOf('<AgeBox checked={age16} onChange={setAge16} />');
+    const field = body.indexOf('<input '), consent = body.indexOf('<ConsentBox checked={ok} onChange={setOk} open={setLegal} />');
+    claim(notice > 0 && age > notice && field > age && consent > field, `${fn}: the notice, the age box, the fields and the terms box are not in that order (${notice}, ${age}, ${field}, ${consent})`);
+    claim(body.split('<LeagueNotice').length === 2 && body.split('<AgeBox').length === 2 && body.split('<ConsentBox').length === 2, `${fn}: a notice or a box is there twice, or a third box was added`);
+  }
+  const noticeFn = sheet.slice(sheet.indexOf('export function LeagueNotice'), sheet.indexOf('export function StatsNotice'));
+  claim(noticeFn.includes('{linked(LEAGUE_NOTICE)}') && noticeFn.includes("open('privacy')") && noticeFn.includes("open('terms')") && !/type="checkbox"/.test(noticeFn), 'the league notice does not show his text with the two documents, or carries a box');
+  const consentFn2 = sheet.slice(sheet.indexOf('export function ConsentBox'), sheet.indexOf('/** the sentence a person ticks for their age'));
+  claim(consentFn2.includes("קראתי ואני מסכים/ה ל<button type=\"button\" className=\"lg-a\" onClick={() => open('terms')}>תנאי השימוש</button>.") && !consentFn2.includes('ול<button') && consentFn2.includes('לעיון.'), 'the terms box still joins the terms and the policy in one agreement');
+  claim(worker.includes("return bad('צריך לאשר את תנאי השימוש');") && !worker.includes('ואת מדיניות הפרטיות'), 'the server still asks to agree to the policy');
+
+  // the notice before the first count: a notice with one button, no box, no age; and the standing links
+  const statsFn = sheet.slice(sheet.indexOf('export function StatsNotice'));
+  claim(statsFn.includes('<p>{STATS_NOTICE}</p>') && statsFn.includes('>הבנתי</button>') && statsFn.includes("setLegal('privacy')") && !/type="checkbox"|16|גיל/.test(statsFn), 'the first notice is not a paragraph, the policy and one button, or it asks for a tick or an age');
+  const app = read('src/ui/App.tsx');
+  claim(app.includes('const [noticeOk, setNoticeOk] = useState(() => ownerVisit || statsNoticeSeen());') && (app.match(/\{!noticeOk && <StatsNotice onOk=\{acceptNotice\} \/>\}/g) ?? []).length === 2, 'the notice is not shown over the title and over the game until it is read');
+  claim(/if \(ownerVisit \|\| !noticeOk\) return;\s*\n\s*if \(currentRole\(\) === 'new'\) xferMark\('site_new'\);/.test(app) && /if \(ownerVisit \|\| !noticeOk\) return;\s*\n\s*track\('open'\);/.test(app) && /if \(ownerVisit \|\| !noticeOk \|\| !introDone \|\| booted\) return;\s*\n\s*track\('title'\);/.test(app), 'open, title or site_new can be asked for before the notice is read');
+  claim(/LegalLinks open=\{setLegal\}/.test(title) && read('src/ui/screens/Coach.tsx').includes('<p className="hint" data-coach-legal="1" style={{ textAlign: \'center\', margin: 0 }}><LegalLinks open={setLegal} /></p>'), 'the title or the coach screen has no standing link to the two documents');
+
+  // and the counting itself: before the notice nothing is queued, no device number is made and nothing is posted
+  const T = await import('../src/game/telemetry.ts');
+  const tele = read('src/game/telemetry.ts');
+  claim((tele.match(/if \(!endpoint\(\) \|\| !statsNoticeSeen\(\)/g) ?? []).length === 4, 'not all four doors of the counting (a step, a milestone, a crash, the post) wait for the notice');
+  const g = globalThis as { location?: unknown; localStorage?: unknown; fetch?: unknown };
+  const keep = { location: g.location, localStorage: g.localStorage, fetch: g.fetch, hadLocation: 'location' in g };
+  const mem = new Map<string, string>();
+  g.localStorage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v); }, removeItem: (k: string) => { mem.delete(k); } };
+  const posts: string[] = [];
+  g.fetch = async (u: unknown) => { posts.push(String(u)); return { ok: true }; };
+  g.location = { hostname: 'beapro.co.il' };
+  claim(T.statsNoticeSeen() === false, 'a clean device reads as having seen the notice');
+  T.track('open'); T.xferMark('site_new'); T.reached(3, 5); T.trackCrash(new Error('x'), null); await T.flush();
+  await new Promise(r => setTimeout(r, 0));
+  claim(T.readQueue().length === 0 && posts.length === 0 && mem.size === 0, `before the notice: ${T.readQueue().length} queued, ${posts.length} posted, storage keys [${[...mem.keys()].join(', ')}]`);
+  mem.set(T.NOTICE_KEY, 'an older wording');
+  claim(T.statsNoticeSeen() === false, 'an older notice counts as this one');
+  T.acceptStatsNotice();
+  claim(T.statsNoticeSeen() === true && mem.get('beapro.statsnotice') === '2026-11-11', 'pressing the button is not kept');
+  T.track('open'); await T.flush();
+  await new Promise(r => setTimeout(r, 0));
+  claim(posts.length >= 1 && posts.every(u => u.includes('beapro-count')), `after the notice the count does not go out (${posts.length} posts)`);
+  g.fetch = keep.fetch; if (keep.localStorage === undefined) delete g.localStorage; else g.localStorage = keep.localStorage;
+  if (!keep.hadLocation) delete g.location; else g.location = keep.location;
 }
 
 if (fails.length) { console.log(`FAIL (${fails.length} of ${checked}):`); for (const f of fails) console.log(' - ' + f); process.exit(1); }

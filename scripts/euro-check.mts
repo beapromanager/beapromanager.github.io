@@ -86,11 +86,26 @@ const pensIfDue = (e: ReturnType<typeof drawEuro>, seed: number) => needsPens(e,
   checked += 6;
   if (EURO_CLUBS.length !== 20) fails.push(`${EURO_CLUBS.length} clubs in the pool, agreed twenty`);
   if (new Set(EURO_CLUBS.map(c => c.id)).size !== 20 || new Set(EURO_CLUBS.map(c => c.name)).size !== 20) fails.push('two clubs share an id or a name');
-  // Itzik's eight, his names and countries, pinned word for word
+  // Itzik's eight, his names and countries, pinned word for word. Three of them were replaced on 11.11.2026 after the
+  // legal review (the defaults of that list): רד בלגרד is הרי הבלקן, ר.ב אמסטרדם is טחנות הזהב, בלוז גלזגו is קלדוניה העתיקה.
+  // Still eight pinned names, still twenty clubs.
   const his: Array<[string, string]> = [
-    ['רד בלגרד', 'סרביה'], ['ר.ב אמסטרדם', 'הולנד'], ['אתלטיק אתונה', 'יוון'], ['בלוז גלזגו', 'סקוטלנד'],
+    ['הרי הבלקן', 'סרביה'], ['טחנות הזהב', 'הולנד'], ['אתלטיק אתונה', 'יוון'], ['קלדוניה העתיקה', 'סקוטלנד'],
     ['סביליה האנדלוסית', 'ספרד'], ['בית באזל', 'שוויץ'], ['קייב הדנייפרית', 'אוקראינה'], ['רומא האיטלקית', 'איטליה'],
   ];
+  // 11.11.2026: the five names that paired a real city with a colour or a brand are gone, the ids are the same ids
+  const renamed: Array<[string, string, string]> = [
+    ['eu-glasgow', 'קלדוניה העתיקה', 'קלדוניה'], ['eu-belgrade', 'הרי הבלקן', 'הבלקן'], ['eu-amsterdam', 'טחנות הזהב', 'הטחנות'],
+    ['eu-bucharest', 'גדות הקרפטים', 'הקרפטים'], ['eu-brussels', 'גינת אירופה', 'גינת אירופה'],
+  ];
+  checked += 2;
+  for (const [id, name, short] of renamed) {
+    const c = EURO_CLUBS.find(x => x.id === id);
+    if (!c || c.name !== name || c.short !== short) { fails.push(`${id} is not ${name} (${short})`); break; }
+  }
+  const oldWords = ['בלוז', 'גלזגו', 'רד בלגרד', 'בלגרד', 'ר.ב', 'אמסטרדם', 'בוקרשט', 'בריסל'];
+  const stale = EURO_CLUBS.find(c => oldWords.some(w => `${c.name} ${c.short} ${c.city}`.includes(w)));
+  if (stale) fails.push(`${stale.name} still carries a word of a replaced name or its real city`);
   for (const [name, country] of his) {
     const c = EURO_CLUBS.find(x => x.name === name);
     if (!c || c.country !== country) { fails.push(`${name} (${country}) is missing or in the wrong country`); break; }
