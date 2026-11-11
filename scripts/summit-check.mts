@@ -63,6 +63,13 @@
  *      can record, still under reduced motion, no summit club in it
  *  32. the sound: off on a clean install, nothing before a touch or in a hidden tab, no file loaded, a switch that
  *      says which way it stands
+ *
+ * Stage 6, the counting and the papers:
+ *  33. the summit's three marks (eu2_in, eu2_final, eu2_won), reported under their own names and never with
+ *      ליגת אירופה's; the source worker and the live worker as it runs today both let them in and count them, the
+ *      patch on the live one is the summit and nothing else; the dashboard shows three numbers and nothing of who;
+ *      DEPLOY.md and HANDOFF-NEXT.md say the order (worker first, from the live folder), the way back, and that
+ *      nothing was deployed
  */
 import {
   EURO_CLUBS, EURO_SUMMIT_CLUBS, SUMMIT_FINAL_STADIUMS, SUMMIT_DRAFT, summitFinalStadium, poolFor, euroClub, summitClub,
@@ -85,8 +92,9 @@ import { createRng, overall } from '../src/engine/matchEngine.ts';
 import {
   SUMMIT_STAGE_TARGET, SUMMIT_CENTRE, SUMMIT_CAP, SUMMIT_PRIZE, SUMMIT_TRAVEL, SUMMIT_SECURITY, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
   STAGE_TARGET, PRIZE, TRAVEL, SECURITY, drawEuro, strengthOf, prizeFor, prizeTotal, competitionName, summitLevel,
-  travelFor, securityFor, myTie, recordMyLeg, EURO_ROUNDS,
+  travelFor, securityFor, myTie, recordMyLeg, EURO_ROUNDS, euroMarks, SUMMIT_MARKS,
 } from '../src/game/euro.ts';
+import * as TEL from '../src/game/telemetry.ts';
 import * as G from '../src/game/state.ts';
 import * as L from '../src/game/liveMatch.ts';
 import { saveCareer, loadCareer } from '../src/game/save.ts';
@@ -1000,6 +1008,75 @@ const nightOf = (gs: G.GameState): G.GameState | null => {
   // the rival card is handed tonight's line of history
   const match = readFileSync('src/ui/screens/Match.tsx', 'utf8');
   claim(appSrc.includes('rivalry: G.summitRivalry(gs)') && match.includes('rivalry={summit.rivalry}'), 'the rival card is not handed the line of history');
+}
+
+/* ------------------------------------------------- 33. the counting: the summit's three marks, the worker, the dashboard */
+{
+  // the game: a competition reports under its own tier's names, never both
+  const hub = { ...topCareer(), phase: 'hub' as const, season: 3 };
+  const drawn1 = drawEuro(31, hub.clubId, 3, 1), drawn0 = drawEuro(31, hub.clubId, 3, 0);
+  claim(euroMarks(drawn1, hub.clubId).join() === 'eu2_in' && euroMarks(drawn0, hub.clubId).join() === 'eu_in', `drawn in reports ${euroMarks(drawn1, hub.clubId)} at the summit and ${euroMarks(drawn0, hub.clubId)} below`);
+  const fin1 = finalLevel(hub, 1).euro!, fin0 = finalLevel(hub, 0).euro!;
+  claim(euroMarks(fin1, hub.clubId).join() === 'eu2_in,eu2_final' && euroMarks(fin0, hub.clubId).join() === 'eu_in,eu_final', 'a final is not reported under its own tier');
+  claim(euroMarks({ ...fin1, status: 'won' }, hub.clubId).join() === 'eu2_in,eu2_final,eu2_won' && euroMarks({ ...fin0, status: 'won' }, hub.clubId).join() === 'eu_in,eu_final,eu_won', 'a trophy is not reported under its own tier');
+  claim(euroMarks(null, hub.clubId).length === 0, 'a career with no competition reports one');
+  claim(JSON.stringify(SUMMIT_MARKS) === '["eu2_in","eu2_final","eu2_won"]' && JSON.stringify(TEL.SUMMIT_MARKS) === JSON.stringify(SUMMIT_MARKS), 'the summit\'s marks are not the agreed three, or the game and the counting disagree');
+  for (const ok of SUMMIT_MARKS) claim(TEL.isMilestone(ok) && TEL.isSummitMark(ok), `${ok} is not let through`);
+  for (const bad of ['eu2_', 'eu2_lost', 'eu2_in2', 'EU2_IN', 'eu2_in ', 'eu3_in', 'eu2_finals', 'eu22_in']) claim(!TEL.isMilestone(bad), `"${bad}" passes as a mark`);
+  claim(!TEL.isSummitMark('eu_in') && (TEL.STEP_ORDER as Record<string, unknown>)['eu2_in'] === undefined, 'a ליגת אירופה mark reads as the summit\'s, or a summit mark is a step');
+  claim(appSrc.includes('{ if (isSummitMark(k)) summitMark(k); else euroMark(k); }'), 'the App does not report the summit under its own names');
+
+  // the two workers: the source in the branch, and the live one as it runs today with the summit added
+  const wsrc = readFileSync('worker/src/index.ts', 'utf8');
+  const live = readFileSync('worker/live-count/index.live.js', 'utf8');
+  const patched = readFileSync('worker/live-count/index.js', 'utf8');
+  const pat = (s: string) => /MILESTONE = (\/.+\/);/.exec(s)?.[1] ?? '';
+  claim(pat(wsrc) === String(TEL.MILESTONE), 'the source worker\'s pattern is not the game\'s');
+  claim(!/eu2_/.test(live) && /eu_in\|eu_final\|eu_won\|eu2_in\|eu2_final\|eu2_won\|cup_in/.test(pat(patched)), 'the live snapshot already has the summit, or the patched worker refuses it');
+  // the patch is the summit and nothing else: every line that differs carries it
+  const a = live.split('\n'), b = patched.split('\n');
+  const onlyNew = b.filter(l => !a.includes(l)), onlyOld = a.filter(l => !b.includes(l));
+  claim(onlyNew.length === 6 && onlyOld.length === 4 && onlyNew.every(l => /eu2_|summit/.test(l) || l.trim() === 'env.DB.prepare(REACH_SQL.daily).all(),'), `the patch on the live worker is ${onlyNew.length} new lines and ${onlyOld.length} changed, agreed the summit only`);
+  claim(pat(patched).replace('eu2_in|eu2_final|eu2_won|', '') === pat(live), 'the patch changed the pattern beyond the summit\'s three names');
+  const SUMMIT_Q = "SELECT step, COUNT(*) AS n FROM steps WHERE step IN ('eu2_in', 'eu2_final', 'eu2_won') GROUP BY step ORDER BY step";
+  claim(wsrc.includes(`summit: "${SUMMIT_Q}"`) && patched.includes(`summit: "${SUMMIT_Q}"`), 'the question the dashboard asks about the summit is not the agreed one in both workers');
+  // counts only: the question names no device, and the answer carries none
+  claim(!/aid|sid/.test(SUMMIT_Q) && wsrc.includes('summit: summitRows.results') && patched.includes('summit: summitRows.results'), 'the summit\'s answer could carry a device id, or is not sent');
+  const cfg = readFileSync('worker/live-count/wrangler.jsonc', 'utf8');
+  claim(/"name": "beapro-count"/.test(cfg) && /"main": "index.js"/.test(cfg) && /"binding": "WEEKEND"/.test(cfg) && /"service": "beapro-weekend"/.test(cfg) && /"binding": "DB"/.test(cfg) && /17 3 \* \* \*/.test(cfg) && !/account_id|secret|token/i.test(cfg),
+    'the live worker\'s settings lost the weekend binding, the database or the cron, or carry something private');
+  // the patched live worker itself, run here: it keeps the three marks and drops what only looks like one; it counts them
+  const liveWorker = await import('../worker/live-count/index.js');
+  const written: unknown[][] = [];
+  const env = { ADMIN_KEY: 'k', DB: { prepare: (sql: string) => ({ bind: (...v: unknown[]) => ({ sql, v }) }), batch: async (st: { sql: string; v: unknown[] }[]) => { for (const x of st) if (/INTO steps/.test(x.sql)) written.push(x.v); } } };
+  await liveWorker.default.fetch(new Request('https://w.example/', { method: 'POST', body: JSON.stringify({ e: ['eu2_in', 'eu2_final', 'eu2_won', 'eu2_lost', 'eu3_in', 'EU2_IN', 'eu_in', 'bogus'].map(k => ({ a: 'dev1', s: 'sit1', k, t: Date.now() })) }) }), env);
+  claim(written.map(v => v[1]).join(',') === 'eu2_in,eu2_final,eu2_won,eu_in', `the patched live worker kept [${written.map(v => v[1]).join(',')}]`);
+  const { DatabaseSync } = await import('node:sqlite');
+  const db = new DatabaseSync(':memory:');
+  db.exec('CREATE TABLE steps (aid TEXT, step TEXT, ts INTEGER, day TEXT, PRIMARY KEY (aid, step))');
+  const put = (aid: string, ...steps: string[]) => { for (const s of steps) db.prepare('INSERT OR IGNORE INTO steps VALUES (?, ?, 0, ?)').run(aid, s, '2026-11-11'); };
+  put('A', 'eu2_in', 'eu2_final', 'eu2_won'); put('B', 'eu2_in', 'eu2_final'); put('C', 'eu2_in', 'eu_in', 'eu_won'); put('A', 'eu2_in');
+  for (const [who, q] of [['the live worker', liveWorker.REACH_SQL.summit], ['the source worker', SUMMIT_Q]] as const) {
+    const rows = db.prepare(q).all() as Array<Record<string, unknown>>;
+    claim(rows.map(r => `${r.step}:${r.n}`).join(' ') === 'eu2_final:2 eu2_in:3 eu2_won:1' && rows.every(r => Object.keys(r).sort().join() === 'n,step'), `${who} counts the summit as ${JSON.stringify(rows)}`);
+  }
+  claim((db.prepare(liveWorker.REACH_SQL.europe).all() as Array<{ step: string; n: number }>).map(r => `${r.step}:${r.n}`).join(' ') === 'eu_in:1 eu_won:1', 'a summit mark leaked into ליגת אירופה\'s count');
+
+  // the dashboard: a section of its own, three numbers, nothing of who
+  const dash = readFileSync('src/ops/Dashboard.tsx', 'utf8'), model = readFileSync('src/ops/model.ts', 'utf8'), labels = readFileSync('src/ops/labels.ts', 'utf8');
+  claim(dash.includes('<Sec title="פסגת אירופה">') && dash.includes('ספירת הפסגה מחכה לפריסת ה-Worker של הספירה (DEPLOY.md, פסגת אירופה)') && dash.includes('<Sec title="ליגת אירופה">'), 'the dashboard has no place of its own for the summit');
+  claim(model.includes("const summit = ['eu2_in', 'eu2_final', 'eu2_won'].map(k => ({ key: k, label: labelOf(k), n: raw.reach?.summit ? pick(raw.reach.summit, k) : null }));"), 'the dashboard\'s summit row is more than a name and a number, or shows zeros before the worker answers');
+  claim(labels.includes("eu2_in: 'נכנסו לפסגת אירופה'") && labels.includes("eu2_final: 'הגיעו לגמר הפסגה'") && labels.includes("eu2_won: 'זכו בפסגת אירופה'"), 'the three counts have no Hebrew names');
+
+  // the papers: how to deploy, in which order, how to go back, and that none of it was run
+  const dep = readFileSync('DEPLOY.md', 'utf8'), hand = readFileSync('HANDOFF-NEXT.md', 'utf8');
+  const ROLLBACK = 'e91c8cb6-577f-4bed-8407-dfaa84548252';
+  claim(dep.includes('## פסגת אירופה: סדר הפריסה (מוכן, לא בוצע)') && dep.includes('שום דבר מהסעיף הזה לא הורץ'), 'DEPLOY.md does not say the summit is ready and not deployed');
+  claim(dep.includes(`npx wrangler@4.158.0 rollback ${ROLLBACK} --name beapro-count`) && dep.includes('cd worker/live-count\nnpx wrangler@4.158.0 deploy --no-bundle'), 'DEPLOY.md lacks the deploy from the live folder or the way back');
+  claim(dep.indexOf('### צעד 1: ה-Worker של הספירה') > 0 && dep.indexOf('### צעד 1: ה-Worker של הספירה') < dep.indexOf('### צעד 2: הלקוח') && dep.includes('ולא מ-`worker/src/`'), 'DEPLOY.md does not put the worker before the game, or allows a deploy from the source');
+  claim(dep.includes('SUMMIT-LAWYER-REVIEW.md') && dep.includes('אין דלת') && dep.includes(`npx wrangler@4.158.0 deployments list --name beapro-count`), 'DEPLOY.md forgot the lawyer, that there is no door, or the check that the live version has not moved');
+  claim(hand.includes('## פסגת אירופה (11.11.2026): נבנתה, לא נדחפה') && hand.includes(ROLLBACK) && hand.includes('HIGGSFIELD-SUMMIT.md') && hand.includes('SUMMIT-LAWYER-REVIEW.md') && ['c7df28b', '6012f8a', '410fd62', '320be15', '2bf47d7', 'cb3dc3f'].every(h => hand.includes(h)), 'HANDOFF-NEXT.md does not hand the summit over: what was built, what waits, the order');
+  claim(!/[—–]/.test(dep.slice(dep.indexOf('## פסגת אירופה: סדר הפריסה'))) && !/[—–]/.test(hand.slice(0, hand.indexOf('## מצב הגיט'))), 'a long dash in the summit\'s papers');
 }
 
 console.log(`${checked} checks`);

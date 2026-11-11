@@ -446,13 +446,17 @@ export function euroVerdict(e: EuroState | null, myId: string): EuroVerdict | nu
  * lifted the cup. Closed names, three of them, counted once a device.
  */
 export const EURO_MARKS = ['eu_in', 'eu_final', 'eu_won'] as const;
-export type EuroMark = typeof EURO_MARKS[number];
+/** פסגת אירופה's own three (stage 6, 11.11.2026): the same three facts, counted apart from ליגת אירופה's. */
+export const SUMMIT_MARKS = ['eu2_in', 'eu2_final', 'eu2_won'] as const;
+export type EuroMark = typeof EURO_MARKS[number] | typeof SUMMIT_MARKS[number];
 
+/** A season's competition reports under its own tier's names, never both: level 1 says eu2_*, level 0 says eu_*. */
 export function euroMarks(e: EuroState | null, myId: string): EuroMark[] {
   if (!e) return [];
-  const marks: EuroMark[] = ['eu_in'];
-  if (e.ties[EURO_ROUNDS - 1]?.some(t => t.a === myId || t.b === myId)) marks.push('eu_final');
-  if (e.status === 'won') marks.push('eu_won');
+  const [drawn, final, won] = e.level === 1 ? SUMMIT_MARKS : EURO_MARKS;
+  const marks: EuroMark[] = [drawn];
+  if (e.ties[EURO_ROUNDS - 1]?.some(t => t.a === myId || t.b === myId)) marks.push(final);
+  if (e.status === 'won') marks.push(won);
   return marks;
 }
 

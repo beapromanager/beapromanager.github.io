@@ -152,6 +152,12 @@ export function Dashboard({ v, onWeekend }: { v: View; onWeekend?: () => void })
           )}
         </Sec>
 
+        <Sec title="פסגת אירופה">
+          {v.summit.some(c => c.n === null) ? <p className="empty">ספירת הפסגה מחכה לפריסת ה-Worker של הספירה (DEPLOY.md, פסגת אירופה). עד אז השרת לא מחזיר את המספרים האלה.</p> : (
+            <div className="pair">{v.summit.map(c => <div className={`mini${c.key === 'eu2_final' || c.key === 'eu2_won' ? ' hl' : ''}`} key={c.key}><div className="t">{c.label}</div><div className="v num">{num(c.n)}</div><div className="s" dir="ltr">{c.key}</div></div>)}</div>
+          )}
+        </Sec>
+
         <Sec title="ליגת אירופה">
           <div className="pair">{v.europe.map(c => <div className={`mini${c.key === 'eu_final' || c.key === 'eu_won' ? ' hl' : ''}`} key={c.key}><div className="t">{c.label}</div><div className="v num">{num(c.n)}</div><div className="s" dir="ltr">{c.key}</div></div>)}</div>
         </Sec>

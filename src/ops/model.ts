@@ -26,7 +26,7 @@ export interface StatsRaw {
   crashes: { step: string; err: string; n: number; people: number }[];
   reach?: {
     grid?: { tier: number; season: number; n: number }[]; ever?: TN[]; best?: TN[]; seasons?: { season: number; n: number }[];
-    titles?: TN[]; europe?: SN[]; gift?: { n: number }[]; share?: { n: number }[]; daily?: SN[]; cup?: SN[];
+    titles?: TN[]; europe?: SN[]; summit?: SN[]; gift?: { n: number }[]; share?: { n: number }[]; daily?: SN[]; cup?: SN[];
   };
   ext?: {
     v: number; tz: string; now: number; today: string;
@@ -56,6 +56,8 @@ export interface View {
   ob: ObRow[];
   cup: { key: string; label: string; n: number | null }[];
   europe: { key: string; label: string; n: number }[];
+  /** פסגת אירופה: null until the counting worker that answers it is deployed */
+  summit: { key: string; label: string; n: number | null }[];
   depth: { gift10: number };
   share: { tap: number };
   dailyGift: { key: string; label: string; n: number }[];
@@ -158,6 +160,7 @@ export function buildView(raw: StatsRaw, now: number, windowDays = 30): View {
   const cupSrc = raw.reach?.cup ?? (ext ? ext.marks : undefined);
   const cup = ['cup_in', 'cup_sf', 'cup_final', 'cup_won'].map(k => ({ key: k, label: labelOf(k), n: cupSrc ? pick(cupSrc, k) : null }));
   const europe = ['eu_in', 'eu_final', 'eu_won'].map(k => ({ key: k, label: labelOf(k), n: pick(raw.reach?.europe, k) }));
+  const summit = ['eu2_in', 'eu2_final', 'eu2_won'].map(k => ({ key: k, label: labelOf(k), n: raw.reach?.summit ? pick(raw.reach.summit, k) : null }));
   const dailyGift = ['daily_1', 'daily_7', 'daily_30'].map(k => ({ key: k, label: labelOf(k), n: pick(raw.reach?.daily, k) }));
   const money = ['money_red', 'money_sack'].map(k => ({ key: k, label: labelOf(k), n: ext ? pick(ext.marks, k) : null }));
   const reach = [1, 2, 3, 4, 5].map(t => ({
@@ -172,7 +175,7 @@ export function buildView(raw: StatsRaw, now: number, windowDays = 30): View {
     totals: { people: raw.people ?? 0, sittings: raw.sittings ?? 0, returned: raw.returned ?? 0, returnedPct: pct(raw.returned ?? 0, raw.people ?? 0) },
     cards, trend, oldRoad, newRoad, newRoadWindow: !!ext,
     worst: worstFall(oldRoad),
-    ob, cup, europe,
+    ob, cup, europe, summit,
     depth: { gift10: raw.reach?.gift?.[0]?.n ?? 0 },
     share: { tap: raw.reach?.share?.[0]?.n ?? 0 },
     dailyGift, money, reach,

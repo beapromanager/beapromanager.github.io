@@ -90,7 +90,7 @@ export const QUEUE_CAP = 60;
  * and reaching the top does not mean having sat in every season on the way. So they are never backfilled, each is
  * reported when it happens, and the server keeps one of each per device like every other step.
  */
-export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof CUP_MARKS[number] | typeof GIFT_MARKS[number] | typeof SHARE_MARKS[number] | typeof DAILY_MARKS[number] | typeof OB_MARKS[number] | typeof XFER_MARKS[number];
+export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof SUMMIT_MARKS[number] | typeof CUP_MARKS[number] | typeof GIFT_MARKS[number] | typeof SHARE_MARKS[number] | typeof DAILY_MARKS[number] | typeof OB_MARKS[number] | typeof XFER_MARKS[number];
 /**
  * The two money facts worth counting, agreed with Itzik on 3.10: a career that
  * fell below zero, and a career the owner ended over debt. The bot simulations
@@ -104,6 +104,12 @@ export const MONEY_MARKS = ['money_red', 'money_sack'] as const;
  * that sends them is out, or they are dropped at its door.
  */
 export const EURO_MARKS = ['eu_in', 'eu_final', 'eu_won'] as const;
+/**
+ * פסגת אירופה, stage 6 (11.11.2026): how many careers were drawn into the summit, how many stood in its final, how
+ * many lifted it. Counted apart from ליגת אירופה's three. The same discipline: the counting worker must know the
+ * names BEFORE the game that sends them is out, or they are dropped at its door (DEPLOY.md, worker first).
+ */
+export const SUMMIT_MARKS = ['eu2_in', 'eu2_final', 'eu2_won'] as const;
 /**
  * גביע המדינה, stage 1 of the 20.10 cup spec: how many careers were drawn into
  * the domestic cup, how many stood in its semi, how many stood in its final,
@@ -150,7 +156,7 @@ export const XFER_MARKS = ['xfer_offer', 'xfer_sent', 'xfer_in', 'xfer_code', 's
 /** a career older than this is counted in its twentieth season, "twenty or more" */
 export const MAX_SEASON = 20;
 /** the only shapes the game sends and the worker keeps. The worker holds the same pattern, telemetry-check compares them */
-export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|xfer_offer|xfer_sent|xfer_in|xfer_code|site_new|ob_(prologue|goal5|choice_bench|choice_bottle|skip|stills|fired|call|city|named_self|kickoff|match1_end|names|names_skip|kit|arch|sponsor|market)|daily_1|daily_7|daily_30)$/;
+export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|eu2_in|eu2_final|eu2_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|xfer_offer|xfer_sent|xfer_in|xfer_code|site_new|ob_(prologue|goal5|choice_bench|choice_bottle|skip|stills|fired|call|city|named_self|kickoff|match1_end|names|names_skip|kit|arch|sponsor|market)|daily_1|daily_7|daily_30)$/;
 
 export function isMilestone(k: unknown): k is Milestone {
   return typeof k === 'string' && MILESTONE.test(k);
@@ -386,6 +392,12 @@ export function wonLeague(tier: number): void {
 export function euroMark(k: typeof EURO_MARKS[number]): void {
   trackMilestone(k);
 }
+
+/** Note that a career was drawn into פסגת אירופה, stood in its final, or lifted it. */
+export function summitMark(k: typeof SUMMIT_MARKS[number]): void {
+  trackMilestone(k);
+}
+export const isSummitMark = (k: string): k is typeof SUMMIT_MARKS[number] => (SUMMIT_MARKS as readonly string[]).includes(k);
 
 /** Note that a career was drawn into גביע המדינה, stood in its semi, its final, or lifted it. */
 export function cupMark(k: typeof CUP_MARKS[number]): void {

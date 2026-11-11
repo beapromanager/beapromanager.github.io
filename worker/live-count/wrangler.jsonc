@@ -1,0 +1,25 @@
+{
+  "name": "beapro-count",
+  "main": "index.js",
+  "workers_dev": true,
+  "preview_urls": true,
+  "compatibility_date": "2026-09-01",
+  "triggers": {
+    "crons": [
+      "17 3 * * *"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "695c34b0-42ad-4fda-b7c4-ab5b39a98922"
+    }
+  ],
+  "services": [
+    {
+      "binding": "WEEKEND",
+      "service": "beapro-weekend",
+      "environment": "production"
+    }
+  ]
+}

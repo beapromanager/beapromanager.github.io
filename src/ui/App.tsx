@@ -72,7 +72,7 @@ import { EliteDefs } from './components/Elite.tsx';
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, obMark, xferMark, STEP_ORDER } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, summitMark, isSummitMark, cupMark, giftMark, dailyMark, obMark, xferMark, STEP_ORDER } from '../game/telemetry.ts';
 import { OWNER_VISIT } from './ownerVisit.ts';
 import { TransferGate } from './components/TransferUi.tsx';
 import { MovedScreen, movedTarget } from './screens/Moved.tsx';
@@ -369,10 +369,11 @@ function AppInner() {
     if (G.sackedOverDebt(gs)) moneyMark('money_sack');
   }, [booted, ownerVisit, gs.clubId, gs.meters.money < 0, gs.sacking]);
   // Europe: drawn in, in the final, lifted it. Nothing while there is no cup, and nothing outside the ליגת העל
+  // a summit season reports the summit's own three names (eu2_*), ליגת אירופה its own (eu_*): never both
   const euroReports = G.euroMarksFor(gs).join(',');
   useEffect(() => {
     if (!booted || ownerVisit || !gs.clubId) return;
-    for (const k of euroReports ? euroReports.split(',') as Array<'eu_in' | 'eu_final' | 'eu_won'> : []) euroMark(k);
+    for (const k of euroReports ? euroReports.split(',') as Array<'eu_in' | 'eu_final' | 'eu_won' | 'eu2_in' | 'eu2_final' | 'eu2_won'> : []) { if (isSummitMark(k)) summitMark(k); else euroMark(k); }
   }, [booted, ownerVisit, gs.clubId, euroReports]);
   // גביע המדינה: drawn in, in the semi, in the final, lifted it. Nothing outside tier 4/5
   const cupReports = G.cupMarksFor(gs).join(',');

@@ -512,6 +512,17 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   await post(['eu_in', 'eu_final', 'eu_won', 'eu_lost', 'eu_', 'eu_won2', 'EU_IN', 'eu_in ']);
   const keptEu = written.map(v => v[1]).join(',');
   if (keptEu !== 'eu_in,eu_final,eu_won') fails.push(`the worker kept [${keptEu}] out of eight European-looking names, expected eu_in, eu_final and eu_won`);
+  // פסגת אירופה (11.11.2026): its own three names, counted apart from ליגת אירופה's, and nothing that only looks like one
+  written.length = 0;
+  await post(['eu2_in', 'eu2_final', 'eu2_won', 'eu2_lost', 'eu2_', 'eu3_in', 'EU2_IN', 'eu2_in ']);
+  const keptSummit = written.map(v => v[1]).join(',');
+  if (keptSummit !== 'eu2_in,eu2_final,eu2_won') fails.push(`the worker kept [${keptSummit}] out of eight summit-looking names, expected eu2_in, eu2_final and eu2_won`);
+  put('S1', 'open', 'eu2_in', 'eu2_final', 'eu2_won');
+  put('S2', 'open', 'eu2_in');
+  const summitRows = db.prepare(R.summit).all() as unknown as Array<Record<string, unknown>>;
+  if (summitRows.map(r => `${r.step}:${r.n}`).join(' ') !== 'eu2_final:1 eu2_in:2 eu2_won:1') fails.push(`how many were drawn into the summit, stood in its final and lifted it: ${JSON.stringify(summitRows)}`);
+  if (!summitRows.every(r => Object.keys(r).sort().join() === 'n,step')) fails.push('the summit count answers with more than a name and a number');
+  if ((db.prepare(R.europe).all() as unknown as { step: string; n: number }[]).map(r => `${r.step}:${r.n}`).join(' ') !== eu) fails.push('a summit mark changed the count of ליגת אירופה');
   console.log('  where careers get to: a division in a season and a title, the worker keeps only those, and five questions give the right answers');
 }
 
