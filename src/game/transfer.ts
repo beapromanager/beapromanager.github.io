@@ -69,7 +69,9 @@ export const TRANSFER_KEYS: readonly string[] = [
  */
 // beapro.obv2 is a tester's switch for the new onboarding (onboardV2.ts), not part of a career: it stays too
 // beapro.sound is the summit's sound switch (ui/sound.ts), a choice made on this device: it stays, and the other side starts silent
-export const SKIP_KEYS: readonly string[] = ['beapro.tq', 'beapro.obv2', 'beapro.sound', STATUS_KEY, IN_KEY, BACKUP_KEY];
+// beapro.statsnotice says the notice before the first count was read at THIS address (11.11.2026): it stays, and a
+// career that moves is told again where it lands, before anything is counted there
+export const SKIP_KEYS: readonly string[] = ['beapro.tq', 'beapro.obv2', 'beapro.sound', 'beapro.statsnotice', STATUS_KEY, IN_KEY, BACKUP_KEY];
 
 /* ------------------------------------------------------------------ the store */
 

@@ -268,7 +268,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const wrong = walk('src').filter(f => /\.(ts|tsx)$/.test(f) && !f.startsWith('src/ops') && /סיסמה שגויה|המפתח לא נכון|wrong password|wrong key/i.test(readFileSync(f, 'utf8')));
   if (wrong.length) fails.push(`${wrong.join(', ')} says a key is wrong, which advertises the door`);
   // his own visits are not players
-  if (!/if \(ownerVisit\) return;\s*\n\s*track\('open'\)/.test(app)) {
+  if (!/if \(ownerVisit \|\| !noticeOk\) return;\s*\n\s*track\('open'\)/.test(app)) {
     fails.push('a visit that came with an admin parameter is counted as somebody playing the game');
   }
   if (!/const ownerVisit = OWNER_VISIT;/.test(app) || !/export const OWNER_VISIT: boolean = scrub\(\);/.test(readFileSync('src/ui/ownerVisit.ts', 'utf8'))) {
@@ -656,7 +656,8 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const globals = globalThis as { location?: unknown; localStorage?: unknown; fetch?: unknown };
   const hadLocation = 'location' in globals;
   const realLocation = globals.location, realStorage = globals.localStorage, realFetch = globals.fetch;
-  const store = new Map<string, string>();
+  // a device that has read the notice before the first count (11.11.2026); without it nothing is queued at all
+  const store = new Map<string, string>([[T.NOTICE_KEY, T.NOTICE_VERSION]]);
   globals.localStorage = {
     getItem: (k: string) => store.get(k) ?? null,
     setItem: (k: string, v: string) => { store.set(k, v); },
@@ -674,6 +675,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   await new Promise(r => setTimeout(r, 0));
 
   store.clear();
+  store.set(T.NOTICE_KEY, T.NOTICE_VERSION);   // the notice was read: it is the machine that stops the count here, not the notice
   globals.location = { hostname: 'localhost' };
   T.reached(4, 6); T.wonLeague(4);
   if (T.readQueue().length !== 0) fails.push('the dev server queues milestones into the real numbers');
@@ -697,10 +699,10 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
 {
   checked += 2;
   const tele = readFileSync('src/game/telemetry.ts', 'utf8');
-  if (!/export function track\(step: Step\): void \{\s*\n\s*if \(!endpoint\(\)\) return;/.test(tele)) {
+  if (!/export function track\(step: Step\): void \{\s*\n\s*if \(!endpoint\(\) \|\| !statsNoticeSeen\(\)\) return;/.test(tele)) {
     fails.push('with no endpoint the game still tries to count');
   }
-  if (!/export async function flush\(\)[^]{0,120}if \(!endpoint\(\)[^]{0,30}\) return;/.test(tele)) {
+  if (!/export async function flush\(\)[^]{0,120}if \(!endpoint\(\)[^]{0,60}\) return;/.test(tele)) {
     fails.push('with no endpoint the queue is still posted');
   }
   console.log(`  the endpoint is ${TELEMETRY_URL ? 'set, so the game counts' : 'empty, so the game counts nothing at all'}`);
@@ -739,7 +741,8 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   }
 
   // and it is the queue and the wire that stop, not merely a flag
-  const store = new Map<string, string>();
+  // a device that has read the notice before the first count (11.11.2026); without it nothing is queued at all
+  const store = new Map<string, string>([[T.NOTICE_KEY, T.NOTICE_VERSION]]);
   globals.localStorage = {
     getItem: (k: string) => store.get(k) ?? null,
     setItem: (k: string, v: string) => { store.set(k, v); },

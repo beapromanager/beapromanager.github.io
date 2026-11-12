@@ -22,7 +22,7 @@ import { overall } from '../../engine/matchEngine.ts';
 import type { Player } from '../../engine/matchEngine.ts';
 import { asset } from '../asset.ts';
 import { Icon } from '../components/Icon.tsx';
-import { LegalSheet, LegalLinks, ConsentBox, AgeBox, type LegalKind } from '../components/LegalSheet.tsx';
+import { LegalSheet, LegalLinks, ConsentBox, AgeBox, LeagueNotice, type LegalKind } from '../components/LegalSheet.tsx';
 import { LEGAL_VERSION } from '../../game/legal.ts';
 import { WeekendMatch } from './WeekendMatch.tsx';
 import './weekend.css';
@@ -274,6 +274,8 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
       <div className="wk-kick">ליגת החבר׳ה</div>
       <h1>פותחים ליגה</h1>
       <AdminGuide size={size} />
+      <LeagueNotice open={setLegal} />
+      <AgeBox checked={age16} onChange={setAge16} />
       <div>
         <label className="wk-label" htmlFor="wk-name">שם הליגה</label>
         <input id="wk-name" className="wk-input" value={name} onChange={e => setName(e.target.value)} maxLength={24} placeholder="ליגת בניין 7" />
@@ -308,7 +310,6 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
         <b>{problem ?? 'הלוח מלא. אפשר לפתוח.'}</b>
         <div className="wk-muted">אם יגיעו פחות ממה שתכננת, הלוח מתכווץ לבד מהסוף. פחות משישה בחמישי 17:00, הליגה לא יוצאת לדרך.</div>
       </div>
-      <AgeBox checked={age16} onChange={setAge16} />
       <ConsentBox checked={ok} onChange={setOk} open={setLegal} />
       {err && <p className="wk-err">{err}</p>}
       <button className="wk-btn red" disabled={busy || !ok || !age16 || !!problem || name.trim().length < 2 || nick.trim().length < 2} onClick={run}>{busy ? 'פותח…' : 'לפתוח את הליגה'}</button>
@@ -331,6 +332,8 @@ function JoinLeague({ onJoined, initialCode = '' }: { onJoined: (id: string) => 
     <div className="wk-stack wk-in">
       <div className="wk-kick">קיבלת קוד בוואטסאפ</div>
       <h1>נכנסים לליגה</h1>
+      <LeagueNotice open={setLegal} />
+      <AgeBox checked={age16} onChange={setAge16} />
       <div>
         <label className="wk-label" htmlFor="wk-code">הקוד</label>
         <input id="wk-code" className="wk-input code" value={code} onChange={e => setCode(e.target.value.toUpperCase())} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="KX7R2M" />
@@ -339,7 +342,6 @@ function JoinLeague({ onJoined, initialCode = '' }: { onJoined: (id: string) => 
         <label className="wk-label" htmlFor="wk-nick2">הכינוי שלך בליגה</label>
         <input id="wk-nick2" className="wk-input" value={nick} onChange={e => setNick(e.target.value)} maxLength={12} placeholder="דודו" />
       </div>
-      <AgeBox checked={age16} onChange={setAge16} />
       <ConsentBox checked={ok} onChange={setOk} open={setLegal} />
       {err && <p className="wk-err">{err}</p>}
       <button className="wk-btn red" disabled={busy || !ok || !age16 || code.trim().length !== 6 || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'להיכנס'}</button>
@@ -362,11 +364,12 @@ function OpenJoin({ onJoined }: { onJoined: (id: string) => void }) {
       <div className="wk-kick">הליגה הפתוחה</div>
       <h1>באים לבד</h1>
       <p className="wk-muted">שישה שלא מכירים, המשחק מנהל. הלוח קבוע: חמישי 20:00, שישי 12:00 ו-14:00, שבת 20:00, והגמר ראשון 20:00. כשנכנסים שישה, הליגה נסגרת.</p>
+      <LeagueNotice open={setLegal} />
+      <AgeBox checked={age16} onChange={setAge16} />
       <div>
         <label className="wk-label" htmlFor="wk-nick3">הכינוי שלך בליגה</label>
         <input id="wk-nick3" className="wk-input" value={nick} onChange={e => setNick(e.target.value)} maxLength={12} placeholder="הכינוי" />
       </div>
-      <AgeBox checked={age16} onChange={setAge16} />
       <ConsentBox checked={ok} onChange={setOk} open={setLegal} />
       {err && <p className="wk-err">{err}</p>}
       <button className="wk-btn red" disabled={busy || !ok || !age16 || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'לליגה הפתוחה'}</button>

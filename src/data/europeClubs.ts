@@ -37,16 +37,17 @@ export interface EuroClub {
 
 export const EURO_CLUBS: EuroClub[] = [
   /* ------------------------------------------------------ Itzik's eight */
-  { id: 'eu-belgrade', name: 'רד בלגרד', short: 'רד בלגרד', city: 'בלגרד', country: 'סרביה',
-    primary: '#8E1B2A', secondary: '#20262C', accent: '#F6E3A1', shape: 'shield', pattern: 'chevron' },
-  // The id is historical: this was ר.ב אמסטרדם until Itzik made it קייב הכחולה on 31.10.2026. An id sits in saves, in
-  // a competition half played and in the chronicle, so the id stays and only the club behind it changed (renames.ts).
-  { id: 'eu-amsterdam', name: 'קייב הכחולה', short: 'קייב הכחולה', city: 'קייב', country: 'אוקראינה',
-    primary: '#2559C7', secondary: '#F2C94C', accent: '#F5F7FA', shape: 'round', pattern: 'half' },
+  // 11.11.2026, after the legal review: five names that paired a real city with a colour or a brand are invented
+  // names now. The ids stay (they sit in saves); renames.ts carries an old save across. The first two also moved
+  // off the colours that pointed at one real club (red, black and gold; navy and sky blue).
+  { id: 'eu-belgrade', name: 'הרי הבלקן', short: 'הבלקן', city: 'הבלקן', country: 'סרביה',
+    primary: '#7A3B1E', secondary: '#E8DCC0', accent: '#F6E3A1', shape: 'shield', pattern: 'chevron' },
+  { id: 'eu-amsterdam', name: 'טחנות הזהב', short: 'הטחנות', city: 'הטחנות', country: 'הולנד',
+    primary: '#1E5AA6', secondary: '#EFE6D2', accent: '#FFFFFF', shape: 'round', pattern: 'half' },
   { id: 'eu-athens', name: 'אתלטיק אתונה', short: 'אתלטיק אתונה', city: 'אתונה', country: 'יוון',
     primary: '#0F7B6C', secondary: '#F3EDE0', accent: '#F3EDE0', shape: 'diamond', pattern: 'sash' },
-  { id: 'eu-glasgow', name: 'בלוז גלזגו', short: 'בלוז גלזגו', city: 'גלזגו', country: 'סקוטלנד',
-    primary: '#14213D', secondary: '#C9D4E6', accent: '#FFFFFF', shape: 'shield', pattern: 'sash' },
+  { id: 'eu-glasgow', name: 'קלדוניה העתיקה', short: 'קלדוניה', city: 'קלדוניה', country: 'סקוטלנד',
+    primary: '#2B2D5B', secondary: '#D9CDB8', accent: '#FFFFFF', shape: 'shield', pattern: 'sash' },
   { id: 'eu-sevilla', name: 'סביליה האנדלוסית', short: 'סביליה', city: 'סביליה', country: 'ספרד',
     primary: '#E07B1F', secondary: '#1B2A3A', accent: '#FFF4E0', shape: 'round', pattern: 'chevron' },
   { id: 'eu-basel', name: 'בית באזל', short: 'בית באזל', city: 'באזל', country: 'שוויץ',
@@ -72,11 +73,11 @@ export const EURO_CLUBS: EuroClub[] = [
     primary: '#C94B6D', secondary: '#2A1F33', accent: '#FFE8EE', shape: 'round', pattern: 'solid' },
   { id: 'eu-vienna', name: 'וינה הקיסרית', short: 'וינה', city: 'וינה', country: 'אוסטריה',
     primary: '#B08D2F', secondary: '#263238', accent: '#FFF6D5', shape: 'round', pattern: 'half' },
-  { id: 'eu-bucharest', name: 'בוקרשט הכחולה', short: 'בוקרשט', city: 'בוקרשט', country: 'רומניה',
+  { id: 'eu-bucharest', name: 'גדות הקרפטים', short: 'הקרפטים', city: 'הקרפטים', country: 'רומניה',
     primary: '#1F4E9C', secondary: '#F2C94C', accent: '#FFFFFF', shape: 'diamond', pattern: 'sash' },
   { id: 'eu-budapest', name: 'בודפשט הדנובית', short: 'בודפשט', city: 'בודפשט', country: 'הונגריה',
     primary: '#2F6B4F', secondary: '#C9A227', accent: '#FFF6D5', shape: 'shield', pattern: 'chevron' },
-  { id: 'eu-brussels', name: 'בריסל הסגולה', short: 'בריסל', city: 'בריסל', country: 'בלגיה',
+  { id: 'eu-brussels', name: 'גינת אירופה', short: 'גינת אירופה', city: 'גינת אירופה', country: 'בלגיה',
     primary: '#4A2C7A', secondary: '#F0A202', accent: '#FFFFFF', shape: 'round', pattern: 'chevron' },
   { id: 'eu-cardiff', name: 'קרדיף הדרקונית', short: 'קרדיף', city: 'קרדיף', country: 'וויילס',
     primary: '#A4161A', secondary: '#1B4332', accent: '#F8F0E3', shape: 'diamond', pattern: 'half' },
@@ -180,7 +181,7 @@ export const SUMMIT_DRAFT: readonly string[] = [];
 /** Itzik's answers of 9.11.2026 to stage 0's open questions. */
 export const SUMMIT_DECIDED: readonly string[] = [
   'grounds: invented only, the twenty and the six finals as they are',
-  'קייב הכחולה: blue and yellow (blue body, yellow half), no real crest copied',
+  'eu-amsterdam in ליגת אירופה is טחנות הזהב, the live name of the legal review (12.11.2026); קייב הכחולה is dropped',
   '+5 gems: once per career, the first entry only',
   'the golden book: trophy wins and finals only',
   'the short names: the table of 10.11, approved as it is, for now (until the lawyer)',

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { GoldenBook } from '../components/GoldenBook.tsx';
 import { TopBack } from '../components/TopBack.tsx';
 import * as G from '../../game/state.ts';
+import { SUMMIT_LIVE } from '../../game/euro.ts';
 import type { ChronicleEntry } from '../../game/chronicle.ts';
 import { Icon } from '../components/Icon.tsx';
 import { Meters } from '../components/bits.tsx';
@@ -14,7 +15,8 @@ export function ChronicleScreen({ gs, onBack }: { gs: G.GameState; onBack: () =>
   const entries = [...gs.chronicle].reverse();
   // ספר הזהב opens from here for a manager the summit is open to, or who already has a page in it
   const [book, setBook] = useState(false);
-  const hasBook = !!gs.summit?.unlocked || (gs.goldenBook?.length ?? 0) > 0;
+  // while the summit's door is shut nobody is shown the book, standing or not
+  const hasBook = SUMMIT_LIVE && (!!gs.summit?.unlocked || (gs.goldenBook?.length ?? 0) > 0);
 
   return (
     <>

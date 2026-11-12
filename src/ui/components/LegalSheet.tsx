@@ -3,8 +3,8 @@
  * be given before the weekend league, and the contact line (Itzik, 27.10). Self-contained: its own classes
  * (lg-), the game's tokens, nothing from the league's stylesheet, so it also works on the title screen.
  */
-import { useEffect } from 'react';
-import { PRIVACY, TERMS } from '../../data/legalText.ts';
+import { useEffect, useState } from 'react';
+import { PRIVACY, TERMS, LEAGUE_NOTICE, STATS_NOTICE } from '../../data/legalText.ts';
 import { CONTACT_EMAIL } from '../../game/legal.ts';
 import { deviceId } from '../../game/telemetry.ts';
 import './legal.css';
@@ -71,7 +71,7 @@ export function ConsentBox({ checked, onChange, open }: { checked: boolean; onCh
     <div className="lg-consent">
       <label>
         <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} data-consent="1" />
-        <span>קראתי ואני מסכים/ה ל<button type="button" className="lg-a" onClick={() => open('terms')}>תנאי השימוש</button> ול<button type="button" className="lg-a" onClick={() => open('privacy')}>מדיניות הפרטיות</button></span>
+        <span>קראתי ואני מסכים/ה ל<button type="button" className="lg-a" onClick={() => open('terms')}>תנאי השימוש</button>. <button type="button" className="lg-a" onClick={() => open('privacy')}>מדיניות הפרטיות</button> לעיון.</span>
       </label>
     </div>
   );
@@ -88,6 +88,43 @@ export function AgeBox({ checked, onChange }: { checked: boolean; onChange: (v: 
         <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} data-age="16" />
         <span>{AGE_DECLARATION}</span>
       </label>
+    </div>
+  );
+}
+
+/**
+ * What a person reads on a league registration screen, ABOVE the fields (Ariel, 11.11.2026): the notice word for
+ * word (legalText.ts), then the two documents. The age box and the terms box stay their own boxes, outside it.
+ */
+export function LeagueNotice({ open }: { open: (k: LegalKind) => void }) {
+  return (
+    <div className="lg-notice" data-league-notice="1">
+      <p>{linked(LEAGUE_NOTICE)}</p>
+      <p className="lg-notice-links">
+        <button type="button" className="lg-a" onClick={() => open('privacy')}>מדיניות הפרטיות</button>
+        <span aria-hidden="true"> · </span>
+        <button type="button" className="lg-a" onClick={() => open('terms')}>תנאי השימוש</button>
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The notice before the first count is sent (11.11.2026): one paragraph, a link to the full policy, one button.
+ * A notice, not a consent: there is no box to tick and nothing about age, and the career is not held behind it;
+ * it stands over the title until "הבנתי" is pressed, and until then nothing is counted (telemetry.ts).
+ */
+export function StatsNotice({ onOk }: { onOk: () => void }) {
+  const [legal, setLegal] = useState<LegalKind | null>(null);
+  return (
+    <div className="lg-sheet" role="dialog" aria-modal="true" aria-label="הודעה על ספירת השימוש" data-stats-notice="1">
+      <div className="lg-bg" />
+      <div className="lg-card lg-stats">
+        <p>{STATS_NOTICE}</p>
+        <p><button type="button" className="lg-a" onClick={() => setLegal('privacy')}>מדיניות הפרטיות</button></p>
+        <button type="button" className="btn" onClick={onOk}>הבנתי</button>
+      </div>
+      {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
     </div>
   );
 }

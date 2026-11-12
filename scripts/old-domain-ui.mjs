@@ -37,6 +37,8 @@ async function world(career, origin) {
     if (u.pathname === '/' || !existsSync(f) || !path.extname(f)) f = path.join(dist, 'index.html');
     return route.fulfill({ status: 200, body: readFileSync(f), headers: { 'content-type': MIME[path.extname(f)] ?? 'application/octet-stream' } });
   });
+  // the notice before the first count (11.11.2026) is not what this check walks: every visitor here has already read it
+  await ctx.addInitScript(() => { try { localStorage.setItem('beapro.statsnotice', '2026-11-11'); } catch { /* no storage on this page */ } });
   if (career) await ctx.addInitScript(([s, o]) => {
     if (location.origin !== o || localStorage.getItem('beapro.seeded')) return;
     localStorage.setItem('beapro.seeded', '1');

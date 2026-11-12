@@ -15,7 +15,7 @@ import {
   EURO_LIVE, euroEntry, drawEuro, nightFor, ROUND_NAMES, legsIn, strengthOf, recordMyLeg, needsPens, settleMyPens,
   serveBans, banFor, playAiRound, advanceRound, playOutWithoutMe, prizeFor, aggregate, myTie,
   euroWeeks, closeEuroSeason, euroVerdict, euroMarks, ROUND_IN,
-  GATE_SHARE, travelFor, securityFor, competitionName, summitLevel, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
+  GATE_SHARE, travelFor, securityFor, competitionName, summitLevel, SUMMIT_LIVE, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
   EURO_ROUNDS,
 } from './euro.ts';
 import type { EuroState, EuroNight, EuroTie } from './euro.ts';
@@ -6395,7 +6395,7 @@ export function startNextSeason(gs: GameState): GameState {
       ? [{ kind: 'story', title: 'פסגת אירופה', icon: 'trophy', body: firstSummit
           ? `אלופי ליגת העל, עם זכייה בליגת אירופה ורישיון בינלאומי: העונה משחקים בפסגת אירופה, מול הגדולות של היבשת. ${SUMMIT_FIRST_GEMS} יהלומים לכבוד הכניסה הראשונה.`
           : 'אלופי ליגת העל, וחוזרים לפסגת אירופה. הגדולות של היבשת מחכות בהגרלה.' }]
-      : standing.unlocked
+      : SUMMIT_LIVE && standing.unlocked
         ? [{ kind: 'story', title: 'פסגת אירופה מחכה לרישיון', icon: 'trophy', body: `זכית כבר בליגת אירופה, אז הפסגה פתוחה בפניך. כדי לשחק בה צריך רישיון מאמן בינלאומי פרו (${formatShekels(licence('international').cost)}, במסך המאמן). העונה משחקים שוב בליגת אירופה.` }]
         : [];
 

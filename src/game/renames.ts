@@ -39,15 +39,26 @@ const OLD_EXACT: [string, string][] = [
   ["בני סח'נין", 'ברק סחנין'],
   ['מועדון סביליה', 'סביליה האנדלוסית'],
   ['מועדון קייב', 'קייב הדנייפרית'],
-  // 31.10.2026, Itzik: the Amsterdam club of ליגת אירופה became a second club from Kyiv (the same id, eu-amsterdam)
-  ['ר.ב אמסטרדם', 'קייב הכחולה'],
+  // 11.11.2026, after the legal review: five clubs of ליגת אירופה took invented names (the same ids). The full names
+  // first, then the two short names that were a city on their own, so a line in an old chronicle reads the new club.
+  ['בלוז גלזגו', 'קלדוניה העתיקה'],
+  ['רד בלגרד', 'הרי הבלקן'],
+  ['ר.ב אמסטרדם', 'טחנות הזהב'],
+  ['בוקרשט הכחולה', 'גדות הקרפטים'],
+  ['בריסל הסגולה', 'גינת אירופה'],
+  ['בוקרשט', 'הקרפטים'],
+  ['בריסל', 'גינת אירופה'],
 ];
 /** short names that changed on their own, by town */
 const OLD_SHORT: Record<string, [string, string]> = {
   'רחובות': ['שעריים', 'רחובות'],
   'סחנין': ["סח'נין", 'סחנין'],
 };
-const OLD_EURO_SHORT: Record<string, string> = { 'מועדון סביליה': 'סביליה', 'מועדון קייב': 'קייב', 'ר.ב אמסטרדם': 'קייב הכחולה' };
+const OLD_EURO_SHORT: Record<string, string> = {
+  'מועדון סביליה': 'סביליה', 'מועדון קייב': 'קייב',
+  // the three whose short name was their whole name; the two that were a city alone are in OLD_EXACT above
+  'בלוז גלזגו': 'קלדוניה', 'רד בלגרד': 'הבלקן', 'ר.ב אמסטרדם': 'הטחנות',
+};
 
 const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 let clubRx: RegExp | null = null;
@@ -59,7 +70,7 @@ function clubRegex(): RegExp {
   clubRx = new RegExp(`(?<![\\p{L}"'.])([ובלמשהכ]{0,2})(${pre.join('|')}) (${towns.join('|')})(?![\\p{L}])`, 'gu');
   return clubRx;
 }
-const ANY_OLD = /מ\.ס|הפועל|מכבי|בני|צעירי|איחוד|הכוח|עירוני|בית"ר|מועדון|ר\.ב אמסטרדם/;
+const ANY_OLD = /מ\.ס|הפועל|מכבי|בני|צעירי|איחוד|הכוח|עירוני|בית"ר|מועדון|בלוז גלזגו|רד בלגרד|ר\.ב אמסטרדם|בוקרשט|בריסל/;
 
 function renameClubsInText(s: string): string {
   if (!ANY_OLD.test(s)) return s;
@@ -103,11 +114,7 @@ const LEGEND_KEYS = new Map<number, string>([
   [0x8c047824, 'tzahi-azran'],
 ]);
 
-/**
- * Bump when a new set of renames is added, so a save is walked once per set. 2 (31.10.2026): ר.ב אמסטרדם became
- * קייב הכחולה, and a save already walked for set 1 is walked again for it. The walk changes only old names, so a
- * second pass over a save that has none of them leaves it as it was.
- */
+/** bump when a new set of renames is added, so a save is walked once per set */
 export const NAMES_VERSION = 2;
 
 interface Ctx {

@@ -246,7 +246,7 @@ const BAD_WORDS = ['זונה', 'שרמוטה', 'מניאק', 'בן זונה', '�
  * 2026-10-31: the weekend league is 16 and up (Itzik, 31.10); the new client ticks the age box too. The weekend worker
  * imports this value, so the site and the beapro-weekend worker must go out together.
  */
-export const LEGAL_VERSION = '2026-10-31';
+export const LEGAL_VERSION = '2026-11-11';
 
 /** the league's name goes through the same filter as a nickname (27.10) */
 export function nameProblem(name: string): string | null {

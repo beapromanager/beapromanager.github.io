@@ -261,7 +261,7 @@ export const CRASH_CAP = 3;
 let crashesThisSitting = 0;
 
 export function trackCrash(e: unknown, at: Step | null): void {
-  if (!endpoint() || crashesThisSitting >= CRASH_CAP) return;
+  if (!endpoint() || !statsNoticeSeen() || crashesThisSitting >= CRASH_CAP) return;
   crashesThisSitting++;
   const queue = enqueued(readQueue(), {
     a: deviceId(), s: sessionId, k: 'crash', t: Date.now(),
@@ -285,6 +285,17 @@ function read(key: string): string | null {
 function write(key: string, v: string): void {
   try { localStorage.setItem(key, v); } catch { /* private mode, and that is fine */ }
 }
+
+/**
+ * The notice before the first count (11.11.2026, after the legal review): until the person has pressed "הבנתי" on it,
+ * nothing here queues an event, makes the device number for the count, or posts. That is held in this one place, at
+ * every door (track, the milestones, a crash, flush), so no screen can count early by mistake. The value kept is the
+ * notice's date: a new wording with a new date is shown again, once, to everyone.
+ */
+export const NOTICE_KEY = 'beapro.statsnotice';
+export const NOTICE_VERSION = '2026-11-11';
+export function statsNoticeSeen(): boolean { return read(NOTICE_KEY) === NOTICE_VERSION; }
+export function acceptStatsNotice(): void { write(NOTICE_KEY, NOTICE_VERSION); }
 
 /** This device, remembered so returning is countable. Made on first use. */
 export function deviceId(): string {
@@ -355,7 +366,7 @@ export function enqueued(queue: Event[], e: Event, cap = QUEUE_CAP): Event[] {
  * whether anything was sent.
  */
 export function track(step: Step): void {
-  if (!endpoint()) return;
+  if (!endpoint() || !statsNoticeSeen()) return;
   const fresh = stepsUpTo(step).filter(s => !sentThisSitting.has(s));
   if (!fresh.length) return;
 
@@ -435,7 +446,7 @@ export function moneyMark(k: typeof MONEY_MARKS[number]): void {
 }
 
 function trackMilestone(k: Milestone): void {
-  if (!endpoint() || milestonesThisSitting.has(k)) return;
+  if (!endpoint() || !statsNoticeSeen() || milestonesThisSitting.has(k)) return;
   milestonesThisSitting.add(k);
   write(QUEUE_KEY, JSON.stringify(enqueued(readQueue(), { a: deviceId(), s: sessionId, k, t: Date.now() })));
   void flush();
@@ -454,7 +465,7 @@ let sending = false;
  * was a hole exactly where it hurts.
  */
 export async function flush(): Promise<void> {
-  if (!endpoint() || sending) return;
+  if (!endpoint() || !statsNoticeSeen() || sending) return;
   sending = true;
   try {
     // at most a few rounds: each one either empties the queue or fails

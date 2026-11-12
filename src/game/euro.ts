@@ -312,8 +312,24 @@ export function advanceRound(e: EuroState, myId: string): EuroState {
  * Who gets in at all is still euroEntry's: the title, every season.
  */
 export function summitLevel(standing: boolean, licence: string): 0 | 1 {
-  return standing && licence === 'international' ? 1 : 0;
+  return SUMMIT_LIVE && standing && licence === 'international' ? 1 : 0;
 }
+
+/** On a developer's machine only, ?summit in the address opens the door even while it is shut for players. A built game never does. */
+function summitDevDoor(): boolean {
+  try { return !!import.meta.env?.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('summit'); } catch { return false; }
+}
+
+/**
+ * The summit's door (Itzik, 12.11.2026). SHUT: the summit goes out with the game, but no career is drawn into it, told
+ * of it or shown its book until the lawyer has cleared the twenty clubs (SUMMIT-LAWYER-REVIEW.md). A champion with the
+ * standing and the licence plays ליגת אירופה as before. true on this one line opens it, and that is Itzik's to say.
+ */
+const SUMMIT_OPEN = false;
+export let SUMMIT_LIVE: boolean = SUMMIT_OPEN || summitDevDoor();
+
+/** For the checks only, which walk the door open and shut: the game never calls it. */
+export function setSummitDoorForChecks(open: boolean): void { SUMMIT_LIVE = open; }
 
 /**
  * Who gets in: the ליגת העל champion, and nobody else. The report's tier is the

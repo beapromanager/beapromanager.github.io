@@ -12,7 +12,9 @@
  *   5. the pools: level 0 is the twenty of ליגת אירופה, level 1 the twenty of the summit, and an id of either
  *      tier finds its club
  *   6. every country of the summit has a bank of names, England among them
- *   7. ר.ב אמסטרדם is קייב הכחולה, under the same id, and an old save, even one renamed once before, says so
+ *   7. ר.ב אמסטרדם is טחנות הזהב (the legal review of 11.11, live since 12.11; Itzik, 12.11: it stays, not קייב הכחולה),
+ *      under the same id, and an old save says so
+ *   0. the door: shut for players until the lawyer clears the twenty (Itzik, 12.11.2026); every test below runs with it open
  *
  * Stage 1, the competition and the career:
  *   8. the agreed numbers: targets 82 / 85 / 87 / 89, every club at its own rating against 87, prizes summing 9.1M,
@@ -43,7 +45,7 @@
  *      counted by the engine itself, the same on every reload and higher for a stronger side
  *  23. the trophy: once, on the night the summit is won and only then, the summit's buzz, the foil confetti counts
  *  24. the last minutes: darker edges and a breathing crowd only at the summit, from the 80th, a goal or less apart
- *  25. Itzik's answers of 9.11 and 10.11: קייב הכחולה blue and yellow, all twenty to the lawyer in
+ *  25. Itzik's answers of 9.11 and 10.11: all twenty to the lawyer in
  *      SUMMIT-LAWYER-REVIEW.md, the golden book's scope, the short names approved for now
  *
  * Stage 4, the coach in the shootout (R6):
@@ -91,7 +93,7 @@ import { renameLegacy, NAMES_VERSION } from '../src/game/renames.ts';
 import { createRng, overall } from '../src/engine/matchEngine.ts';
 import {
   SUMMIT_STAGE_TARGET, SUMMIT_CENTRE, SUMMIT_CAP, SUMMIT_PRIZE, SUMMIT_TRAVEL, SUMMIT_SECURITY, SUMMIT_FIRST_GEMS, SUMMIT_TITLE_GEMS,
-  STAGE_TARGET, PRIZE, TRAVEL, SECURITY, drawEuro, strengthOf, prizeFor, prizeTotal, competitionName, summitLevel,
+  STAGE_TARGET, PRIZE, TRAVEL, SECURITY, drawEuro, strengthOf, prizeFor, prizeTotal, competitionName, summitLevel, SUMMIT_LIVE, setSummitDoorForChecks,
   travelFor, securityFor, myTie, recordMyLeg, EURO_ROUNDS, euroMarks, SUMMIT_MARKS,
 } from '../src/game/euro.ts';
 import * as TEL from '../src/game/telemetry.ts';
@@ -113,6 +115,17 @@ Object.defineProperty(globalThis, 'localStorage', {
 const fails: string[] = [];
 let checked = 0;
 const claim = (ok: boolean, msg: string) => { checked++; if (!ok) fails.push(msg); };
+
+/* ------------------------------------------------- 0. the door (Itzik, 12.11.2026): shut for players, opened here for the tests */
+claim(SUMMIT_LIVE === false, 'the summit\'s door is open for players: it waits for the lawyer and for Itzik\'s word');
+claim(summitLevel(true, 'international') === 0, 'behind a shut door a champion with the standing and the licence is still sent to the summit');
+{
+  const euroSrc = readFileSync('src/game/euro.ts', 'utf8');
+  claim(euroSrc.includes('const SUMMIT_OPEN = false;') && euroSrc.includes('export let SUMMIT_LIVE: boolean = SUMMIT_OPEN || summitDevDoor();') && euroSrc.includes("!!import.meta.env?.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('summit')"),
+    'the door is not one shut line, or the developer\'s side door opens in a built game');
+  claim(readFileSync('src/ui/screens/Chronicle.tsx', 'utf8').includes('const hasBook = SUMMIT_LIVE && ('), 'ספר הזהב is offered behind a shut door');
+}
+setSummitDoorForChecks(true);
 
 /* ------------------------------------------------- 1. his twenty, word for word */
 const LOCKED: Array<[string, string, number]> = [
@@ -266,23 +279,22 @@ for (const country of new Set(EURO_SUMMIT_CLUBS.map(c => c.country))) {
   claim(made.every(n => !/^שחקן /.test(n) && !/\d/.test(n)), `${country} falls back to numbered players`);
 }
 
-/* ------------------------------------------------- 7. קייב הכחולה */
+/* ------------------------------------------------- 7. טחנות הזהב */
 {
   const k = euroClub('eu-amsterdam');
-  claim(!!k && k.name === 'קייב הכחולה' && k.city === 'קייב' && k.country === 'אוקראינה', 'eu-amsterdam is not קייב הכחולה of Kyiv, Ukraine');
-  claim(!!k && k.short !== 'קייב' && k.short !== euroClub('eu-kyiv')?.short, 'the two Kyiv clubs share a short name');
-  claim(!ALL.some(c => c.name === 'ר.ב אמסטרדם'), 'ר.ב אמסטרדם is still a club');
+  claim(!!k && k.name === 'טחנות הזהב' && k.short === 'הטחנות' && k.country === 'הולנד', 'eu-amsterdam is not טחנות הזהב (Itzik, 12.11.2026)');
+  claim(!ALL.some(c => c.name === 'ר.ב אמסטרדם' || c.name === 'קייב הכחולה'), 'ר.ב אמסטרדם or קייב הכחולה is still a club');
   const old = {
     namesVersion: 1,
-    chronicle: [{ id: 'euro-s3', title: 'ההדחה', body: 'ר.ב אמסטרדם הדיחה אותנו ברבע הגמר, ובאמסטרדם חגגו.' }],
+    chronicle: [{ id: 'euro-s3', title: 'ההדחה', body: 'ר.ב אמסטרדם הדיחה אותנו ברבע הגמר.' }],
     news: ['מול ר.ב אמסטרדם בשמינית'],
     euroSeen: [{ id: 'eu-amsterdam', name: 'ר.ב אמסטרדם', short: 'ר.ב אמסטרדם', city: 'אמסטרדם' }],
   };
   const s = renameLegacy(JSON.parse(JSON.stringify(old))) as typeof old;
-  claim(NAMES_VERSION === 2, `the renames are at set ${NAMES_VERSION}, the Kyiv set is 2`);
-  claim(s.chronicle[0].body === 'קייב הכחולה הדיחה אותנו ברבע הגמר, ובאמסטרדם חגגו.', `the chronicle: ${s.chronicle[0].body}`);
-  claim(s.news[0] === 'מול קייב הכחולה בשמינית', `the news: ${s.news[0]}`);
-  claim(s.euroSeen[0].name === 'קייב הכחולה' && s.euroSeen[0].short === 'קייב הכחולה' && s.euroSeen[0].id === 'eu-amsterdam', 'a stored club kept its old name or lost its id');
+  claim(NAMES_VERSION === 2, `the renames are at set ${NAMES_VERSION}, the live set is 2`);
+  claim(s.chronicle[0].body === 'טחנות הזהב הדיחה אותנו ברבע הגמר.', `the chronicle: ${s.chronicle[0].body}`);
+  claim(s.news[0] === 'מול טחנות הזהב בשמינית', `the news: ${s.news[0]}`);
+  claim(s.euroSeen[0].name === 'טחנות הזהב' && s.euroSeen[0].short === 'הטחנות' && s.euroSeen[0].id === 'eu-amsterdam', 'a stored club kept its old name or lost its id');
   claim(s.namesVersion === 2, 'the save is not marked with the new set');
   const twice = renameLegacy(JSON.parse(JSON.stringify(s)));
   claim(JSON.stringify(twice) === JSON.stringify(s), 'a second walk changed a renamed save');
@@ -358,6 +370,15 @@ const titleOf = (n: G.GameState) => n.notices.map(x => (x as { title?: string })
     claim(waiting === (champ && unlocked && lic !== 'international'), `champion ${champ}, standing ${unlocked}, licence ${lic}: the licence word ${waiting ? 'shown' : 'missing'}`);
   }
   claim(summitLevel(true, 'international') === 1 && summitLevel(true, 'pro') === 0 && summitLevel(false, 'international') === 0, 'summitLevel is not standing and the international licence');
+  // the door shut (as players have it): the same six summers, and nobody is drawn into the summit or told of it
+  setSummitDoorForChecks(false);
+  for (const champ of [true, false]) for (const unlocked of [true, false]) for (const lic of ['international', 'pro']) {
+    const n = G.startNextSeason(seasonEnd(base, champ, unlocked, lic));
+    claim((n.euro ? n.euro.level : null) === (champ ? 0 : null), `door shut, champion ${champ}, standing ${unlocked}, licence ${lic}: tier ${n.euro ? n.euro.level : null}`);
+    claim(!titleOf(n).some(t => t.includes('פסגת אירופה')) && !JSON.stringify(n.notices).includes('הפסגה'), `door shut, champion ${champ}, standing ${unlocked}, licence ${lic}: a word about the summit`);
+    claim(!n.summit?.firstEntryGemPaid && n.gems === G.startNextSeason(seasonEnd(base, champ, false, 'pro')).gems, `door shut, champion ${champ}, standing ${unlocked}, licence ${lic}: the summit's gems were paid`);
+  }
+  setSummitDoorForChecks(true);
 }
 /* 11. the gems */
 {
@@ -705,9 +726,6 @@ claim(/family=Frank\+Ruhl\+Libre:wght@700;900/.test(readFileSync('index.html', '
 
 /* ------------------------------------------------- 25. Itzik's answers of 9.11 */
 {
-  const k = euroClub('eu-amsterdam')!;
-  const h = (x: string) => hue(x);
-  claim(h(k.primary) >= 200 && h(k.primary) <= 240 && h(k.secondary) >= 40 && h(k.secondary) <= 60, `קייב הכחולה is ${k.primary} / ${k.secondary}, agreed blue and yellow`);
   // 10.11: all twenty go to the lawyer, his first four among them, and the file he reads has every one in full
   claim(LAWYER_REVIEW.length === 20 && EURO_SUMMIT_CLUBS.every(c => LAWYER_REVIEW.includes(c.name)) && LAWYER_FIRST.every(n => LAWYER_REVIEW.includes(n)), `the lawyer's list holds ${LAWYER_REVIEW.length}, agreed all twenty`);
   const review = readFileSync('SUMMIT-LAWYER-REVIEW.md', 'utf8');
@@ -1026,31 +1044,30 @@ const nightOf = (gs: G.GameState): G.GameState | null => {
   claim(!TEL.isSummitMark('eu_in') && (TEL.STEP_ORDER as Record<string, unknown>)['eu2_in'] === undefined, 'a ליגת אירופה mark reads as the summit\'s, or a summit mark is a step');
   claim(appSrc.includes('{ if (isSummitMark(k)) summitMark(k); else euroMark(k); }'), 'the App does not report the summit under its own names');
 
-  // the two workers: the source in the branch, and the live one as it runs today with the summit added
+  // the two workers: the older source in the branch, and the live one's own source (worker/live-count/src, the code that
+  // runs on the air, in main since 12.11) with the summit added
   const wsrc = readFileSync('worker/src/index.ts', 'utf8');
-  const live = readFileSync('worker/live-count/index.live.js', 'utf8');
-  const patched = readFileSync('worker/live-count/index.js', 'utf8');
+  const lsrc = readFileSync('worker/live-count/src/index.ts', 'utf8');
   const pat = (s: string) => /MILESTONE = (\/.+\/);/.exec(s)?.[1] ?? '';
   claim(pat(wsrc) === String(TEL.MILESTONE), 'the source worker\'s pattern is not the game\'s');
-  claim(!/eu2_/.test(live) && /eu_in\|eu_final\|eu_won\|eu2_in\|eu2_final\|eu2_won\|cup_in/.test(pat(patched)), 'the live snapshot already has the summit, or the patched worker refuses it');
-  // the patch is the summit and nothing else: every line that differs carries it
-  const a = live.split('\n'), b = patched.split('\n');
-  const onlyNew = b.filter(l => !a.includes(l)), onlyOld = a.filter(l => !b.includes(l));
-  claim(onlyNew.length === 6 && onlyOld.length === 4 && onlyNew.every(l => /eu2_|summit/.test(l) || l.trim() === 'env.DB.prepare(REACH_SQL.daily).all(),'), `the patch on the live worker is ${onlyNew.length} new lines and ${onlyOld.length} changed, agreed the summit only`);
-  claim(pat(patched).replace('eu2_in|eu2_final|eu2_won|', '') === pat(live), 'the patch changed the pattern beyond the summit\'s three names');
+  claim(/eu_in\|eu_final\|eu_won\|eu2_in\|eu2_final\|eu2_won\|cup_in/.test(pat(lsrc)), 'the live worker refuses the summit\'s marks');
+  // the live pattern is the game's, less the career-move marks the live worker never had: the summit is its only addition
+  claim(pat(lsrc).replace('eu2_in|eu2_final|eu2_won|', '') === String(TEL.MILESTONE).replace('eu2_in|eu2_final|eu2_won|', '').replace('xfer_offer|xfer_sent|xfer_in|xfer_code|site_new|', ''), 'the live worker\'s pattern differs from the game\'s by more than the career-move marks');
   const SUMMIT_Q = "SELECT step, COUNT(*) AS n FROM steps WHERE step IN ('eu2_in', 'eu2_final', 'eu2_won') GROUP BY step ORDER BY step";
-  claim(wsrc.includes(`summit: "${SUMMIT_Q}"`) && patched.includes(`summit: "${SUMMIT_Q}"`), 'the question the dashboard asks about the summit is not the agreed one in both workers');
+  claim(wsrc.includes(`summit: "${SUMMIT_Q}"`) && lsrc.includes(`summit: "${SUMMIT_Q}"`), 'the question the dashboard asks about the summit is not the agreed one in both workers');
   // counts only: the question names no device, and the answer carries none
-  claim(!/aid|sid/.test(SUMMIT_Q) && wsrc.includes('summit: summitRows.results') && patched.includes('summit: summitRows.results'), 'the summit\'s answer could carry a device id, or is not sent');
-  const cfg = readFileSync('worker/live-count/wrangler.jsonc', 'utf8');
-  claim(/"name": "beapro-count"/.test(cfg) && /"main": "index.js"/.test(cfg) && /"binding": "WEEKEND"/.test(cfg) && /"service": "beapro-weekend"/.test(cfg) && /"binding": "DB"/.test(cfg) && /17 3 \* \* \*/.test(cfg) && !/account_id|secret|token/i.test(cfg),
+  claim(!/aid|sid/.test(SUMMIT_Q) && wsrc.includes('summit: summitRows.results') && lsrc.includes('summit: summitRows.results') && lsrc.includes('env.DB.prepare(REACH_SQL.summit).all(),'), 'the summit\'s answer could carry a device id, or is not sent');
+  const cfg = readFileSync('worker/live-count/wrangler.toml', 'utf8');
+  claim(/^name = "beapro-count"$/m.test(cfg) && /^main = "src\/index\.ts"$/m.test(cfg) && /binding = "WEEKEND"\nservice = "beapro-weekend"/.test(cfg) && /binding = "DB"/.test(cfg) && /17 3 \* \* \*/.test(cfg) && !/account_id|secret|token/i.test(cfg.split('\n').filter(l => !l.startsWith('#')).join('\n')),
     'the live worker\'s settings lost the weekend binding, the database or the cron, or carry something private');
-  // the patched live worker itself, run here: it keeps the three marks and drops what only looks like one; it counts them
-  const liveWorker = await import('../worker/live-count/index.js');
+  // one way to deploy it: the patched bundle of 11.11 and its settings are gone, so wrangler cannot pick the wrong file
+  claim(!existsSync('worker/live-count/index.js') && !existsSync('worker/live-count/index.live.js') && !existsSync('worker/live-count/wrangler.jsonc'), 'the old bundle of the live worker is still beside its source');
+  // the live worker itself, run here: it keeps the three marks and drops what only looks like one; it counts them
+  const liveWorker = await import('../worker/live-count/src/index.ts');
   const written: unknown[][] = [];
   const env = { ADMIN_KEY: 'k', DB: { prepare: (sql: string) => ({ bind: (...v: unknown[]) => ({ sql, v }) }), batch: async (st: { sql: string; v: unknown[] }[]) => { for (const x of st) if (/INTO steps/.test(x.sql)) written.push(x.v); } } };
-  await liveWorker.default.fetch(new Request('https://w.example/', { method: 'POST', body: JSON.stringify({ e: ['eu2_in', 'eu2_final', 'eu2_won', 'eu2_lost', 'eu3_in', 'EU2_IN', 'eu_in', 'bogus'].map(k => ({ a: 'dev1', s: 'sit1', k, t: Date.now() })) }) }), env);
-  claim(written.map(v => v[1]).join(',') === 'eu2_in,eu2_final,eu2_won,eu_in', `the patched live worker kept [${written.map(v => v[1]).join(',')}]`);
+  await liveWorker.default.fetch(new Request('https://w.example/', { method: 'POST', body: JSON.stringify({ e: ['eu2_in', 'eu2_final', 'eu2_won', 'eu2_lost', 'eu3_in', 'EU2_IN', 'eu_in', 'bogus'].map(k => ({ a: 'dev1', s: 'sit1', k, t: Date.now() })) }) }), env as never);
+  claim(written.map(v => v[1]).join(',') === 'eu2_in,eu2_final,eu2_won,eu_in', `the live worker kept [${written.map(v => v[1]).join(',')}]`);
   const { DatabaseSync } = await import('node:sqlite');
   const db = new DatabaseSync(':memory:');
   db.exec('CREATE TABLE steps (aid TEXT, step TEXT, ts INTEGER, day TEXT, PRIMARY KEY (aid, step))');
@@ -1072,9 +1089,10 @@ const nightOf = (gs: G.GameState): G.GameState | null => {
   const dep = readFileSync('DEPLOY.md', 'utf8'), hand = readFileSync('HANDOFF-NEXT.md', 'utf8');
   const ROLLBACK = 'e91c8cb6-577f-4bed-8407-dfaa84548252';
   claim(dep.includes('## פסגת אירופה: סדר הפריסה (מוכן, לא בוצע)') && dep.includes('שום דבר מהסעיף הזה לא הורץ'), 'DEPLOY.md does not say the summit is ready and not deployed');
-  claim(dep.includes(`npx wrangler@4.158.0 rollback ${ROLLBACK} --name beapro-count`) && dep.includes('cd worker/live-count\nnpx wrangler@4.158.0 deploy --no-bundle'), 'DEPLOY.md lacks the deploy from the live folder or the way back');
+  claim(!/קייב הכחולה/.test(dep + hand + readFileSync('SUMMIT-LAWYER-REVIEW.md', 'utf8')), 'the papers still name קייב הכחולה, which Itzik dropped on 12.11');
+  claim(dep.includes(`npx wrangler@4.158.0 rollback ${ROLLBACK} --name beapro-count`) && dep.includes('cd worker/live-count\nnpx wrangler@4.158.0 deploy --config wrangler.toml') && !dep.includes('deploy --no-bundle\n```\n\nהסודות (`ADMIN_KEY`'), 'DEPLOY.md lacks the deploy from the live folder or the way back');
   claim(dep.indexOf('### צעד 1: ה-Worker של הספירה') > 0 && dep.indexOf('### צעד 1: ה-Worker של הספירה') < dep.indexOf('### צעד 2: הלקוח') && dep.includes('ולא מ-`worker/src/`'), 'DEPLOY.md does not put the worker before the game, or allows a deploy from the source');
-  claim(dep.includes('SUMMIT-LAWYER-REVIEW.md') && dep.includes('אין דלת') && dep.includes(`npx wrangler@4.158.0 deployments list --name beapro-count`), 'DEPLOY.md forgot the lawyer, that there is no door, or the check that the live version has not moved');
+  claim(dep.includes('SUMMIT-LAWYER-REVIEW.md') && dep.includes('**הדלת סגורה.**') && dep.includes('`SUMMIT_OPEN`') && !dep.includes('אין דלת') && !hand.includes('אין דלת') && dep.includes(`npx wrangler@4.158.0 deployments list --name beapro-count`), 'DEPLOY.md forgot the lawyer, that the door is shut, or the check that the live version has not moved');
   claim(hand.includes('## פסגת אירופה (11.11.2026): נבנתה, לא נדחפה') && hand.includes(ROLLBACK) && hand.includes('HIGGSFIELD-SUMMIT.md') && hand.includes('SUMMIT-LAWYER-REVIEW.md') && ['c7df28b', '6012f8a', '410fd62', '320be15', '2bf47d7', 'cb3dc3f'].every(h => hand.includes(h)), 'HANDOFF-NEXT.md does not hand the summit over: what was built, what waits, the order');
   claim(!/[—–]/.test(dep.slice(dep.indexOf('## פסגת אירופה: סדר הפריסה'))) && !/[—–]/.test(hand.slice(0, hand.indexOf('## מצב הגיט'))), 'a long dash in the summit\'s papers');
 }
@@ -1084,4 +1102,4 @@ if (fails.length) { console.log(`FAIL (${fails.length})`); for (const f of fails
 if (SUMMIT_DRAFT.length) console.log('  still temporary, waiting for Itzik:\n    - ' + SUMMIT_DRAFT.join('\n    - '));
 console.log('  decided by Itzik:\n    - ' + SUMMIT_DECIDED.join('\n    - '));
 console.log(`  for the lawyer before going live: all ${LAWYER_REVIEW.length} (SUMMIT-LAWYER-REVIEW.md), nothing goes live before he clears them`);
-console.log('OK, his twenty and קייב הכחולה, the summit drawn, entered, paid and chronicled by its own rules, and ליגת אירופה as it was');
+console.log('OK, the door shut for players, his twenty, the summit drawn, entered, paid and chronicled by its own rules, and ליגת אירופה as it was');

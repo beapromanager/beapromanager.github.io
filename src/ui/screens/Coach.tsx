@@ -8,12 +8,15 @@ import { Meters, formatMoney } from '../components/bits.tsx';
 import { AttrGroup } from './Archetype.tsx';
 import type { Coach } from '../../game/coach.ts';
 import { WeekendCabinet } from './Cabinet.tsx';
+import { useState } from 'react';
+import { LegalSheet, LegalLinks, type LegalKind } from '../components/LegalSheet.tsx';
 
 /**
  * Your own coaching CV. The badges are a ladder you climb across a career, and
  * this is where you see how far up it you are and what the next rung demands.
  */
 export function CoachScreen({ gs, onBack, onReport }: { gs: G.GameState; onBack: () => void; onReport: () => void }) {
+  const [legal, setLegal] = useState<LegalKind | null>(null);
   const c = gs.coach;
   const m = getManager(c.archetype);
   const held = licenceRank(c.licence);
@@ -142,6 +145,9 @@ export function CoachScreen({ gs, onBack, onReport }: { gs: G.GameState; onBack:
           </div>
           <button className="btn dark btn-sm" onClick={onReport}>דווח על תקלה</button>
         </div>
+        {/* the nearest thing the game has to a settings page: the two documents are always one tap away from here */}
+        <p className="hint" data-coach-legal="1" style={{ textAlign: 'center', margin: 0 }}><LegalLinks open={setLegal} /></p>
+        {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
 
         <div className="spacer" />
         <button className="btn dark" onClick={onBack}>חזרה ›</button>

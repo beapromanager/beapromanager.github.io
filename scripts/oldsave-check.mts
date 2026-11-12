@@ -242,8 +242,8 @@ function roundTrip(gs: G.GameState): G.GameState | null {
   if (scout && /מטומטם/.test(scout.line)) fails.push('an old save still gets the old insult before a match');
 }
 
-/* 6. THE AMSTERDAM CLUB IS KYIV NOW (31.10.2026).
-      A career that played ר.ב אמסטרדם, saved under the first set of renames, loads with קייב הכחולה in its chronicle,
+/* 6. THE AMSTERDAM CLUB IS טחנות הזהב NOW (the legal review of 11.11.2026).
+      A career that played ר.ב אמסטרדם, saved under the first set of renames, loads with טחנות הזהב in its chronicle,
       and nothing of the old name is left anywhere in it. */
 {
   const gs = career('תל אביב');
@@ -255,7 +255,7 @@ function roundTrip(gs: G.GameState): G.GameState | null {
   if (!loaded) fails.push('a save that met ר.ב אמסטרדם did not load');
   else {
     const line = loaded.chronicle.find(c => c.id === 'euro-s2')?.body ?? '';
-    if (line !== 'ניצחון 2:1 על קייב הכחולה בשמינית.') fails.push(`the chronicle still reads: ${line}`);
+    if (line !== 'ניצחון 2:1 על טחנות הזהב בשמינית.') fails.push(`the chronicle still reads: ${line}`);
     if (JSON.stringify(loaded).includes('ר.ב אמסטרדם')) fails.push('ר.ב אמסטרדם is still somewhere in the loaded save');
   }
 }
